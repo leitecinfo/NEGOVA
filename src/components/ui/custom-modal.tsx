@@ -1,0 +1,75 @@
+"use client";
+
+import React from "react";
+import { X, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { ModalPortal } from "./modal-portal";
+
+interface CustomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  type?: "info" | "warning" | "success" | "error";
+  confirmText?: string;
+  onConfirm?: () => void;
+}
+
+export function CustomModal({
+  isOpen,
+  onClose,
+  title,
+  description,
+  type = "info",
+  confirmText = "Aceptar",
+  onConfirm,
+}: CustomModalProps) {
+  if (!isOpen) return null;
+
+  const icons = {
+    info: <Info className="w-6 h-6 text-blue-600" />,
+    warning: <AlertTriangle className="w-6 h-6 text-amber-600" />,
+    error: <AlertTriangle className="w-6 h-6 text-red-600" />,
+    success: <CheckCircle className="w-6 h-6 text-emerald-600" />,
+  };
+
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+              {icons[type]}
+            </div>
+            <h3 className="text-lg font-bold font-title text-slate-900 dark:text-white">
+              {title}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-600 dark:text-slate-300 font-body leading-relaxed">
+          {description}
+        </p>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            onClick={() => {
+              if (onConfirm) onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 rounded-md bg-[#ED500A] text-white hover:bg-[#ab3500] font-medium text-sm transition-colors shadow-sm"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+    </ModalPortal>
+  );
+}

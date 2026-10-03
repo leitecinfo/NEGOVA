@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="serv-pov-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#061A14" />
+      <stop offset="60%" stop-color="#0F2F24" />
+      <stop offset="100%" stop-color="#0B1C16" />
+    </linearGradient>
+    <radialGradient id="bokeh-green" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#10B981" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bokeh-warm-s" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FEF3C7" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="marble-desk" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="tablet-screen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0E14" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo: Salón / Barbería / Estudio de estética con bokeh y espejos retroiluminados -->
+  <rect width="600" height="450" fill="url(#serv-pov-bg)" />
+
+  <!-- Bokeh y luces cálidas de estudio -->
+  <circle cx="110" cy="80" r="55" fill="url(#bokeh-green)" />
+  <circle cx="280" cy="50" r="40" fill="url(#bokeh-warm-s)" />
+  <circle cx="490" cy="90" r="65" fill="url(#bokeh-green)" />
+  <circle cx="530" cy="40" r="30" fill="url(#bokeh-warm-s)" />
+
+  <!-- Siluetas suaves de espejos retroiluminados y sillones en el fondo desenfocado -->
+  <rect x="180" y="20" width="140" height="130" rx="20" fill="#0B1310" stroke="#10B981" stroke-width="2" opacity="0.3" />
+  <rect x="400" y="20" width="140" height="130" rx="20" fill="#0B1310" stroke="#10B981" stroke-width="2" opacity="0.3" />
+
+  <!-- Mostrador / Estación de trabajo de mármol/metal en primer plano (Perspectiva POV) -->
+  <path d="M 0 230 L 600 230 L 600 450 L 0 450 Z" fill="url(#marble-desk)" />
+  <line x1="0" y1="230" x2="600" y2="230" stroke="#10B981" stroke-width="2" opacity="0.6" />
+  <line x1="0" y1="234" x2="600" y2="234" stroke="#000000" stroke-width="2" opacity="0.5" />
+
+  <!-- Objeto de apoyo: Tijeras profesionales de peluquería, frasco de sérum y peine (Foreground) -->
+  <g transform="translate(40, 240)">
+    <!-- Sombra de herramientas -->
+    <ellipse cx="80" cy="140" rx="80" ry="22" fill="#000000" opacity="0.5" />
+
+    <!-- Tijeras profesionales de acero inoxidable en ángulo -->
+    <g transform="translate(20, 50) rotate(-25)">
+      <line x1="20" y1="30" x2="110" y2="70" stroke="#E2E8F0" stroke-width="3.5" stroke-linecap="round" />
+      <line x1="20" y1="70" x2="110" y2="30" stroke="#E2E8F0" stroke-width="3.5" stroke-linecap="round" />
+      <circle cx="65" cy="50" r="3.5" fill="#ED500A" />
+      <!-- Ojos de las tijeras -->
+      <circle cx="15" cy="28" r="9" fill="none" stroke="#ED500A" stroke-width="3" />
+      <circle cx="15" cy="72" r="9" fill="none" stroke="#ED500A" stroke-width="3" />
+    </g>
+
+    <!-- Peine de barbero de carbono negro -->
+    <rect x="75" y="90" width="100" height="22" rx="3" fill="#0B0E14" stroke="#334155" stroke-width="1" />
+    <g stroke="#94A3B8" stroke-width="1.5" opacity="0.8">
+      <line x1="80" y1="90" x2="80" y2="105" />
+      <line x1="85" y1="90" x2="85" y2="105" />
+      <line x1="90" y1="90" x2="90" y2="105" />
+      <line x1="95" y1="90" x2="95" y2="105" />
+      <line x1="100" y1="90" x2="100" y2="105" />
+      <line x1="105" y1="90" x2="105" y2="105" />
+      <line x1="110" y1="90" x2="110" y2="105" />
+      <line x1="115" y1="90" x2="115" y2="105" />
+      <line x1="120" y1="90" x2="120" y2="105" />
+      <line x1="125" y1="90" x2="125" y2="105" />
+      <line x1="130" y1="90" x2="130" y2="105" />
+      <line x1="135" y1="90" x2="135" y2="105" />
+      <line x1="140" y1="90" x2="140" y2="105" />
+      <line x1="145" y1="90" x2="145" y2="105" />
+      <line x1="150" y1="90" x2="150" y2="105" />
+      <line x1="155" y1="90" x2="155" y2="105" />
+      <line x1="160" y1="90" x2="160" y2="105" />
+      <line x1="165" y1="90" x2="165" y2="105" />
+    </g>
+
+    <!-- Frasco con cuentagotas de aceite / loción -->
+    <g transform="translate(130, 30)">
+      <rect x="0" y="25" width="30" height="50" rx="8" fill="#10B981" opacity="0.8" stroke="#34D399" stroke-width="1.5" />
+      <rect x="6" y="14" width="18" height="12" rx="2" fill="#0B0E14" />
+      <path d="M 10 14 C 10 6, 20 6, 20 14 Z" fill="#0B0E14" />
+    </g>
+  </g>
+
+  <!-- Objeto Principal: Tablet en Stand de Studio (Perspectiva POV) -->
+  <g transform="translate(240, 100)">
+    <!-- Sombra del stand -->
+    <ellipse cx="140" cy="275" rx="90" ry="20" fill="#000000" opacity="0.4" />
+
+    <!-- Soporte metálico moderno -->
+    <path d="M 130 200 L 150 200 L 160 270 L 120 270 Z" fill="#334155" stroke="#475569" stroke-width="1.5" />
+    <ellipse cx="140" cy="270" rx="45" ry="10" fill="#1E293B" stroke="#475569" stroke-width="2" />
+
+    <!-- Marco de la Tablet -->
+    <rect x="20" y="30" width="240" height="175" rx="18" fill="#0F172A" stroke="#334155" stroke-width="3" filter="drop-shadow(0 15px 30px rgba(0,0,0,0.6))" />
+    <rect x="30" y="40" width="220" height="155" rx="10" fill="url(#tablet-screen)" />
+
+    <!-- UI: Header de la App NEGOVA Servicios -->
+    <rect x="30" y="40" width="220" height="26" rx="6" fill="#0B0E14" />
+    <circle cx="45" cy="53" r="5" fill="#10B981" />
+    <text x="56" y="56" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">NEGOVA AGENDA</text>
+    <rect x="170" y="46" width="70" height="14" rx="4" fill="#10B981" />
+    <text x="205" y="56" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" text-anchor="middle">HOY · 12 CITAS</text>
+
+    <!-- UI: Citas del día en timeline -->
+    <!-- Cita 1: Carlos Mendoza -->
+    <rect x="40" y="74" width="200" height="34" rx="6" fill="#1E293B" stroke="#10B981" stroke-width="1.5" />
+    <circle cx="54" cy="91" r="6" fill="#10B981" />
+    <text x="66" y="87" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold">15:30 · Carlos Mendoza</text>
+    <text x="66" y="99" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="8">Corte &amp; Barba · Atiende: Mateo</text>
+    <text x="230" y="94" fill="#10B981" font-family="system-ui, sans-serif" font-size="9" font-weight="bold" text-anchor="end">S/ 55.00</text>
+
+    <!-- Cita 2: Lucía Ramírez -->
+    <rect x="40" y="114" width="200" height="34" rx="6" fill="#1E293B" stroke="#334155" stroke-width="1" />
+    <circle cx="54" cy="131" r="6" fill="#3B82F6" />
+    <text x="66" y="127" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold">16:30 · Lucía Ramírez</text>
+    <text x="66" y="139" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="8">Tratamiento Capilar · Atiende: Sofía</text>
+    <text x="230" y="134" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold" text-anchor="end">S/ 120.00</text>
+
+    <!-- UI: Barra inferior de liquidación de comisión -->
+    <rect x="40" y="156" width="200" height="24" rx="6" fill="#ED500A" />
+    <text x="140" y="171" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold" text-anchor="middle">LIQUIDAR COMISIÓN (40%)</text>
+  </g>
+
+  <!-- Mano del Especialista en primer plano interactuando (POV) -->
+  <g transform="translate(440, 210)">
+    <path d="M 70 240 L 160 240 L 120 140 L 50 160 Z" fill="#0D0F16" />
+    <path d="M 55 155 C 50 130, 10 120, -10 110 C -25 105, -35 120, -20 135 C 0 150, 30 170, 60 180 Z" fill="#FBCFE8" opacity="0.9" />
+    <path d="M -10 110 C -25 102, -45 100, -50 108 C -55 116, -35 125, -15 128 Z" fill="#FBCFE8" stroke="#E2E8F0" stroke-width="0.5" />
+    <!-- Destello táctil verde esmeralda -->
+    <circle cx="395" cy="318" r="14" fill="#10B981" opacity="0.3" />
+    <circle cx="395" cy="318" r="6" fill="#FFFFFF" opacity="0.8" />
+  </g>
+</svg>

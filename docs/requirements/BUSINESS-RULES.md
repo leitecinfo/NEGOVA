@@ -1,0 +1,318 @@
+# NEGOVA — Reglas de Negocio
+
+**Versión:** 1.0  
+**Estado:** Completo y estructurado  
+**Producto:** NEGOVA  
+**Arquitectura conceptual:** Core + Verticales  
+**Vertical inicial:** Restaurantes de comida rápida  
+
+---
+
+## 1. Objetivo
+
+Definir las reglas de negocio que determinan el comportamiento de NEGOVA durante la operación diaria de un negocio.
+
+Estas reglas deben ser independientes de la interfaz utilizada.
+
+NEGOVA debe cumplir estas reglas tanto si una operación se realiza desde:
+- Panel administrativo.
+- Registro manual por el personal.
+- Menú digital público.
+- Otro canal integrado posteriormente.
+
+---
+
+# 2. Principios generales [CORE]
+
+### RN-001 — Un negocio debe estar identificado
+Cada cuenta operativa de NEGOVA debe estar asociada a un negocio. El sistema no debe permitir operaciones comerciales sin identificar a qué negocio pertenecen.
+
+### RN-002 — Los datos de cada negocio son independientes
+La información de un negocio no debe mezclarse con la información de otro (Aislamiento Multi-Tenant). Cada negocio debe tener sus propios productos, pedidos, clientes, pagos, gastos, configuración, usuarios autorizados e información operativa.
+
+---
+
+# 3. Reglas del negocio [CORE]
+
+### RN-003 — El negocio debe tener información básica
+Para operar, el negocio debe contar como mínimo con: nombre comercial, información de contacto principal (teléfono) e información necesaria para identificarlo y ubicarlo.
+
+### RN-004 — El negocio puede configurar su información
+La información del negocio debe poder modificarse por usuarios autorizados. Los cambios deben afectar la información utilizada por NEGOVA en tiempo real.
+
+---
+
+# 4. Reglas de productos [CORE]
+
+### RN-005 — Un producto pertenece a un negocio
+Cada producto debe estar asociado a un único negocio. Un producto de un negocio no debe aparecer en el catálogo de otro negocio.
+
+### RN-006 — Un producto debe tener información mínima
+Un producto debe contar como mínimo con: nombre, precio y estado de disponibilidad.
+
+### RN-007 — El precio pertenece al producto
+Cada producto debe tener un precio definido para poder venderse.
+
+### RN-008 — El precio debe poder cambiar
+Un usuario autorizado puede modificar el precio de un producto. El cambio de precio no debe modificar automáticamente el valor de pedidos que ya fueron registrados.
+
+### RN-009 — Los pedidos conservan su valor histórico
+Cuando un producto es agregado a un pedido, el pedido debe conservar de forma inmutable el precio utilizado en el momento de la venta.  
+*Ejemplo:* Si una hamburguesa se vendió a $13.000 COP y posteriormente el precio cambia a $15.000 COP, el pedido anterior continúa registrando $13.000 COP.
+
+### RN-010 — Producto no disponible
+Un producto marcado como `No disponible` (Agotado) no puede agregarse a nuevos pedidos.
+
+### RN-011 — La disponibilidad es manual
+En el MVP, la disponibilidad de productos es modificada manualmente por usuarios autorizados. NEGOVA no determina automáticamente que un producto se agotó.
+
+### RN-012 — La disponibilidad no es inventario
+El estado `Disponible` / `No disponible` no representa una cantidad exacta de inventario. NEGOVA no interpreta automáticamente que `Disponible` equivale a un stock de $X$ unidades.
+
+### RN-013 — Cambiar disponibilidad no elimina productos
+Marcar un producto como `No disponible` no elimina el producto del sistema. El producto conserva su ficha y puede volver a estar disponible posteriormente.
+
+---
+
+# 5. Reglas de pedidos [CORE / VERTICAL]
+
+### RN-014 — Un pedido pertenece a un negocio
+Cada pedido debe estar asociado a un único negocio.
+
+### RN-015 — Un pedido debe contener productos
+No se debe crear un pedido comercial vacío. Un pedido debe contener al menos un producto.
+
+### RN-016 — Un pedido conserva sus productos
+Una modificación posterior del catálogo no debe alterar automáticamente los productos registrados en pedidos históricos.
+
+### RN-017 — El pedido conserva las cantidades
+Las cantidades registradas en un pedido forman parte del historial inmutable de la venta.
+
+### RN-018 — El pedido conserva el precio vendido
+El precio unitario utilizado en el momento de registrar el producto debe quedar almacenado en el pedido.
+
+### RN-019 — Un pedido puede tener diferentes canales de origen
+NEGOVA debe identificar el origen del pedido (WhatsApp, Menú digital, Presencial). La existencia de un canal no altera la naturaleza unificada del pedido.
+
+---
+
+# 6. Estados del pedido [VERTICAL RESTAURANTE]
+
+### RN-020 — El pedido debe tener un estado
+Todo pedido debe encontrarse en un estado operativo (`RECIBIDO`, `EN PREPARACIÓN`, `LISTO`, `ENTREGADO` o `CANCELADO`).
+
+### RN-021 — El estado representa el progreso operativo
+El estado del pedido indica en qué punto del proceso de cocina/despacho se encuentra.
+
+### RN-022 — Un pedido no puede estar en dos estados simultáneamente
+Un pedido debe tener un único estado operativo actual.
+
+### RN-023 — Los cambios de estado deben conservarse
+NEGOVA debe registrar la trazabilidad de cada cambio de estado:
+$$\text{RECIBIDO} \longrightarrow \text{EN PREPARACIÓN} \longrightarrow \text{LISTO} \longrightarrow \text{ENTREGADO}$$
+
+### RN-024 — La preparación no ocurre automáticamente
+NEGOVA no determina automáticamente que un pedido comenzó a prepararse; el cambio a `En preparación` debe ser ejecutado por el personal.
+
+### RN-025 — El pedido debe estar listo antes de la entrega
+Un pedido no debe pasar directamente de `En preparación` a `Entregado` sin haber pasado por el estado `Listo`.
+
+### RN-026 — El pedido puede tener diferentes tipos de entrega
+Como mínimo: `Local / Recogida` o `Domicilio`. El tipo de entrega pertenece a la entidad del pedido.
+
+---
+
+# 7. Reglas de domicilio [VERTICAL RESTAURANTE]
+
+### RN-027 — El domicilio es opcional
+No todos los pedidos requieren servicio de entrega a domicilio.
+
+### RN-028 — Un pedido con domicilio debe tener información de entrega
+Cuando el tipo de entrega sea `Domicilio`, el pedido debe contar con la información necesaria: dirección o referencia y datos de contacto.
+
+### RN-029 — El valor del domicilio es independiente
+El valor del domicilio debe almacenarse separado del valor de los productos:
+$$\text{Subtotal Productos} + \text{Valor Domicilio} = \text{Total}$$
+
+### RN-030 — El valor del domicilio puede variar
+NEGOVA no asume que todos los negocios cobran la misma tarifa de flete. El negocio configura su valor.
+
+### RN-031 — Un pedido sin domicilio no debe cobrar domicilio
+Si el tipo de entrega es `En el local`: $\text{Valor Domicilio} = 0$.
+
+---
+
+# 8. Reglas de cálculo [CORE]
+
+### RN-032 — El subtotal depende de los productos
+$$\text{Subtotal} = \sum (\text{Cantidad} \times \text{Precio Vendido})$$
+
+### RN-033 — El total incluye domicilio cuando corresponda
+$$\text{Total} = \text{Subtotal Productos} + \text{Valor Domicilio}$$
+
+### RN-034 — El total debe quedar registrado
+El pedido almacena de forma inmutable el total final liquidado.
+
+---
+
+# 9. Reglas de pagos [CORE / VERTICAL]
+
+### RN-035 — El estado de pago es independiente del estado del pedido
+NEGOVA maneja por separado el estado de preparación y el estado de pago.  
+*Ejemplo válido:* Pedido `LISTO`, Pago `PARCIALMENTE PAGADO`.
+
+### RN-036 — Un pedido puede tener uno o varios pagos
+El sistema soporta que un pedido reciba múltiples abonos o pagos fraccionados ($1 \text{ Pedido} \rightarrow N \text{ Pagos}$).
+
+### RN-037 — Los pagos deben registrar su valor
+Cada registro de pago almacena el valor monetario correspondiente.
+
+### RN-038 — Los pagos deben registrar método
+Métodos contemplados en el MVP: `Efectivo` y `Transferencia bancaria / Billeteras digitales`.
+
+### RN-039 — Los pagos deben identificar su concepto
+Un pago puede registrarse por concepto de: `Productos`, `Domicilio` o `Pedido completo`.
+
+### RN-040 — Puede existir más de un método de pago
+Un mismo pedido puede pagarse con métodos combinados (ej. comida por Transferencia y flete de domicilio en Efectivo).
+
+### RN-041 — El saldo pendiente debe poder determinarse
+$$\text{Saldo Pendiente} = \text{Total del Pedido} - \text{Total Pagado}$$
+
+### RN-042 — Estado pendiente
+Si $\text{Total Pagado} = 0$, el estado de pago es `PENDIENTE`.
+
+### RN-043 — Estado parcialmente pagado
+Si $0 < \text{Total Pagado} < \text{Total del Pedido}$, el estado de pago es `PARCIALMENTE PAGADO`.
+
+### RN-044 — Estado pagado
+Si $\text{Total Pagado} \ge \text{Total del Pedido}$, el estado de pago es `PAGADO`.
+
+### RN-045 — Las transferencias no se validan automáticamente
+En el MVP, registrar una transferencia no implica conciliación bancaria automática; el personal valida visualmente el comprobante.
+
+---
+
+# 10. Reglas de clientes [CORE]
+
+### RN-046 — Un cliente puede realizar múltiples pedidos
+NEGOVA asocia el historial de compras al cliente si se cuenta con su número o identificación.
+
+### RN-047 — Un pedido puede existir sin cliente registrado
+Para no generar fricción, el sistema no obliga a crear una ficha formal de cliente para registrar una venta o pedido.
+
+### RN-048 — Los datos del cliente no deben modificar pedidos históricos
+Actualizar la dirección o teléfono de un cliente no altera las direcciones registradas en pedidos anteriores ya cerrados.
+
+---
+
+# 11. Reglas de menú digital [VERTICAL RESTAURANTE]
+
+### RN-049 — El menú pertenece a un negocio
+Cada negocio administra exclusivamente su propio menú digital.
+
+### RN-050 — El menú muestra productos del negocio
+Un menú digital nunca mostrará platos o categorías pertenecientes a otro negocio.
+
+### RN-051 — La disponibilidad afecta la venta
+Si un producto está `No disponible`, el menú digital lo muestra como agotado e impide seleccionarlo.
+
+### RN-052 — El menú no sustituye el catálogo administrativo
+El menú digital es la vista pública del catálogo de venta; la configuración maestra reside en el panel administrativo del negocio.
+
+---
+
+# 12. Reglas de usuarios y permisos [CORE]
+
+### RN-053 — Los usuarios deben estar autenticados
+Las operaciones administrativas internas requieren inicio de sesión seguro.
+
+### RN-054 — Los permisos dependen del rol
+El acceso a funciones específicas está controlado por los permisos asignados por el propietario.
+
+### RN-055 — Las operaciones sensibles requieren autorización
+Modificar datos comerciales, precios, catálogo, ver métricas financieras y registrar gastos está restringido a usuarios autorizados.
+
+---
+
+# 13. Reglas financieras [CORE]
+
+### RN-056 — Los ingresos deben relacionarse con operaciones reales
+Todo ingreso registrado proviene de un pedido o venta formalmente asentada.
+
+### RN-057 — Los gastos son independientes de los pedidos
+Un gasto del negocio (compra de insumos, servicios) es un egreso operativo independiente de los pagos de clientes.
+
+### RN-058 — Las ventas y gastos deben mantenerse separados
+$$\text{Resultado Operativo} = \text{Ventas (Ingresos)} - \text{Gastos (Egresos)}$$
+
+---
+
+# 14. Reglas de historial [CORE]
+
+### RN-059 — Las operaciones importantes conservan información histórica
+Creación de pedidos, cambios de estado, registros de pago y disponibilidad quedan auditados con fecha, hora y usuario.
+
+### RN-060 — No se deben alterar ventas históricas automáticamente
+Cambios posteriores en precios, nombres de productos o clientes no modifican los registros contables históricos.
+
+---
+
+# 15. Reglas de disponibilidad y pedidos [VERTICAL RESTAURANTE]
+
+### RN-061 — La disponibilidad afecta principalmente nuevos pedidos
+Inhabilitar un producto no altera ni elimina los pedidos activos que ya lo contenían antes del cambio.
+
+### RN-062 — El agotamiento no cancela pedidos automáticamente
+Si un insumo se termina mientras existen órdenes en cola, NEGOVA no cancela automáticamente los pedidos; el personal gestiona la situación directamente.
+
+---
+
+# 16. Reglas de operación [CORE]
+
+### RN-063 — NEGOVA registra la operación, no controla físicamente el negocio
+NEGOVA no controla físicamente la cocción, el empaque ni el dinero en efectivo; registra y organiza el flujo de información.
+
+### RN-064 — El personal mantiene el control operativo
+Ante cualquier imprevisto, el personal toma la decisión final; el sistema no ejecuta bloqueos irreversibles basados en suposiciones.
+
+---
+
+# 17. Reglas de MVP [CORE]
+
+### RN-065 — No introducir automatización innecesaria
+Las automatizaciones deben responder a necesidades operativas validadas.
+
+### RN-066 — El MVP debe priorizar la simplicidad
+Toda operación debe ejecutarse de forma rápida y cómoda desde un teléfono móvil.
+
+### RN-067 — Las funcionalidades futuras no deben alterar las reglas actuales
+La extensibilidad hacia otros verticales no debe romper el núcleo común del sistema.
+
+---
+
+# 18. Reglas de seguridad [CORE]
+
+### RN-068 — Un usuario solo puede acceder a negocios autorizados
+Queda prohibido el acceso o visualización de datos de tenants no autorizados.
+
+### RN-069 — Los datos deben estar aislados por negocio
+Aislamiento estricto de base de datos para productos, ventas, clientes y configuraciones.
+
+### RN-070 — Las operaciones deben respetar permisos
+El acceso al sistema no otorga privilegios universales; se respeta el principio de mínimo privilegio.
+
+---
+
+# 19. Reglas fuera del MVP (Exclusiones explícitas)
+
+Las siguientes capacidades **NO forman parte del MVP**:
+- Control automático de inventario por recetas o gramajes.
+- Descuento automático de ingredientes.
+- Predicción de demanda o inteligencia artificial para cocina.
+- Rastreo satelital GPS de repartidores.
+- Validación bancaria automática vía API.
+- Facturación electrónica y contabilidad avanzada.
+- Reembolsos automáticos.
+- Pasarelas de pago con tarjeta obligatorias.
+- Bots automatizados de conversación en WhatsApp.

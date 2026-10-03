@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="com-pov-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0B132B" />
+      <stop offset="60%" stop-color="#1C2541" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <radialGradient id="bokeh-blue" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bokeh-warm-c" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FEF3C7" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="boutique-counter" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="50%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="phone-screen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0E14" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo: Tienda de ropa boutique con percheros desenfocados y luces cálidas -->
+  <rect width="600" height="450" fill="url(#com-pov-bg)" />
+
+  <!-- Bokeh y luces de boutique -->
+  <circle cx="100" cy="90" r="50" fill="url(#bokeh-blue)" />
+  <circle cx="260" cy="50" r="35" fill="url(#bokeh-warm-c)" />
+  <circle cx="500" cy="100" r="65" fill="url(#bokeh-blue)" />
+  <circle cx="430" cy="40" r="28" fill="url(#bokeh-warm-c)" />
+
+  <!-- Siluetas suaves de percheros en el fondo desenfocado -->
+  <line x1="80" y1="40" x2="240" y2="40" stroke="#64748B" stroke-width="3" opacity="0.4" />
+  <rect x="100" y="45" width="22" height="60" rx="4" fill="#3B82F6" opacity="0.4" />
+  <rect x="130" y="45" width="22" height="65" rx="4" fill="#FFFFFF" opacity="0.3" />
+  <rect x="160" y="45" width="22" height="55" rx="4" fill="#ED500A" opacity="0.4" />
+  <rect x="190" y="45" width="22" height="62" rx="4" fill="#10B981" opacity="0.3" />
+
+  <!-- Mostrador de tienda boutique en primer plano (Perspectiva POV) -->
+  <path d="M 0 230 L 600 230 L 600 450 L 0 450 Z" fill="url(#boutique-counter)" />
+  <line x1="0" y1="230" x2="600" y2="230" stroke="#475569" stroke-width="3" />
+  <line x1="0" y1="236" x2="600" y2="236" stroke="#000000" stroke-width="2" opacity="0.5" />
+
+  <!-- Objeto de apoyo: Ropa doblada premium y etiqueta con código de barras en el mostrador -->
+  <g transform="translate(40, 240)">
+    <!-- Sombra de la ropa -->
+    <ellipse cx="90" cy="140" rx="90" ry="25" fill="#000000" opacity="0.5" />
+
+    <!-- Jeans Denim Doblados (Prenda inferior) -->
+    <rect x="10" y="90" width="160" height="42" rx="8" fill="#1E3A8A" stroke="#1D4ED8" stroke-width="1.5" />
+    <path d="M 12 110 L 168 110" stroke="#60A5FA" stroke-width="1" stroke-dasharray="4 3" />
+
+    <!-- Camisa Oxford Blanca/Gris Doblada (Prenda del medio) -->
+    <rect x="20" y="65" width="145" height="32" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+    <path d="M 75 65 L 85 85 L 95 65" stroke="#94A3B8" stroke-width="1.5" fill="none" />
+
+    <!-- Suéter Naranja NEGOVA Doblado (Prenda superior) -->
+    <rect x="30" y="40" width="130" height="30" rx="6" fill="#ED500A" stroke="#F36320" stroke-width="1.5" />
+
+    <!-- Etiqueta de precio / Código de barras colgando -->
+    <g transform="translate(140, 48)">
+      <!-- Cuerda -->
+      <line x1="0" y1="0" x2="18" y2="14" stroke="#CBD5E1" stroke-width="1.5" />
+      <!-- Tarjeta de etiqueta -->
+      <rect x="15" y="10" width="48" height="68" rx="4" fill="#FFFFFF" stroke="#0B0E14" stroke-width="1.5" filter="drop-shadow(2px 4px 6px rgba(0,0,0,0.3))" />
+      <circle cx="24" cy="18" r="3" fill="#0B0E14" />
+      <text x="39" y="32" fill="#0B0E14" font-family="system-ui, sans-serif" font-size="9" font-weight="900">NEGOVA</text>
+      <!-- Código de barras en etiqueta -->
+      <line x1="20" y1="42" x2="20" y2="62" stroke="#0B0E14" stroke-width="2" />
+      <line x1="24" y1="42" x2="24" y2="62" stroke="#0B0E14" stroke-width="1" />
+      <line x1="28" y1="42" x2="28" y2="62" stroke="#0B0E14" stroke-width="3" />
+      <line x1="34" y1="42" x2="34" y2="62" stroke="#0B0E14" stroke-width="1.5" />
+      <line x1="40" y1="42" x2="40" y2="62" stroke="#0B0E14" stroke-width="2.5" />
+      <line x1="46" y1="42" x2="46" y2="62" stroke="#0B0E14" stroke-width="2" />
+      <line x1="52" y1="42" x2="52" y2="62" stroke="#0B0E14" stroke-width="1" />
+      <text x="39" y="72" fill="#64748B" font-family="monospace" font-size="6" text-anchor="middle">COD-8921</text>
+    </g>
+  </g>
+
+  <!-- Objeto Principal: Smartphone Moderno en Mano (POV interactuando con escáner de código) -->
+  <g transform="translate(290, 80)">
+    <!-- Sombra del teléfono -->
+    <rect x="25" y="45" width="180" height="310" rx="36" fill="#000000" opacity="0.6" filter="blur(10px)" />
+
+    <!-- Chasis de Smartphone Titanio/Negro -->
+    <rect x="20" y="30" width="170" height="295" rx="32" fill="#0B0E14" stroke="#334155" stroke-width="3" />
+    <rect x="24" y="34" width="162" height="287" rx="28" fill="#1E293B" />
+
+    <!-- Pantalla Táctil Activa con NEGOVA Retail App -->
+    <rect x="28" y="40" width="154" height="275" rx="24" fill="url(#phone-screen)" />
+
+    <!-- Dynamic Island / Cámara frontal -->
+    <rect x="80" y="46" width="50" height="12" rx="6" fill="#000000" />
+    <circle cx="118" cy="52" r="2.5" fill="#1E293B" />
+
+    <!-- UI: Header de la App NEGOVA -->
+    <rect x="38" y="66" width="134" height="22" rx="6" fill="#0B0E14" />
+    <circle cx="48" cy="77" r="4" fill="#ED500A" />
+    <text x="58" y="80" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold">NEGOVA RETAIL</text>
+    <text x="162" y="80" fill="#10B981" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" text-anchor="end">En línea</text>
+
+    <!-- UI: Viewfinder del Escáner Láser de Código de Barras -->
+    <rect x="38" y="96" width="134" height="90" rx="10" fill="#0F172A" stroke="#3B82F6" stroke-width="1.5" />
+    <!-- Esquinas del viewfinder -->
+    <path d="M 44 110 L 44 102 L 52 102" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 166 110 L 166 102 L 158 102" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 44 172 L 44 180 L 52 180" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 166 172 L 166 180 L 158 180" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Rayo láser de escaneo animado en pantalla -->
+    <line x1="44" y1="140" x2="166" y2="140" stroke="#ED500A" stroke-width="2" />
+    <rect x="44" y="130" width="122" height="20" fill="#ED500A" opacity="0.15" />
+    <text x="105" y="144" fill="#FFFFFF" font-family="monospace" font-size="8" font-weight="bold" text-anchor="middle">ESCANEANDO #8921</text>
+
+    <!-- UI: Tarjeta de Producto Detectado -->
+    <rect x="38" y="194" width="134" height="48" rx="8" fill="#0F172A" stroke="#334155" stroke-width="1" />
+    <circle cx="52" cy="214" r="7" fill="#3B82F6" />
+    <text x="64" y="210" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold">Camisa Oxford Slim</text>
+    <text x="64" y="222" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="8">Stock: 34 un. · Talla L</text>
+    <text x="162" y="218" fill="#ED500A" font-family="system-ui, sans-serif" font-size="9" font-weight="bold" text-anchor="end">S/ 89.00</text>
+
+    <!-- UI: Botón Agregar a Venta -->
+    <rect x="38" y="250" width="134" height="24" rx="6" fill="#ED500A" />
+    <text x="105" y="265" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="9" font-weight="bold" text-anchor="middle">AGREGAR AL TICKET</text>
+  </g>
+
+  <!-- Mano sosteniendo el teléfono (POV) -->
+  <g transform="translate(250, 160)">
+    <!-- Pulgar izquierdo apoyado en el borde del teléfono -->
+    <path d="M 60 140 C 45 130, 20 135, 10 160 C 0 185, 20 210, 45 220 C 65 230, 70 250, 75 270" fill="#FBCFE8" opacity="0.9" />
+    <ellipse cx="62" cy="180" rx="10" ry="16" fill="#FBCFE8" />
+
+    <!-- Dedos derechos envolviendo el lateral del teléfono -->
+    <path d="M 215 110 C 230 115, 240 135, 235 150 C 230 165, 215 160, 215 160" fill="#FBCFE8" />
+    <path d="M 215 155 C 230 160, 240 180, 235 195 C 230 210, 215 205, 215 205" fill="#FBCFE8" />
+    <path d="M 215 200 C 230 205, 240 225, 235 240 C 230 255, 215 250, 215 250" fill="#FBCFE8" />
+  </g>
+</svg>

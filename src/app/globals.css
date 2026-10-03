@@ -1,0 +1,490 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paleta NEGOVA Precision Logic de Stitch */
+    --background: 228 50% 98%;
+    /* #F8F9FD (Fondo principal claro/sterile) */
+    --foreground: 218 29% 6%;
+    /* #0B0E14 (Texto principal/oscuro) */
+
+    --card: 0 0% 100%;
+    /* #FFFFFF (Superficies de tarjetas) */
+    --card-foreground: 218 29% 6%;
+    /* #0B0E14 */
+
+    --popover: 0 0% 100%;
+    /* #FFFFFF */
+    --popover-foreground: 218 29% 6%;
+    /* #0B0E14 */
+
+    --primary: 220 3% 37%;
+    /* #5C5E62 (Gris corporativo estructura) */
+    --primary-foreground: 0 0% 100%;
+    /* #FFFFFF */
+
+    --secondary: 225 5% 38%;
+    /* #5C5E66 (Secundario oscuro) */
+    --secondary-foreground: 0 0% 100%;
+    /* #FFFFFF */
+
+    --muted: 220 18% 89%;
+    /* #DEDFE8 (Contenedores neutros suaves) */
+    --muted-foreground: 218 10% 40%;
+    /* #60626A */
+
+    --accent: 18 92% 48%;
+    /* #ED500A / #AB3500 (Naranja energía/acciones) */
+    --accent-foreground: 0 0% 100%;
+    /* #FFFFFF */
+
+    --destructive: 0 75% 42%;
+    /* #BA1A1A (Rojo error) */
+    --destructive-foreground: 0 0% 100%;
+    /* #FFFFFF */
+
+    --border: 218 29% 6% / 0.08;
+    /* Borde sutil al 8% */
+    --input: 218 29% 6% / 0.10;
+    /* Input border al 10% */
+    --ring: 18 92% 48%;
+    /* Ring de enfoque (Naranja Accent) */
+
+    --radius: 0.25rem;
+    /* Radios de 4px según diseño Soft */
+  }
+
+  .dark {
+    --background: 218 29% 6%;
+    /* #0B0E14 */
+    --foreground: 228 50% 98%;
+    /* #F8F9FD */
+    --card: 218 29% 10%;
+    /* Superficie oscura */
+    --card-foreground: 228 50% 98%;
+    --popover: 218 29% 10%;
+    --popover-foreground: 228 50% 98%;
+    --primary: 220 3% 80%;
+    --primary-foreground: 218 29% 6%;
+    --secondary: 225 5% 25%;
+    --secondary-foreground: 228 50% 98%;
+    --muted: 218 20% 18%;
+    --muted-foreground: 218 10% 65%;
+    --accent: 18 92% 48%;
+    /* #ED500A Naranja Accent */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 18 92% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-title;
+  }
+}
+
+@keyframes floatGentle {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes floatContinuous {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(0.5deg);
+  }
+}
+
+.animate-float-continuous {
+  animation: floatContinuous 4s ease-in-out infinite !important;
+}
+
+@keyframes floatSubtle {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float-gentle {
+  animation: floatGentle 5s ease-in-out infinite;
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 5.5s ease-in-out 0.5s infinite;
+}
+
+/* === SISTEMA DE ANIMACIONES CSS PURAS NATIVAS DE ALTO IMPACTO NEGOVA === */
+
+/* 1. ANIMACIÓN DRAMÁTICA DE ENTRADA AL RECARGAR (HERO HIGH-IMPACT ENTRANCE) */
+@keyframes pageLoadFlyUp {
+  0% {
+    opacity: 0;
+    transform: translateY(140px) scale(0.82);
+    filter: blur(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes pageLoadFlyLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-140px) scale(0.85);
+    filter: blur(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0px) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes pageLoadFlyRight {
+  0% {
+    opacity: 0;
+    transform: translateX(180px) scale(0.8) rotate(3deg);
+    filter: blur(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0px) scale(1) rotate(0deg);
+    filter: blur(0px);
+  }
+}
+
+.hero-reveal-nav {
+  animation: pageLoadFlyUp 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-reveal-1 {
+  animation: pageLoadFlyLeft 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+.hero-reveal-2 {
+  animation: pageLoadFlyUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+
+.hero-reveal-3 {
+  animation: pageLoadFlyLeft 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
+}
+
+.hero-reveal-4 {
+  animation: pageLoadFlyUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+}
+
+.hero-reveal-5 {
+  animation: pageLoadFlyUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both;
+}
+
+.hero-reveal-b1 {
+  animation: pageLoadFlyLeft 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.85s both;
+}
+
+.hero-reveal-b2 {
+  animation: pageLoadFlyLeft 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.95s both;
+}
+
+.hero-reveal-b3 {
+  animation: pageLoadFlyLeft 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1.05s both;
+}
+
+.hero-reveal-mockup {
+  animation: pageLoadFlyRight 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+/* ===================================================
+   2. SISTEMA DE SCROLL REVEAL — KEYFRAMES (Tailwind-safe)
+   Se usa @keyframes para que Tailwind transition-all no interfiera.
+   Sin .in-view → opacity:0 (invisible, en su posición desplazada)
+   Con .in-view → se dispara la animación de entrada
+   Al quitar .in-view → vuelve instantáneamente al estado oculto
+   =================================================== */
+
+/* ── KEYFRAMES DE ENTRADA ── */
+@keyframes flyInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-70px) translateY(20px) scale(0.93);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes flyInRight {
+  from {
+    opacity: 0;
+    transform: translateX(70px) translateY(20px) scale(0.93);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes flyInUp {
+  from {
+    opacity: 0;
+    transform: translateY(55px) scale(0.95);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* ── ESTADO BASE: oculto, sin transición (para no competir con Tailwind) ── */
+.scroll-fly-left,
+.scroll-fly-right,
+.scroll-fly-up,
+.scroll-reveal-box {
+  opacity: 0;
+  /* Sin transition aquí — Tailwind no puede interferir */
+}
+
+/* ── ESTADO IN-VIEW: animación de entrada se dispara ── */
+.scroll-fly-left.in-view {
+  animation: flyInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1; /* needed for paint */
+}
+
+.scroll-fly-right.in-view {
+  animation: flyInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+}
+
+.scroll-fly-up.in-view,
+.scroll-reveal-box.in-view {
+  animation: flyInUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+}
+
+/* ── STAGGER: retrasa el inicio de cada animación de ENTRADA ── */
+.in-view.stagger-1 { animation-delay: 0.05s; }
+.in-view.stagger-2 { animation-delay: 0.15s; }
+.in-view.stagger-3 { animation-delay: 0.25s; }
+.in-view.stagger-4 { animation-delay: 0.35s; }
+.in-view.stagger-5 { animation-delay: 0.45s; }
+.in-view.stagger-6 { animation-delay: 0.55s; }
+
+/* ── Al salir (quitar .in-view) vuelve a opacity:0 sin animación ── */
+.scroll-fly-left:not(.in-view),
+.scroll-fly-right:not(.in-view),
+.scroll-fly-up:not(.in-view),
+.scroll-reveal-box:not(.in-view) {
+  animation: none;
+  opacity: 0;
+}
+
+/* ===================================================
+   3. ANIMACIÓN PERPETUA EN COMPONENTES DEL PRODUCTO
+   =================================================== */
+@keyframes continuousFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+.animate-float-continuous {
+  animation: continuousFloat 5s ease-in-out infinite !important;
+}
+
+@keyframes ambientPulse {
+  0%, 100% {
+    transform: scale(0.97) translateY(0px) translateX(0px);
+    opacity: 0.40;
+  }
+  50% {
+    transform: scale(1.05) translateY(-10px) translateX(5px);
+    opacity: 0.70;
+  }
+}
+
+.animate-ambient-pulse {
+  animation: ambientPulse 10s ease-in-out infinite;
+}
+
+/* ── ANIMACIÓN DE FLOTADO TIPO OLA EN PLANES ── */
+@keyframes floatWave {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+.animate-float-wave-1 {
+  animation: floatWave 4s ease-in-out 0s infinite;
+}
+
+.animate-float-wave-2 {
+  animation: floatWave 4s ease-in-out 1.33s infinite;
+}
+
+.animate-float-wave-3 {
+  animation: floatWave 4s ease-in-out 2.66s infinite;
+}
+
+/* ── ANIMACIÓN CARRUSEL INFINITO (MARQUEE 60FPS) ── */
+@keyframes marqueeScroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+.animate-marquee {
+  animation: marqueeScroll 35s linear infinite;
+  will-change: transform;
+}
+
+/* ── ANIMACIÓN DE REVELADO Y ESCALADO AL SCROLL (CSS PURO Y NORMAL) ── */
+.faq-scroll-card {
+  opacity: 0;
+  transform: translateY(40px) scale(0.90);
+  filter: blur(10px);
+  transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform, filter;
+}
+
+.faq-scroll-card.is-visible {
+  opacity: 1;
+  transform: translateY(0px) scale(1);
+  filter: blur(0px);
+}
+
+/* ── ANIMACIÓN DE PESTAÑEO DEL ROBOT IA ── */
+@keyframes eyeBlink {
+  0%, 90%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+.animate-eye-blink {
+  animation: eyeBlink 3.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ── ANIMACIÓN DE FLOTACIÓN PERPETUA ── */
+@keyframes floatPerpetual {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-float-perpetual {
+  animation: floatPerpetual 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ── GASTRONÓMICOS VISTA CUSTOM PURE CSS ANIMATIONS ── */
+.gastro-reveal-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.gastro-reveal-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.gastro-reveal-left {
+  opacity: 0;
+  transform: translateX(-35px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.gastro-reveal-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.gastro-reveal-right {
+  opacity: 0;
+  transform: translateX(35px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.gastro-reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.gastro-reveal-fade {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity;
+}
+.gastro-reveal-fade.is-visible {
+  opacity: 1;
+}
+
+/* Onload Hero classes */
+.hero-onload-left {
+  opacity: 0;
+  transform: translateX(-60px);
+  transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.hero-onload-left.is-active {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.hero-onload-right {
+  opacity: 0;
+  transform: translateX(60px) scale(0.98);
+  transition: opacity 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s, transform 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
+  will-change: opacity, transform;
+}
+.hero-onload-right.is-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}

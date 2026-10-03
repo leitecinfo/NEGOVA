@@ -1,0 +1,906 @@
+-- ==============================================================================
+-- NEGOVA - ESQUEMA SAAS MULTI-TENANT DE PRODUCCIÓN (33 TABLAS ENDURECIDAS)
+-- Motor: PostgreSQL 15+ / Supabase
+-- Archivo: 08_full_saas_multi_tenant_schema.sql
+-- ==============================================================================
+
+-- ============================================================
+-- 0. EXTENSIONES
+-- ============================================================
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ============================================================
+-- 1. TIPOS DE DATOS ENUMERADOS
+-- ============================================================
+DO $$ BEGIN CREATE TYPE public.user_status AS ENUM ('active', 'inactive', 'suspended'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.platform_role AS ENUM ('super_admin', 'business_owner', 'staff', 'customer'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN CREATE TYPE public.business_status AS ENUM ('active', 'inactive', 'suspended', 'trial'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.business_type AS ENUM ('restaurant', 'retail', 'service', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.membership_status AS ENUM ('invited', 'active', 'inactive', 'suspended'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.role_scope AS ENUM ('platform', 'business'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.plan_status AS ENUM ('active', 'inactive', 'archived'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.subscription_status AS ENUM ('trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.billing_interval AS ENUM ('monthly', 'yearly'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.payment_method AS ENUM ('cash', 'transfer', 'card', 'online', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.order_status AS ENUM ('received', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.order_type AS ENUM ('pickup', 'delivery'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.delivery_status AS ENUM ('pending', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.product_status AS ENUM ('active', 'inactive', 'archived'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.customer_status AS ENUM ('active', 'inactive'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.expense_status AS ENUM ('active', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.notification_status AS ENUM ('pending', 'sent', 'failed', 'read'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.notification_channel AS ENUM ('in_app', 'email', 'whatsapp', 'sms'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.file_type AS ENUM ('logo', 'product_image', 'document', 'attachment', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE public.audit_action AS ENUM ('create', 'update', 'delete', 'login', 'logout', 'status_change', 'permission_change', 'subscription_change', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+-- ============================================================
+-- 2. CAPA DE PLATAFORMA Y CONFIGURACIÓN GLOBAL
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.platform_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key TEXT NOT NULL UNIQUE,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.features (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  status public.plan_status NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  price NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+  billing_interval public.billing_interval NOT NULL DEFAULT 'monthly',
+  currency TEXT NOT NULL DEFAULT 'COP',
+  status public.plan_status NOT NULL DEFAULT 'active',
+  limits JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.plan_features (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id UUID NOT NULL REFERENCES public.plans(id) ON DELETE CASCADE,
+  feature_id UUID NOT NULL REFERENCES public.features(id) ON DELETE CASCADE,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (plan_id, feature_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  scope public.role_scope NOT NULL DEFAULT 'business',
+  description TEXT,
+  is_system_role BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  module TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  role_id UUID NOT NULL REFERENCES public.roles(id) ON DELETE CASCADE,
+  permission_id UUID NOT NULL REFERENCES public.permissions(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (role_id, permission_id)
+);
+
+-- ============================================================
+-- 3. CAPA DE USUARIOS Y TENANTS
+-- ============================================================
+
+-- Tabla de Identidad: datos de autenticación y acceso
+CREATE TABLE IF NOT EXISTS public.users (
+  id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email          TEXT,
+  platform_role  public.platform_role NOT NULL DEFAULT 'customer',
+  status         public.user_status NOT NULL DEFAULT 'active',
+  last_login_at  TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Tabla de Perfil: datos personales del usuario (separado de identidad)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id         UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  full_name  TEXT,
+  phone      TEXT,
+  avatar_url TEXT,
+  bio        TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.businesses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  business_type public.business_type NOT NULL DEFAULT 'restaurant',
+  description TEXT,
+  logo_url TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  city TEXT,
+  department TEXT,
+  country TEXT DEFAULT 'CO',
+  status public.business_status NOT NULL DEFAULT 'trial',
+  timezone TEXT NOT NULL DEFAULT 'America/Bogota',
+  currency TEXT NOT NULL DEFAULT 'COP',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_businesses_id_pk UNIQUE (id)
+);
+
+CREATE TABLE IF NOT EXISTS public.business_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, key)
+);
+
+CREATE TABLE IF NOT EXISTS public.business_features (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  feature_id UUID NOT NULL REFERENCES public.features(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, feature_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.business_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES public.roles(id) ON DELETE RESTRICT,
+  status public.membership_status NOT NULL DEFAULT 'active',
+  invited_at TIMESTAMPTZ,
+  joined_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  plan_id UUID NOT NULL REFERENCES public.plans(id) ON DELETE RESTRICT,
+  status public.subscription_status NOT NULL DEFAULT 'trialing',
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  trial_ends_at TIMESTAMPTZ,
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  external_customer_id TEXT,
+  external_subscription_id TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.subscription_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  subscription_id UUID NOT NULL REFERENCES public.subscriptions(id) ON DELETE RESTRICT,
+  amount NUMERIC(14,2) NOT NULL CHECK (amount >= 0),
+  currency TEXT NOT NULL DEFAULT 'COP',
+  status public.payment_status NOT NULL DEFAULT 'pending',
+  period_start TIMESTAMPTZ,
+  period_end TIMESTAMPTZ,
+  external_invoice_id TEXT,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.business_payment_methods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  method public.payment_method NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
+-- 4. CAPA DE CLIENTES Y DIRECCIONES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.customers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  city TEXT,
+  department TEXT,
+  notes TEXT,
+  status public.customer_status NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_customers_id_business UNIQUE (id, business_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.customer_addresses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL,
+  label TEXT,
+  address TEXT NOT NULL,
+  additional_reference TEXT,
+  city TEXT,
+  department TEXT,
+  latitude NUMERIC(10,7),
+  longitude NUMERIC(10,7),
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_customer_addresses_customer_business FOREIGN KEY (customer_id, business_id) REFERENCES public.customers(id, business_id) ON DELETE CASCADE
+);
+
+-- ============================================================
+-- 5. CAPA DE CATÁLOGO, PRODUCTOS Y MODIFICADORES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  status public.product_status NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_categories_id_business UNIQUE (id, business_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  category_id UUID,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  price NUMERIC(14,2) NOT NULL CHECK (price >= 0),
+  status public.product_status NOT NULL DEFAULT 'active',
+  is_available BOOLEAN NOT NULL DEFAULT true,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_products_id_business UNIQUE (id, business_id),
+  CONSTRAINT fk_products_category_business FOREIGN KEY (category_id, business_id) REFERENCES public.categories(id, business_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.product_option_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  min_selections INTEGER NOT NULL DEFAULT 0 CHECK (min_selections >= 0),
+  max_selections INTEGER NOT NULL DEFAULT 1,
+  required BOOLEAN NOT NULL DEFAULT false,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (max_selections >= min_selections),
+  CONSTRAINT uq_product_option_groups_id_business UNIQUE (id, business_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.product_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  option_group_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  additional_price NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (additional_price >= 0),
+  status public.product_status NOT NULL DEFAULT 'active',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_product_options_id_business UNIQUE (id, business_id),
+  CONSTRAINT fk_product_options_group_business FOREIGN KEY (option_group_id, business_id) REFERENCES public.product_option_groups(id, business_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.product_option_groups_products (
+  product_id UUID NOT NULL,
+  option_group_id UUID NOT NULL,
+  business_id UUID NOT NULL,
+  PRIMARY KEY (product_id, option_group_id),
+  CONSTRAINT fk_pogp_product FOREIGN KEY (product_id, business_id) REFERENCES public.products(id, business_id) ON DELETE CASCADE,
+  CONSTRAINT fk_pogp_group FOREIGN KEY (option_group_id, business_id) REFERENCES public.product_option_groups(id, business_id) ON DELETE CASCADE
+);
+
+-- ============================================================
+-- 6. CAPA TRANSACCIONAL: PEDIDOS, ÍTEMS, DOMICILIOS Y PAGOS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  customer_id UUID,
+  order_number BIGINT NOT NULL,
+  status public.order_status NOT NULL DEFAULT 'received',
+  order_type public.order_type NOT NULL,
+  subtotal NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0),
+  discount NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (discount >= 0),
+  delivery_fee NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (delivery_fee >= 0),
+  total NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (total >= 0),
+  notes TEXT,
+  source TEXT NOT NULL DEFAULT 'web',
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, order_number),
+  CONSTRAINT uq_orders_id_business UNIQUE (id, business_id),
+  CONSTRAINT fk_orders_customer_business FOREIGN KEY (customer_id, business_id) REFERENCES public.customers(id, business_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  order_id UUID NOT NULL,
+  product_id UUID,
+  product_name TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price NUMERIC(14,2) NOT NULL CHECK (unit_price >= 0),
+  subtotal NUMERIC(14,2) NOT NULL CHECK (subtotal >= 0),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_order_items_id_business UNIQUE (id, business_id),
+  CONSTRAINT fk_order_items_order_business FOREIGN KEY (order_id, business_id) REFERENCES public.orders(id, business_id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_items_product_business FOREIGN KEY (product_id, business_id) REFERENCES public.products(id, business_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.order_item_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_item_id UUID NOT NULL REFERENCES public.order_items(id) ON DELETE CASCADE,
+  option_name TEXT NOT NULL,
+  additional_price NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (additional_price >= 0),
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.deliveries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  order_id UUID NOT NULL UNIQUE,
+  customer_id UUID,
+  customer_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  address TEXT NOT NULL,
+  additional_reference TEXT,
+  latitude NUMERIC(10,7),
+  longitude NUMERIC(10,7),
+  delivery_fee NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (delivery_fee >= 0),
+  status public.delivery_status NOT NULL DEFAULT 'pending',
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_deliveries_order_business FOREIGN KEY (order_id, business_id) REFERENCES public.orders(id, business_id) ON DELETE CASCADE,
+  CONSTRAINT fk_deliveries_customer_business FOREIGN KEY (customer_id, business_id) REFERENCES public.customers(id, business_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.order_status_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  order_id UUID NOT NULL,
+  previous_status public.order_status,
+  new_status public.order_status NOT NULL,
+  changed_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_order_status_history_order_business FOREIGN KEY (order_id, business_id) REFERENCES public.orders(id, business_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  order_id UUID NOT NULL,
+  amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+  payment_method public.payment_method NOT NULL,
+  status public.payment_status NOT NULL DEFAULT 'pending',
+  reference TEXT,
+  paid_at TIMESTAMPTZ,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_payments_order_business FOREIGN KEY (order_id, business_id) REFERENCES public.orders(id, business_id) ON DELETE RESTRICT
+);
+
+-- ============================================================
+-- 7. CAPA FINANCIERA: GASTOS Y CATEGORÍAS DE EGRESOS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.expense_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  status public.product_status NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, name),
+  CONSTRAINT uq_expense_categories_id_business UNIQUE (id, business_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE RESTRICT,
+  category_id UUID,
+  concept TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+  description TEXT,
+  expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  status public.expense_status NOT NULL DEFAULT 'active',
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_expenses_category_business FOREIGN KEY (category_id, business_id) REFERENCES public.expense_categories(id, business_id) ON DELETE SET NULL
+);
+
+-- ============================================================
+-- 8. CAPA DE SOPORTE: ARCHIVOS, NOTIFICACIONES Y AUDITORÍA
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+  uploaded_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  type public.file_type NOT NULL DEFAULT 'other',
+  bucket TEXT NOT NULL,
+  path TEXT NOT NULL,
+  original_name TEXT,
+  mime_type TEXT,
+  size_bytes BIGINT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  channel public.notification_channel NOT NULL DEFAULT 'in_app',
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status public.notification_status NOT NULL DEFAULT 'pending',
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  sent_at TIMESTAMPTZ,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  action public.audit_action NOT NULL,
+  entity_type TEXT,
+  entity_id UUID,
+  old_data JSONB,
+  new_data JSONB,
+  ip_address INET,
+  user_agent TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ============================================================
+-- 9. ÍNDICES DE ALTO RENDIMIENTO
+-- ============================================================
+
+CREATE INDEX IF NOT EXISTS idx_business_users_business ON public.business_users(business_id);
+CREATE INDEX IF NOT EXISTS idx_business_users_user ON public.business_users(user_id);
+CREATE INDEX IF NOT EXISTS idx_business_features_business ON public.business_features(business_id);
+CREATE INDEX IF NOT EXISTS idx_business_settings_business ON public.business_settings(business_id);
+CREATE INDEX IF NOT EXISTS idx_customers_business ON public.customers(business_id);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(business_id, phone);
+CREATE INDEX IF NOT EXISTS idx_categories_business ON public.categories(business_id, sort_order ASC);
+CREATE INDEX IF NOT EXISTS idx_products_business ON public.products(business_id, is_available);
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category_id, sort_order ASC);
+CREATE INDEX IF NOT EXISTS idx_orders_business_status_created ON public.orders(business_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON public.order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_business ON public.payments(business_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_deliveries_business_status ON public.deliveries(business_id, status);
+CREATE INDEX IF NOT EXISTS idx_order_history_order ON public.order_status_history(order_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_expenses_business_date ON public.expenses(business_id, expense_date DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_business ON public.audit_logs(business_id, created_at DESC);
+
+-- ============================================================
+-- 10. FUNCIONES DE BASE DE DATOS Y TRIGGERS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_platform_settings_updated ON public.platform_settings;
+CREATE TRIGGER trg_platform_settings_updated BEFORE UPDATE ON public.platform_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_users_updated ON public.users;
+CREATE TRIGGER trg_users_updated BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_businesses_updated ON public.businesses;
+CREATE TRIGGER trg_businesses_updated BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_business_settings_updated ON public.business_settings;
+CREATE TRIGGER trg_business_settings_updated BEFORE UPDATE ON public.business_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_business_features_updated ON public.business_features;
+CREATE TRIGGER trg_business_features_updated BEFORE UPDATE ON public.business_features FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_roles_updated ON public.roles;
+CREATE TRIGGER trg_roles_updated BEFORE UPDATE ON public.roles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_business_users_updated ON public.business_users;
+CREATE TRIGGER trg_business_users_updated BEFORE UPDATE ON public.business_users FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_plans_updated ON public.plans;
+CREATE TRIGGER trg_plans_updated BEFORE UPDATE ON public.plans FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_subscriptions_updated ON public.subscriptions;
+CREATE TRIGGER trg_subscriptions_updated BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_business_payment_methods_updated ON public.business_payment_methods;
+CREATE TRIGGER trg_business_payment_methods_updated BEFORE UPDATE ON public.business_payment_methods FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_customers_updated ON public.customers;
+CREATE TRIGGER trg_customers_updated BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_customer_addresses_updated ON public.customer_addresses;
+CREATE TRIGGER trg_customer_addresses_updated BEFORE UPDATE ON public.customer_addresses FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_categories_updated ON public.categories;
+CREATE TRIGGER trg_categories_updated BEFORE UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_products_updated ON public.products;
+CREATE TRIGGER trg_products_updated BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_product_option_groups_updated ON public.product_option_groups;
+CREATE TRIGGER trg_product_option_groups_updated BEFORE UPDATE ON public.product_option_groups FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_product_options_updated ON public.product_options;
+CREATE TRIGGER trg_product_options_updated BEFORE UPDATE ON public.product_options FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_orders_updated ON public.orders;
+CREATE TRIGGER trg_orders_updated BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_deliveries_updated ON public.deliveries;
+CREATE TRIGGER trg_deliveries_updated BEFORE UPDATE ON public.deliveries FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_expense_categories_updated ON public.expense_categories;
+CREATE TRIGGER trg_expense_categories_updated BEFORE UPDATE ON public.expense_categories FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_expenses_updated ON public.expenses;
+CREATE TRIGGER trg_expenses_updated BEFORE UPDATE ON public.expenses FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, full_name, phone, status, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    NEW.phone,
+    'active',
+    now(),
+    now()
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_on_auth_user_created ON auth.users;
+CREATE TRIGGER trg_on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+CREATE OR REPLACE FUNCTION public.assign_order_number()
+RETURNS TRIGGER AS $$
+DECLARE
+  next_num BIGINT;
+BEGIN
+  IF NEW.order_number IS NULL OR NEW.order_number = 0 THEN
+    SELECT COALESCE(MAX(order_number), 0) + 1 
+    INTO next_num 
+    FROM public.orders 
+    WHERE business_id = NEW.business_id;
+    
+    NEW.order_number = next_num;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_orders_assign_number ON public.orders;
+CREATE TRIGGER trg_orders_assign_number
+BEFORE INSERT ON public.orders
+FOR EACH ROW EXECUTE FUNCTION public.assign_order_number();
+
+CREATE OR REPLACE FUNCTION public.handle_order_status_audit()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    INSERT INTO public.order_status_history (
+      business_id,
+      order_id,
+      previous_status,
+      new_status,
+      changed_by,
+      created_at
+    ) VALUES (
+      NEW.business_id,
+      NEW.id,
+      NULL,
+      NEW.status,
+      auth.uid(),
+      now()
+    );
+  ELSIF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
+    INSERT INTO public.order_status_history (
+      business_id,
+      order_id,
+      previous_status,
+      new_status,
+      changed_by,
+      created_at
+    ) VALUES (
+      NEW.business_id,
+      NEW.id,
+      OLD.status,
+      NEW.status,
+      auth.uid(),
+      now()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_orders_status_audit ON public.orders;
+CREATE TRIGGER trg_orders_status_audit
+AFTER INSERT OR UPDATE ON public.orders
+FOR EACH ROW EXECUTE FUNCTION public.handle_order_status_audit();
+
+-- ============================================================
+-- 11. FUNCIONES AUXILIARES DE AUTORIZACIÓN Y RLS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.user_has_business_access(target_business_id UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_users
+    WHERE business_id = target_business_id 
+      AND user_id = auth.uid() 
+      AND status = 'active'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.user_has_permission(target_business_id UUID, permission_code TEXT)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_users bu
+    JOIN public.role_permissions rp ON rp.role_id = bu.role_id
+    JOIN public.permissions p ON p.id = rp.permission_id
+    WHERE bu.business_id = target_business_id 
+      AND bu.user_id = auth.uid() 
+      AND bu.status = 'active' 
+      AND p.code = permission_code
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_users bu
+    JOIN public.roles r ON r.id = bu.role_id
+    WHERE bu.user_id = auth.uid() 
+      AND r.scope = 'platform' 
+      AND r.code = 'super_admin'
+  );
+$$;
+
+-- ============================================================
+-- 12. HABILITACIÓN Y POLÍTICAS ROW LEVEL SECURITY (RLS)
+-- ============================================================
+
+ALTER TABLE public.platform_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscription_invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_payment_methods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customer_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_option_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_option_groups_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_item_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expense_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- USERS
+CREATE POLICY "users_profile_own" ON public.users FOR ALL TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+-- BUSINESSES
+CREATE POLICY "businesses_members_view" ON public.businesses FOR SELECT TO authenticated USING (public.user_has_business_access(id) OR public.is_super_admin());
+CREATE POLICY "businesses_members_update" ON public.businesses FOR UPDATE TO authenticated USING (public.user_has_permission(id, 'business.update') OR public.is_super_admin()) WITH CHECK (public.user_has_permission(id, 'business.update') OR public.is_super_admin());
+CREATE POLICY "businesses_anon_profile" ON public.businesses FOR SELECT TO anon USING (status IN ('active', 'trial'));
+
+-- BUSINESS USERS
+CREATE POLICY "business_users_view" ON public.business_users FOR SELECT TO authenticated USING (public.user_has_business_access(business_id) OR public.is_super_admin());
+CREATE POLICY "business_users_manage" ON public.business_users FOR ALL TO authenticated USING (public.user_has_permission(business_id, 'users.manage') OR public.is_super_admin()) WITH CHECK (public.user_has_permission(business_id, 'users.manage') OR public.is_super_admin());
+
+-- CATEGORIES & PRODUCTS
+CREATE POLICY "categories_members_all" ON public.categories FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'products.manage'));
+CREATE POLICY "categories_anon_view" ON public.categories FOR SELECT TO anon USING (status = 'active');
+
+CREATE POLICY "products_members_all" ON public.products FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'products.manage'));
+CREATE POLICY "products_anon_view" ON public.products FOR SELECT TO anon USING (status = 'active' AND is_available = true);
+
+-- PRODUCT OPTIONS
+CREATE POLICY "option_groups_members" ON public.product_option_groups FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'products.manage'));
+CREATE POLICY "option_groups_anon" ON public.product_option_groups FOR SELECT TO anon USING (true);
+
+CREATE POLICY "options_members" ON public.product_options FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'products.manage'));
+CREATE POLICY "options_anon" ON public.product_options FOR SELECT TO anon USING (status = 'active');
+
+CREATE POLICY "option_links_members" ON public.product_option_groups_products FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'products.manage'));
+CREATE POLICY "option_links_anon" ON public.product_option_groups_products FOR SELECT TO anon USING (true);
+
+-- ORDERS, ITEMS, DELIVERIES
+CREATE POLICY "orders_members" ON public.orders FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'orders.manage'));
+CREATE POLICY "orders_anon_checkout" ON public.orders FOR INSERT TO anon WITH CHECK (status = 'received');
+
+CREATE POLICY "order_items_members" ON public.order_items FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_business_access(business_id));
+CREATE POLICY "order_items_anon_checkout" ON public.order_items FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "order_item_options_members" ON public.order_item_options FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.order_items oi WHERE oi.id = order_item_options.order_item_id AND public.user_has_business_access(oi.business_id))) WITH CHECK (EXISTS (SELECT 1 FROM public.order_items oi WHERE oi.id = order_item_options.order_item_id AND public.user_has_business_access(oi.business_id)));
+CREATE POLICY "order_item_options_anon" ON public.order_item_options FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "deliveries_members" ON public.deliveries FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'deliveries.manage'));
+CREATE POLICY "deliveries_anon_checkout" ON public.deliveries FOR INSERT TO anon WITH CHECK (true);
+
+CREATE POLICY "order_history_members" ON public.order_status_history FOR SELECT TO authenticated USING (public.user_has_business_access(business_id));
+
+-- FINANZAS, PAGOS Y GASTOS
+CREATE POLICY "payments_members" ON public.payments FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'payments.manage'));
+CREATE POLICY "expense_categories_members" ON public.expense_categories FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'expenses.manage'));
+CREATE POLICY "expenses_members" ON public.expenses FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'expenses.manage'));
+
+-- CLIENTES
+CREATE POLICY "customers_members" ON public.customers FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'customers.manage'));
+CREATE POLICY "customer_addresses_members" ON public.customer_addresses FOR ALL TO authenticated USING (public.user_has_business_access(business_id)) WITH CHECK (public.user_has_permission(business_id, 'customers.manage'));
+
+-- SOPORTE Y AUDITORÍA
+CREATE POLICY "files_members" ON public.files FOR ALL TO authenticated USING (business_id IS NULL OR public.user_has_business_access(business_id)) WITH CHECK (business_id IS NOT NULL AND public.user_has_permission(business_id, 'files.manage'));
+CREATE POLICY "notifications_user" ON public.notifications FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY "audit_logs_members" ON public.audit_logs FOR SELECT TO authenticated USING (business_id IS NOT NULL AND public.user_has_permission(business_id, 'audit.view'));
+
+-- ============================================================
+-- 13. SEED DATA (ROLES, PERMISOS, PLANES Y MÓDULOS)
+-- ============================================================
+
+INSERT INTO public.permissions (code, name, module) VALUES
+('business.view', 'Ver negocio', 'business'),
+('business.update', 'Actualizar negocio', 'business'),
+('users.view', 'Ver usuarios', 'users'),
+('users.manage', 'Gestionar usuarios', 'users'),
+('roles.view', 'Ver roles', 'roles'),
+('roles.manage', 'Gestionar roles', 'roles'),
+('products.view', 'Ver productos', 'products'),
+('products.manage', 'Gestionar productos', 'products'),
+('customers.view', 'Ver clientes', 'customers'),
+('customers.manage', 'Gestionar clientes', 'customers'),
+('orders.view', 'Ver pedidos', 'orders'),
+('orders.manage', 'Gestionar pedidos', 'orders'),
+('payments.view', 'Ver pagos', 'payments'),
+('payments.manage', 'Gestionar pagos', 'payments'),
+('deliveries.view', 'Ver domicilios', 'deliveries'),
+('deliveries.manage', 'Gestionar domicilios', 'deliveries'),
+('expenses.view', 'Ver gastos', 'expenses'),
+('expenses.manage', 'Gestionar gastos', 'expenses'),
+('finance.view', 'Ver finanzas', 'finance'),
+('settings.view', 'Ver configuración', 'settings'),
+('settings.manage', 'Gestionar configuración', 'settings'),
+('files.view', 'Ver archivos', 'files'),
+('files.manage', 'Gestionar archivos', 'files'),
+('audit.view', 'Ver auditoría', 'audit')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO public.roles (name, code, scope, description, is_system_role) VALUES
+('Propietario', 'owner', 'business', 'Propietario y administrador principal del negocio', true),
+('Personal', 'staff', 'business', 'Usuario operativo del negocio', true),
+('Super Administrador', 'super_admin', 'platform', 'Administrador global de la plataforma NEGOVA', true)
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM public.roles r, public.permissions p
+WHERE r.code = 'owner'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM public.roles r, public.permissions p
+WHERE r.code = 'staff' AND p.code IN (
+  'orders.view', 'orders.manage',
+  'products.view',
+  'deliveries.view', 'deliveries.manage',
+  'customers.view',
+  'payments.view', 'payments.manage'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.plans (code, name, description, price, billing_interval, currency) VALUES
+('starter', 'Starter', 'Plan inicial de NEGOVA para pequeños negocios', 0, 'monthly', 'COP'),
+('pro', 'Pro', 'Plan profesional de NEGOVA para negocios en crecimiento', 0, 'monthly', 'COP')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO public.features (code, name, description) VALUES
+('dashboard', 'Dashboard', 'Panel principal'),
+('orders', 'Pedidos', 'Gestión de pedidos'),
+('products', 'Productos', 'Gestión del catálogo'),
+('customers', 'Clientes', 'Gestión de clientes'),
+('payments', 'Pagos', 'Gestión de pagos'),
+('deliveries', 'Domicilios', 'Gestión de entregas'),
+('expenses', 'Gastos', 'Gestión de gastos'),
+('finance', 'Finanzas', 'Información financiera'),
+('users', 'Usuarios', 'Gestión de usuarios'),
+('settings', 'Configuración', 'Configuración del negocio'),
+('notifications', 'Notificaciones', 'Sistema de notificaciones'),
+('files', 'Archivos', 'Gestión de archivos'),
+('audit', 'Auditoría', 'Registro de actividad')
+ON CONFLICT (code) DO NOTHING;
