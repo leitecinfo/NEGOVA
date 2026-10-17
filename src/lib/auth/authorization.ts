@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 import {
   DEFAULT_ROLE_PERMISSIONS_MAP,
   RoleScope,
+  isPermissionCompatibleWithBusinessType,
+  getDefaultPermissionsForRoleAndBusinessType,
 } from "./permissions";
 
 export interface AuthorizationContext {
@@ -79,11 +81,15 @@ export async function getCurrentUserAuthorization(): Promise<UserAuthorizationPr
     .select("business_id, status, roles(code)")
     .eq("user_id", user.id);
 
-  const memberships = (businessMemberships || []).map((bm: any) => ({
-    businessId: bm.business_id,
-    roleCode: bm.roles?.code || "auxiliar",
-    status: bm.status || "active",
-  }));
+  const memberships = (businessMemberships || []).map((bm: any) => {
+    const rawR = bm.roles;
+    const r = Array.isArray(rawR) ? rawR[0] : rawR;
+    return {
+      businessId: bm.business_id,
+      roleCode: r?.code || "auxiliar",
+      status: bm.status || "active",
+    };
+  });
 
   return {
     userId: user.id,
@@ -105,34 +111,35 @@ export async function hasPermission(
   try {
     const dbClient = await getAuthDbClient();
 
-    // 1. Contexto de Plataforma
-    if (context.scope === "platform" || !context.businessId) {
-      const { data: dbUser } = await dbClient
-        .from("users")
-        .select("platform_role, status")
-        .eq("id", userId)
-        .maybeSingle();
+    // 0. Consultar rol de plataforma global y estado del usuario
+    const { data: dbUser } = await dbClient
+      .from("users")
+      .select("platform_role, status")
+      .eq("id", userId)
+      .maybeSingle();
 
-      let platformRole = dbUser?.platform_role;
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-      if (platformRole !== "super_admin" && platformRole !== "admin" && isUuid) {
-        if ("auth" in dbClient && (dbClient as any).auth?.admin) {
-          try {
-            const { data: authUser } = await (dbClient as any).auth.admin.getUserById(userId);
-            const authRole = authUser?.user?.app_metadata?.role || authUser?.user?.user_metadata?.role;
-            if (authRole === "super_admin" || authRole === "admin") {
-              platformRole = authRole;
-            }
-          } catch {
-            // Ignorar fallo de búsqueda en Auth si el usuario no existe en Auth
+    let platformRole = dbUser?.platform_role;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    if (platformRole !== "super_admin" && platformRole !== "admin" && isUuid) {
+      if ("auth" in dbClient && (dbClient as any).auth?.admin) {
+        try {
+          const { data: authUser } = await (dbClient as any).auth.admin.getUserById(userId);
+          const authRole = authUser?.user?.app_metadata?.role || authUser?.user?.user_metadata?.role;
+          if (authRole === "super_admin" || authRole === "admin") {
+            platformRole = authRole;
           }
+        } catch {
+          // Ignorar fallo de búsqueda en Auth si el usuario no existe en Auth
         }
       }
+    }
 
-      if (!platformRole) return false;
-      if (dbUser?.status && dbUser.status !== "active") return false;
+    if (!platformRole) return false;
+    if (dbUser?.status && dbUser.status !== "active") return false;
 
-      // El super_admin tiene acceso total por definición
+    // 1. Contexto de Plataforma
+    if (context.scope === "platform" || !context.businessId) {
+      // El Super Administrador activo tiene acceso absoluto en el ámbito de Plataforma
       if (platformRole === "super_admin") return true;
 
       // Consultar permisos asignados al rol en la base de datos
@@ -161,7 +168,7 @@ export async function hasPermission(
       // 2.1 Validar que el negocio exista y esté en un estado operacional habilitado
       const { data: business } = await dbClient
         .from("businesses")
-        .select("id, status")
+        .select("id, status, business_type")
         .eq("id", context.businessId)
         .maybeSingle();
 
@@ -169,7 +176,16 @@ export async function hasPermission(
         return false;
       }
 
-      // 2.2 Validar vigencia de la suscripción
+      const businessType = business.business_type || "restaurant";
+
+      // 2.2 Validación de Compatibilidad de Vertical y Funcionalidad:
+      // Bloqueo a nivel de servidor: si el permiso no corresponde a este tipo de negocio
+      // (ej. comandas en una barbería o servicios de citas en un restaurante), el acceso se rechaza tajantemente.
+      if (!isPermissionCompatibleWithBusinessType(permissionCode, businessType)) {
+        return false;
+      }
+
+      // 2.3 Validar vigencia de la suscripción
       const { data: subscription } = await dbClient
         .from("subscriptions")
         .select("id, status, trial_ends_at, current_period_end")
@@ -195,7 +211,7 @@ export async function hasPermission(
         }
       }
 
-      // 2.3 Validar que el usuario sea miembro activo del negocio
+      // 2.4 Validar si el usuario es miembro directo del negocio
       const { data: membership } = await dbClient
         .from("business_users")
         .select("id, status, role_id, roles(id, code, scope)")
@@ -203,32 +219,92 @@ export async function hasPermission(
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (!membership || membership.status !== "active") {
-        return false;
+      if (membership && membership.status === "active") {
+        const rawRole = membership.roles as any;
+        const role = Array.isArray(rawRole) ? rawRole[0] : rawRole;
+        if (!role) return false;
+
+        // El propietario del negocio tiene todos los permisos operativos compatibles de su negocio
+        if (role.code === "owner") return true;
+
+        // Consultar anulaciones de permisos individuales (business_user_permissions)
+        try {
+          const { getUserCustomPermissions } = await import("./user-permissions-service");
+          const customOverrides = await getUserCustomPermissions(context.businessId, userId);
+          const specificOverride = customOverrides.find((o) => o.permissionCode === permissionCode);
+
+          if (specificOverride !== undefined) {
+            if (!specificOverride.isGranted) {
+              // Explícitamente revocado para este trabajador
+              return false;
+            }
+            // Explícitamente concedido: validar asignabilidad
+            const { isPermissionAssignableToAuxiliar } = await import("./permissions");
+            if (role.code === "auxiliar" && !isPermissionAssignableToAuxiliar(permissionCode, businessType)) {
+              return false;
+            }
+            return true;
+          }
+        } catch {
+          // Si falla consulta de permisos individuales, continuar con permisos de rol
+        }
+
+        // Consultar permisos del rol en BD
+        const { data: rolePermissions } = await dbClient
+          .from("role_permissions")
+          .select("permissions(code)")
+          .eq("role_id", role.id);
+
+        if (rolePermissions && rolePermissions.length > 0) {
+          const assignedCodes = rolePermissions
+            .map((rp: any) => rp.permissions?.code)
+            .filter(Boolean);
+          return assignedCodes.includes(permissionCode);
+        }
+
+        // Fallback a matriz por defecto adaptada al tipo de negocio
+        const fallbackPermissions = getDefaultPermissionsForRoleAndBusinessType(role.code, businessType);
+        return Boolean(fallbackPermissions?.includes(permissionCode));
       }
 
-      const role = membership.roles as any;
-      if (!role) return false;
+      // 2.4 Control de Acceso Delegado para Personal de Plataforma (Soporte / Admin / Superadmin)
+      // Si el usuario no es miembro directo pero es personal de plataforma, solo puede acceder si posee
+      // una autorización explícita (grant) activa y el permiso solicitado es estrictamente de solo lectura (.view / .read).
+      if (["super_admin", "admin", "soporte"].includes(platformRole)) {
+        const isReadOnlyPermission = permissionCode.endsWith(".view") || permissionCode.endsWith(".read");
+        if (!isReadOnlyPermission) {
+          // Bloqueo estricto: El personal de plataforma NO puede mutar datos en el negocio
+          return false;
+        }
 
-      // El propietario del negocio tiene todos los permisos de negocio
-      if (role.code === "owner") return true;
+        // Mapear permiso requerido al alcance de grant correspondiente (sin comodines)
+        let requiredScope: "sales_read" | "orders_read" | "inventory_read" | "finance_read" | "settings_read" | null = null;
+        if (permissionCode.startsWith("sales.")) requiredScope = "sales_read";
+        else if (permissionCode.startsWith("orders.") || permissionCode.startsWith("tables.")) requiredScope = "orders_read";
+        else if (permissionCode.startsWith("inventory.") || permissionCode.startsWith("products.")) requiredScope = "inventory_read";
+        else if (permissionCode.startsWith("finance.") || permissionCode.startsWith("expenses.") || permissionCode.startsWith("cash.")) requiredScope = "finance_read";
+        else if (permissionCode.startsWith("business_settings.")) requiredScope = "settings_read";
 
-      // Consultar permisos del rol en BD
-      const { data: rolePermissions } = await dbClient
-        .from("role_permissions")
-        .select("permissions(code)")
-        .eq("role_id", role.id);
+        if (!requiredScope) {
+          // Deny by default: Si el permiso no está mapeado a un scope de diagnóstico seguro, no se concede
+          return false;
+        }
 
-      if (rolePermissions && rolePermissions.length > 0) {
-        const assignedCodes = rolePermissions
-          .map((rp: any) => rp.permissions?.code)
-          .filter(Boolean);
-        return assignedCodes.includes(permissionCode);
+        try {
+          const { validateActiveGrant } = await import("@/lib/support/delegated-access-service");
+          const grantResult = await validateActiveGrant({
+            businessId: context.businessId,
+            adminUserId: userId,
+            requiredScope,
+          });
+
+          return grantResult.valid;
+        } catch {
+          return false;
+        }
       }
 
-      // Fallback a matriz por defecto
-      const fallbackPermissions = DEFAULT_ROLE_PERMISSIONS_MAP[role.code];
-      return Boolean(fallbackPermissions?.includes(permissionCode));
+      return false;
     }
 
     return false;

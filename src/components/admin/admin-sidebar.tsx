@@ -22,14 +22,14 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, user }: AdminSideb
   const pathname = usePathname() || "/admin";
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
-  // Estado de grupos desglosables / colapsables (por defecto todos abiertos)
+  // Estado de grupos desglosables / colapsables (por defecto todos cerrados)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    principal: true,
-    gestion: true,
-    operacion: true,
-    control: true,
-    sistema: true,
-    cuenta: true,
+    principal: false,
+    gestion: false,
+    operacion: false,
+    control: false,
+    sistema: false,
+    cuenta: false,
   });
 
   // Asegurar que la sección que contiene la ruta activa esté abierta
@@ -55,16 +55,16 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, user }: AdminSideb
     <aside
       aria-label="Barra lateral de navegación principal"
       className={`relative hidden lg:flex flex-col shrink-0 h-screen bg-white dark:bg-[#0D0F16] border-r border-slate-200 dark:border-white/[0.08] transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] z-30 ${
-        isCollapsed ? "w-[72px]" : "w-64"
+        isCollapsed ? "w-[72px]" : "w-72"
       }`}
     >
       {/* 1. Header con Branding NEGOVA */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
+      <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
         <Link
           href="/admin"
-          className="flex items-center gap-3 overflow-hidden focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] rounded-lg p-1"
+          className="flex items-center gap-3 w-full min-w-0 overflow-hidden focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] rounded-xl p-1.5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
         >
-          <div className="relative w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-linear-to-br from-[#ED500A] to-[#ab3500] p-1.5 shadow-xs">
+          <div className="relative w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-linear-to-br from-[#ED500A] to-[#ab3500] p-2 shadow-xs">
             <Image
               src="/isotipo.png"
               alt="NEGOVA"
@@ -76,18 +76,18 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, user }: AdminSideb
           </div>
 
           {!isCollapsed && (
-            <div className="flex flex-col min-w-0 transition-opacity duration-200">
-              <div className="flex items-center gap-1.5">
-                <span className="font-title font-extrabold text-sm tracking-wide text-slate-900 dark:text-white">
-                  NEGOVA
-                </span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-orange-50 text-[#ED500A] border border-orange-200 dark:bg-[#ED500A]/15 dark:text-[#ED500A] dark:border-[#ED500A]/30">
+            <div className="flex flex-col min-w-0 flex-1 transition-opacity duration-200">
+              <span className="font-title font-bold text-sm text-slate-900 dark:text-white truncate tracking-tight block leading-snug">
+                NEGOVA
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-orange-50 text-[#ED500A] border border-orange-200/80 dark:bg-[#ED500A]/15 dark:text-[#ED500A] dark:border-[#ED500A]/30 shrink-0">
                   Admin
                 </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  Panel Central
+                </span>
               </div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                Panel de Plataforma
-              </span>
             </div>
           )}
         </Link>
@@ -104,7 +104,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, user }: AdminSideb
 
           if (visibleItems.length === 0) return null;
 
-          const isSectionOpen = openSections[section.id] ?? true;
+          const isSectionOpen = openSections[section.id] ?? false;
 
           return (
             <div key={section.id} className="space-y-1">

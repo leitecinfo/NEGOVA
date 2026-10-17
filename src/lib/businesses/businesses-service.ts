@@ -22,6 +22,12 @@ import {
   VigenciaBadgeInfo,
 } from "@/config/plans";
 
+import {
+  CommercialActivity,
+  getDefaultActivitiesForBusinessType,
+  normalizeCommercialActivities,
+} from "@/config/commercial-activities";
+
 export * from "./types";
 import {
   BusinessCategory,
@@ -289,6 +295,10 @@ export async function getBusinessesList(filters: BusinessListFilters = {}): Prom
       name: b.name,
       slug: b.slug,
       businessType: (b.business_type || "restaurant") as BusinessType,
+      commercialActivities: normalizeCommercialActivities(
+        b.commercial_activities || getDefaultActivitiesForBusinessType(b.business_type)
+      ),
+      settings: b.settings || {},
       description: b.description || null,
       logoUrl: b.logo_url || null,
       phone: b.phone || null,
@@ -451,6 +461,10 @@ export async function getBusinessDetail(businessId: string): Promise<{
     name: dbBusiness.name,
     slug: dbBusiness.slug,
     businessType: (dbBusiness.business_type || "restaurant") as BusinessType,
+    commercialActivities: normalizeCommercialActivities(
+      dbBusiness.commercial_activities || getDefaultActivitiesForBusinessType(dbBusiness.business_type)
+    ),
+    settings: dbBusiness.settings || {},
     description: dbBusiness.description || null,
     logoUrl: dbBusiness.logo_url || null,
     phone: dbBusiness.phone || null,
@@ -536,6 +550,9 @@ export async function createBusiness(
 
     const businessType = input.businessType || "restaurant";
     const status = input.status || "trial";
+    const commercialActivities = normalizeCommercialActivities(
+      input.commercialActivities || getDefaultActivitiesForBusinessType(businessType)
+    );
 
     // 4. Insertar en public.businesses
     const { data: newBusiness, error: insErr } = await adminClient
@@ -544,6 +561,8 @@ export async function createBusiness(
         name,
         slug,
         business_type: businessType,
+        commercial_activities: commercialActivities,
+        settings: input.settings || {},
         description: input.description?.trim() || null,
         phone: input.phone?.trim() || null,
         email: input.email?.trim().toLowerCase() || null,
@@ -631,31 +650,37 @@ export async function createBusiness(
       throw new Error(`Fallo al registrar la suscripción inicial: ${subErr.message}`);
     }
 
-    // 7. Registrar evento en auditoría
+    // Inicializar categorías predeterminadas del negocio según su tipo (idempotente)
     try {
-      await adminClient.from("audit_logs").insert({
-        business_id: newBusinessId,
-        user_id: actorId || null,
-        action: "create",
-        entity_type: "business",
-        entity_id: newBusinessId,
-        new_data: {
-          name,
-          slug,
-          businessType,
-          status,
-          planId: planKey,
-          subscriptionStatus,
-        },
-        metadata: {
-          event: "business.created",
-          created_by_actor: actorId || "system",
-          plan_assigned: planKey,
-        },
-      });
-    } catch (auditErr) {
-      console.warn("[Audit Log non-fatal error]:", auditErr);
+      const { seedDefaultCategoriesForBusiness } = await import("@/lib/products/products-service");
+      await seedDefaultCategoriesForBusiness(newBusinessId, businessType);
+    } catch (seedErr) {
+      console.warn("[createBusiness] Aviso al inicializar categorías por defecto:", seedErr);
     }
+
+    // 7. Registrar evento en auditoría (Acción de plataforma: business_id = null)
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "create",
+      entityType: "business",
+      entityId: newBusinessId,
+      businessId: null,
+      userId: actorId || null,
+      newData: {
+        name,
+        slug,
+        businessType,
+        status,
+        planId: planKey,
+        subscriptionStatus,
+      },
+      metadata: {
+        original_action: "create_business",
+        event: "business.created",
+        created_by_actor: actorId || "system",
+        plan_assigned: planKey,
+      },
+    });
 
     const detail = await getBusinessDetail(newBusinessId);
 
@@ -666,7 +691,7 @@ export async function createBusiness(
         const { data: existingEmailLog } = await adminClient
           .from("audit_logs")
           .select("id")
-          .eq("action", "notify")
+          .eq("action", "other")
           .eq("entity_type", "email")
           .eq("entity_id", newBusinessId)
           .contains("metadata", { event: "email.welcome_sent" })
@@ -687,27 +712,24 @@ export async function createBusiness(
             ownerName: ownerName,
           });
 
+          const { logAuditAction } = await import("@/lib/audit/audit-service");
           if (!emailRes.success) {
             console.error(`[Welcome Email Failed]: ${emailRes.error}`);
-            try {
-              await adminClient.from("audit_logs").insert({
-                business_id: newBusinessId,
-                action: "notify",
-                entity_type: "email",
-                entity_id: newBusinessId,
-                metadata: { event: "email.welcome_failed", error: emailRes.error, email: ownerUser.email },
-              });
-            } catch {}
+            await logAuditAction({
+              businessId: newBusinessId,
+              action: "other",
+              entityType: "email",
+              entityId: newBusinessId,
+              metadata: { original_action: "notify", event: "email.welcome_failed", error: emailRes.error, email: ownerUser.email },
+            });
           } else {
-             try {
-              await adminClient.from("audit_logs").insert({
-                business_id: newBusinessId,
-                action: "notify",
-                entity_type: "email",
-                entity_id: newBusinessId,
-                metadata: { event: "email.welcome_sent", email: ownerUser.email },
-              });
-            } catch {}
+            await logAuditAction({
+              businessId: newBusinessId,
+              action: "other",
+              entityType: "email",
+              entityId: newBusinessId,
+              metadata: { original_action: "notify", event: "email.welcome_sent", email: ownerUser.email },
+            });
           }
         }
       } catch (emailErr) {
@@ -772,6 +794,10 @@ export async function updateBusiness(
     if (input.name) updatePayload.name = input.name.trim();
     if (input.slug) updatePayload.slug = finalSlug;
     if (input.businessType) updatePayload.business_type = input.businessType;
+    if (input.commercialActivities) {
+      updatePayload.commercial_activities = normalizeCommercialActivities(input.commercialActivities);
+    }
+    if (input.settings) updatePayload.settings = input.settings;
     if (input.description !== undefined) updatePayload.description = input.description?.trim() || null;
     if (input.phone !== undefined) updatePayload.phone = input.phone?.trim() || null;
     if (input.email !== undefined) updatePayload.email = input.email?.trim().toLowerCase() || null;
@@ -831,15 +857,16 @@ export async function updateBusiness(
     }
 
     // Auditoría
-    await adminClient.from("audit_logs").insert({
-      business_id: businessId,
-      user_id: actorId || null,
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId,
+      userId: actorId || null,
       action: "update",
-      entity_type: "business",
-      entity_id: businessId,
-      old_data: currentBusiness,
-      new_data: updatePayload,
-      metadata: { event: "business.updated" },
+      entityType: "business",
+      entityId: businessId,
+      oldData: currentBusiness,
+      newData: updatePayload,
+      metadata: { original_action: "update_business", event: "business.updated" },
     });
 
     return { success: true };
@@ -923,15 +950,16 @@ export async function changeBusinessStatus(
         ? "business.suspended"
         : "business.deactivated";
 
-    await adminClient.from("audit_logs").insert({
-      business_id: businessId,
-      user_id: actorId || null,
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId,
+      userId: actorId || null,
       action: "status_change",
-      entity_type: "business",
-      entity_id: businessId,
-      old_data: { status: currentStatus },
-      new_data: { status: newStatus, reason: reason || null },
-      metadata: { event: eventName, changed_by_actor: actorId || "system" },
+      entityType: "business",
+      entityId: businessId,
+      oldData: { status: currentStatus },
+      newData: { status: newStatus, reason: reason || null },
+      metadata: { original_action: "change_business_status", event: eventName, changed_by_actor: actorId || "system" },
     });
 
     return { success: true };
@@ -1030,23 +1058,21 @@ export async function deleteBusiness(
 
     if (delErr) throw delErr;
 
-    // 4. Registrar evento en auditoría forense
-    try {
-      await adminClient.from("audit_logs").insert({
-        business_id: null,
-        user_id: actorId || null,
-        action: "delete",
-        entity_type: "business",
-        entity_id: businessId,
-        old_data: { id: business.id, name: business.name, slug: business.slug, status: business.status },
-        metadata: {
-          event: "business.deleted",
-          deleted_by_actor: actorId || "system",
-        },
-      });
-    } catch (auditErr) {
-      console.warn("[Audit Log non-fatal error]:", auditErr);
-    }
+    // 4. Registrar evento en auditoría forense (Plataforma: business_id = null)
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: actorId || null,
+      action: "delete",
+      entityType: "business",
+      entityId: businessId,
+      oldData: { id: business.id, name: business.name, slug: business.slug, status: business.status },
+      metadata: {
+        original_action: "delete_business",
+        event: "business.deleted",
+        deleted_by_actor: actorId || "system",
+      },
+    });
 
     return { success: true };
   } catch (err: any) {

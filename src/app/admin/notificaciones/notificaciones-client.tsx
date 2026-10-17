@@ -39,6 +39,7 @@ import {
 interface NotificacionesClientProps {
   currentUser: AdminUserContext;
   initialNotifications: PlatformNotification[];
+  initialError?: string | null;
 }
 
 type FilterTab = "all" | "unread" | "users" | "businesses" | "security";
@@ -74,11 +75,13 @@ function getRelativeTime(dateString: string): string {
 export function NotificacionesClient({
   currentUser,
   initialNotifications,
+  initialError = null,
 }: NotificacionesClientProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<PlatformNotification[]>(
     initialNotifications
   );
+  const [error, setError] = useState<string | null>(initialError);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,12 +95,17 @@ export function NotificacionesClient({
       const res = await getNotificationsAction({ limit: 50 });
       if (res.success && res.data) {
         setNotifications(res.data);
+        setError(null);
         toast.success("Bandeja de notificaciones actualizada");
       } else {
-        toast.error("No se pudo refrescar la bandeja.");
+        const errMsg = res.error || "No se pudo refrescar la bandeja de notificaciones.";
+        setError(errMsg);
+        toast.error(errMsg);
       }
-    } catch {
-      toast.error("Error al conectar con el servidor.");
+    } catch (err: any) {
+      const errMsg = err?.message || "Error al conectar con el servidor.";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsRefreshing(false);
     }
@@ -508,15 +516,41 @@ export function NotificacionesClient({
               </div>
             );
           })
+        ) : error ? (
+          /* Estado de Error Real */
+          <div className="p-12 text-center rounded-2xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-200/80 dark:border-rose-500/20 space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center text-rose-500">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-rose-900 dark:text-rose-200 font-title">
+                Error al consultar notificaciones
+              </h4>
+              <p className="text-xs text-rose-600 dark:text-rose-400 max-w-sm mx-auto font-body">
+                {error}
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span>Reintentar conexión</span>
+              </button>
+            </div>
+          </div>
         ) : (
-          /* Estado Vacío cuando no hay resultados */
+          /* Estado Vacío Auténtico cuando no hay resultados */
           <div className="p-12 text-center rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] space-y-3">
             <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] flex items-center justify-center text-slate-400">
               <CheckCheck className="w-6 h-6 text-emerald-500" />
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white font-title">
-                Sin notificaciones que mostrar
+                No tienes notificaciones
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-body">
                 {searchTerm

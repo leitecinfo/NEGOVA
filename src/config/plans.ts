@@ -124,7 +124,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
     description: "Para pequeños comercios y negocios que quieren dejar atrás los cuadernos y organizar su operación diaria.",
     pricing: calculatePlanPricing(29900),
     limits: {
-      maxUsers: 1,
+      maxUsers: 2,
       maxProducts: 200,
       maxBranches: 1,
       canUsePos: true,
@@ -143,6 +143,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Ventas y caja",
         items: [
+          "Hasta 2 usuarios de acceso (Dueño y 1 colaborador)",
           "Registro rápido de ventas",
           "Registro de gastos diarios",
           "Control básico de apertura y cierre de caja",
@@ -309,7 +310,7 @@ export const COMPARISON_FEATURES: ComparisonFeature[] = [
   { name: "Reportes avanzados de márgenes y rendimiento", inicio: false, crece: false, negocio: true, category: "Reportes e Inteligencia" },
 
   // Equipo y Roles
-  { name: "Usuarios incluidos", inicio: true, crece: true, negocio: true, category: "Equipo y Roles", notes: "Inicio: 1 | Crece: 3 | Negocio: 6" },
+  { name: "Usuarios incluidos", inicio: true, crece: true, negocio: true, category: "Equipo y Roles", notes: "Inicio: 2 | Crece: 3 | Negocio: 6" },
   { name: "Roles y permisos para colaboradores", inicio: false, crece: false, negocio: true, category: "Equipo y Roles" },
 
   // Plataforma y Soporte

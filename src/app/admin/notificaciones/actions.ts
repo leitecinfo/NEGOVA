@@ -29,7 +29,7 @@ export async function getNotificationsAction(options?: {
  */
 export async function markNotificationAsReadAction(id: string): Promise<{ success: boolean }> {
   try {
-    await markNotificationAsRead(id);
+    await markNotificationAsRead(id, { scope: "platform" });
     revalidatePath("/admin/notificaciones");
     return { success: true };
   } catch {
@@ -42,7 +42,7 @@ export async function markNotificationAsReadAction(id: string): Promise<{ succes
  */
 export async function markAllNotificationsAsReadAction(): Promise<{ success: boolean }> {
   try {
-    await markAllNotificationsAsRead();
+    await markAllNotificationsAsRead({ scope: "platform" });
     revalidatePath("/admin/notificaciones");
     return { success: true };
   } catch {

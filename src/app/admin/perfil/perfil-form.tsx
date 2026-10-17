@@ -189,7 +189,7 @@ export function AdminPerfilForm({ user }: AdminPerfilFormProps) {
         setOtpSent(true);
         setResendCooldown(60);
         toast.success("¡Código de seguridad enviado!", {
-          description: "Hemos enviado el código de 6 dígitos a tu correo (leitec.info@gmail.com).",
+          description: `Hemos enviado el código de 6 dígitos a tu correo (${user.email}).`,
         });
       } else {
         toast.error("No se pudo enviar el código", {
@@ -707,9 +707,9 @@ export function AdminPerfilForm({ user }: AdminPerfilFormProps) {
                 </div>
 
                 <div className="text-right">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-orange-100 dark:bg-[#ED500A]/20 text-[#ED500A]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#ED500A] animate-pulse" />
-                    Envíos a: leitec.info@gmail.com
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Destino: {user.email}
                   </span>
                 </div>
               </div>

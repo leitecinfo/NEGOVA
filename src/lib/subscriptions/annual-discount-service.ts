@@ -85,21 +85,20 @@ export async function saveAnnualDiscountConfig(
 
     cachedDiscountConfig = sanitized;
 
-    // Registrar log de auditoría
-    try {
-      await admin.from("audit_logs").insert({
-        action: "update_annual_discount_config",
-        entity_type: "platform_settings",
-        entity_id: SETTINGS_KEY,
-        user_id: userId || null,
-        metadata: {
-          previousConfig: cachedDiscountConfig,
-          newConfig: sanitized,
-        },
-      });
-    } catch {
-      // Ignorar si audit_logs falla
-    }
+    // Registrar log de auditoría (Plataforma: business_id = null)
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: userId || null,
+      action: "update",
+      entityType: "platform_settings",
+      entityId: SETTINGS_KEY,
+      metadata: {
+        original_action: "update_annual_discount_config",
+        previousConfig: cachedDiscountConfig,
+        newConfig: sanitized,
+      },
+    });
 
     return { success: true, data: sanitized };
   } catch (err: any) {

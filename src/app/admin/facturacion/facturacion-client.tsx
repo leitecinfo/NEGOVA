@@ -20,6 +20,7 @@ import {
   Edit2,
   Trash2,
   MoreVertical,
+  Printer,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { BillingListResult, InvoiceRecord, InvoiceStatus, PaymentMethod } from "@/lib/billing/types";
@@ -45,6 +46,8 @@ import {
   editInvoiceAction,
 } from "./actions";
 import { toast } from "sonner";
+import { PrintableDocument } from "@/lib/printing/types";
+import { DocumentPreview } from "@/components/printing/document-preview";
 
 interface FacturacionClientProps {
   initialData: BillingListResult;
@@ -76,6 +79,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
     left: number;
     inv: InvoiceRecord;
   } | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<PrintableDocument | null>(null);
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -103,6 +107,37 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
     paymentReference: "",
     notes: "",
   });
+
+  const handlePrintDevice = async (invoice: InvoiceRecord) => {
+    // 1. Build the document for preview
+    const doc: PrintableDocument = {
+      documentType: "invoice",
+      documentNumber: invoice.invoiceNumber,
+      issuedAt: invoice.issuedAt,
+      business: {
+        id: invoice.businessId,
+        name: "Facturación NEGOVA",
+      },
+      customer: {
+        name: invoice.businessName,
+      },
+      items: [
+        { 
+          description: `Suscripción Plan ${invoice.planName}`, 
+          quantity: 1, 
+          unitPrice: invoice.amount, 
+          total: invoice.amount 
+        },
+      ],
+      subtotal: invoice.amount,
+      total: invoice.amount,
+      paymentMethod: invoice.paymentMethod,
+      notes: invoice.notes ?? undefined,
+    };
+    
+    // 2. Open the preview
+    setPreviewDocument(doc);
+  };
 
   const getStatusBadge = (status: InvoiceStatus) => {
     switch (status) {
@@ -771,6 +806,13 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
         </ModalPortal>
       )}
 
+      {/* 6.5. MODAL DE VISTA PREVIA DE IMPRESIÓN */}
+      {previewDocument && (
+        <ModalPortal>
+          <DocumentPreview document={previewDocument} onClose={() => setPreviewDocument(null)} />
+        </ModalPortal>
+      )}
+
       {/* 7. MENU PORTAL (ACCIONES DE FILA) */}
       {menuAnchor &&
         createPortal(
@@ -796,6 +838,15 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
               className="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.02]"
             >
               Descargar PDF
+            </button>
+            <button
+              onClick={() => {
+                setMenuAnchor(null);
+                handlePrintDevice(menuAnchor.inv);
+              }}
+              className="w-full text-left px-4 py-2 text-xs text-[#ED500A] font-semibold hover:bg-orange-50 dark:hover:bg-orange-500/10 flex items-center gap-2"
+            >
+              <Printer className="w-3.5 h-3.5" /> Imprimir Ticket
             </button>
             <button
               onClick={() => {

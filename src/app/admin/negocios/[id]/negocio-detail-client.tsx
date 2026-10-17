@@ -70,6 +70,7 @@ import {
   AdminSearchSelect,
   AdminConfirmDialog,
 } from "@/components/admin/ui";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   getDepartmentOptions,
   getCitiesOptions,
@@ -1170,81 +1171,83 @@ export function NegocioDetailClient({
 
       {/* MODAL PARA ASIGNAR PROPIETARIO O AGREGAR COLABORADOR */}
       {assignModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center">
-                <User className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-                  {assignModal.mode === "owner" ? "Asignar Propietario (Owner)" : "Agregar Colaborador al Equipo"}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {assignModal.mode === "owner"
-                    ? `Asigna el usuario principal responsable del comercio '${business.name}'.`
-                    : `Vincula un miembro de equipo con rol operativo a '${business.name}'.`}
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleAssignMemberSubmit} className="space-y-4">
-              {/* Selector de Usuario Candidato */}
-              <div>
-                <AdminSearchSelect
-                  label="Seleccionar Usuario"
-                  required
-                  placeholder="Buscar usuario..."
-                  searchPlaceholder="Buscar por nombre o correo..."
-                  value={assignModal.selectedUserId}
-                  onChange={(val) => setAssignModal({ ...assignModal, selectedUserId: val || "" })}
-                  options={candidateOwners.map((u) => ({
-                    value: u.id,
-                    label: u.fullName,
-                    description: u.email,
-                  }))}
-                />
-              </div>
-
-              {/* Selector de Rol si es modo miembro */}
-              {assignModal.mode === "member" ? (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center">
+                  <User className="w-5 h-5" />
+                </div>
                 <div>
-                  <AdminSelect
-                    label="Rol Operativo en el Comercio"
-                    value={assignModal.selectedRole}
-                    onChange={(val) => setAssignModal({ ...assignModal, selectedRole: val })}
-                    options={[
-                      { value: "auxiliar", label: "Auxiliar / Ayudante de Negocio (auxiliar)" },
-                    ]}
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                    {assignModal.mode === "owner" ? "Asignar Propietario (Owner)" : "Agregar Colaborador al Equipo"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {assignModal.mode === "owner"
+                      ? `Asigna el usuario principal responsable del comercio '${business.name}'.`
+                      : `Vincula un miembro de equipo con rol operativo a '${business.name}'.`}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleAssignMemberSubmit} className="space-y-4">
+                {/* Selector de Usuario Candidato */}
+                <div>
+                  <AdminSearchSelect
+                    label="Seleccionar Usuario"
+                    required
+                    placeholder="Buscar usuario..."
+                    searchPlaceholder="Buscar por nombre o correo..."
+                    value={assignModal.selectedUserId}
+                    onChange={(val) => setAssignModal({ ...assignModal, selectedUserId: val || "" })}
+                    options={candidateOwners.map((u) => ({
+                      value: u.id,
+                      label: u.fullName,
+                      description: u.email,
+                    }))}
                   />
                 </div>
-              ) : (
-                <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-800 dark:text-purple-300">
-                  El usuario seleccionado recibirá el rol canónico de <strong>Propietario (owner)</strong> en este comercio.
-                </div>
-              )}
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <AdminButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAssignModal({ ...assignModal, isOpen: false })}
-                >
-                  Cancelar
-                </AdminButton>
-                <AdminButton
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={isPending}
-                >
-                  Confirmar Asignación
-                </AdminButton>
-              </div>
-            </form>
+                {/* Selector de Rol si es modo miembro */}
+                {assignModal.mode === "member" ? (
+                  <div>
+                    <AdminSelect
+                      label="Rol Operativo en el Comercio"
+                      value={assignModal.selectedRole}
+                      onChange={(val) => setAssignModal({ ...assignModal, selectedRole: val })}
+                      options={[
+                        { value: "auxiliar", label: "Auxiliar / Ayudante de Negocio (auxiliar)" },
+                      ]}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-800 dark:text-purple-300">
+                    El usuario seleccionado recibirá el rol canónico de <strong>Propietario (owner)</strong> en este comercio.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAssignModal({ ...assignModal, isOpen: false })}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                  >
+                    Confirmar Asignación
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL DE CONFIRMACIÓN DE DESVINCULACIÓN */}
@@ -1264,44 +1267,46 @@ export function NegocioDetailClient({
 
       {/* MODAL DE CONFIRMACIÓN DE CAMBIO DE ESTADO */}
       {statusModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-              Cambiar Estado Operacional
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              ¿Confirmas la transición de estado del negocio <strong>{business.name}</strong> a{" "}
-              <strong>{BUSINESS_STATUS_LABELS[statusModal.targetStatus!]?.label}</strong>?
-            </p>
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                Cambiar Estado Operacional
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                ¿Confirmas la transición de estado del negocio <strong>{business.name}</strong> a{" "}
+                <strong>{BUSINESS_STATUS_LABELS[statusModal.targetStatus!]?.label}</strong>?
+              </p>
 
-            <AdminInput
-              label="Motivo o Justificación (Opcional)"
-              placeholder="Ej. Activación tras verificación de pago..."
-              value={statusModal.reason}
-              onChange={(e) => setStatusModal({ ...statusModal, reason: e.target.value })}
-            />
+              <AdminInput
+                label="Motivo o Justificación (Opcional)"
+                placeholder="Ej. Activación tras verificación de pago..."
+                value={statusModal.reason}
+                onChange={(e) => setStatusModal({ ...statusModal, reason: e.target.value })}
+              />
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <AdminButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setStatusModal({ isOpen: false, targetStatus: null, reason: "" })}
-              >
-                Cancelar
-              </AdminButton>
-              <AdminButton
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={confirmStatusChange}
-                isLoading={isPending}
-              >
-                Confirmar Cambio
-              </AdminButton>
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <AdminButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusModal({ isOpen: false, targetStatus: null, reason: "" })}
+                >
+                  Cancelar
+                </AdminButton>
+                <AdminButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={confirmStatusChange}
+                  isLoading={isPending}
+                >
+                  Confirmar Cambio
+                </AdminButton>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL DE CONFIRMACIÓN PARA ELIMINACIÓN DEFINITIVA */}
@@ -1327,311 +1332,315 @@ export function NegocioDetailClient({
 
       {/* MODAL PARA RENOVAR / EXTENDER SUSCRIPCIÓN (GESTIÓN MANUAL) */}
       {renewModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                      Renovar / Extender
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Comercio: <strong>{business.name}</strong>
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setRenewModal({ ...renewModal, isOpen: false })}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleRenewSubmit} className="space-y-4">
+                {/* Seleccionar Plan */}
                 <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-                    Renovar / Extender
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Comercio: <strong>{business.name}</strong>
+                  <AdminSelect
+                    label="Plan Comercial a Aplicar"
+                    required
+                    value={renewModal.planId}
+                    onChange={(val) => setRenewModal({ ...renewModal, planId: val as PlanId })}
+                    options={[
+                      { value: "inicio", label: "Inicio — Hasta 1 usuario ($29.900/mes)" },
+                      { value: "crece", label: "Crece — Hasta 3 usuarios + IA ($59.900/mes)" },
+                      { value: "negocio", label: "Negocio — Hasta 6 usuarios + IA Avanzada ($99.900/mes)" },
+                    ]}
+                  />
+                </div>
+
+                {/* Período / Meses a extender */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Período de Extensión Contratado:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { months: 1, label: "1 Mes" },
+                      { months: 3, label: "3 Meses" },
+                      { months: 6, label: "6 Meses" },
+                      { months: 12, label: "12 Meses (1 año)" },
+                    ].map((item) => {
+                      const isSelected = renewModal.months === item.months;
+                      return (
+                        <button
+                          key={item.months}
+                          type="button"
+                          onClick={() => setRenewModal({ ...renewModal, months: item.months })}
+                          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
+                            isSelected
+                              ? "bg-orange-50 dark:bg-orange-500/10 border-[#ED500A] text-[#ED500A]"
+                              : "bg-slate-50/60 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Resumen Calculado de Nueva Vigencia */}
+                <div className="p-4 rounded-2xl bg-orange-50/50 dark:bg-[#ED500A]/5 border border-orange-500/20 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-800 dark:text-slate-200 font-bold">
+                    <span>Nueva Fecha de Vencimiento Estimada:</span>
+                    <span className="font-mono text-[#ED500A] text-sm">
+                      {(() => {
+                        const now = new Date();
+                        let base = now;
+                        if (business.plan?.currentPeriodEnd) {
+                          const curEnd = new Date(business.plan.currentPeriodEnd);
+                          if (curEnd > now) base = curEnd;
+                        }
+                        const newD = new Date(base);
+                        newD.setMonth(newD.getMonth() + renewModal.months);
+                        return formatVigenciaDate(newD.toISOString());
+                      })()}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Esta acción actualiza la vigencia del plan y reactiva automáticamente la operación del negocio si se encontraba en estado suspendido o vencido.
                   </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRenewModal({ ...renewModal, isOpen: false })}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRenewModal({ ...renewModal, isOpen: false })}
+                    disabled={isPending}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                    leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                  >
+                    Confirmar Extensión
+                  </AdminButton>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleRenewSubmit} className="space-y-4">
-              {/* Seleccionar Plan */}
-              <div>
-                <AdminSelect
-                  label="Plan Comercial a Aplicar"
-                  required
-                  value={renewModal.planId}
-                  onChange={(val) => setRenewModal({ ...renewModal, planId: val as PlanId })}
-                  options={[
-                    { value: "inicio", label: "Inicio — Hasta 1 usuario ($29.900/mes)" },
-                    { value: "crece", label: "Crece — Hasta 3 usuarios + IA ($59.900/mes)" },
-                    { value: "negocio", label: "Negocio — Hasta 6 usuarios + IA Avanzada ($99.900/mes)" },
-                  ]}
-                />
-              </div>
-
-              {/* Período / Meses a extender */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Período de Extensión Contratado:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { months: 1, label: "1 Mes" },
-                    { months: 3, label: "3 Meses" },
-                    { months: 6, label: "6 Meses" },
-                    { months: 12, label: "12 Meses (1 año)" },
-                  ].map((item) => {
-                    const isSelected = renewModal.months === item.months;
-                    return (
-                      <button
-                        key={item.months}
-                        type="button"
-                        onClick={() => setRenewModal({ ...renewModal, months: item.months })}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
-                          isSelected
-                            ? "bg-orange-50 dark:bg-orange-500/10 border-[#ED500A] text-[#ED500A]"
-                            : "bg-slate-50/60 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Resumen Calculado de Nueva Vigencia */}
-              <div className="p-4 rounded-2xl bg-orange-50/50 dark:bg-[#ED500A]/5 border border-orange-500/20 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-800 dark:text-slate-200 font-bold">
-                  <span>Nueva Fecha de Vencimiento Estimada:</span>
-                  <span className="font-mono text-[#ED500A] text-sm">
-                    {(() => {
-                      const now = new Date();
-                      let base = now;
-                      if (business.plan?.currentPeriodEnd) {
-                        const curEnd = new Date(business.plan.currentPeriodEnd);
-                        if (curEnd > now) base = curEnd;
-                      }
-                      const newD = new Date(base);
-                      newD.setMonth(newD.getMonth() + renewModal.months);
-                      return formatVigenciaDate(newD.toISOString());
-                    })()}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Esta acción actualiza la vigencia del plan y reactiva automáticamente la operación del negocio si se encontraba en estado suspendido o vencido.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <AdminButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRenewModal({ ...renewModal, isOpen: false })}
-                  disabled={isPending}
-                >
-                  Cancelar
-                </AdminButton>
-                <AdminButton
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={isPending}
-                  leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                >
-                  Confirmar Extensión
-                </AdminButton>
-              </div>
-            </form>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* 5. MODAL DE EDICIÓN RÁPIDA DE NEGOCIO Y RUBRO */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0E1017] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header del Modal */}
-            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center font-bold text-base">
-                  <Edit className="w-5 h-5" />
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0E1017] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header del Modal */}
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center font-bold text-base">
+                    <Edit className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
+                      Editar Datos del Negocio
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Modifica el rubro/tipo, nombre e información comercial.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
-                    Editar Datos del Negocio
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Modifica el rubro/tipo, nombre e información comercial.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Formulario de Edición */}
-            <form onSubmit={handleSaveInfo} className="space-y-4">
-              {/* 2 Niveles: Categoría Principal y Tipo de Negocio */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06]">
-                <AdminSelect
-                  label="1. Categoría Principal"
-                  required
-                  value={selectedCategory}
-                  onChange={handleDetailCategoryChange}
-                  options={BUSINESS_CATEGORIES.map((c) => ({
-                    value: c.id,
-                    label: c.label,
-                  }))}
-                  helperText="Sector macro"
-                />
-
-                <AdminSelect
-                  label="2. Tipo de Negocio"
-                  required
-                  value={editForm.businessType}
-                  onChange={(val) =>
-                    setEditForm({
-                      ...editForm,
-                      businessType: val as BusinessType,
-                    })
-                  }
-                  options={(
-                    BUSINESS_CATEGORIES.find((c) => c.id === selectedCategory) || BUSINESS_CATEGORIES[0]
-                  ).types.map((t) => ({
-                    value: t.value,
-                    label: t.label,
-                  }))}
-                  helperText="Formato específico"
-                />
-              </div>
-
-              {/* Nombre Comercial */}
-              <AdminInput
-                label="Nombre Comercial"
-                required
-                value={editForm.name}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    name: e.target.value,
-                  })
-                }
-              />
-
-              {/* Identificador Slug */}
-              <AdminInput
-                label="Identificador Slug"
-                required
-                value={editForm.slug}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    slug: e.target.value,
-                  })
-                }
-                helperText="Identificador único para URLs"
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Teléfono */}
-                <AdminInput
-                  label="Teléfono / WhatsApp"
-                  value={editForm.phone}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      phone: e.target.value,
-                    })
-                  }
-                  placeholder="+57 300 123 4567"
-                />
-
-                {/* Email */}
-                <AdminInput
-                  label="Email Comercial"
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      email: e.target.value,
-                    })
-                  }
-                  placeholder="contacto@negocio.com"
-                />
-              </div>
-
-              {/* Dirección */}
-              <AdminInput
-                label="Dirección"
-                value={editForm.address}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    address: e.target.value,
-                  })
-                }
-                placeholder="Calle o Carrera..."
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Ciudad */}
-                <AdminInput
-                  label="Ciudad"
-                  value={editForm.city}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      city: e.target.value,
-                    })
-                  }
-                  placeholder="Ej: Bogotá"
-                />
-
-                {/* Departamento */}
-                <AdminInput
-                  label="Departamento"
-                  value={editForm.department}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      department: e.target.value,
-                    })
-                  }
-                  placeholder="Ej: Cundinamarca"
-                />
-              </div>
-
-              {/* Botones de Acción */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-5 py-2.5 rounded-xl bg-[#ED500A] text-white text-xs font-semibold shadow-xs hover:bg-[#d44505] transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                >
-                  {isPending && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Guardar Cambios</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
+
+              {/* Formulario de Edición */}
+              <form onSubmit={handleSaveInfo} className="space-y-4">
+                {/* 2 Niveles: Categoría Principal y Tipo de Negocio */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06]">
+                  <AdminSelect
+                    label="1. Categoría Principal"
+                    required
+                    value={selectedCategory}
+                    onChange={handleDetailCategoryChange}
+                    options={BUSINESS_CATEGORIES.map((c) => ({
+                      value: c.id,
+                      label: c.label,
+                    }))}
+                    helperText="Sector macro"
+                  />
+
+                  <AdminSelect
+                    label="2. Tipo de Negocio"
+                    required
+                    value={editForm.businessType}
+                    onChange={(val) =>
+                      setEditForm({
+                        ...editForm,
+                        businessType: val as BusinessType,
+                      })
+                    }
+                    options={(
+                      BUSINESS_CATEGORIES.find((c) => c.id === selectedCategory) || BUSINESS_CATEGORIES[0]
+                    ).types.map((t) => ({
+                      value: t.value,
+                      label: t.label,
+                    }))}
+                    helperText="Formato específico"
+                  />
+                </div>
+
+                {/* Nombre Comercial */}
+                <AdminInput
+                  label="Nombre Comercial"
+                  required
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      name: e.target.value,
+                    })
+                  }
+                />
+
+                {/* Identificador Slug */}
+                <AdminInput
+                  label="Identificador Slug"
+                  required
+                  value={editForm.slug}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      slug: e.target.value,
+                    })
+                  }
+                  helperText="Identificador único para URLs"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Teléfono */}
+                  <AdminInput
+                    label="Teléfono / WhatsApp"
+                    value={editForm.phone}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="+57 300 123 4567"
+                  />
+
+                  {/* Email */}
+                  <AdminInput
+                    label="Email Comercial"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="contacto@negocio.com"
+                  />
+                </div>
+
+                {/* Dirección */}
+                <AdminInput
+                  label="Dirección"
+                  value={editForm.address}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      address: e.target.value,
+                    })
+                  }
+                  placeholder="Calle o Carrera..."
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Ciudad */}
+                  <AdminInput
+                    label="Ciudad"
+                    value={editForm.city}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        city: e.target.value,
+                      })
+                    }
+                    placeholder="Ej: Bogotá"
+                  />
+
+                  {/* Departamento */}
+                  <AdminInput
+                    label="Departamento"
+                    value={editForm.department}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        department: e.target.value,
+                      })
+                    }
+                    placeholder="Ej: Cundinamarca"
+                  />
+                </div>
+
+                {/* Botones de Acción */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="px-5 py-2.5 rounded-xl bg-[#ED500A] text-white text-xs font-semibold shadow-xs hover:bg-[#d44505] transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    {isPending && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Guardar Cambios</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -19,6 +19,7 @@ import {
   Briefcase,
   Store,
 } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 // Hook de animación al scroll
 function useScrollReveal(threshold = 0.1) {
@@ -56,76 +57,78 @@ function TrustModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-fade-in">
-      <div
-        className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Barra superior de acento */}
-        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[#ED500A] via-[#F36320] to-[#ED500A]" />
-
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-          aria-label="Cerrar modal"
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md animate-fade-in">
+        <div
+          className="relative w-full max-w-lg rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
         >
-          <X className="w-5 h-5" />
-        </button>
+          {/* Barra superior de acento */}
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[#ED500A] via-[#F36320] to-[#ED500A]" />
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2.5 rounded-2xl bg-[#ED500A]/10 text-[#ED500A]">
-            <HeartHandshake className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="font-mono text-[11px] font-semibold tracking-wider text-[#ED500A] uppercase">
-              ACOMPAÑAMIENTO DIRECTO
-            </span>
-            <h3 className="font-title font-extrabold text-xl text-[#0B0E14]">
-              Prueba NEGOVA con Confianza
-            </h3>
-          </div>
-        </div>
-
-        <p className="font-body text-sm text-slate-600 mb-6 leading-relaxed">
-          Pruébalo antes de decidir. Empieza con 30 días gratis y descubre si encaja con la forma en que trabajas. Nuestro equipo te acompañará en cada paso.
-        </p>
-
-        {/* Compromisos de Confianza */}
-        <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-6">
-          <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
-            <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
-            <span>Sin compromisos iniciales ni contratos forzosos.</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
-            <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
-            <span>Configuración y acompañamiento directo en tu negocio.</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
-            <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
-            <span>Tu información siempre bajo tu control y protegida.</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <a
-            href={`https://wa.me/?text=${whatsappMsg}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-full bg-[#ED500A] hover:bg-[#F36320] text-white font-title font-bold text-sm shadow-md hover:shadow-lg transition-all duration-200 group cursor-pointer"
-          >
-            <MessageCircle className="w-4 h-4 fill-white/20" />
-            <span>Hablar con el equipo</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
           <button
             onClick={onClose}
-            className="px-5 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-title font-semibold text-sm transition-colors cursor-pointer"
+            className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Cerrar modal"
           >
-            Cerrar
+            <X className="w-5 h-5" />
           </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2.5 rounded-2xl bg-[#ED500A]/10 text-[#ED500A]">
+              <HeartHandshake className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="font-mono text-[11px] font-semibold tracking-wider text-[#ED500A] uppercase">
+                ACOMPAÑAMIENTO DIRECTO
+              </span>
+              <h3 className="font-title font-extrabold text-xl text-[#0B0E14]">
+                Prueba NEGOVA con Confianza
+              </h3>
+            </div>
+          </div>
+
+          <p className="font-body text-sm text-slate-600 mb-6 leading-relaxed">
+            Pruébalo antes de decidir. Empieza con 30 días gratis y descubre si encaja con la forma en que trabajas. Nuestro equipo te acompañará en cada paso.
+          </p>
+
+          {/* Compromisos de Confianza */}
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-6">
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
+              <span>Sin compromisos iniciales ni contratos forzosos.</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
+              <span>Configuración y acompañamiento directo en tu negocio.</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-xs text-slate-700 font-medium">
+              <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
+              <span>Tu información siempre bajo tu control y protegida.</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href={`https://wa.me/?text=${whatsappMsg}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-full bg-[#ED500A] hover:bg-[#F36320] text-white font-title font-bold text-sm shadow-md hover:shadow-lg transition-all duration-200 group cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4 fill-white/20" />
+              <span>Hablar con el equipo</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <button
+              onClick={onClose}
+              className="px-5 py-3.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-title font-semibold text-sm transition-colors cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
 

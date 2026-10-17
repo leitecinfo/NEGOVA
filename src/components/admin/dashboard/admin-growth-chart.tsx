@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, Users, DollarSign } from "lucide-react";
-import { useAdminTheme } from "../admin-theme-context";
+import { useAppTheme } from "@/components/layout/app-theme-context";
 import { formatCOP } from "@/config/plans";
 
 export interface MonthlyTrendData {
@@ -29,7 +29,7 @@ interface AdminGrowthChartProps {
 export function AdminGrowthChart({ monthlyData, currentMrr = 0 }: AdminGrowthChartProps) {
   const [metric, setMetric] = useState<"tenants" | "mrr" | "activeUsers">("tenants");
   const [isMounted, setIsMounted] = useState(false);
-  const { theme } = useAdminTheme();
+  const { theme } = useAppTheme();
 
   useEffect(() => {
     setIsMounted(true);

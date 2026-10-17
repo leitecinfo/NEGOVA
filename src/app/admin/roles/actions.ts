@@ -395,22 +395,23 @@ export async function updateRolePermissionsAction(
         }
       }
 
-      // Registrar en audit_logs
-      try {
-        await supabaseAdmin.from("audit_logs").insert({
-          user_id: userId,
-          action: "role.permissions.updated",
-          details: {
-            roleCode,
-            roleId,
-            permissionsCount: newPermissionCodes.length,
-            permissions: newPermissionCodes,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch {
-        // Ignorar si audit_logs no está disponible
-      }
+      // Registrar en audit_logs (Plataforma: business_id = null)
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId: null,
+        userId,
+        action: "permission_change",
+        entityType: "role",
+        entityId: roleId,
+        metadata: {
+          original_action: "role.permissions.updated",
+          roleCode,
+          roleId,
+          permissionsCount: newPermissionCodes.length,
+          permissions: newPermissionCodes,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     // 5. Revalidar rutas administrativas
@@ -453,20 +454,21 @@ export async function updateRoleMetadataAction(
         })
         .or(`id.eq.${roleIdOrCode},code.eq.${roleIdOrCode}`);
 
-      // Registrar auditoría
-      try {
-        await supabaseAdmin.from("audit_logs").insert({
-          user_id: userId,
-          action: "role.updated",
-          details: {
-            roleIdOrCode,
-            changes: data,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch {
-        // ignorar
-      }
+      // Registrar auditoría (Plataforma: business_id = null)
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId: null,
+        userId,
+        action: "update",
+        entityType: "role",
+        entityId: roleIdOrCode,
+        metadata: {
+          original_action: "role.updated",
+          roleIdOrCode,
+          changes: data,
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     revalidatePath("/admin/roles");

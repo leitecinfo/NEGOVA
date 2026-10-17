@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { User, Settings, LogOut, ChevronDown, Shield, Sun, Moon } from "lucide-react";
 import { AdminUserContext } from "@/lib/auth/admin-context";
-import { useAdminTheme } from "./admin-theme-context";
+import { useAppTheme } from "@/components/layout/app-theme-context";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
 interface AdminUserMenuProps {
@@ -15,7 +15,7 @@ interface AdminUserMenuProps {
 export function AdminUserMenu({ user, onOpenLogoutModal }: AdminUserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { theme, toggleTheme } = useAdminTheme();
+  const { theme, toggleTheme } = useAppTheme();
 
   // Cerrar al hacer clic fuera
   useEffect(() => {

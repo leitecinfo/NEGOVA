@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logAuditAction } from "@/lib/audit/audit-service";
 
 export type ProfileActionResponse = {
   success: boolean;
@@ -91,7 +92,7 @@ export async function updateAdminProfile(formData: FormData): Promise<ProfileAct
     const avatarFile = formData.get("avatarFile") as File | null;
     const removeAvatar = formData.get("removeAvatar") === "true";
 
-    // Cliente Admin para interactuar con Storage y bupasar RLS de perfiles
+    // Cliente Admin para interactuar con Storage y bypasear RLS de perfiles
     const { createClient: createAdminClient } = await import("@supabase/supabase-js");
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,12 +100,16 @@ export async function updateAdminProfile(formData: FormData): Promise<ProfileAct
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Obtener avatar actual para conservar si no se subió uno nuevo ni se borró
-    const { data: currentProfile } = await supabaseAdmin
+    // Obtener avatar y datos actuales para comparar y registrar auditoría
+    const { data: currentProfile, error: fetchProfileError } = await supabaseAdmin
       .from("profiles")
-      .select("avatar_url")
+      .select("full_name, phone, bio, avatar_url")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (fetchProfileError) {
+      console.error("[Mi Perfil] Error al consultar perfil previo:", fetchProfileError);
+    }
 
     let finalAvatarUrl: string | null = currentProfile?.avatar_url || null;
 
@@ -147,32 +152,80 @@ export async function updateAdminProfile(formData: FormData): Promise<ProfileAct
     );
 
     if (profileError) {
+      console.error("[Mi Perfil] Error al actualizar perfil en profiles:", profileError);
       return {
         success: false,
-        error: `Error al guardar en perfiles: ${profileError.message}`,
+        error: "No fue posible actualizar la información del perfil.",
       };
     }
 
-    // 2. Sincronizar en public.users
-    await supabaseAdmin
+    // 2. Sincronizar timestamp en public.users (sin tocar full_name, pues no existe en users)
+    const { error: usersUpdateError } = await supabaseAdmin
       .from("users")
       .update({
-        full_name: fullName,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
+    if (usersUpdateError) {
+      console.error("[Mi Perfil] Aviso al actualizar timestamp en users:", usersUpdateError);
+    }
+
     // 3. Sincronizar en auth.users metadata
     try {
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      const { error: authMetaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
         user_metadata: {
           ...user.user_metadata,
           full_name: fullName,
           avatar_url: finalAvatarUrl,
         },
       });
+
+      if (authMetaError) {
+        console.error("[Mi Perfil] Error al sincronizar metadata de autenticación:", authMetaError);
+      }
     } catch (authMetaErr) {
       console.warn("Aviso al sincronizar metadata de autenticación:", authMetaErr);
+    }
+
+    // 4. Registrar auditoría central de actualización de perfil (No bloqueante)
+    try {
+      await logAuditAction({
+        userId: user.id,
+        action: "update",
+        entityType: "profile",
+        entityId: user.id,
+        businessId: null,
+        oldData: {
+          full_name: currentProfile?.full_name || null,
+          phone: currentProfile?.phone || null,
+          bio: currentProfile?.bio || null,
+        },
+        newData: {
+          full_name: fullName,
+          phone: phone || null,
+          bio: bio || null,
+        },
+        metadata: {
+          original_action: "update_admin_profile",
+        },
+      });
+
+      // Registrar auditoría de avatar si hubo cambio de imagen
+      if (finalAvatarUrl !== (currentProfile?.avatar_url || null)) {
+        await logAuditAction({
+          userId: user.id,
+          action: "update",
+          entityType: "profile",
+          entityId: user.id,
+          businessId: null,
+          metadata: {
+            original_action: removeAvatar ? "delete_profile_avatar" : "update_profile_avatar",
+          },
+        });
+      }
+    } catch (auditErr) {
+      console.error("[Mi Perfil] Error no bloqueante al registrar auditoría:", auditErr);
     }
 
     // Revalidar rutas administrativas para reflejar el nuevo nombre/avatar en tiempo real
@@ -227,7 +280,15 @@ export async function sendProfilePasswordOtp(): Promise<ProfileActionResponse> {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos de vigencia
 
     // Guardar en public.password_reset_otps
-    await supabaseAdmin.from("password_reset_otps").delete().eq("email", sanitizedEmail);
+    const { error: deleteOtpError } = await supabaseAdmin
+      .from("password_reset_otps")
+      .delete()
+      .eq("email", sanitizedEmail);
+
+    if (deleteOtpError) {
+      console.error("[Mi Perfil] Aviso al limpiar OTPs previos:", deleteOtpError);
+    }
+
     const { error: insertError } = await supabaseAdmin.from("password_reset_otps").insert({
       email: sanitizedEmail,
       code: otpCode,
@@ -235,13 +296,14 @@ export async function sendProfilePasswordOtp(): Promise<ProfileActionResponse> {
     });
 
     if (insertError) {
+      console.error("[Mi Perfil] Error al insertar nuevo OTP:", insertError);
       return {
         success: false,
         error: "No se pudo registrar el código de seguridad. Intente nuevamente.",
       };
     }
 
-    // Enviar correo con Resend (redirigiendo a leitec.info@gmail.com en desarrollo)
+    // Enviar correo transaccional con Resend
     const { sendOtpEmail } = await import("@/lib/email/resend");
     const emailResult = await sendOtpEmail({
       to: sanitizedEmail,
@@ -313,7 +375,15 @@ export async function verifyProfilePasswordOtp(otpCode: string): Promise<Profile
       .limit(1)
       .maybeSingle();
 
-    if (dbError || !otpRecord) {
+    if (dbError) {
+      console.error("[Mi Perfil] Error al consultar OTP:", dbError);
+      return {
+        success: false,
+        error: "Error al verificar el código de seguridad. Intente nuevamente.",
+      };
+    }
+
+    if (!otpRecord) {
       return {
         success: false,
         error: "No se encontró ningún código de seguridad activo. Por favor solicita uno nuevo.",
@@ -330,16 +400,29 @@ export async function verifyProfilePasswordOtp(otpCode: string): Promise<Profile
     if (otpRecord.code !== sanitizedOtp) {
       const nextAttempts = (otpRecord.attempts || 0) + 1;
       if (nextAttempts >= 3) {
-        await supabaseAdmin.from("password_reset_otps").delete().eq("id", otpRecord.id);
+        const { error: delError } = await supabaseAdmin
+          .from("password_reset_otps")
+          .delete()
+          .eq("id", otpRecord.id);
+
+        if (delError) {
+          console.error("[Mi Perfil] Error al eliminar OTP por intentos excedidos:", delError);
+        }
+
         return {
           success: false,
           error: "Código incorrecto. Se superó el límite de intentos permitidos. Solicite un nuevo código.",
         };
       } else {
-        await supabaseAdmin
+        const { error: updateAttemptsError } = await supabaseAdmin
           .from("password_reset_otps")
           .update({ attempts: nextAttempts })
           .eq("id", otpRecord.id);
+
+        if (updateAttemptsError) {
+          console.error("[Mi Perfil] Error al actualizar intentos de OTP:", updateAttemptsError);
+        }
+
         return {
           success: false,
           error: `El código ingresado es incorrecto. Intentos restantes: ${3 - nextAttempts}.`,
@@ -411,13 +494,21 @@ export async function updateAdminPassword(formData: FormData): Promise<ProfileAc
     );
 
     // 1. Verificar el código OTP en la base de datos
-    const { data: otpRecord } = await supabaseAdmin
+    const { data: otpRecord, error: otpFetchError } = await supabaseAdmin
       .from("password_reset_otps")
       .select("id, code, expires_at")
       .eq("email", sanitizedEmail)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (otpFetchError) {
+      console.error("[Mi Perfil] Error al verificar OTP para cambio de contraseña:", otpFetchError);
+      return {
+        success: false,
+        error: "Error al validar la sesión de verificación. Intente nuevamente.",
+      };
+    }
 
     if (!otpRecord) {
       return {
@@ -463,27 +554,53 @@ export async function updateAdminPassword(formData: FormData): Promise<ProfileAc
     });
 
     if (adminUpdateError) {
+      console.error("[Mi Perfil] Error al actualizar contraseña:", adminUpdateError);
       return {
         success: false,
-        error: adminUpdateError.message || "No se pudo actualizar la contraseña. Intente nuevamente.",
+        error: "No se pudo actualizar la contraseña. Intente nuevamente.",
       };
     }
 
     // 4. Sincronizar en public.users
-    await supabaseAdmin
+    const { error: usersUpdateError } = await supabaseAdmin
       .from("users")
       .update({
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
+    if (usersUpdateError) {
+      console.error("[Mi Perfil] Aviso al actualizar timestamp de usuario:", usersUpdateError);
+    }
+
     await supabase.auth.updateUser({ password: newPassword }).catch(() => {});
 
     // 5. Limpiar el OTP usado
-    await supabaseAdmin
+    const { error: deleteOtpError } = await supabaseAdmin
       .from("password_reset_otps")
       .delete()
       .eq("email", sanitizedEmail);
+
+    if (deleteOtpError) {
+      console.error("[Mi Perfil] Aviso al limpiar OTP consumido:", deleteOtpError);
+    }
+
+    // 6. Registrar en auditoría central (NO bloqueante y SIN datos sensibles)
+    try {
+      await logAuditAction({
+        userId: user.id,
+        action: "update",
+        entityType: "user_security",
+        entityId: user.id,
+        businessId: null,
+        metadata: {
+          original_action: "change_admin_password",
+          must_change_password_cleared: true,
+        },
+      });
+    } catch (auditErr) {
+      console.error("[Mi Perfil] Error no bloqueante al registrar auditoría de contraseña:", auditErr);
+    }
 
     return {
       success: true,

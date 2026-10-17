@@ -84,6 +84,7 @@ export interface PlatformSecurityConfig {
   rateLimitPerMinute: number;
   sessionTimeoutMinutes?: number;
   requireMfaForStaff?: boolean;
+  requireMfaForOwners?: boolean;
 }
 
 export interface PlatformUsersAccessConfig {
@@ -271,6 +272,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFullConfig = {
     rateLimitPerMinute: 60,
     sessionTimeoutMinutes: 60,
     requireMfaForStaff: true,
+    requireMfaForOwners: true,
   },
   usuariosAcceso: {
     allowedRoles: ["super_admin", "staff", "auditor"],
@@ -295,7 +297,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFullConfig = {
   },
   planesLimites: {
     inicio: {
-      maxUsers: 1,
+      maxUsers: 2,
       maxProducts: 200,
       maxBranches: 1,
       canUsePos: true,

@@ -449,7 +449,7 @@ export async function renewOrExtendSubscription(
     // 2. Verificar existencia del negocio
     const { data: business } = await adminClient
       .from("businesses")
-      .select("id, name, status")
+      .select("id, name, slug, status")
       .eq("id", businessId)
       .single();
 
@@ -541,25 +541,57 @@ export async function renewOrExtendSubscription(
     }
 
     // 5. Registrar en auditoría forense
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "update",
+      entityType: "subscription",
+      entityId: updatedSubId || businessId,
+      businessId,
+      userId: actorId || null,
+      oldData: currentSub ? { period_end: currentSub.current_period_end, status: currentSub.status } : null,
+      newData: { period_start: periodStart, period_end: periodEnd, months_added: months, plan: planIdToUse },
+      metadata: {
+        original_action: "renew_subscription",
+        event: "subscription.renewed",
+        months_added: months,
+        period_start: periodStart,
+        period_end: periodEnd,
+        renewed_by: actorId || "system",
+      },
+    });
+
+    // 6. Generar factura automáticamente (Idempotente)
     try {
-      await adminClient.from("audit_logs").insert({
-        business_id: businessId,
-        user_id: actorId || null,
-        action: "update",
-        entity_type: "subscription",
-        entity_id: updatedSubId || businessId,
-        old_data: currentSub ? { period_end: currentSub.current_period_end, status: currentSub.status } : null,
-        new_data: { period_start: periodStart, period_end: periodEnd, months_added: months, plan: planIdToUse },
-        metadata: {
-          event: "subscription.renewed",
-          months_added: months,
-          period_start: periodStart,
-          period_end: periodEnd,
-          renewed_by: actorId || "system",
-        },
+      const canonicalPlan = resolveCanonicalPlanId(planIdToUse);
+      const planConfig = NEGOVA_PLANS[canonicalPlan];
+      let amount = interval === "annual" ? planConfig.pricing.annualTotal : planConfig.pricing.monthly;
+
+      if (interval === "annual") {
+        try {
+          const { getAnnualDiscountConfig } = await import("@/lib/subscriptions/annual-discount-service");
+          const discountCfg = await getAnnualDiscountConfig();
+          if (discountCfg.isEnabled) {
+            amount = amount - (amount * discountCfg.percentage / 100);
+          }
+        } catch (e) {}
+      }
+
+      const { createInvoiceForSubscription } = await import("@/lib/billing/billing-service");
+      await createInvoiceForSubscription({
+        subscriptionId: updatedSubId || businessId,
+        businessId: business.id,
+        businessName: business.name,
+        businessSlug: business.slug,
+        planId: planIdToUse,
+        planName: planConfig.name,
+        billingInterval: interval,
+        amount: amount,
+        isTrial: false,
+        issuedAt: new Date(periodStart).toISOString(),
+        dueDate: new Date(periodEnd).toISOString(),
       });
-    } catch (auditErr) {
-      console.warn("[Audit Log Subscription Renewal warning]:", auditErr);
+    } catch (invErr) {
+      console.warn("[Invoice Generation warning]:", invErr);
     }
 
     return { success: true, periodEnd };
@@ -619,22 +651,22 @@ export async function changeSubscriptionStatus(
     }
 
     // Registrar auditoría
-    try {
-      await adminClient.from("audit_logs").insert({
-        business_id: sub.business_id,
-        user_id: actorId || null,
-        action: "status_change",
-        entity_type: "subscription",
-        entity_id: subscriptionId,
-        old_data: { status: oldStatus },
-        new_data: { status: newStatus, reason: reason || null },
-        metadata: {
-          event: "subscription.status_changed",
-          actor: actorId || "system",
-          reason,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "status_change",
+      entityType: "subscription",
+      entityId: subscriptionId,
+      businessId: sub.business_id,
+      userId: actorId || null,
+      oldData: { status: oldStatus },
+      newData: { status: newStatus, reason: reason || null },
+      metadata: {
+        original_action: "suspend_subscription",
+        event: "subscription.status_changed",
+        actor: actorId || "system",
+        reason,
+      },
+    });
 
     return { success: true };
   } catch (err: any) {
@@ -690,22 +722,22 @@ export async function changeSubscriptionPlan(
     if (updErr) throw updErr;
 
     // Registrar auditoría
-    try {
-      await adminClient.from("audit_logs").insert({
-        business_id: sub.business_id,
-        user_id: actorId || null,
-        action: "update",
-        entity_type: "subscription",
-        entity_id: subscriptionId,
-        old_data: { plan_id: sub.plan_id },
-        new_data: { plan_id: newPlanId },
-        metadata: {
-          event: "subscription.plan_changed",
-          new_plan: newPlanId,
-          actor: actorId || "system",
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "update",
+      entityType: "subscription",
+      entityId: subscriptionId,
+      businessId: sub.business_id,
+      userId: actorId || null,
+      oldData: { plan_id: sub.plan_id },
+      newData: { plan_id: newPlanId },
+      metadata: {
+        original_action: "change_subscription_plan",
+        event: "subscription.plan_changed",
+        new_plan: newPlanId,
+        actor: actorId || "system",
+      },
+    });
 
     return { success: true };
   } catch (err: any) {

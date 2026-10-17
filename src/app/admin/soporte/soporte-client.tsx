@@ -1,6 +1,9 @@
 "use client";
 
+import { createClient } from "@/lib/supabase/client";
+
 import React, { useState, useTransition, useEffect } from "react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   Headphones,
   AlertCircle,
@@ -247,6 +250,79 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
   useEffect(() => {
     if (activeTab === "chat") {
       loadConversations();
+
+      const supabase = createClient();
+      const channel = supabase
+        .channel("support_realtime")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "support_chat_messages" },
+          (payload: any) => {
+            const newMsg: SupportChatMessage = {
+              id: payload.new.id,
+              conversationId: payload.new.conversation_id,
+              senderRole: payload.new.sender_role,
+              senderId: payload.new.sender_id,
+              senderName: payload.new.sender_name,
+              content: payload.new.content,
+              suggestedActions: payload.new.suggested_actions,
+              readByAdmin: payload.new.read_by_admin,
+              readByClient: payload.new.read_by_client,
+              isInternalNote: payload.new.is_internal_note,
+              metadata: payload.new.metadata,
+              createdAt: payload.new.created_at,
+            };
+
+            setChatMessages((prev) => {
+              // Solo añadir si es de la conversación que estamos viendo
+              // Usamos el callback prev para obtener los mensajes actuales. Si el último msj
+              // o algún msj tiene este conversationId, es probable que estemos en ella.
+              // Pero la forma más segura es re-evaluar contra el estado `selectedConversation`
+              // que pasaremos en dependencias (y usaremos una referencia o simplemente el estado closure actual).
+              if (!prev.find((m) => m.id === newMsg.id)) {
+                // Si la vista actual es de esta conversación, lo añadimos
+                if (prev.length === 0 || prev[0].conversationId === newMsg.conversationId) {
+                  return [...prev, newMsg];
+                }
+              }
+              return prev;
+            });
+            
+            // Siempre recargar la lista de conversaciones para actualizar previsualizaciones y unread
+            loadConversations();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "support_conversations" },
+          (payload: any) => {
+            loadConversations();
+            setSelectedConversation((prev) => {
+              if (prev && prev.id === payload.new.id) {
+                return {
+                  ...prev,
+                  status: payload.new.status,
+                  mode: payload.new.mode,
+                  assignedAgentId: payload.new.assigned_agent_id,
+                  assignedAgentName: payload.new.assigned_agent_name,
+                  lastMessagePreview: payload.new.last_message_preview,
+                  unreadCountAdmin: payload.new.unread_count_admin,
+                  unreadCountClient: payload.new.unread_count_client,
+                };
+              }
+              return prev;
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("Suscrito a Realtime de Soporte");
+          }
+        });
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [activeTab]);
 
@@ -1590,7 +1666,8 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
 
       {/* MODAL: FORMALIZAR CHAT EN ATENCIÓN O TICKET */}
       {convertChatModal.open && selectedConversation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2">
@@ -1721,11 +1798,13 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* 7. MODAL: REGISTRAR ATENCIÓN RÁPIDA (~15 segundos) */}
       {isNewInteractionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
@@ -1934,11 +2013,13 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* 8. MODAL: CREAR TICKET DIRECTO (TCK) */}
       {isNewTicketModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
@@ -2113,11 +2194,13 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* 9. MODAL: DETALLE DE ATENCIÓN (ATN) */}
       {selectedInteraction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
@@ -2194,11 +2277,13 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* 10. MODAL: GESTIÓN DE TICKET (TCK) CON NOTAS INTERNAS Y RESPUESTA AL CLIENTE */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
           <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
@@ -2362,6 +2447,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

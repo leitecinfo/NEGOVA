@@ -15,11 +15,38 @@ import {
   BUSINESS_ROLES_CATALOG,
   DEFAULT_ROLE_PERMISSIONS_MAP,
   RoleScope,
+  PlatformRoleCode,
 } from "./permissions";
 import { NEGOVA_PLANS, PlanId } from "@/config/plans";
 
 export type UserType = "platform" | "business";
 export type UserStatus = "active" | "invited" | "disabled" | "blocked" | "inactive" | "suspended";
+
+/**
+ * Mapeo canónico bidireccional entre la UI y los tipos ENUM de PostgreSQL:
+ * - public.user_status ENUM: ('active', 'inactive', 'suspended')
+ * - public.membership_status ENUM: ('invited', 'active', 'inactive', 'suspended')
+ */
+export function toDbUserStatus(status: UserStatus | string): "active" | "inactive" | "suspended" {
+  if (status === "active") return "active";
+  if (status === "blocked" || status === "suspended") return "suspended";
+  return "inactive"; // "disabled", "inactive", "invited" -> "inactive"
+}
+
+export function toDbMembershipStatus(status: UserStatus | string): "invited" | "active" | "inactive" | "suspended" {
+  if (status === "active") return "active";
+  if (status === "invited") return "invited";
+  if (status === "blocked" || status === "suspended") return "suspended";
+  return "inactive"; // "disabled", "inactive" -> "inactive"
+}
+
+export function fromDbUserStatus(status: string | null | undefined): UserStatus {
+  if (!status || status === "active") return "active";
+  if (status === "suspended") return "blocked";
+  if (status === "inactive") return "disabled";
+  if (status === "invited") return "invited";
+  return (status as UserStatus);
+}
 
 export interface BusinessMembershipDetail {
   membershipId: string;
@@ -98,7 +125,7 @@ export interface CreateUserInput {
 /**
  * Obtener cliente administrativo Supabase (Service Role) con privilegios de gestión
  */
-async function getSupabaseAdminClient() {
+export async function getSupabaseAdminClient() {
   const { createClient: createAdminClient } = await import("@supabase/supabase-js");
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -156,7 +183,7 @@ export async function getUsersList(filters: UserListFilters = {}): Promise<UserL
 
   // Filtrado por estado si se especifica
   if (filters.status && filters.status !== "all") {
-    query = query.eq("status", filters.status);
+    query = query.eq("status", toDbUserStatus(filters.status));
   }
 
   // Filtrado por rol de plataforma si se busca un rol específico
@@ -212,7 +239,7 @@ export async function getUsersList(filters: UserListFilters = {}): Promise<UserL
       roleId: bu.role_id,
       roleCode: bu.roles?.code || "auxiliar",
       roleName: bu.roles?.name || "Auxiliar",
-      status: bu.status || "active",
+      status: fromDbUserStatus(bu.status),
       invitedAt: bu.invited_at,
       joinedAt: bu.joined_at,
     });
@@ -228,16 +255,10 @@ export async function getUsersList(filters: UserListFilters = {}): Promise<UserL
     const profile = profileMap.get(u.id);
     const memberships = membershipsMap.get(u.id) || [];
     const authUser = authUsersMap.get(u.id);
-    const authRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
 
-    const resolvedPlatformRole =
-      u.platform_role === "super_admin" || u.platform_role === "admin"
-        ? u.platform_role
-        : authRole === "super_admin" || authRole === "admin"
-          ? authRole
-          : (u.platform_role || "customer");
-
-    const isPlatform = ["super_admin", "admin"].includes(resolvedPlatformRole);
+    // Fuente canónica estricta para ámbito de plataforma: public.users.platform_role
+    const resolvedPlatformRole = (u.platform_role || "customer") as PlatformRoleCode | "customer";
+    const isPlatform = resolvedPlatformRole === "super_admin" || resolvedPlatformRole === "admin";
 
     const type: UserType = isPlatform ? "platform" : "business";
     const primaryRoleCode = isPlatform
@@ -254,7 +275,7 @@ export async function getUsersList(filters: UserListFilters = {}): Promise<UserL
       bio: profile?.bio || null,
       type,
       platformRole: resolvedPlatformRole,
-      status: (u.status || "active") as UserStatus,
+      status: fromDbUserStatus(u.status),
       mustChangePassword: Boolean((u as any).must_change_password || authUser?.user_metadata?.must_change_password),
       lastLoginAt: u.last_login_at || authUser?.last_sign_in_at || null,
       createdAt: u.created_at || authUser?.created_at || new Date().toISOString(),
@@ -373,7 +394,7 @@ export async function getUserDetail(userId: string): Promise<{
     roleId: bu.role_id,
     roleCode: bu.roles?.code || "auxiliar",
     roleName: bu.roles?.name || "Auxiliar",
-    status: bu.status || "active",
+    status: fromDbUserStatus(bu.status),
     invitedAt: bu.invited_at,
     joinedAt: bu.joined_at,
   }));
@@ -383,14 +404,9 @@ export async function getUserDetail(userId: string): Promise<{
   const authUser = authUserData?.user;
   const authRole = authUser?.app_metadata?.role || authUser?.user_metadata?.role;
 
-  const resolvedPlatformRole =
-    dbUser.platform_role === "super_admin" || dbUser.platform_role === "admin"
-      ? dbUser.platform_role
-      : authRole === "super_admin" || authRole === "admin"
-        ? authRole
-        : (dbUser.platform_role || "customer");
-
-  const isPlatform = ["super_admin", "admin"].includes(resolvedPlatformRole);
+  // Fuente canónica estricta para ámbito de plataforma: dbUser.platform_role
+  const resolvedPlatformRole = (dbUser.platform_role || "customer") as PlatformRoleCode | "customer";
+  const isPlatform = resolvedPlatformRole === "super_admin" || resolvedPlatformRole === "admin";
   const type: UserType = isPlatform ? "platform" : "business";
   const primaryRoleCode = isPlatform ? resolvedPlatformRole : memberships[0]?.roleCode || "auxiliar";
   const roleMeta = getRoleBadge(primaryRoleCode, isPlatform ? "platform" : "business");
@@ -419,17 +435,29 @@ export async function getUserDetail(userId: string): Promise<{
     }
   } else if (memberships.length > 0) {
     const roleId = memberships[0].roleId;
-    const { data: rolePermissions } = await adminClient
-      .from("role_permissions")
-      .select("permissions(code)")
-      .eq("role_id", roleId);
+    const businessId = memberships[0].businessId;
 
-    if (rolePermissions && rolePermissions.length > 0) {
-      effectivePermissions = rolePermissions
-        .map((rp: any) => rp.permissions?.code)
-        .filter(Boolean);
+    if (primaryRoleCode === "owner") {
+      effectivePermissions = DEFAULT_ROLE_PERMISSIONS_MAP["owner"] || [];
     } else {
-      effectivePermissions = DEFAULT_ROLE_PERMISSIONS_MAP[primaryRoleCode] || [];
+      try {
+        const { getUserEffectivePermissionsDetail } = await import("./user-permissions-service");
+        const details = await getUserEffectivePermissionsDetail(businessId, userId);
+        effectivePermissions = details.effectivePermissions;
+      } catch {
+        const { data: rolePermissions } = await adminClient
+          .from("role_permissions")
+          .select("permissions(code)")
+          .eq("role_id", roleId);
+
+        if (rolePermissions && rolePermissions.length > 0) {
+          effectivePermissions = rolePermissions
+            .map((rp: any) => rp.permissions?.code)
+            .filter(Boolean);
+        } else {
+          effectivePermissions = DEFAULT_ROLE_PERMISSIONS_MAP[primaryRoleCode] || [];
+        }
+      }
     }
   }
 
@@ -450,7 +478,7 @@ export async function getUserDetail(userId: string): Promise<{
     bio: profile?.bio || null,
     type,
     platformRole: resolvedPlatformRole,
-    status: (dbUser.status || "active") as UserStatus,
+    status: fromDbUserStatus(dbUser.status),
     mustChangePassword: Boolean(authUser?.user_metadata?.must_change_password),
     lastLoginAt: dbUser.last_login_at || authUser?.last_sign_in_at || null,
     createdAt: dbUser.created_at || authUser?.created_at || new Date().toISOString(),
@@ -502,7 +530,7 @@ export async function checkBusinessPlanUserCapacity(businessId: string): Promise
   // 2. Determinar plan y límites desde la fuente central de verdad (src/config/plans.ts)
   let planKey: PlanId = "inicio";
   let planName = "Plan Inicio";
-  let maxUsers = 1;
+  let maxUsers = NEGOVA_PLANS.inicio.limits.maxUsers;
 
   if (subscription?.plans) {
     const planObj = subscription.plans as any;
@@ -516,7 +544,7 @@ export async function checkBusinessPlanUserCapacity(businessId: string): Promise
     }
     const configPlan = NEGOVA_PLANS[planKey];
     planName = configPlan?.name || planObj.name || "Inicio";
-    maxUsers = configPlan?.limits?.maxUsers || (planObj.limits?.maxUsers ?? 1);
+    maxUsers = configPlan?.limits?.maxUsers || (planObj.limits?.maxUsers ?? 2);
   } else {
     // Si no tiene suscripción registrada, aplica tier base (Inicio)
     const basePlan = NEGOVA_PLANS.inicio;
@@ -601,11 +629,49 @@ export async function createUser(
     // 2. Comprobar si el email ya existe en public.users
     const { data: existingUser } = await adminClient
       .from("users")
-      .select("id")
+      .select("id, platform_role, status")
       .eq("email", email)
       .maybeSingle();
 
     if (existingUser) {
+      // Si el usuario ya existe en la base de datos pero estamos en el flujo de invitarlo al negocio:
+      if (input.type === "business" && input.businessId) {
+        const { data: existingMembership } = await adminClient
+          .from("business_users")
+          .select("id, status")
+          .eq("business_id", input.businessId)
+          .eq("user_id", existingUser.id)
+          .maybeSingle();
+
+        if (existingMembership && existingMembership.status !== "inactive") {
+          return {
+            success: false,
+            error: "El usuario ya se encuentra registrado y activo en este comercio.",
+          };
+        }
+
+        // Asociar la cuenta existente al comercio
+        const assignResult = await assignUserToBusiness(
+          existingUser.id,
+          input.businessId,
+          input.roleCode,
+          actorId
+        );
+
+        if (!assignResult.success) {
+          return {
+            success: false,
+            error: assignResult.error || "No fue posible asociar el usuario existente al comercio.",
+          };
+        }
+
+        const detail = await getUserDetail(existingUser.id);
+        return {
+          success: true,
+          user: detail.user,
+        };
+      }
+
       return {
         success: false,
         error: "Ya existe un usuario registrado con este correo electrónico.",
@@ -686,7 +752,7 @@ export async function createUser(
 
     // 6. Insertar / Actualizar registro en public.users
     const platformRole = input.type === "platform" ? input.roleCode : "customer";
-    const userStatus = input.status || "active";
+    const dbStatus = toDbUserStatus(input.status || "active");
 
     const { error: userUpsertErr } = await adminClient
       .from("users")
@@ -694,7 +760,7 @@ export async function createUser(
         id: newUserId,
         email,
         platform_role: platformRole,
-        status: userStatus,
+        status: dbStatus,
         must_change_password: mustChangePassword,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -719,29 +785,47 @@ export async function createUser(
       console.error("[public.profiles Upsert Error]:", profileErr);
     }
 
-    // 8. Registrar Auditoría Forense
-    try {
-      await adminClient.from("audit_logs").insert({
-        user_id: actorId || null,
-        action: "create",
-        entity_type: "user",
-        entity_id: newUserId,
-        new_data: {
-          email,
-          fullName,
-          type: input.type,
-          roleCode: input.roleCode,
-          status: userStatus,
-          mustChangePassword,
-        },
-        metadata: {
-          event: "user.created",
-          created_by_actor: actorId || "system",
-        },
-      });
-    } catch (auditErr) {
-      console.warn("[Audit Log non-fatal error]:", auditErr);
+    // 7.5 Si es usuario de negocio y se especificó businessId, asociar a public.business_users
+    if (input.type === "business" && input.businessId) {
+      const assignResult = await assignUserToBusiness(
+        newUserId,
+        input.businessId,
+        input.roleCode,
+        actorId
+      );
+
+      if (!assignResult.success) {
+        console.error("[createUser assignUserToBusiness Error]:", assignResult.error);
+        return {
+          success: false,
+          error: assignResult.error || "No fue posible asociar el usuario al comercio especificado.",
+        };
+      }
     }
+
+    // 8. Registrar Auditoría Forense (Acción de plataforma: business_id = null)
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: input.businessId || null,
+      userId: actorId || null,
+      action: "create",
+      entityType: "user",
+      entityId: newUserId,
+      newData: {
+        email,
+        fullName,
+        type: input.type,
+        roleCode: input.roleCode,
+        businessId: input.businessId || null,
+        status: dbStatus,
+        mustChangePassword,
+      },
+      metadata: {
+        original_action: "create_user",
+        event: "user.created",
+        created_by_actor: actorId || "system",
+      },
+    });
 
     // Obtener modelo final para respuesta
     const detail = await getUserDetail(newUserId);
@@ -795,13 +879,15 @@ export async function updateUserProfile(
     });
 
     // Auditoría
-    await adminClient.from("audit_logs").insert({
-      user_id: actorId || null,
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: actorId || null,
       action: "update",
-      entity_type: "user",
-      entity_id: userId,
-      new_data: { fullName, phone: data.phone, bio: data.bio },
-      metadata: { event: "user.updated" },
+      entityType: "user",
+      entityId: userId,
+      newData: { fullName, phone: data.phone, bio: data.bio },
+      metadata: { original_action: "update_user", event: "user.updated" },
     });
 
     return { success: true };
@@ -886,15 +972,17 @@ export async function changeUserRole(
         app_metadata: { role: newRoleCode },
       });
 
-      // Auditoría
-      await adminClient.from("audit_logs").insert({
-        user_id: actorId || null,
+      // Auditoría (Plataforma: business_id = null)
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId: null,
+        userId: actorId || null,
         action: "permission_change",
-        entity_type: "user",
-        entity_id: userId,
-        old_data: { platform_role: dbUser.platform_role },
-        new_data: { platform_role: newRoleCode },
-        metadata: { event: "user.role.changed", scope: "platform" },
+        entityType: "user",
+        entityId: userId,
+        oldData: { platform_role: dbUser.platform_role },
+        newData: { platform_role: newRoleCode },
+        metadata: { original_action: "update_user_role", event: "user.role.changed", scope: "platform" },
       });
 
       return { success: true };
@@ -933,15 +1021,16 @@ export async function changeUserRole(
         })
         .eq("id", bu.id);
 
-      // Auditoría
-      await adminClient.from("audit_logs").insert({
-        business_id: businessId,
-        user_id: actorId || null,
+      // Auditoría (Negocio: business_id = businessId)
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId,
+        userId: actorId || null,
         action: "permission_change",
-        entity_type: "membership",
-        entity_id: bu.id,
-        new_data: { roleCode: newRoleCode, roleId: dbRole.id },
-        metadata: { event: "user.membership.role_updated" },
+        entityType: "membership",
+        entityId: bu.id,
+        newData: { roleCode: newRoleCode, roleId: dbRole.id },
+        metadata: { original_action: "update_member_role", event: "user.membership.role_updated" },
       });
 
       return { success: true };
@@ -975,8 +1064,11 @@ export async function changeUserStatus(
       return { success: false, error: "Usuario no encontrado." };
     }
 
+    const dbStatus = toDbUserStatus(newStatus);
+    const memStatus = toDbMembershipStatus(newStatus);
+
     // Proteger último super_admin de ser deshabilitado o bloqueado
-    if (dbUser.platform_role === "super_admin" && newStatus !== "active") {
+    if (dbUser.platform_role === "super_admin" && dbStatus !== "active") {
       const { count } = await adminClient
         .from("users")
         .select("id", { count: "exact", head: true })
@@ -993,13 +1085,31 @@ export async function changeUserStatus(
     }
 
     // Actualizar estado en public.users
-    await adminClient
+    const { error: userErr } = await adminClient
       .from("users")
       .update({
-        status: newStatus,
+        status: dbStatus,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
+
+    if (userErr) {
+      console.error("[changeUserStatus Error in users table]:", userErr);
+      throw new Error(`Error al actualizar estado en BD: ${userErr.message}`);
+    }
+
+    // Actualizar estado en cascada en public.business_users
+    const { error: buErr } = await adminClient
+      .from("business_users")
+      .update({
+        status: memStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    if (buErr) {
+      console.warn("[changeUserStatus Warning in business_users table]:", buErr);
+    }
 
     // Auditoría
     const eventName =
@@ -1009,14 +1119,16 @@ export async function changeUserStatus(
         ? "user.blocked"
         : "user.disabled";
 
-    await adminClient.from("audit_logs").insert({
-      user_id: actorId || null,
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: actorId || null,
       action: "status_change",
-      entity_type: "user",
-      entity_id: userId,
-      old_data: { status: dbUser.status },
-      new_data: { status: newStatus },
-      metadata: { event: eventName },
+      entityType: "user",
+      entityId: userId,
+      oldData: { status: dbUser.status },
+      newData: { status: newStatus },
+      metadata: { original_action: "update_user_status", event: eventName },
     });
 
     return { success: true };
@@ -1060,12 +1172,14 @@ export async function resetUserPassword(
       .eq("id", userId);
 
     // Auditoría
-    await adminClient.from("audit_logs").insert({
-      user_id: actorId || null,
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: actorId || null,
       action: "update",
-      entity_type: "user",
-      entity_id: userId,
-      metadata: { event: "user.password_reset_requested" },
+      entityType: "user",
+      entityId: userId,
+      metadata: { original_action: "reset_user_password", event: "user.password_reset_requested" },
     });
 
     return { success: true, temporaryPassword };
@@ -1118,12 +1232,31 @@ export async function assignUserToBusiness(
     }
 
     // 3. Validar rol de ámbito negocio
-    const { data: dbRole } = await adminClient
+    let { data: dbRole } = await adminClient
       .from("roles")
       .select("id, code, name, scope")
       .eq("code", roleCode)
       .eq("scope", "business")
       .maybeSingle();
+
+    if (!dbRole) {
+      const catalogRole = BUSINESS_ROLES_CATALOG.find((r) => r.code === roleCode);
+      if (catalogRole) {
+        const { data: newRole } = await adminClient
+          .from("roles")
+          .insert({
+            code: catalogRole.code,
+            name: catalogRole.name,
+            description: catalogRole.description,
+            scope: "business",
+            is_system_role: true,
+          })
+          .select("id, code, name, scope")
+          .maybeSingle();
+
+        dbRole = newRole;
+      }
+    }
 
     if (!dbRole) {
       return { success: false, error: `El rol '${roleCode}' no es un rol válido para un negocio.` };
@@ -1186,23 +1319,21 @@ export async function assignUserToBusiness(
     }
 
     // Registrar auditoría
-    try {
-      await adminClient.from("audit_logs").insert({
-        business_id: businessId,
-        user_id: actorId || null,
-        action: existingBu ? "update" : "create",
-        entity_type: "membership",
-        entity_id: membershipId,
-        new_data: { userId, businessId, roleCode, roleId: dbRole.id },
-        metadata: {
-          event: existingBu ? "business.membership_updated" : "business.membership_assigned",
-          role: roleCode,
-          business_name: business.name,
-        },
-      });
-    } catch {
-      // Auditoría no fatal
-    }
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId,
+      userId: actorId || null,
+      action: existingBu ? "update" : "create",
+      entityType: "membership",
+      entityId: membershipId,
+      newData: { userId, businessId, roleCode, roleId: dbRole.id },
+      metadata: {
+        original_action: existingBu ? "update_membership" : "assign_membership",
+        event: existingBu ? "business.membership_updated" : "business.membership_assigned",
+        role: roleCode,
+        business_name: business.name,
+      },
+    });
 
     return { success: true, membershipId };
   } catch (err: any) {
@@ -1241,19 +1372,16 @@ export async function removeUserFromBusiness(
     if (delErr) throw delErr;
 
     // Registrar auditoría
-    try {
-      await adminClient.from("audit_logs").insert({
-        business_id: bu.business_id,
-        user_id: actorId || null,
-        action: "delete",
-        entity_type: "membership",
-        entity_id: membershipId,
-        old_data: { userId: bu.user_id, businessId: bu.business_id, roleId: bu.role_id },
-        metadata: { event: "business.membership_removed" },
-      });
-    } catch {
-      // Auditoría no fatal
-    }
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: bu.business_id,
+      userId: actorId || null,
+      action: "delete",
+      entityType: "membership",
+      entityId: membershipId,
+      oldData: { userId: bu.user_id, businessId: bu.business_id, roleId: bu.role_id },
+      metadata: { original_action: "remove_membership", event: "business.membership_removed" },
+    });
 
     return { success: true };
   } catch (err: any) {
@@ -1320,6 +1448,207 @@ export async function getBusinessesOptions(): Promise<
   } catch (err) {
     console.error("[getBusinessesOptions Error]:", err);
     return [];
+  }
+}
+
+/**
+ * 13. ELIMINACIÓN SEGURA DE USUARIO (SOLO SUPERADMINISTRADOR)
+ * 
+ * Reglas de Protección:
+ * 1. Prohibido auto-eliminarse.
+ * 2. Prohibido eliminar al último Super Administrador activo.
+ * 3. Prohibido eliminar al único dueño de un negocio activo sin transferir la propiedad.
+ * 4. Revocación inmediata de sesiones en Supabase Auth y eliminación de perfil/membresías.
+ * 5. Preservación íntegra de registros comerciales históricos (ventas, pedidos, gastos con SET NULL).
+ * 6. Registro forense de auditoría.
+ */
+export async function deleteUser(
+  userId: string,
+  confirmEmail?: string,
+  actorId?: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminClient = await getSupabaseAdminClient();
+
+    // 1. Validar existencia del usuario a eliminar
+    const { data: dbUser, error: findErr } = await adminClient
+      .from("users")
+      .select("id, email, platform_role, status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (findErr || !dbUser) {
+      return { success: false, error: "Usuario no encontrado." };
+    }
+
+    // 2. Comprobar que no sea auto-eliminación
+    if (actorId && actorId === userId) {
+      return {
+        success: false,
+        error: "Operación rechazada: No puedes eliminar tu propia cuenta de usuario mediante esta acción administrativa.",
+      };
+    }
+
+    // 3. Confirmación de correo electrónico (si se proporcionó)
+    if (confirmEmail !== undefined && confirmEmail !== null && confirmEmail !== "") {
+      const normalizedConfirm = confirmEmail.trim().toLowerCase();
+      const normalizedUserEmail = (dbUser.email || "").trim().toLowerCase();
+      if (normalizedConfirm !== normalizedUserEmail) {
+        return {
+          success: false,
+          error: `El correo de confirmación no coincide con el correo de la cuenta a eliminar.`,
+        };
+      }
+    }
+
+    // 4. Proteger al último Super Administrador activo
+    if (dbUser.platform_role === "super_admin") {
+      const { count } = await adminClient
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("platform_role", "super_admin")
+        .eq("status", "active")
+        .neq("id", userId);
+
+      if (!count || count === 0) {
+        return {
+          success: false,
+          error: "Operación rechazada: No es posible eliminar al único Super Administrador activo de NEGOVA.",
+        };
+      }
+    }
+
+    // 5. Proteger al único dueño de un negocio activo
+    const { data: ownerMemberships } = await adminClient
+      .from("business_users")
+      .select(`
+        id,
+        business_id,
+        status,
+        role_id,
+        businesses(id, name, status),
+        roles(id, code)
+      `)
+      .eq("user_id", userId);
+
+    for (const om of ownerMemberships || []) {
+      const roleCode = (om.roles as any)?.code;
+      const bStatus = (om.businesses as any)?.status;
+      const isOwner = roleCode === "owner";
+      const isBusinessActive = bStatus === "active" || bStatus === "trial";
+      const isMembershipActive = om.status !== "inactive" && om.status !== "suspended";
+
+      if (isOwner && isBusinessActive && isMembershipActive) {
+        // Consultar si existe otro propietario activo en este comercio
+        const { count: otherOwnersCount } = await adminClient
+          .from("business_users")
+          .select("id", { count: "exact", head: true })
+          .eq("business_id", om.business_id)
+          .eq("role_id", om.role_id)
+          .neq("user_id", userId)
+          .in("status", ["active", "invited"]);
+
+        if (!otherOwnersCount || otherOwnersCount === 0) {
+          const bizName = (om.businesses as any)?.name || "el comercio asociado";
+          return {
+            success: false,
+            error: `Operación rechazada: El usuario es el único propietario del negocio '${bizName}'. Debe transferir la propiedad del comercio a otro usuario antes de eliminar esta cuenta.`,
+          };
+        }
+      }
+    }
+
+    // 6. Obtener datos de perfil para el registro de auditoría previo al borrado
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const userFullName = profile?.full_name || dbUser.email?.split("@")[0] || "Usuario";
+
+    // 7. Registrar Auditoría Forense de Eliminación
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: null,
+      userId: actorId || null,
+      action: "delete",
+      entityType: "user",
+      entityId: userId,
+      oldData: {
+        id: userId,
+        email: dbUser.email,
+        fullName: userFullName,
+        platformRole: dbUser.platform_role,
+        status: dbUser.status,
+      },
+      metadata: {
+        original_action: "delete_user",
+        event: "user.deleted",
+        deleted_by_actor: actorId || "super_admin",
+        reason: reason || "Eliminación permanente solicitada por Super Administrador",
+      },
+    });
+
+    // 8. Revocar acceso y eliminar usuario en Supabase Auth Admin
+    try {
+      const { error: authDelErr } = await adminClient.auth.admin.deleteUser(userId);
+      if (authDelErr && !authDelErr.message?.toLowerCase().includes("not found")) {
+        console.warn("[deleteUser Supabase Auth delete warning]:", authDelErr);
+      }
+    } catch (authErr) {
+      console.warn("[deleteUser Supabase Auth exception]:", authErr);
+    }
+
+    // 9. Eliminar membresías de negocios asociadas
+    const { error: buDelErr } = await adminClient
+      .from("business_users")
+      .delete()
+      .eq("user_id", userId);
+
+    if (buDelErr) {
+      console.warn("[deleteUser business_users delete warning]:", buDelErr);
+    }
+
+    // 10. Eliminar notificaciones dirigidas al usuario
+    try {
+      await adminClient.from("notifications").delete().eq("user_id", userId);
+    } catch (notifErr) {
+      console.warn("[deleteUser notifications delete warning]:", notifErr);
+    }
+
+    // 11. Eliminar perfil de usuario
+    const { error: profDelErr } = await adminClient
+      .from("profiles")
+      .delete()
+      .eq("id", userId);
+
+    if (profDelErr) {
+      console.warn("[deleteUser profiles delete warning]:", profDelErr);
+    }
+
+    // 12. Eliminar registro en public.users
+    const { error: userDelErr } = await adminClient
+      .from("users")
+      .delete()
+      .eq("id", userId);
+
+    if (userDelErr) {
+      console.error("[deleteUser users delete error]:", userDelErr);
+      return {
+        success: false,
+        error: `Error al eliminar el usuario de la base de datos: ${userDelErr.message}`,
+      };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[deleteUser Exception]:", err);
+    return {
+      success: false,
+      error: err.message || "Ocurrió un error inesperado al procesar la eliminación del usuario.",
+    };
   }
 }
 

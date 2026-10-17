@@ -23,6 +23,7 @@ import {
   Check,
   X
 } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 // Hook de observación de scroll bidireccional
 function useScrollObserver(): [React.RefObject<HTMLDivElement | null>, boolean] {
@@ -57,33 +58,35 @@ function SuccessModal({ isOpen, onClose, userName }: { isOpen: boolean; onClose:
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-      <div 
-        className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-2xl text-center text-[#0B0E14]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[#ED500A] to-[#F36320]" />
-        
-        <div className="mx-auto w-12 h-12 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center mb-4">
-          <Check className="w-6 h-6 stroke-[3px]" />
-        </div>
-
-        <h3 className="font-title font-black text-xl mb-2 text-[#0B0E14]">
-          ¡Mensaje Enviado!
-        </h3>
-
-        <p className="font-body text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
-          Gracias <strong>{userName}</strong>. Hemos recibido tus datos correctamente. Un asesor del equipo de NEGOVA se pondrá en contacto contigo de forma cercana y humana.
-        </p>
-
-        <button
-          onClick={onClose}
-          className="w-full py-3 rounded-full bg-[#0B0E14] hover:bg-[#ED500A] text-white font-title font-bold text-sm transition-colors cursor-pointer"
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+        <div 
+          className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-2xl text-center text-[#0B0E14]"
+          onClick={(e) => e.stopPropagation()}
         >
-          Entendido
-        </button>
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[#ED500A] to-[#F36320]" />
+          
+          <div className="mx-auto w-12 h-12 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center mb-4">
+            <Check className="w-6 h-6 stroke-[3px]" />
+          </div>
+
+          <h3 className="font-title font-black text-xl mb-2 text-[#0B0E14]">
+            ¡Mensaje Enviado!
+          </h3>
+
+          <p className="font-body text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+            Gracias <strong>{userName}</strong>. Hemos recibido tus datos correctamente. Un asesor del equipo de NEGOVA se pondrá en contacto contigo de forma cercana y humana.
+          </p>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-full bg-[#0B0E14] hover:bg-[#ED500A] text-white font-title font-bold text-sm transition-colors cursor-pointer"
+          >
+            Entendido
+          </button>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
 

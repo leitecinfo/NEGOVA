@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   getOrCreateActiveConversation,
   getConversationMessages,
@@ -7,6 +7,86 @@ import {
   convertChatToInteraction,
   convertChatToTicket,
 } from "@/lib/support/chat-service";
+
+// Mock Supabase storage
+let inMemoryDbConversations: any[] = [];
+let inMemoryDbChatMessages: any[] = [];
+const mockChatStorage: Record<string, any> = {};
+
+function createChatQueryBuilder(table: string) {
+  let targetTable = table === "support_conversations"
+    ? inMemoryDbConversations
+    : table === "support_chat_messages"
+    ? inMemoryDbChatMessages
+    : [];
+  let filters: Array<(row: any) => boolean> = [];
+
+  const builder: any = {
+    select: () => builder,
+    eq: (col: string, val: any) => {
+      filters.push((row: any) => row[col] === val);
+      return builder;
+    },
+    order: () => builder,
+    maybeSingle: async () => {
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return { data: filtered[0] || null, error: null };
+    },
+    single: async () => {
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return { data: filtered[0] || null, error: null };
+    },
+    then: (resolve: any) => {
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return Promise.resolve({ data: filtered, error: null }).then(resolve);
+    },
+    upsert: async (record: any) => {
+      const records = Array.isArray(record) ? record : [record];
+      for (const r of records) {
+        if (table === "support_conversations") {
+          const idx = inMemoryDbConversations.findIndex((c) => c.id === r.id);
+          if (idx >= 0) inMemoryDbConversations[idx] = { ...inMemoryDbConversations[idx], ...r };
+          else inMemoryDbConversations.push({ ...r });
+        }
+        if (table === "support_chat_messages") {
+          const idx = inMemoryDbChatMessages.findIndex((m) => m.id === r.id);
+          if (idx >= 0) inMemoryDbChatMessages[idx] = { ...inMemoryDbChatMessages[idx], ...r };
+          else inMemoryDbChatMessages.push({ ...r });
+        }
+        if (table === "platform_settings") {
+          mockChatStorage[r.key] = r.value;
+        }
+      }
+      return { data: record, error: null };
+    },
+    insert: async (record: any) => {
+      const records = Array.isArray(record) ? record : [record];
+      for (const r of records) {
+        if (table === "support_conversations") inMemoryDbConversations.push({ ...r });
+        if (table === "support_chat_messages") inMemoryDbChatMessages.push({ ...r });
+      }
+      return { data: record, error: null };
+    },
+  };
+  return builder;
+}
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    from: (table: string) => createChatQueryBuilder(table),
+  })),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn().mockResolvedValue({
+    from: (table: string) => createChatQueryBuilder(table),
+  }),
+}));
+
+vi.mock("@/lib/notifications/notifications-service", () => ({
+  createNotification: vi.fn(async () => ({})),
+  getNotifications: vi.fn(async () => []),
+}));
 
 describe("Chat de Soporte en Tiempo Real e IA de NEGOVA", () => {
   const testBizId = "biz-chat-test-01";
@@ -66,7 +146,7 @@ describe("Chat de Soporte en Tiempo Real e IA de NEGOVA", () => {
 
     expect(res.success).toBe(true);
     expect(res.escalatedToHuman).toBe(true);
-    expect(res.aiResponse?.content).toContain("transferido");
+    expect(res.aiResponse?.content).toMatch(/soporte humano|asesor/i);
 
     const messages = await getConversationMessages(conv.id);
     const lastMsg = messages[messages.length - 1];

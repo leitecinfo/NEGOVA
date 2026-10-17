@@ -1,14 +1,4 @@
-/**
- * DEUDA TÉCNICA DOCUMENTADA:
- * Actualmente la colección de comprobantes se persiste en JSON dentro de `platform_settings` (key: "platform:invoices").
- * En una etapa posterior, se migrará a una tabla relacional SQL dedicada `public.platform_invoices` con foreign keys a `businesses`.
- * El acceso a esta información está 100% centralizado en este servicio.
- */
-
 import { InvoiceRecord, BillingFilterParams, BillingListResult, InvoiceStatus } from "./types";
-import { getSubscriptionsList } from "@/lib/subscriptions/subscriptions-service";
-
-const SETTINGS_KEY = "platform:invoices";
 
 async function getSupabaseAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,142 +14,110 @@ async function getSupabaseAdminClient() {
   return await createClient();
 }
 
-let cachedInvoices: InvoiceRecord[] = [];
-
-async function getAllInvoices(): Promise<InvoiceRecord[]> {
-  try {
-    const admin = await getSupabaseAdminClient();
-    const { data, error } = await admin
-      .from("platform_settings")
-      .select("value")
-      .eq("key", SETTINGS_KEY)
-      .maybeSingle();
-
-    if (!error && data && Array.isArray(data.value) && data.value.length > 0) {
-      cachedInvoices = data.value as InvoiceRecord[];
-      return cachedInvoices;
-    }
-
-    // Si no hay comprobantes en DB, generamos los cargos iniciales pendientes correspondientes a las suscripciones reales existentes
-    const subsResult = await getSubscriptionsList({ pageSize: 100 });
-    if (subsResult.subscriptions.length > 0) {
-      const generated: InvoiceRecord[] = subsResult.subscriptions.map((sub, idx) => {
-        const isTrial = sub.isTrial || sub.status === "trial";
-        const issued = sub.startedAt || sub.currentPeriodStart || new Date().toISOString();
-        const due = sub.currentPeriodEnd || new Date().toISOString();
-
-        return {
-          id: `inv-${sub.id.slice(0, 8)}-${idx + 1}`,
-          invoiceNumber: `CMP-2026-${String(idx + 1).padStart(4, "0")}`,
-          businessId: sub.businessId,
-          businessName: sub.businessName,
-          businessSlug: sub.businessSlug,
-          planId: sub.planId,
-          planName: sub.planName,
-          billingInterval: sub.billingInterval,
-          amount: isTrial ? 0 : sub.price,
-          currency: "COP",
-          // Regla fundamental: una suscripción activa NO equivale a un pago recibido.
-          // El cargo nace como "pending" hasta que el superadmin registra el cobro manual (transferencia/efectivo).
-          status: isTrial ? "paid" : "pending",
-          paymentMethod: isTrial ? "manual" : "transfer",
-          paymentReference: isTrial ? "PRUEBA-GRATUITA-30D" : null,
-          issuedAt: issued,
-          dueDate: due,
-          paidAt: isTrial ? issued : null,
-          notes: isTrial
-            ? "Membresía inicial con 30 días de prueba gratuita (sin costo)."
-            : `Cargo por suscripción comercial Plan ${sub.planName} (${sub.billingInterval === "annual" ? "Anual" : "Mensual"}). Pendiente de cobro manual.`,
-        };
-      });
-
-      await saveAllInvoices(generated);
-      return generated;
-    }
-  } catch (err) {
-    console.error("Error al obtener comprobantes de cobro:", err);
-  }
-
-  return cachedInvoices;
-}
-
-async function saveAllInvoices(invoices: InvoiceRecord[]): Promise<boolean> {
-  cachedInvoices = invoices;
-  try {
-    const admin = await getSupabaseAdminClient();
-    const { error } = await admin.from("platform_settings").upsert(
-      {
-        key: SETTINGS_KEY,
-        value: invoices,
-        description: "Registro de comprobantes internos de cobro emitidos por NEGOVA a comercios clientes",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "key" }
-    );
-    return !error;
-  } catch (err) {
-    console.error("Error al persistir comprobantes:", err);
-    return false;
-  }
+/**
+ * Normaliza el registro de base de datos a InvoiceRecord
+ */
+function mapToInvoiceRecord(row: any): InvoiceRecord {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    businessId: row.business_id,
+    businessName: row.business_name,
+    businessSlug: row.business_slug,
+    planId: row.plan_id,
+    planName: row.plan_name,
+    billingInterval: row.billing_interval,
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status,
+    paymentMethod: row.payment_method,
+    paymentReference: row.payment_reference,
+    issuedAt: row.issued_at,
+    dueDate: row.due_date,
+    paidAt: row.paid_at,
+    notes: row.notes,
+    pdfUrl: row.pdf_url,
+    pdfStoragePath: row.pdf_storage_path,
+    lastEmailSentAt: row.last_email_sent_at,
+    lastSentToEmail: row.last_sent_to_email,
+  };
 }
 
 export async function getBillingList(params: BillingFilterParams = {}): Promise<BillingListResult> {
-  const all = await getAllInvoices();
   const page = Math.max(1, params.page || 1);
   const pageSize = Math.min(100, Math.max(5, params.pageSize || 10));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-  let filtered = [...all];
+  const admin = await getSupabaseAdminClient();
+  let query = admin.from("platform_invoices").select("*", { count: "exact" });
 
   if (params.status && params.status !== "all") {
-    filtered = filtered.filter((i) => i.status === params.status);
+    query = query.eq("status", params.status);
   }
 
   if (params.planId && params.planId !== "all") {
-    filtered = filtered.filter((i) => i.planId === params.planId);
+    query = query.eq("plan_id", params.planId);
   }
 
   if (params.businessId && params.businessId !== "all") {
-    filtered = filtered.filter((i) => i.businessId === params.businessId);
+    query = query.eq("business_id", params.businessId);
   }
 
   if (params.search && params.search.trim()) {
     const q = params.search.toLowerCase().trim();
-    filtered = filtered.filter(
-      (i) =>
-        i.invoiceNumber.toLowerCase().includes(q) ||
-        i.businessName.toLowerCase().includes(q) ||
-        i.businessSlug.toLowerCase().includes(q) ||
-        (i.paymentReference && i.paymentReference.toLowerCase().includes(q))
-    );
+    // Use or for invoice_number, business_name, business_slug, payment_reference
+    query = query.or(`invoice_number.ilike.%${q}%,business_name.ilike.%${q}%,business_slug.ilike.%${q}%,payment_reference.ilike.%${q}%`);
   }
 
-  filtered.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+  // Obtenemos los registros paginados
+  query = query.order("issued_at", { ascending: false }).range(from, to);
+  const { data, error, count } = await query;
 
-  const totalCount = filtered.length;
+  if (error) {
+    console.error("Error fetching billing list:", error);
+    throw new Error("No se pudo obtener el listado de comprobantes");
+  }
+
+  const invoices = (data || []).map(mapToInvoiceRecord);
+  const totalCount = count || 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const from = (page - 1) * pageSize;
-  const paginated = filtered.slice(from, from + pageSize);
 
-  const totalBilledCOP = all.reduce((sum, i) => (i.status !== "void" ? sum + i.amount : sum), 0);
-  const totalPaidCOP = all.reduce((sum, i) => (i.status === "paid" ? sum + i.amount : sum), 0);
-  const totalPendingCOP = all.reduce((sum, i) => (i.status === "pending" ? sum + i.amount : sum), 0);
+  // Para KPIs necesitamos hacer consultas de agregación separadas, dado que PostgREST no agrupa fácilmente aquí.
+  // Como simplificación según requerimientos actuales, calcularemos las sumas globales
+  let totalBilledCOP = 0;
+  let totalPaidCOP = 0;
+  let totalPendingCOP = 0;
+  let paidCount = 0;
+  let pendingCount = 0;
+  let voidCount = 0;
 
-  const stats = {
-    totalBilledCOP,
-    totalPaidCOP,
-    totalPendingCOP,
-    paidCount: all.filter((i) => i.status === "paid").length,
-    pendingCount: all.filter((i) => i.status === "pending").length,
-    voidCount: all.filter((i) => i.status === "void").length,
-  };
+  try {
+    const { data: statsData } = await admin.from("platform_invoices").select("amount, status");
+    if (statsData) {
+      statsData.forEach(row => {
+        if (row.status !== "void") totalBilledCOP += row.amount;
+        if (row.status === "paid") { totalPaidCOP += row.amount; paidCount++; }
+        if (row.status === "pending") { totalPendingCOP += row.amount; pendingCount++; }
+        if (row.status === "void") voidCount++;
+      });
+    }
+  } catch(e) {}
 
   return {
-    invoices: paginated,
+    invoices,
     totalCount,
     page,
     pageSize,
     totalPages,
-    stats,
+    stats: {
+      totalBilledCOP,
+      totalPaidCOP,
+      totalPendingCOP,
+      paidCount,
+      pendingCount,
+      voidCount,
+    },
   };
 }
 
@@ -174,50 +132,58 @@ export async function registerInvoicePayment(
   }
 ): Promise<{ success: boolean; invoice?: InvoiceRecord; error?: string }> {
   try {
-    const all = await getAllInvoices();
-    const idx = all.findIndex((i) => i.id === invoiceId);
-    if (idx === -1) {
-      return { success: false, error: "Comprobante no encontrado" };
-    }
+    const admin = await getSupabaseAdminClient();
+    
+    const { data: current, error: getErr } = await admin
+      .from("platform_invoices")
+      .select("*")
+      .eq("id", invoiceId)
+      .single();
 
-    all[idx] = {
-      ...all[idx],
+    if (getErr || !current) return { success: false, error: "Comprobante no encontrado" };
+
+    const updates = {
       status: "paid",
-      paymentMethod: data.paymentMethod,
-      paymentReference: data.paymentReference.trim(),
-      paidAt: data.paidAt || new Date().toISOString(),
-      notes: data.notes || all[idx].notes,
+      payment_method: data.paymentMethod,
+      payment_reference: data.paymentReference.trim(),
+      paid_at: data.paidAt || new Date().toISOString(),
+      notes: data.notes || current.notes,
+      updated_at: new Date().toISOString()
     };
 
-    await saveAllInvoices(all);
+    const { data: updatedData, error: upErr } = await admin
+      .from("platform_invoices")
+      .update(updates)
+      .eq("id", invoiceId)
+      .select()
+      .single();
 
-    // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "register_payment_receipt",
-        entity_type: "billing_receipt",
-        entity_id: invoiceId,
-        user_id: data.adminUserId || null,
-        metadata: {
-          receiptNumber: all[idx].invoiceNumber,
-          businessName: all[idx].businessName,
-          amount: all[idx].amount,
-          method: data.paymentMethod,
-          reference: data.paymentReference,
-        },
-      });
-    } catch {}
+    if (upErr) return { success: false, error: upErr.message };
 
-    return { success: true, invoice: all[idx] };
+    // Auditoría (Asociado al negocio correspondente: current.business_id)
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: current.business_id || null,
+      userId: data.adminUserId || null,
+      action: "update",
+      entityType: "billing_receipt",
+      entityId: invoiceId,
+      metadata: {
+        original_action: "register_payment_receipt",
+        receiptNumber: current.invoice_number,
+        businessName: current.business_name,
+        amount: current.amount,
+        method: data.paymentMethod,
+        reference: data.paymentReference,
+      },
+    });
+
+    return { success: true, invoice: mapToInvoiceRecord(updatedData) };
   } catch (err: any) {
     return { success: false, error: err.message || "Error al registrar el pago" };
   }
 }
 
-/**
- * Genera el PDF del comprobante de cobro, lo persiste en Supabase Storage y actualiza la referencia
- */
 export async function generateInvoicePdf(invoiceId: string): Promise<{
   success: boolean;
   base64?: string;
@@ -226,12 +192,16 @@ export async function generateInvoicePdf(invoiceId: string): Promise<{
   error?: string;
 }> {
   try {
-    const all = await getAllInvoices();
-    const idx = all.findIndex((i) => i.id === invoiceId);
-    if (idx === -1) {
-      return { success: false, error: "Comprobante no encontrado" };
-    }
-    const inv = all[idx];
+    const admin = await getSupabaseAdminClient();
+    const { data: current, error: getErr } = await admin
+      .from("platform_invoices")
+      .select("*")
+      .eq("id", invoiceId)
+      .single();
+
+    if (getErr || !current) return { success: false, error: "Comprobante no encontrado" };
+
+    const inv = mapToInvoiceRecord(current);
 
     const { generateNegovaBillingPdf } = await import("@/lib/pdf/pdf-engine");
     const { uploadInvoicePdfBuffer } = await import("@/lib/storage/supabase-storage");
@@ -245,9 +215,7 @@ export async function generateInvoicePdf(invoiceId: string): Promise<{
         const logoBuffer = fs.default.readFileSync(logoPath);
         logoBase64 = `data:image/png;base64,${logoBuffer.toString("base64")}`;
       }
-    } catch (e) {
-      console.warn("No se pudo cargar el logo de Negova para el PDF", e);
-    }
+    } catch (e) {}
 
     const pdfResult = generateNegovaBillingPdf({
       invoiceNumber: inv.invoiceNumber,
@@ -268,66 +236,55 @@ export async function generateInvoicePdf(invoiceId: string): Promise<{
       logoBase64,
     });
 
-    // Subir a Storage
+    let newPdfUrl = inv.pdfUrl;
     try {
-      const admin = await getSupabaseAdminClient();
       const storageRes = await uploadInvoicePdfBuffer(admin, inv.invoiceNumber, pdfResult.buffer);
       if (storageRes.url) {
-        all[idx] = {
-          ...all[idx],
-          pdfUrl: storageRes.url,
-          pdfStoragePath: storageRes.storagePath,
-        };
-        await saveAllInvoices(all);
+        newPdfUrl = storageRes.url;
+        await admin.from("platform_invoices").update({
+          pdf_url: storageRes.url,
+          pdf_storage_path: storageRes.storagePath,
+          updated_at: new Date().toISOString()
+        }).eq("id", invoiceId);
       }
-    } catch (storageErr) {
-      console.warn("Aviso al persistir PDF en storage:", storageErr);
-    }
+    } catch (storageErr) {}
 
     return {
       success: true,
       base64: pdfResult.base64,
       filename: pdfResult.filename,
-      pdfUrl: all[idx].pdfUrl || null,
+      pdfUrl: newPdfUrl || null,
     };
   } catch (err: any) {
     return { success: false, error: err?.message || "Error al generar PDF del comprobante" };
   }
 }
 
-/**
- * Envía el comprobante por correo electrónico con el PDF adjunto
- */
 export async function sendInvoiceByEmail(
   invoiceId: string,
   recipientEmail?: string,
   adminUserId?: string
 ): Promise<{ success: boolean; sentTo?: string; error?: string }> {
   try {
-    const all = await getAllInvoices();
-    const idx = all.findIndex((i) => i.id === invoiceId);
-    if (idx === -1) {
-      return { success: false, error: "Comprobante no encontrado" };
-    }
-    const inv = all[idx];
+    const admin = await getSupabaseAdminClient();
+    const { data: current, error: getErr } = await admin
+      .from("platform_invoices")
+      .select("*")
+      .eq("id", invoiceId)
+      .single();
 
-    // Obtener correo del negocio si no fue especificado
+    if (getErr || !current) return { success: false, error: "Comprobante no encontrado" };
+    const inv = mapToInvoiceRecord(current);
+
     let targetEmail = recipientEmail?.trim();
     if (!targetEmail) {
       const { getBusinessDetail } = await import("@/lib/businesses/businesses-service");
       const bizRes = await getBusinessDetail(inv.businessId);
-      if (bizRes.business?.owner?.email) {
-        targetEmail = bizRes.business.owner.email;
-      } else if (bizRes.business?.email) {
-        targetEmail = bizRes.business.email;
-      }
+      if (bizRes.business?.owner?.email) targetEmail = bizRes.business.owner.email;
+      else if (bizRes.business?.email) targetEmail = bizRes.business.email;
     }
+    if (!targetEmail) targetEmail = "soporte@negova.com";
 
-    if (!targetEmail) {
-      targetEmail = "soporte@negova.com";
-    }
-
-    // Generar PDF para adjuntar
     const pdfRes = await generateInvoicePdf(invoiceId);
     if (!pdfRes.success || !pdfRes.base64) {
       return { success: false, error: pdfRes.error || "No se pudo generar el PDF para adjuntar." };
@@ -347,19 +304,14 @@ export async function sendInvoiceByEmail(
       pdfFilename: pdfRes.filename,
     });
 
-    if (!emailRes.success) {
-      return { success: false, error: emailRes.error || "Error al despachar el correo." };
-    }
+    if (!emailRes.success) return { success: false, error: emailRes.error || "Error al despachar el correo." };
 
-    // Actualizar registro con fecha y destinatario
-    all[idx] = {
-      ...all[idx],
-      lastEmailSentAt: new Date().toISOString(),
-      lastSentToEmail: targetEmail,
-    };
-    await saveAllInvoices(all);
+    await admin.from("platform_invoices").update({
+      last_email_sent_at: new Date().toISOString(),
+      last_sent_to_email: targetEmail,
+      updated_at: new Date().toISOString()
+    }).eq("id", invoiceId);
 
-    // Notificación transversal de plataforma
     try {
       const { createNotification } = await import("@/lib/notifications/notifications-service");
       await createNotification({
@@ -375,22 +327,15 @@ export async function sendInvoiceByEmail(
       });
     } catch {}
 
-    // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "send_invoice_email",
-        entity_type: "billing_receipt",
-        entity_id: inv.id,
-        user_id: adminUserId || null,
-        metadata: {
-          invoiceNumber: inv.invoiceNumber,
-          businessName: inv.businessName,
-          recipient: targetEmail,
-          amount: inv.amount,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: inv.businessId || null,
+      userId: adminUserId || null,
+      action: "other",
+      entityType: "billing_receipt",
+      entityId: inv.id,
+      metadata: { original_action: "send_invoice_email", invoiceNumber: inv.invoiceNumber, businessName: inv.businessName, recipient: targetEmail, amount: inv.amount },
+    });
 
     return { success: true, sentTo: targetEmail };
   } catch (err: any) {
@@ -403,29 +348,27 @@ export async function deleteInvoice(
   adminUserId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const all = await getAllInvoices();
-    const idx = all.findIndex((i) => i.id === invoiceId);
-    if (idx === -1) {
-      return { success: false, error: "Comprobante no encontrado" };
-    }
+    const admin = await getSupabaseAdminClient();
+    const { data: current, error: getErr } = await admin
+      .from("platform_invoices")
+      .select("invoice_number, business_id")
+      .eq("id", invoiceId)
+      .single();
 
-    const invoiceNumber = all[idx].invoiceNumber;
-    
-    // Eliminar del array
-    all.splice(idx, 1);
-    await saveAllInvoices(all);
+    if (getErr || !current) return { success: false, error: "Comprobante no encontrado" };
 
-    // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "delete_invoice",
-        entity_type: "billing_receipt",
-        entity_id: invoiceId,
-        user_id: adminUserId || null,
-        metadata: { invoiceNumber },
-      });
-    } catch {}
+    const { error: delErr } = await admin.from("platform_invoices").delete().eq("id", invoiceId);
+    if (delErr) return { success: false, error: delErr.message };
+
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: current.business_id || null,
+      userId: adminUserId || null,
+      action: "delete",
+      entityType: "billing_receipt",
+      entityId: invoiceId,
+      metadata: { original_action: "delete_invoice", invoiceNumber: current.invoice_number },
+    });
 
     return { success: true };
   } catch (err: any) {
@@ -439,47 +382,127 @@ export async function editInvoice(
   adminUserId?: string
 ): Promise<{ success: boolean; error?: string; invoice?: InvoiceRecord }> {
   try {
-    const all = await getAllInvoices();
-    const idx = all.findIndex((i) => i.id === invoiceId);
-    if (idx === -1) {
-      return { success: false, error: "Comprobante no encontrado" };
-    }
+    const admin = await getSupabaseAdminClient();
+    const { data: current, error: getErr } = await admin
+      .from("platform_invoices")
+      .select("*")
+      .eq("id", invoiceId)
+      .single();
 
-    const current = all[idx];
-    
-    // Campos permitidos para edición
-    const allowedUpdates = {
-      amount: data.amount !== undefined ? data.amount : current.amount,
-      status: data.status || current.status,
-      paymentMethod: data.paymentMethod || current.paymentMethod,
-      paymentReference: data.paymentReference !== undefined ? data.paymentReference : current.paymentReference,
-      issuedAt: data.issuedAt || current.issuedAt,
-      dueDate: data.dueDate || current.dueDate,
-      paidAt: data.paidAt !== undefined ? data.paidAt : current.paidAt,
-      notes: data.notes !== undefined ? data.notes : current.notes,
-    };
+    if (getErr || !current) return { success: false, error: "Comprobante no encontrado" };
 
-    all[idx] = { ...current, ...allowedUpdates };
-    await saveAllInvoices(all);
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (data.amount !== undefined) updates.amount = data.amount;
+    if (data.status) updates.status = data.status;
+    if (data.paymentMethod) updates.payment_method = data.paymentMethod;
+    if (data.paymentReference !== undefined) updates.payment_reference = data.paymentReference;
+    if (data.issuedAt) updates.issued_at = data.issuedAt;
+    if (data.dueDate) updates.due_date = data.dueDate;
+    if (data.paidAt !== undefined) updates.paid_at = data.paidAt;
+    if (data.notes !== undefined) updates.notes = data.notes;
 
-    // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "edit_invoice",
-        entity_type: "billing_receipt",
-        entity_id: invoiceId,
-        user_id: adminUserId || null,
-        metadata: {
-          invoiceNumber: current.invoiceNumber,
-          updates: allowedUpdates,
-        },
-      });
-    } catch {}
+    const { data: updatedData, error: upErr } = await admin
+      .from("platform_invoices")
+      .update(updates)
+      .eq("id", invoiceId)
+      .select()
+      .single();
 
-    return { success: true, invoice: all[idx] };
+    if (upErr) return { success: false, error: upErr.message };
+
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId: current.business_id || null,
+      userId: adminUserId || null,
+      action: "update",
+      entityType: "billing_receipt",
+      entityId: invoiceId,
+      metadata: { original_action: "edit_invoice", invoiceNumber: current.invoice_number, updates },
+    });
+
+    return { success: true, invoice: mapToInvoiceRecord(updatedData) };
   } catch (err: any) {
     return { success: false, error: err?.message || "Error al editar el comprobante" };
   }
 }
 
+/**
+ * Función central para generar automáticamente una factura según el ciclo de vida de la suscripción.
+ * Esta función es invocada por `subscriptions-service.ts`.
+ */
+export async function createInvoiceForSubscription(params: {
+  subscriptionId: string;
+  businessId: string;
+  businessName: string;
+  businessSlug: string;
+  planId: string;
+  planName: string;
+  billingInterval: string;
+  amount: number;
+  isTrial: boolean;
+  issuedAt: string;
+  dueDate: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    const billingPeriod = params.issuedAt.substring(0, 7); // Formato YYYY-MM
+    const id = `inv-${params.subscriptionId.slice(0, 8)}-${Date.now().toString().slice(-4)}`;
+    
+    // Obtener el último número de factura para autoincrementar (Aprox)
+    const { data: lastInv } = await admin
+      .from("platform_invoices")
+      .select("invoice_number")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let nextNumber = 1;
+    if (lastInv && lastInv.invoice_number) {
+      const match = lastInv.invoice_number.match(/CMP-\d{4}-(\d+)/);
+      if (match && match[1]) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+    const invoiceNumber = `CMP-${new Date().getFullYear()}-${String(nextNumber).padStart(4, "0")}`;
+
+    const payload = {
+      id,
+      invoice_number: invoiceNumber,
+      business_id: params.businessId,
+      business_name: params.businessName,
+      business_slug: params.businessSlug,
+      subscription_id: params.subscriptionId,
+      plan_id: params.planId,
+      plan_name: params.planName,
+      billing_interval: params.billingInterval,
+      amount: params.isTrial ? 0 : params.amount,
+      currency: "COP",
+      status: params.isTrial ? "paid" : "pending",
+      payment_method: params.isTrial ? "manual" : "transfer",
+      payment_reference: params.isTrial ? "PRUEBA-GRATUITA" : null,
+      issued_at: params.issuedAt,
+      due_date: params.dueDate,
+      paid_at: params.isTrial ? params.issuedAt : null,
+      notes: params.isTrial
+        ? "Membresía inicial con prueba gratuita (sin costo)."
+        : `Cargo por suscripción comercial Plan ${params.planName} (${params.billingInterval === "annual" ? "Anual" : "Mensual"}).`,
+      billing_period: billingPeriod,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await admin.from("platform_invoices").insert(payload);
+
+    if (error) {
+      if (error.code === '23505') {
+        // Ignorar si ya existe factura para este periodo (idempotencia)
+        return { success: true };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

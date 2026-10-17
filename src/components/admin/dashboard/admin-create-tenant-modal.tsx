@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Building2, Plus, Loader2, CheckCircle2, Globe, Mail, Store, Utensils, ShoppingBag, Briefcase } from "lucide-react";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface AdminCreateTenantModalProps {
   isOpen: boolean;
@@ -70,17 +71,18 @@ export function AdminCreateTenantModal({ isOpen, onClose, onTenantCreated }: Adm
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="tenant-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
-      {/* Backdrop */}
+    <ModalPortal>
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
-        onClick={() => !isSubmitting && onClose()}
-      />
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tenant-modal-title"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 m-0"
+      >
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+          onClick={() => !isSubmitting && onClose()}
+        />
 
       {/* Ventana Modal */}
       <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl p-6 z-50 animate-in zoom-in-95 duration-150 space-y-5">
@@ -233,5 +235,6 @@ export function AdminCreateTenantModal({ isOpen, onClose, onTenantCreated }: Adm
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -70,10 +70,10 @@ export const AdminButton = forwardRef<HTMLButtonElement, AdminButtonProps>(
           {isLoading ? (
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
           ) : (
-            leftIcon && <span className="shrink-0">{leftIcon}</span>
+            leftIcon && <span className="shrink-0 inline-flex items-center">{leftIcon}</span>
           )}
-          <span>{children}</span>
-          {!isLoading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
+          <span className="inline-flex items-center gap-2">{children}</span>
+          {!isLoading && rightIcon && <span className="shrink-0 inline-flex items-center">{rightIcon}</span>}
         </Link>
       );
     }
@@ -89,10 +89,10 @@ export const AdminButton = forwardRef<HTMLButtonElement, AdminButtonProps>(
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin shrink-0" />
         ) : (
-          leftIcon && <span className="shrink-0">{leftIcon}</span>
+          leftIcon && <span className="shrink-0 inline-flex items-center">{leftIcon}</span>
         )}
-        <span>{children}</span>
-        {!isLoading && rightIcon && <span className="shrink-0">{rightIcon}</span>}
+        <span className="inline-flex items-center gap-2">{children}</span>
+        {!isLoading && rightIcon && <span className="shrink-0 inline-flex items-center">{rightIcon}</span>}
       </button>
     );
   }

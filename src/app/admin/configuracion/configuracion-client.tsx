@@ -32,12 +32,10 @@ import {
   Smartphone,
   CreditCard,
   Key,
-  Clock,
   Timer,
   Zap,
   Check,
   Sparkles,
-  Laptop,
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -108,10 +106,12 @@ const CONFIG_TABS: SectionTab[] = [
   },
 ];
 
-export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps) {
+export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTabParam = searchParams.get("tab") as PlatformConfigSectionId | null;
+
+  const isSuperAdmin = userRole === "super_admin";
 
   const [activeTab, setActiveTab] = useState<PlatformConfigSectionId>(
     currentTabParam && CONFIG_TABS.some((t) => t.id === currentTabParam)
@@ -199,13 +199,21 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
   const handleSaveSection = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!isSuperAdmin) {
+      toast.error("Permiso denegado", {
+        description: "Se requiere rol de Superadministrador activo para modificar la configuración de plataforma.",
+      });
+      return;
+    }
+
+    if (activeTab === "general" || activeTab === "planes-limites") {
+      return;
+    }
+
     startTransition(async () => {
       let res: { success: boolean; error?: string; message?: string };
 
       switch (activeTab) {
-        case "general":
-          res = await updatePlatformConfigSection("general", generalConfig);
-          break;
         case "seguridad":
           res = await updatePlatformConfigSection("seguridad", securityConfig);
           break;
@@ -215,14 +223,11 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
         case "facturacion":
           res = await updatePlatformConfigSection("facturacion", billingConfig);
           break;
-        case "planes-limites":
-          res = await updatePlatformConfigSection("planesLimites", planLimitsConfig);
-          break;
         case "auditoria":
           res = await updatePlatformConfigSection("auditoria", auditConfig);
           break;
         default:
-          res = { success: false, error: "Sección no reconocida." };
+          res = { success: false, error: "Esta sección es solo informativa y no requiere guardado." };
       }
 
       if (res.success) {
@@ -384,7 +389,29 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                 </div>
               </div>
 
-              {activeTab !== "general" && (
+              {/* Badges y botón de guardado según permisos y sección */}
+              {activeTab === "general" && (
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-mono font-medium flex items-center gap-1.5 self-start sm:self-auto shrink-0">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Ficha Institucional Fija</span>
+                </span>
+              )}
+
+              {activeTab === "planes-limites" && (
+                <span className="px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-mono font-medium flex items-center gap-1.5 self-start sm:self-auto shrink-0">
+                  <Gauge className="w-3.5 h-3.5" />
+                  <span>Catálogo Canónico Informativo</span>
+                </span>
+              )}
+
+              {activeTab !== "general" && activeTab !== "planes-limites" && !isSuperAdmin && (
+                <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-mono font-medium flex items-center gap-1.5 self-start sm:self-auto shrink-0" title="Solo el Superadministrador activo puede modificar la configuración de plataforma">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Solo Lectura (Superadmin Requerido)</span>
+                </span>
+              )}
+
+              {activeTab !== "general" && activeTab !== "planes-limites" && isSuperAdmin && (
                 <button
                   type="submit"
                   disabled={isPending}
@@ -397,12 +424,6 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                   )}
                   <span>{isPending ? "Guardando..." : "Guardar Cambios"}</span>
                 </button>
-              )}
-              {activeTab === "general" && (
-                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-mono font-medium flex items-center gap-1.5 self-start sm:self-auto shrink-0">
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Ficha Institucional Fija</span>
-                </span>
               )}
             </div>
 
@@ -627,6 +648,7 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                     </div>
                   </div>
                 </div>
+
               </div>
             )}
 
@@ -949,6 +971,28 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                             </span>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">
                               Solicita confirmación al editar datos fiscales, cambiar contraseña o roles de empleados.
+                            </p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={securityConfig.requireMfaForOwners ?? true}
+                            onChange={(e) =>
+                              setSecurityConfig({
+                                ...securityConfig,
+                                requireMfaForOwners: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 accent-emerald-600 mt-0.5 shrink-0"
+                          />
+                          <div className="text-xs">
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              MFA / 2FA obligatorio para Dueños de Negocio (Owner)
+                            </span>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Exige validación de código de seguridad de 6 dígitos enviado por correo al acceder al workspace.
                             </p>
                           </div>
                         </label>
@@ -1322,9 +1366,14 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        Prefijo de Facturas
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                          Prefijo de Facturas (Referencial)
+                        </label>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
+                          Serie activa: CMP-
+                        </span>
+                      </div>
                       <input
                         type="text"
                         value={billingConfig.invoicePrefix || "NEG-"}
@@ -1333,7 +1382,7 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                       <p className="text-[10px] text-slate-400">
-                        Identificador de serie para las facturas emitidas por la plataforma.
+                        Prefijo de serie institucional configurado en plataforma. Nota: La emisión operativa de comprobantes SaaS actualmente genera con la serie oficial CMP-YYYY-XXXX.
                       </p>
                     </div>
 
@@ -1587,9 +1636,14 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
             {activeTab === "auditoria" && (
               <div className="space-y-4 animate-in fade-in-50 duration-200">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Política de Retención de Logs Administrativos
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                      Política de Retención de Logs Administrativos
+                    </label>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
+                      Informativo
+                    </span>
+                  </div>
                   <select
                     value={auditConfig.retentionDays}
                     onChange={(e) => setAuditConfig({ ...auditConfig, retentionDays: Number(e.target.value) as any })}
@@ -1601,6 +1655,9 @@ export function ConfiguracionClient({ initialConfig }: ConfiguracionClientProps)
                     <option value={180}>180 Días (Semestral)</option>
                     <option value={365}>365 Días (1 Año - Cumplimiento)</option>
                   </select>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-body">
+                    Parámetro institucional registrado en plataforma. Actualmente no se ejecutan eliminaciones automáticas destructivas sobre el registro histórico de auditoría.
+                  </p>
                 </div>
               </div>
             )}

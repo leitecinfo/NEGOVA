@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Outfit:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,900;1,400;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -487,4 +489,25 @@
 .hero-onload-right.is-active {
   opacity: 1;
   transform: translateX(0) scale(1);
+}
+
+/* Neo-Brutal Marquee Track */
+@keyframes brutalMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.brutal-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: brutalMarquee 22s linear infinite;
+  will-change: transform;
+}
+
+.brutal-marquee-track:hover {
+  animation-play-state: paused;
 }

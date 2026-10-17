@@ -52,6 +52,17 @@ export default async function AdminUsuarioDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  let permissionsDetail = null;
+  const targetMembership = detailData.user.businessMemberships[0];
+  if (targetMembership) {
+    try {
+      const { getUserEffectivePermissionsDetail } = await import("@/lib/auth/user-permissions-service");
+      permissionsDetail = await getUserEffectivePermissionsDetail(targetMembership.businessId, id);
+    } catch (permErr) {
+      console.warn("Could not load permissionsDetail for admin view:", permErr);
+    }
+  }
+
   return (
     <AdminPageContainer
       title={detailData.user.fullName}
@@ -76,6 +87,7 @@ export default async function AdminUsuarioDetailPage({ params }: PageProps) {
       <UsuarioDetailClient
         user={detailData.user}
         effectivePermissions={detailData.effectivePermissions}
+        permissionsDetail={permissionsDetail}
         auditLogs={detailData.auditLogs}
         businesses={options?.businesses || []}
         platformRoles={options.platformRoles}

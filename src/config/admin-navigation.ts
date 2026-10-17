@@ -83,20 +83,6 @@ export const PLATFORM_CONFIG_SUBITEMS: AdminNavSubItem[] = [
     description: "Roles internos, permisos por defecto e invitaciones",
   },
   {
-    id: "notificaciones",
-    label: "Notificaciones",
-    href: "/admin/configuracion?tab=notificaciones",
-    icon: Bell,
-    description: "Canales de Email, WhatsApp, SMS y alertas",
-  },
-  {
-    id: "integraciones",
-    label: "Integraciones",
-    href: "/admin/configuracion?tab=integraciones",
-    icon: Cpu,
-    description: "Pasarelas, proveedores externos y servicios API",
-  },
-  {
     id: "facturacion",
     label: "Facturación",
     href: "/admin/configuracion?tab=facturacion",
@@ -218,6 +204,15 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         description: "MRR, ARR, flujo de caja y finanzas de NEGOVA",
         requiredRoles: ["super_admin", "admin"],
       },
+      {
+        id: "personal",
+        label: "Personal & Nómina",
+        href: "/admin/personal",
+        icon: Users,
+        section: "operacion",
+        description: "Equipo interno de NEGOVA Core y nómina corporativa",
+        requiredRoles: ["super_admin", "admin"],
+      },
     ],
   },
   {
@@ -250,7 +245,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     items: [
       {
         id: "configuracion",
-        label: "Plataforma",
+        label: "Configuración",
         href: "/admin/configuracion",
         icon: Settings,
         section: "sistema",

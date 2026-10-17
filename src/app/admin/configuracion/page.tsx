@@ -1,5 +1,6 @@
 import React from "react";
 import { Metadata } from "next";
+import { requireAdminSession } from "@/lib/auth/admin-context";
 import { getPlatformConfiguration } from "./actions";
 import { ConfiguracionClient } from "./configuracion-client";
 import { AdminPageContainer } from "@/components/admin/admin-page-container";
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminConfiguracionPage() {
+  const session = await requireAdminSession();
   const config = await getPlatformConfiguration();
 
   return (
@@ -17,7 +19,7 @@ export default async function AdminConfiguracionPage() {
       title="Configuración de Plataforma"
       description="Parámetros globales, políticas de seguridad, pasarelas, límites y servicios del Core de NEGOVA."
     >
-      <ConfiguracionClient initialConfig={config} />
+      <ConfiguracionClient initialConfig={config} userRole={session.role} />
     </AdminPageContainer>
   );
 }

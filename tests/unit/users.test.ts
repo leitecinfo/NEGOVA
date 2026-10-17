@@ -89,8 +89,8 @@ describe("Users RBAC & Architecture Unit Tests", () => {
   });
 
   describe("Plans Limits & User Capacity", () => {
-    it("el plan 'inicio' debe limitar a máximo 1 usuario", () => {
-      expect(NEGOVA_PLANS.inicio.limits.maxUsers).toBe(1);
+    it("el plan 'inicio' debe permitir hasta 2 usuarios en total (dueño + 1 colaborador)", () => {
+      expect(NEGOVA_PLANS.inicio.limits.maxUsers).toBe(2);
     });
 
     it("el plan 'crece' debe permitir hasta 3 usuarios", () => {

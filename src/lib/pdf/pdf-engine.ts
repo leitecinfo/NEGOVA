@@ -326,15 +326,20 @@ export function generateBusinessSalePdf(data: BusinessSalePdfData): PdfGeneratio
   if (data.legalName && data.legalName !== data.tradeName) bizDetails.push(data.legalName);
   if (data.taxId) bizDetails.push(`NIT: ${data.taxId}`);
   if (data.phone) bizDetails.push(`Tel: ${data.phone}`);
+  if (data.whatsapp && data.whatsapp !== data.phone) bizDetails.push(`WhatsApp: ${data.whatsapp}`);
+  if (data.email) bizDetails.push(data.email);
   doc.text(bizDetails.join(" • ") || "Documento Comercial", textStartX, 23);
-  if (data.address || data.city) {
-    doc.text([data.address, data.city].filter(Boolean).join(", "), textStartX, 29);
+  const locParts = [data.address, data.city, data.department].filter(Boolean);
+  const locDetails = locParts.join(", ");
+  if (locDetails || data.headerText) {
+    const secondLine = [locDetails, data.headerText].filter(Boolean).join(" · ");
+    doc.text(secondLine, textStartX, 29);
   }
 
   // Título y Número del Documento
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(data.documentTitle || "DOCUMENTO DE VENTA", pageWidth - margin, 16, { align: "right" });
+  doc.text(data.documentTitle || "COMPROBANTE DE VENTA", pageWidth - margin, 16, { align: "right" });
   doc.setFontSize(10);
   doc.text(data.documentNumber, pageWidth - margin, 23, { align: "right" });
   doc.setFont("helvetica", "normal");
@@ -431,13 +436,52 @@ export function generateBusinessSalePdf(data: BusinessSalePdfData): PdfGeneratio
   doc.text("TOTAL A PAGAR:", totalBoxX + 5, y + 21.5);
   doc.text(formatCOP(data.total), pageWidth - margin - 5, y + 21.5, { align: "right" });
 
-  // Notas / Agradecimiento
-  if (data.thankYouNote || data.notes) {
+  // Notas / Agradecimiento / Observaciones / Políticas y Términos
+  let noteY = y + 7;
+  const maxTermsWidth = totalBoxX - margin - 6;
+
+  if (data.thankYouNote) {
+    doc.setTextColor(brandRgb[0], brandRgb[1], brandRgb[2]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text(data.thankYouNote, margin, noteY);
+    noteY += 4.5;
+  }
+
+  const effectiveNotes = data.notes || data.documentObservations;
+  if (effectiveNotes) {
     doc.setTextColor(100, 116, 139);
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    if (data.thankYouNote) doc.text(data.thankYouNote, margin, y + 10);
-    if (data.notes) doc.text(`Obs: ${data.notes}`, margin, y + 16);
+    doc.setFontSize(7.5);
+    const splitNotes = doc.splitTextToSize(`Obs: ${effectiveNotes}`, maxTermsWidth);
+    doc.text(splitNotes, margin, noteY);
+    noteY += Math.min(splitNotes.length * 3.5, 7);
+  }
+
+  if (data.returnPolicy) {
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const splitReturn = doc.splitTextToSize(`Cambios y devoluciones: ${data.returnPolicy}`, maxTermsWidth);
+    doc.text(splitReturn, margin, noteY);
+    noteY += Math.min(splitReturn.length * 3.2, 6.5);
+  }
+
+  if (data.warrantyPolicy) {
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const splitWarranty = doc.splitTextToSize(`Garantía: ${data.warrantyPolicy}`, maxTermsWidth);
+    doc.text(splitWarranty, margin, noteY);
+    noteY += Math.min(splitWarranty.length * 3.2, 6.5);
+  }
+
+  if (data.termsAndConditions) {
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const splitTerms = doc.splitTextToSize(`Términos y condiciones: ${data.termsAndConditions}`, maxTermsWidth);
+    doc.text(splitTerms, margin, noteY);
   }
 
   // Footer del Documento Comercial

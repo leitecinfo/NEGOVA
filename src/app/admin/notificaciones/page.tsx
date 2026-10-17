@@ -16,10 +16,12 @@ export default async function AdminNotificacionesPage() {
   const session = await requireAdminSession();
 
   let initialNotifications: any[] = [];
+  let initialError: string | null = null;
   try {
     initialNotifications = await getPlatformNotifications({ limit: 50 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[AdminNotificacionesPage Error]:", err);
+    initialError = err?.message || "No fue posible cargar las notificaciones de la plataforma.";
   }
 
   return (
@@ -36,6 +38,7 @@ export default async function AdminNotificacionesPage() {
       <NotificacionesClient
         currentUser={session}
         initialNotifications={initialNotifications}
+        initialError={initialError}
       />
     </AdminPageContainer>
   );

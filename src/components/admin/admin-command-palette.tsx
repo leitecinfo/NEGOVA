@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, ArrowRight, Shield, CornerDownLeft } from "lucide-react";
 import { ALL_ADMIN_NAV_ITEMS } from "@/config/admin-navigation";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface AdminCommandPaletteProps {
   isOpen: boolean;
@@ -107,17 +108,18 @@ export function AdminCommandPalette({ isOpen, onClose }: AdminCommandPaletteProp
   if (!isOpen) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Paleta de comandos globales"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 px-4"
-    >
-      {/* Backdrop */}
+    <ModalPortal>
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
-        onClick={onClose}
-      />
+        role="dialog"
+        aria-modal="true"
+        aria-label="Paleta de comandos globales"
+        className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:pt-28 px-4 m-0"
+      >
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+          onClick={onClose}
+        />
 
       {/* Contenedor del Modal */}
       <div className="relative w-full max-w-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 duration-150 flex flex-col max-h-[75vh]">
@@ -217,5 +219,6 @@ export function AdminCommandPalette({ isOpen, onClose }: AdminCommandPaletteProp
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

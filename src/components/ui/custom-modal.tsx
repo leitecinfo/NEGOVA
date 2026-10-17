@@ -8,10 +8,13 @@ interface CustomModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  description: string;
+  description?: string;
   type?: "info" | "warning" | "success" | "error";
   confirmText?: string;
   onConfirm?: () => void;
+  showConfirmButton?: boolean;
+  children?: React.ReactNode;
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
 }
 
 export function CustomModal({
@@ -22,8 +25,22 @@ export function CustomModal({
   type = "info",
   confirmText = "Aceptar",
   onConfirm,
+  showConfirmButton = true,
+  children,
+  maxWidth = "md",
 }: CustomModalProps) {
   if (!isOpen) return null;
+
+  const maxWidthClasses = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-xl",
+    "2xl": "max-w-2xl",
+    "3xl": "max-w-3xl",
+    "4xl": "max-w-4xl",
+    "5xl": "max-w-5xl",
+  };
 
   const icons = {
     info: <Info className="w-6 h-6 text-blue-600" />,
@@ -35,7 +52,7 @@ export function CustomModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden p-6 space-y-4">
+        <div className={`w-full ${maxWidthClasses[maxWidth] || "max-w-md"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
@@ -53,23 +70,30 @@ export function CustomModal({
           </button>
         </div>
 
-        <p className="text-sm text-slate-600 dark:text-slate-300 font-body leading-relaxed">
-          {description}
-        </p>
+        {description && (
+          <p className="text-sm text-slate-600 dark:text-slate-300 font-body leading-relaxed">
+            {description}
+          </p>
+        )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            onClick={() => {
-              if (onConfirm) onConfirm();
-              onClose();
-            }}
-            className="px-4 py-2 rounded-md bg-[#ED500A] text-white hover:bg-[#ab3500] font-medium text-sm transition-colors shadow-sm"
-          >
-            {confirmText}
-          </button>
-        </div>
+        {children}
+
+        {showConfirmButton && (
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => {
+                if (onConfirm) onConfirm();
+                onClose();
+              }}
+              className="px-4 py-2 rounded-md bg-[#ED500A] text-white hover:bg-[#ab3500] font-medium text-sm transition-colors shadow-sm"
+            >
+              {confirmText}
+            </button>
+          </div>
+        )}
       </div>
     </div>
     </ModalPortal>
   );
 }
+

@@ -110,7 +110,17 @@ export async function GET() {
       user.user_metadata?.picture ||
       null;
 
-    const dashboardUrl = isAdmin ? "/admin" : "/admin";
+    let dashboardUrl = isAdmin ? "/admin" : "/dashboard";
+
+    if (!isAdmin) {
+      const { getUserActiveBusinessId } = await import("@/lib/auth/workspace-context");
+      const userBizId = await getUserActiveBusinessId(user.id);
+      if (userBizId) {
+        dashboardUrl = `/workspace/${userBizId}`;
+      } else {
+        dashboardUrl = "/login?error=no_active_business";
+      }
+    }
 
     return NextResponse.json<AuthMeResponse>({
       authenticated: true,

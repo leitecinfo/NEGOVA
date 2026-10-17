@@ -85,7 +85,25 @@ function LoginPageContent() {
     } else if (errorParam === "unauthorized" || errorParam === "no_access") {
       showAlert(
         "Acceso no Autorizado",
-        "No dispones de los permisos necesarios para acceder al espacio solicitado.",
+        "No dispones de los permisos necesarios para acceder al panel administrativo.",
+        "warning"
+      );
+    } else if (errorParam === "workspace_unauthorized") {
+      showAlert(
+        "Acceso Denegado al Comercio",
+        "No tienes una membresía activa en este comercio o ha sido suspendida.",
+        "warning"
+      );
+    } else if (errorParam === "workspace_forbidden") {
+      showAlert(
+        "Permisos Insuficientes",
+        "No dispones de los permisos necesarios para acceder a las opciones seleccionadas en este comercio.",
+        "warning"
+      );
+    } else if (errorParam === "no_active_business") {
+      showAlert(
+        "Sin Comercios Activos",
+        "No se encontraron comercios activos asociados a tu cuenta. Contacta a soporte.",
         "warning"
       );
     }
@@ -119,7 +137,13 @@ function LoginPageContent() {
 
     startTransition(async () => {
       try {
-        const res = await loginWithPassword(formData);
+        const timeoutPromise = new Promise<{ success: false; error: string }>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Tiempo de espera agotado al conectar con el servidor. Por favor intenta nuevamente.")),
+            15000
+          )
+        );
+        const res = await Promise.race([loginWithPassword(formData), timeoutPromise]);
 
         // Caso A: Se requiere verificación de doble factor (MFA)
         if (res && res.success && res.requiresMfa) {
@@ -148,13 +172,15 @@ function LoginPageContent() {
           showAlert("Error de Inicio de Sesión", res.error, "error");
         }
       } catch (err: unknown) {
+        console.error("❌ Error en handlePasswordSubmit:", err);
         const errorDigest = (err as { digest?: string })?.digest;
         if (typeof errorDigest === "string" && errorDigest.startsWith("NEXT_REDIRECT")) {
           return;
         }
+        const errorMsg = (err as { message?: string })?.message || "No se pudo comunicar con el servidor. Intente nuevamente.";
         showAlert(
-          "Error de Conexión",
-          "No se pudo comunicar con el servidor. Intente nuevamente.",
+          "Error de Inicio de Sesión",
+          errorMsg,
           "error"
         );
       }
@@ -179,7 +205,13 @@ function LoginPageContent() {
 
     startTransition(async () => {
       try {
-        const res = await verifyLoginMfaOtp(formData);
+        const timeoutPromise = new Promise<{ success: false; error: string }>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Tiempo de espera agotado al verificar el código. Por favor intenta nuevamente.")),
+            15000
+          )
+        );
+        const res = await Promise.race([verifyLoginMfaOtp(formData), timeoutPromise]);
         if (res && res.success) {
           toast.success("¡Identidad Verificada!", {
             description: "Código de acceso correcto. Redirigiendo...",
@@ -193,13 +225,15 @@ function LoginPageContent() {
           showAlert("Código Incorrecto", res.error, "error");
         }
       } catch (err: unknown) {
+        console.error("❌ Error en handleMfaSubmit:", err);
         const errorDigest = (err as { digest?: string })?.digest;
         if (typeof errorDigest === "string" && errorDigest.startsWith("NEXT_REDIRECT")) {
           return;
         }
+        const errorMsg = (err as { message?: string })?.message || "No se pudo validar el código. Intente nuevamente.";
         showAlert(
           "Error de Verificación",
-          "No se pudo validar el código. Intente nuevamente.",
+          errorMsg,
           "error"
         );
       }

@@ -29,31 +29,6 @@ export type {
   NotificationFilterOptions,
 };
 
-const SETTINGS_NOTIFS_KEY = "platform:notifications_store";
-
-// Respaldo en memoria persistente durante la ejecución del proceso
-const IN_MEMORY_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: "notif-init-1",
-    scope: "platform",
-    audience: "global",
-    recipientUserId: null,
-    businessId: null,
-    type: "system",
-    title: "Plataforma NEGOVA lista",
-    message: "El sistema de auditoría, soporte y notificaciones está activo y supervisando eventos.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    read: false,
-    isRead: false,
-    entityType: "system",
-    entityId: null,
-    entityNumber: null,
-    href: "/admin",
-    link: "/admin",
-    metadata: {},
-  },
-];
-
 /**
  * Obtener cliente admin de Supabase con bypass RLS
  */
@@ -69,14 +44,10 @@ async function getAdminSupabaseClient() {
   return await createClient();
 }
 
-/**
- * Función auxiliar para entornos de pruebas
- */
-export function _resetNotificationsStoreForTesting(initial?: AppNotification[]) {
-  IN_MEMORY_NOTIFICATIONS.length = 0;
-  if (initial && initial.length > 0) {
-    IN_MEMORY_NOTIFICATIONS.push(...initial);
-  }
+const IS_UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(val?: string | null): boolean {
+  return typeof val === "string" && IS_UUID_REGEX.test(val);
 }
 
 /**
@@ -100,12 +71,22 @@ export async function createNotification(input: {
   const targetHref = input.href || input.link || null;
   const nowIso = new Date().toISOString();
 
+  const recipientUserId =
+    input.audience === "user" && isValidUuid(input.recipientUserId)
+      ? input.recipientUserId || null
+      : null;
+
+  const businessId =
+    input.scope === "business" && isValidUuid(input.businessId)
+      ? input.businessId || null
+      : null;
+
   const newNotif: AppNotification = {
     id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     scope: input.scope,
     audience: input.audience,
-    recipientUserId: input.audience === "user" ? input.recipientUserId || null : null,
-    businessId: input.scope === "business" ? input.businessId || null : null,
+    recipientUserId,
+    businessId,
     type: input.type,
     title: input.title.trim(),
     message: input.message.trim(),
@@ -120,16 +101,9 @@ export async function createNotification(input: {
     metadata: input.metadata || {},
   };
 
-  // 1. Guardar en memoria
-  IN_MEMORY_NOTIFICATIONS.unshift(newNotif);
-  if (IN_MEMORY_NOTIFICATIONS.length > 100) {
-    IN_MEMORY_NOTIFICATIONS.pop();
-  }
-
-  // 2. Intentar guardar en Supabase (si existe tabla o en platform_settings)
   try {
     const supabase = await getAdminSupabaseClient();
-    await supabase.from("platform_notifications").insert({
+    const { error } = await supabase.from("platform_notifications").insert({
       id: newNotif.id,
       scope: newNotif.scope,
       audience: newNotif.audience,
@@ -148,8 +122,11 @@ export async function createNotification(input: {
       is_read: false,
       created_at: newNotif.createdAt,
     });
-  } catch {
-    // Si la tabla no está creada, el respaldo en memoria garantiza el funcionamiento
+    
+    if (error) throw error;
+  } catch (err: any) {
+    console.error("[NotificationsService Error] No se pudo guardar la notificación:", err);
+    throw new Error(err.message || "Error al crear la notificación en la base de datos.");
   }
 
   return newNotif;
@@ -178,29 +155,63 @@ export async function createPlatformNotification(input: {
 }
 
 /**
- * 2. OBTENER NOTIFICACIONES CON REGLA DE AUDIENCIA ESTRICTA
+ * 2. OBTENER NOTIFICACIONES CON REGLA DE AUDIENCIA Y AISLAMIENTO ESTRICTO
  */
 export async function getNotifications(
   options: NotificationFilterOptions = {}
 ): Promise<AppNotification[]> {
   const targetScope = options.scope || "platform";
-  let pool = [...IN_MEMORY_NOTIFICATIONS];
 
-  // 1. Intentar leer desde BD si está disponible
+  // Regla de aislamiento: un usuario de workspace no puede ver notificaciones sin businessId
+  if (targetScope === "business" && !options.businessId) {
+    return [];
+  }
+
   try {
     const supabase = await getAdminSupabaseClient();
     let query = supabase
       .from("platform_notifications")
       .select("*")
+      .eq("scope", targetScope)
       .order("created_at", { ascending: false });
 
-    if (options.limit) {
+    // Filtrado por business_id
+    if (targetScope === "business") {
+      if (options.businessId && isValidUuid(options.businessId)) {
+        query = query.eq("business_id", options.businessId);
+      } else {
+        return [];
+      }
+    }
+
+    // Filtrado por audiencia / usuario
+    if (options.currentUserId && isValidUuid(options.currentUserId)) {
+      query = query.or(`audience.eq.global,and(audience.eq.user,recipient_user_id.eq.${options.currentUserId})`);
+    } else {
+      query = query.eq("audience", "global");
+    }
+
+    // Filtrado por no leídas
+    if (options.unreadOnly) {
+      query = query.eq("is_read", false);
+    }
+
+    // Filtrado por tipo
+    if (options.type) {
+      query = query.eq("type", options.type);
+    }
+
+    // Límite
+    if (options.limit && options.limit > 0) {
       query = query.limit(options.limit);
     }
 
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      pool = data.map((row: any) => ({
+    
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      return data.map((row: any) => ({
         id: row.id,
         scope: (row.scope as NotificationScope) || "platform",
         audience: (row.audience as NotificationAudience) || "global",
@@ -220,46 +231,11 @@ export async function getNotifications(
         metadata: row.metadata || {},
       }));
     }
-  } catch {
-    // Fallback a memoria
+    return [];
+  } catch (err: any) {
+    console.error("[NotificationsService Error] No se pudo obtener notificaciones:", err);
+    throw new Error(err?.message || "Error al consultar las notificaciones desde la base de datos.");
   }
-
-  // 2. Aplicar filtro estricto de Scope
-  let filtered = pool.filter((n) => n.scope === targetScope);
-
-  // 3. Si es de ámbito Business, filtrar estrictamente por businessId
-  if (targetScope === "business") {
-    if (!options.businessId) {
-      return []; // Un usuario de workspace no puede ver notificaciones sin businessId
-    }
-    filtered = filtered.filter((n) => n.businessId === options.businessId);
-  }
-
-  // 4. Aplicar regla de Audiencia (Global vs User-targeted)
-  if (options.currentUserId) {
-    filtered = filtered.filter(
-      (n) =>
-        n.audience === "global" ||
-        (n.audience === "user" && n.recipientUserId === options.currentUserId)
-    );
-  }
-
-  // 5. Filtro de no leídas
-  if (options.unreadOnly) {
-    filtered = filtered.filter((n) => !n.read && !n.isRead);
-  }
-
-  // 6. Filtro por tipo
-  if (options.type) {
-    filtered = filtered.filter((n) => n.type === options.type);
-  }
-
-  // 7. Límite
-  if (options.limit && options.limit > 0) {
-    filtered = filtered.slice(0, options.limit);
-  }
-
-  return filtered;
 }
 
 /**
@@ -280,27 +256,47 @@ export async function getPlatformNotifications(options?: {
 }
 
 /**
- * 3. MARCAR NOTIFICACIÓN COMO LEÍDA
+ * 3. MARCAR NOTIFICACIÓN COMO LEÍDA CON AISLAMIENTO DE CONTEXTO
  */
-export async function markNotificationAsRead(id: string): Promise<boolean> {
-  const memNotif = IN_MEMORY_NOTIFICATIONS.find((n) => n.id === id);
-  if (memNotif) {
-    memNotif.read = true;
-    memNotif.isRead = true;
+export async function markNotificationAsRead(
+  id: string,
+  options?: {
+    scope?: NotificationScope;
+    businessId?: string;
+    currentUserId?: string;
   }
-
+): Promise<boolean> {
   try {
     const supabase = await getAdminSupabaseClient();
-    await supabase.from("platform_notifications").update({ is_read: true }).eq("id", id);
-  } catch {
-    // Ignorar si no existe tabla
-  }
+    let query = supabase.from("platform_notifications").update({ is_read: true }).eq("id", id);
+    
+    if (options?.scope) {
+      query = query.eq("scope", options.scope);
+    }
+    
+    if (options?.scope === "business") {
+      if (!options.businessId) {
+        console.error("[NotificationsService Error] businessId requerido para scope business");
+        return false;
+      }
+      query = query.eq("business_id", options.businessId);
+    }
+    
+    if (options?.currentUserId && isValidUuid(options.currentUserId)) {
+      query = query.or(`audience.eq.global,and(audience.eq.user,recipient_user_id.eq.${options.currentUserId})`);
+    }
 
-  return true;
+    const { data, error } = await query.select("id");
+    if (error) throw error;
+    return Boolean(data && data.length > 0);
+  } catch (err: any) {
+    console.error("[NotificationsService Error] Error al marcar como leída:", err);
+    return false;
+  }
 }
 
 /**
- * 4. MARCAR TODAS LAS NOTIFICACIONES COMO LEÍDAS
+ * 4. MARCAR TODAS LAS NOTIFICACIONES COMO LEÍDAS CON AISLAMIENTO
  */
 export async function markAllNotificationsAsRead(options?: {
   scope?: NotificationScope;
@@ -309,23 +305,34 @@ export async function markAllNotificationsAsRead(options?: {
 }): Promise<boolean> {
   const targetScope = options?.scope || "platform";
 
-  IN_MEMORY_NOTIFICATIONS.forEach((n) => {
-    if (n.scope === targetScope) {
-      if (!options?.currentUserId || n.audience === "global" || n.recipientUserId === options.currentUserId) {
-        if (targetScope !== "business" || n.businessId === options?.businessId) {
-          n.read = true;
-          n.isRead = true;
-        }
-      }
-    }
-  });
+  if (targetScope === "business" && !options?.businessId) {
+    console.error("[NotificationsService Error] businessId requerido para scope business");
+    return false;
+  }
 
   try {
     const supabase = await getAdminSupabaseClient();
-    await supabase.from("platform_notifications").update({ is_read: true }).eq("is_read", false);
-  } catch {
-    // Ignorar si no existe tabla
-  }
+    
+    let query = supabase
+      .from("platform_notifications")
+      .update({ is_read: true })
+      .eq("is_read", false)
+      .eq("scope", targetScope);
+      
+    // Acotar según las reglas requeridas
+    if (targetScope === "business" && options?.businessId) {
+      query = query.eq("business_id", options.businessId);
+    }
+    
+    if (options?.currentUserId && isValidUuid(options.currentUserId)) {
+      query = query.or(`audience.eq.global,and(audience.eq.user,recipient_user_id.eq.${options.currentUserId})`);
+    }
 
-  return true;
+    const { error } = await query;
+    if (error) throw error;
+    return true;
+  } catch (err: any) {
+    console.error("[NotificationsService Error] Error al marcar todas como leídas:", err);
+    return false;
+  }
 }

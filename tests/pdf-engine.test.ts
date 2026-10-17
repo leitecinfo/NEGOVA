@@ -59,6 +59,8 @@ describe("Motor Universal de Renderizado de PDF", () => {
       discountTotal: 5000,
       total: 220000,
       currency: "COP",
+      headerText: "Resolución de Facturación Electrónica DIAN 18760000000001",
+      termsAndConditions: "Términos: Los cambios de mercancía se realizan en un plazo máximo de 15 días calendario.",
       thankYouNote: "¡Gracias por su compra en Boutique Elegance!",
       notes: "Garantía de 30 días con este documento.",
     };

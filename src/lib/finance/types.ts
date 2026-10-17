@@ -10,6 +10,12 @@ export interface PlatformExpense {
   notes?: string | null;
 }
 
+export interface FinancialFilterParams {
+  period?: "this_month" | "last_month" | "this_year" | "custom" | "all";
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface PlatformFinancialSummary {
   // 1. Ingresos Recurrentes (SaaS)
   mrrCOP: number;

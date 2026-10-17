@@ -13,6 +13,7 @@ import {
   registerFailedAttempt,
   formatSecondsToHumanReadable,
 } from "@/lib/security/rate-limit";
+import { getUserActiveBusinessId } from "@/lib/auth/workspace-context";
 
 export type ActionResponse = {
   success: boolean;
@@ -46,103 +47,148 @@ const forgotPasswordSchema = z.object({
  * 1. Inicio de Sesión seguro con Correo, Contraseña y Verificación MFA para administradores
  */
 export async function loginWithPassword(formData: FormData): Promise<ActionResponse> {
-  const ip = await getClientIp();
-  const rawEmail = (formData.get("email") as string) || "";
-  const password = (formData.get("password") as string) || "";
-  const sanitizedEmail = rawEmail.trim().toLowerCase();
+  try {
+    const ip = await getClientIp();
+    const rawEmail = (formData.get("email") as string) || "";
+    const password = (formData.get("password") as string) || "";
+    const sanitizedEmail = rawEmail.trim().toLowerCase();
 
-  // A. Verificar Política de Bloqueo y Seguridad en Base de Datos y Memoria
-  const securityStatus = await checkLoginSecurity(sanitizedEmail, ip);
-  if (securityStatus.isBlocked) {
-    return {
-      success: false,
-      error: securityStatus.errorMessage,
-    };
-  }
+    // A. Verificar Política de Bloqueo y Seguridad en Base de Datos y Memoria
+    const securityStatus = await checkLoginSecurity(sanitizedEmail, ip);
+    if (securityStatus.isBlocked) {
+      return {
+        success: false,
+        error: securityStatus.errorMessage,
+      };
+    }
 
-  // B. Validación Estricta de Campos (Zod)
-  const validation = passwordLoginSchema.safeParse({ email: sanitizedEmail, password });
-  if (!validation.success) {
-    const failResult = await registerFailedLogin(sanitizedEmail, ip);
-    return {
-      success: false,
-      error: validation.error.issues[0]?.message || failResult.message,
-    };
-  }
+    // B. Validación Estricta de Campos (Zod)
+    const validation = passwordLoginSchema.safeParse({ email: sanitizedEmail, password });
+    if (!validation.success) {
+      const failResult = await registerFailedLogin(sanitizedEmail, ip);
+      return {
+        success: false,
+        error: validation.error.issues[0]?.message || failResult.message,
+      };
+    }
 
-  const supabase = await createClient();
+    const supabase = await createClient();
 
-  // C. Intentar Autenticación con Supabase Auth
-  const { data: authData, error } = await supabase.auth.signInWithPassword({
-    email: sanitizedEmail,
-    password,
-  });
+    // C. Intentar Autenticación con Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: sanitizedEmail,
+      password,
+    });
 
-  if (error || !authData.user) {
-    // Registrar intento fallido persistente en base de datos
-    const failResult = await registerFailedLogin(sanitizedEmail, ip);
-    return {
-      success: false,
-      error: failResult.message,
-    };
-  }
+    if (error || !authData.user) {
+      // Registrar intento fallido persistente en base de datos
+      const failResult = await registerFailedLogin(sanitizedEmail, ip);
+      return {
+        success: false,
+        error: failResult.message,
+      };
+    }
 
-  // D. Verificar rol de plataforma usando cliente admin (bypasa RLS)
-  const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
+    // D. Verificar rol de plataforma usando cliente admin (bypasa RLS)
+    const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
 
-  const { data: profile } = await supabaseAdmin
-    .from("users")
-    .select("platform_role, status")
-    .eq("id", authData.user.id)
-    .maybeSingle();
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("platform_role, status")
+      .eq("id", authData.user.id)
+      .maybeSingle();
 
-  const authRole = authData.user.app_metadata?.role || authData.user.user_metadata?.role;
-  const userPlatformRole =
-    profile?.platform_role === "super_admin" || profile?.platform_role === "admin"
-      ? profile.platform_role
-      : authRole === "super_admin" || authRole === "admin"
-        ? authRole
-        : (profile?.platform_role || "customer");
+    const authRole = authData.user.app_metadata?.role || authData.user.user_metadata?.role;
+    const userPlatformRole =
+      profile?.platform_role === "super_admin" || profile?.platform_role === "admin"
+        ? profile.platform_role
+        : authRole === "super_admin" || authRole === "admin"
+          ? authRole
+          : (profile?.platform_role || "customer");
 
-  const isActive = profile?.status !== "disabled" && profile?.status !== "blocked";
+    const isActive = profile?.status !== "disabled" && profile?.status !== "blocked";
 
-  if (!isActive) {
-    // Cerrar la sesión inmediatamente si está suspendido
-    await supabase.auth.signOut();
-    return {
-      success: false,
-      error: "Tu cuenta ha sido deshabilitada o suspendida. Por favor, comunícate con soporte técnico (soporte@negova.com).",
-    };
-  }
+    if (!isActive) {
+      // Cerrar la sesión inmediatamente si está suspendido
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error: "Tu cuenta ha sido deshabilitada o suspendida. Por favor, comunícate con soporte técnico (soporte@negova.com).",
+      };
+    }
 
-  // E. Verificar si la política de MFA para Staff / Administradores está activa
-  const isStaffOrAdmin = userPlatformRole === "super_admin" || userPlatformRole === "admin" || userPlatformRole === "staff";
-  
-  if (isStaffOrAdmin) {
-    // Leer configuración de la plataforma
-    let requireMfa = true;
-    try {
-      const { data: configRow } = await supabaseAdmin
-        .from("platform_settings")
-        .select("config_json")
-        .eq("id", "core_config")
-        .maybeSingle();
+    // E. Determinar si el usuario es staff/admin o dueño de negocio (owner)
+    const isStaffOrAdmin =
+      userPlatformRole === "super_admin" ||
+      userPlatformRole === "admin" ||
+      userPlatformRole === "staff";
 
-      if (configRow?.config_json?.seguridad) {
-        requireMfa = configRow.config_json.seguridad.requireMfaForStaff ?? true;
+    // Determinar si es Dueño de Negocio (Owner) desde la fuente autoritativa del servidor
+    let isBusinessOwner = authRole === "owner" || authRole === "business_owner";
+    if (!isBusinessOwner) {
+      const { data: ownerMemberships } = await supabaseAdmin
+        .from("business_users")
+        .select("id, status, roles(code)")
+        .eq("user_id", authData.user.id)
+        .neq("status", "inactive");
+
+      if (ownerMemberships && ownerMemberships.length > 0) {
+        isBusinessOwner = ownerMemberships.some((m) => {
+          const raw = m.roles as any;
+          const code = Array.isArray(raw) ? raw[0]?.code : raw?.code;
+          return code === "owner" || code === "business_owner";
+        });
       }
-    } catch {
-      // Si la tabla no existe en local, se asume activo por seguridad
-      requireMfa = true;
+    }
+
+    // F. Verificar si la política de MFA aplica para el usuario (Staff/Admin o Dueño de Negocio)
+    let requireMfa = false;
+
+    if (isStaffOrAdmin) {
+      requireMfa = true; // Por defecto activo para administradores
+      try {
+        const { data: configRow } = await supabaseAdmin
+          .from("platform_settings")
+          .select("value")
+          .eq("key", "core_config")
+          .maybeSingle();
+
+        if (configRow?.value && typeof configRow.value === "object") {
+          const val = configRow.value as any;
+          if (val.seguridad && typeof val.seguridad.requireMfaForStaff === "boolean") {
+            requireMfa = val.seguridad.requireMfaForStaff;
+          }
+        }
+      } catch {
+        requireMfa = true;
+      }
+    } else if (isBusinessOwner) {
+      requireMfa = true; // Obligatorio para DUEÑOS DE NEGOCIO (OWNER)
+      try {
+        const { data: configRow } = await supabaseAdmin
+          .from("platform_settings")
+          .select("value")
+          .eq("key", "core_config")
+          .maybeSingle();
+
+        if (configRow?.value && typeof configRow.value === "object") {
+          const val = configRow.value as any;
+          if (val.seguridad && typeof val.seguridad.requireMfaForOwners === "boolean") {
+            requireMfa = val.seguridad.requireMfaForOwners;
+          }
+        }
+      } catch {
+        requireMfa = true;
+      }
     }
 
     if (requireMfa) {
-      // Generar código OTP de 6 dígitos
+      // Generar código OTP criptográficamente seguro de 6 dígitos
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Limpiar códigos OTP anteriores para este correo
@@ -155,14 +201,23 @@ export async function loginWithPassword(formData: FormData): Promise<ActionRespo
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       });
 
-      // Enviar correo vía Resend
-      const { sendOtpEmail } = await import("@/lib/email/resend");
-      await sendOtpEmail({
-        to: sanitizedEmail,
-        otpCode,
-        subjectTitle: "Código de Acceso de Doble Factor (MFA / 2FA)",
-        reasonText: "Tu contraseña ha sido validada. Como medida de seguridad de acceso al panel administrativo de NEGOVA, ingresa el siguiente código de 6 dígitos para completar el inicio de sesión.",
-      });
+      // Enviar correo vía Resend en segundo plano sin bloquear la respuesta al usuario
+      import("@/lib/email/resend")
+        .then(({ sendOtpEmail }) =>
+          sendOtpEmail({
+            to: sanitizedEmail,
+            otpCode,
+            subjectTitle: isBusinessOwner
+              ? "Código de Acceso a tu Negocio (MFA / 2FA)"
+              : "Código de Acceso de Doble Factor (MFA / 2FA)",
+            reasonText: isBusinessOwner
+              ? "Tu contraseña ha sido validada. Como medida de seguridad para proteger el acceso a la administración y las operaciones de tu comercio en NEGOVA, ingresa el siguiente código de 6 dígitos para acceder a tu workspace."
+              : "Tu contraseña ha sido validada. Como medida de seguridad de acceso al panel administrativo de NEGOVA, ingresa el siguiente código de 6 dígitos para completar el inicio de sesión.",
+          })
+        )
+        .catch((mailErr) => console.error("⚠️ Error enviando OTP por correo:", mailErr));
+
+      console.log(`🔑 [NEGOVA MFA OTP] Código para ${sanitizedEmail}: ${otpCode}`);
 
       // Desautenticar temporalmente para exigir la verificación del código
       await supabase.auth.signOut();
@@ -174,24 +229,40 @@ export async function loginWithPassword(formData: FormData): Promise<ActionRespo
         message: "Código de seguridad de 6 dígitos enviado a tu correo.",
       };
     }
+
+    // G. Limpiar Historial de Intentos Fallidos tras Éxito directo (solo si no requirió MFA)
+    await clearLoginSecurity(sanitizedEmail, ip);
+
+    // H. Redirección con retorno seguro hacia el ámbito correspondiente
+    const rawRedirect = (formData.get("redirectTo") as string) || "";
+    let safeRedirect = "";
+
+    if (rawRedirect.startsWith("/") && rawRedirect !== "/dashboard") {
+      if (rawRedirect.startsWith("/admin") && !isStaffOrAdmin) {
+        const userBizId = await getUserActiveBusinessId(authData.user.id);
+        safeRedirect = userBizId ? `/workspace/${userBizId}` : "/login?error=no_active_business";
+      } else {
+        safeRedirect = rawRedirect;
+      }
+    } else if (isStaffOrAdmin) {
+      safeRedirect = "/admin";
+    } else {
+      const userBizId = await getUserActiveBusinessId(authData.user.id);
+      safeRedirect = userBizId ? `/workspace/${userBizId}` : "/login?error=no_active_business";
+    }
+
+    return {
+      success: true,
+      message: "Inicio de sesión exitoso",
+      redirectUrl: safeRedirect,
+    };
+  } catch (err: any) {
+    console.error("❌ Error inesperado en loginWithPassword:", err);
+    return {
+      success: false,
+      error: err?.message || "Ocurrió un error inesperado al procesar el inicio de sesión.",
+    };
   }
-
-  // F. Limpiar Historial de Intentos Fallidos tras Éxito directo
-  await clearLoginSecurity(sanitizedEmail, ip);
-
-  // G. Redirección con retorno seguro
-  const rawRedirect = (formData.get("redirectTo") as string) || "";
-  const safeRedirect = rawRedirect.startsWith("/")
-    ? rawRedirect
-    : isStaffOrAdmin
-    ? "/admin"
-    : "/dashboard";
-
-  return {
-    success: true,
-    message: "Inicio de sesión exitoso",
-    redirectUrl: safeRedirect,
-  };
 }
 
 /**
@@ -208,6 +279,15 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
     return {
       success: false,
       error: "Código de verificación inválido. Debe contener 6 dígitos.",
+    };
+  }
+
+  // A. Verificar bloqueo de seguridad antes de procesar el OTP
+  const securityStatus = await checkLoginSecurity(sanitizedEmail, ip);
+  if (securityStatus.isBlocked) {
+    return {
+      success: false,
+      error: securityStatus.errorMessage,
     };
   }
 
@@ -247,9 +327,10 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
 
   // Verificar código coincidente
   if (otpRecord.code !== otpCode) {
+    const failResult = await registerFailedLogin(sanitizedEmail, ip);
     return {
       success: false,
-      error: "El código ingresado es incorrecto. Verifícalo e intenta nuevamente.",
+      error: `El código ingresado es incorrecto. ${failResult.message.includes("Te quedan") ? failResult.message.split(". ")[1] : "Verifícalo e intenta nuevamente."}`,
     };
   }
 
@@ -270,26 +351,29 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
   // Eliminar el código usado
   await supabaseAdmin.from("password_reset_otps").delete().eq("id", otpRecord.id);
 
-  // Limpiar historial de seguridad de login
-  await clearLoginSecurity(sanitizedEmail, ip);
+  // Limpiar historial de seguridad de login en segundo plano
+  clearLoginSecurity(sanitizedEmail, ip).catch(() => {});
 
-  // Registrar auditoría
-  try {
-    await supabaseAdmin.from("audit_logs").insert({
-      user_id: authData.user.id,
-      user_email: sanitizedEmail,
-      action: "mfa_login_success",
-      resource_type: "auth",
-      resource_id: authData.user.id,
-      details: {
-        ip,
-        timestamp: new Date().toISOString(),
-        authMethod: "password_mfa_otp",
-      },
-    });
-  } catch {
-    // Continuar si la tabla audit_logs no está disponible
-  }
+  // Registrar auditoría en segundo plano sin retrasar la redirección del usuario
+  const userBizId = await getUserActiveBusinessId(authData.user.id);
+  import("@/lib/audit/audit-service")
+    .then(({ logAuditAction }) =>
+      logAuditAction({
+        businessId: userBizId || null,
+        userId: authData.user.id,
+        action: "login",
+        entityType: "account_security",
+        entityId: authData.user.id,
+        ipAddress: ip,
+        metadata: {
+          original_action: "mfa_login_success",
+          email: sanitizedEmail,
+          authMethod: "password_mfa_otp",
+          timestamp: new Date().toISOString(),
+        },
+      })
+    )
+    .catch((err) => console.error("⚠️ Error registrando auditoría:", err));
 
   const { data: profile } = await supabaseAdmin
     .from("users")
@@ -313,13 +397,18 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
   );
 
   const rawRedirect = (formData.get("redirectTo") as string) || "";
-  const safeRedirect = mustChangePassword
-    ? "/reset-password"
-    : rawRedirect.startsWith("/")
-    ? rawRedirect
-    : isStaffOrAdmin
-    ? "/admin"
-    : "/dashboard";
+  let safeRedirect = "";
+
+  if (mustChangePassword) {
+    safeRedirect = "/reset-password";
+  } else if (rawRedirect.startsWith("/") && rawRedirect !== "/dashboard") {
+    safeRedirect = rawRedirect;
+  } else if (isStaffOrAdmin) {
+    safeRedirect = "/admin";
+  } else {
+    const userBizId = await getUserActiveBusinessId(authData.user.id);
+    safeRedirect = userBizId ? `/workspace/${userBizId}` : "/login?error=no_active_business";
+  }
 
   return {
     success: true,

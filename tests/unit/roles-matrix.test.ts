@@ -263,4 +263,151 @@ describe("Roles & Permissions Security Matrix", () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe("5. Business Type Adaptation & Vertical Extensibility Matrix", () => {
+    it("debe retornar todos los 9 módulos de negocio para un restaurante de comida rápida", async () => {
+      const { getPermissionModulesForBusinessType } = await import("../../src/lib/auth/permissions");
+      
+      const fastFoodModules = getPermissionModulesForBusinessType("fast_food_restaurant");
+      expect(fastFoodModules).toHaveLength(9);
+      expect(fastFoodModules.map((m) => m.moduleId)).toContain("pedidos");
+
+      const restaurantModules = getPermissionModulesForBusinessType("restaurant");
+      expect(restaurantModules).toHaveLength(9);
+      expect(restaurantModules.map((m) => m.moduleId)).toContain("pedidos");
+    });
+
+    it("debe excluir estrictamente el módulo de comandas/pedidos para negocios no gastronómicos (ej. barbería, retail)", async () => {
+      const { getPermissionModulesForBusinessType } = await import("../../src/lib/auth/permissions");
+      
+      const barbershopModules = getPermissionModulesForBusinessType("barbershop");
+      expect(barbershopModules).toHaveLength(8);
+      expect(barbershopModules.map((m) => m.moduleId)).not.toContain("pedidos");
+
+      const retailModules = getPermissionModulesForBusinessType("fashion");
+      expect(retailModules).toHaveLength(8);
+      expect(retailModules.map((m) => m.moduleId)).not.toContain("pedidos");
+    });
+
+    it("debe validar correctamente la compatibilidad de permisos individuales con el tipo de negocio", async () => {
+      const { isPermissionCompatibleWithBusinessType } = await import("../../src/lib/auth/permissions");
+
+      // Permisos de comandas (gastronomía)
+      expect(isPermissionCompatibleWithBusinessType("orders.view", "restaurant")).toBe(true);
+      expect(isPermissionCompatibleWithBusinessType("orders.create", "fast_food_restaurant")).toBe(true);
+      expect(isPermissionCompatibleWithBusinessType("orders.update", "comida_rapida")).toBe(true);
+      expect(isPermissionCompatibleWithBusinessType("orders.manage", "pizzeria")).toBe(true);
+
+      // Bloqueo estricto para no gastronómicos
+      expect(isPermissionCompatibleWithBusinessType("orders.create", "barbershop")).toBe(false);
+      expect(isPermissionCompatibleWithBusinessType("orders.view", "hardware")).toBe(false);
+      expect(isPermissionCompatibleWithBusinessType("orders.update", "spa")).toBe(false);
+
+      // Permisos core universales compatibles con todos los verticales
+      const universalPerms = [
+        "sales.view", "sales.create", "sales.update",
+        "products.view", "products.create",
+        "customers.view", "customers.create",
+        "inventory.view", "inventory.create",
+        "expenses.view", "expenses.create",
+        "reports.view", "business_settings.view"
+      ];
+
+      universalPerms.forEach((perm) => {
+        expect(isPermissionCompatibleWithBusinessType(perm, "restaurant")).toBe(true);
+        expect(isPermissionCompatibleWithBusinessType(perm, "barbershop")).toBe(true);
+        expect(isPermissionCompatibleWithBusinessType(perm, "fashion")).toBe(true);
+      });
+    });
+
+    it("debe calcular los permisos efectivos por defecto según el tipo de negocio", async () => {
+      const { getDefaultPermissionsForRoleAndBusinessType } = await import("../../src/lib/auth/permissions");
+
+      // Auxiliar en Restaurante: 17 permisos (incluye orders.view, orders.create, orders.update)
+      const restaurantAuxPerms = getDefaultPermissionsForRoleAndBusinessType("auxiliar", "fast_food_restaurant");
+      expect(restaurantAuxPerms).toHaveLength(17);
+      expect(restaurantAuxPerms).toContain("orders.view");
+      expect(restaurantAuxPerms).toContain("orders.create");
+      expect(restaurantAuxPerms).toContain("orders.update");
+
+      // Auxiliar en Barbería: 14 permisos (excluye órdenes de cocina)
+      const barbershopAuxPerms = getDefaultPermissionsForRoleAndBusinessType("auxiliar", "barbershop");
+      expect(barbershopAuxPerms).toHaveLength(14);
+      expect(barbershopAuxPerms).not.toContain("orders.view");
+      expect(barbershopAuxPerms).not.toContain("orders.create");
+      expect(barbershopAuxPerms).not.toContain("orders.update");
+
+      // Owner en Restaurante: 33 permisos (todos los de negocio)
+      const restaurantOwnerPerms = getDefaultPermissionsForRoleAndBusinessType("owner", "restaurant");
+      expect(restaurantOwnerPerms).toHaveLength(33);
+
+      // Owner en Barbería: 28 permisos (33 - 5 de comandas)
+      const barbershopOwnerPerms = getDefaultPermissionsForRoleAndBusinessType("owner", "barbershop");
+      expect(barbershopOwnerPerms).toHaveLength(28);
+      expect(barbershopOwnerPerms).not.toContain("orders.view");
+      expect(barbershopOwnerPerms).not.toContain("orders.cancel");
+    });
+
+    it("debe entregar la lista de permisos asignables al auxiliar sin exponer operaciones críticas del dueño", async () => {
+      const { getAssignablePermissionsForAuxiliar } = await import("../../src/lib/auth/permissions");
+
+      const restaurantAssignable = getAssignablePermissionsForAuxiliar("fast_food_restaurant");
+      
+      // Debe incluir operaciones diarias permitidas
+      expect(restaurantAssignable).toContain("sales.view");
+      expect(restaurantAssignable).toContain("sales.create");
+      expect(restaurantAssignable).toContain("sales.update");
+      expect(restaurantAssignable).toContain("orders.view");
+      expect(restaurantAssignable).toContain("orders.create");
+      expect(restaurantAssignable).toContain("orders.update");
+      expect(restaurantAssignable).toContain("products.view");
+      expect(restaurantAssignable).toContain("customers.view");
+      expect(restaurantAssignable).toContain("inventory.view");
+      expect(restaurantAssignable).toContain("expenses.view");
+      expect(restaurantAssignable).toContain("reports.view");
+
+      // NUNCA debe permitir asignar permisos críticos reservados al Propietario
+      expect(restaurantAssignable).not.toContain("sales.cancel");
+      expect(restaurantAssignable).not.toContain("orders.cancel");
+      expect(restaurantAssignable).not.toContain("orders.manage");
+      expect(restaurantAssignable).not.toContain("products.delete");
+      expect(restaurantAssignable).not.toContain("customers.delete");
+      expect(restaurantAssignable).not.toContain("inventory.adjust");
+      expect(restaurantAssignable).not.toContain("inventory.update");
+      expect(restaurantAssignable).not.toContain("expenses.delete");
+      expect(restaurantAssignable).not.toContain("business_users.view");
+      expect(restaurantAssignable).not.toContain("business_users.create");
+      expect(restaurantAssignable).not.toContain("business_users.update");
+      expect(restaurantAssignable).not.toContain("business_users.disable");
+      expect(restaurantAssignable).not.toContain("business_settings.view");
+      expect(restaurantAssignable).not.toContain("business_settings.update");
+      expect(restaurantAssignable).not.toContain("reports.export");
+    });
+
+    it("debe permitir extensibilidad para futuros verticales sin romper el núcleo", async () => {
+      const { isModuleCompatibleWithBusinessType } = await import("../../src/lib/auth/permissions");
+
+      // Simulación de módulo futuro de citas para barberías
+      const futureAppointmentsModule = {
+        moduleId: "citas",
+        moduleName: "Citas y Agenda de Servicios",
+        description: "Gestión de citas y turnos",
+        scope: "business" as const,
+        compatibleBusinessTypes: ["barbershop", "spa", "technical_service"],
+        permissions: [
+          { code: "appointments.view", name: "Ver Citas", description: "Consultar agenda", isAssignableToAuxiliar: true },
+          { code: "appointments.create", name: "Agendar Cita", description: "Crear cita", isAssignableToAuxiliar: true },
+        ],
+      };
+
+      // Debe ser compatible con barbería y spa
+      expect(isModuleCompatibleWithBusinessType(futureAppointmentsModule, "barbershop")).toBe(true);
+      expect(isModuleCompatibleWithBusinessType(futureAppointmentsModule, "spa")).toBe(true);
+
+      // Debe ser rechazado para restaurante o retail
+      expect(isModuleCompatibleWithBusinessType(futureAppointmentsModule, "restaurant")).toBe(false);
+      expect(isModuleCompatibleWithBusinessType(futureAppointmentsModule, "fast_food_restaurant")).toBe(false);
+      expect(isModuleCompatibleWithBusinessType(futureAppointmentsModule, "fashion")).toBe(false);
+    });
+  });
 });

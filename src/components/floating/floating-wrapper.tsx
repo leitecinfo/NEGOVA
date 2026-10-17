@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { FloatingContact } from "./floating-contact";
 import { NegovaAssistant } from "./negova-assistant";
 
-// Prefijos de rutas donde NO deben aparecer los botones flotantes
-const HIDDEN_ROUTES = ["/dashboard", "/admin", "/panel", "/app"];
+// Prefijos de rutas donde NO deben aparecer los botones flotantes de la plataforma
+const HIDDEN_ROUTES = ["/dashboard", "/admin", "/panel", "/app", "/workspace", "/menu"];
 
 export function FloatingWrapper() {
   const pathname = usePathname();

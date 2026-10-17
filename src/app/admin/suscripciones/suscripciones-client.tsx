@@ -64,6 +64,7 @@ import {
   AdminStatusBadge,
   AdminButton,
 } from "@/components/admin/ui";
+import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface SuscripcionesClientProps {
   initialData: SubscriptionsListResult | null;
@@ -826,324 +827,330 @@ export function SuscripcionesClient({
 
       {/* 5. MODAL: RENOVAR / EXTENDER VIGENCIA */}
       {renewModal.isOpen && renewModal.subscription && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
-                  <RefreshCw className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Extender / Renovar Suscripción
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {renewModal.subscription.businessName}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRenewModal({ isOpen: false, subscription: null, months: 1, planId: "inicio" })}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRenewSubmit} className="space-y-4">
-              {/* Selección de Plan */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Plan a Contratar
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {COMMERCIAL_PLANS_LIST.map((p) => {
-                    const isSelected = renewModal.planId === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setRenewModal((prev) => ({ ...prev, planId: p.id }))}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10 text-slate-900 dark:text-white"
-                            : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                        }`}
-                      >
-                        <p className="font-bold text-xs">{p.name}</p>
-                        <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
-                          {p.pricing.monthlyFormatted}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Selección de Duración */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Duración / Meses a Añadir
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "1 mes", months: 1 },
-                    { label: "3 meses", months: 3 },
-                    { label: "6 meses", months: 6 },
-                    { label: "1 año (12m)", months: 12 },
-                    { label: "2 años (24m)", months: 24 },
-                  ].map((opt) => {
-                    const isSelected = renewModal.months === opt.months;
-                    return (
-                      <button
-                        key={opt.months}
-                        type="button"
-                        onClick={() => setRenewModal((prev) => ({ ...prev, months: opt.months }))}
-                        className={`p-2.5 rounded-xl border text-center transition-all ${
-                          isSelected
-                            ? "border-[#ED500A] bg-orange-500/10 text-[#ED500A] font-bold text-xs"
-                            : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs hover:border-slate-300"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Resumen de Cálculo en Vivo */}
-              {(() => {
-                const targetPlan = NEGOVA_PLANS[renewModal.planId] || NEGOVA_PLANS.inicio;
-                const isAnnual = renewModal.months >= 12;
-                const price = isAnnual
-                  ? (targetPlan.pricing.annualTotal * Math.round(renewModal.months / 12))
-                  : (targetPlan.pricing.monthly * renewModal.months);
-
-                const currentEnd = renewModal.subscription.currentPeriodEnd
-                  ? new Date(renewModal.subscription.currentPeriodEnd)
-                  : new Date();
-                const baseDate = currentEnd > new Date() ? currentEnd : new Date();
-                const { endDate } = calculatePeriodDates(
-                  baseDate,
-                  isAnnual ? "annual" : "monthly",
-                  isAnnual ? Math.round(renewModal.months / 12) : renewModal.months
-                );
-
-                return (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>Nuevo Vencimiento Estimado:</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        {formatVigenciaDate(endDate)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                      <span>Importe Total Calculado:</span>
-                      <span className="font-mono font-bold text-[#ED500A] text-sm">
-                        {formatCOP(price)} COP
-                      </span>
-                    </div>
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
+                    <RefreshCw className="w-5 h-5" />
                   </div>
-                );
-              })()}
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
-                <AdminButton
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Extender / Renovar Suscripción
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {renewModal.subscription.businessName}
+                    </p>
+                  </div>
+                </div>
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setRenewModal({ isOpen: false, subscription: null, months: 1, planId: "inicio" })}
-                  disabled={isPending}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
                 >
-                  Cancelar
-                </AdminButton>
-                <AdminButton
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={isPending}
-                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                >
-                  Confirmar Extensión
-                </AdminButton>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </form>
+
+              <form onSubmit={handleRenewSubmit} className="space-y-4">
+                {/* Selección de Plan */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Plan a Contratar
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {COMMERCIAL_PLANS_LIST.map((p) => {
+                      const isSelected = renewModal.planId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setRenewModal((prev) => ({ ...prev, planId: p.id }))}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10 text-slate-900 dark:text-white"
+                              : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                        >
+                          <p className="font-bold text-xs">{p.name}</p>
+                          <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                            {p.pricing.monthlyFormatted}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Selección de Duración */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Duración / Meses a Añadir
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "1 mes", months: 1 },
+                      { label: "3 meses", months: 3 },
+                      { label: "6 meses", months: 6 },
+                      { label: "1 año (12m)", months: 12 },
+                      { label: "2 años (24m)", months: 24 },
+                    ].map((opt) => {
+                      const isSelected = renewModal.months === opt.months;
+                      return (
+                        <button
+                          key={opt.months}
+                          type="button"
+                          onClick={() => setRenewModal((prev) => ({ ...prev, months: opt.months }))}
+                          className={`p-2.5 rounded-xl border text-center transition-all ${
+                            isSelected
+                              ? "border-[#ED500A] bg-orange-500/10 text-[#ED500A] font-bold text-xs"
+                              : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs hover:border-slate-300"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Resumen de Cálculo en Vivo */}
+                {(() => {
+                  const targetPlan = NEGOVA_PLANS[renewModal.planId] || NEGOVA_PLANS.inicio;
+                  const isAnnual = renewModal.months >= 12;
+                  const price = isAnnual
+                    ? (targetPlan.pricing.annualTotal * Math.round(renewModal.months / 12))
+                    : (targetPlan.pricing.monthly * renewModal.months);
+
+                  const currentEnd = renewModal.subscription.currentPeriodEnd
+                    ? new Date(renewModal.subscription.currentPeriodEnd)
+                    : new Date();
+                  const baseDate = currentEnd > new Date() ? currentEnd : new Date();
+                  const { endDate } = calculatePeriodDates(
+                    baseDate,
+                    isAnnual ? "annual" : "monthly",
+                    isAnnual ? Math.round(renewModal.months / 12) : renewModal.months
+                  );
+
+                  return (
+                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] space-y-2 text-xs">
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>Nuevo Vencimiento Estimado:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          {formatVigenciaDate(endDate)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>Importe Total Calculado:</span>
+                        <span className="font-mono font-bold text-[#ED500A] text-sm">
+                          {formatCOP(price)} COP
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRenewModal({ isOpen: false, subscription: null, months: 1, planId: "inicio" })}
+                    disabled={isPending}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                    leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                  >
+                    Confirmar Extensión
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* 6. MODAL: CAMBIAR PLAN COMERCIAL */}
       {planModal.isOpen && planModal.subscription && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center">
-                  <Layers className="w-5 h-5" />
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Cambiar Plan Comercial
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {planModal.subscription.businessName}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Cambiar Plan Comercial
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {planModal.subscription.businessName}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPlanModal({ isOpen: false, subscription: null, newPlanId: "inicio" })}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePlanSubmit} className="space-y-4">
-              <div className="space-y-2.5">
-                {COMMERCIAL_PLANS_LIST.map((p) => {
-                  const isSelected = planModal.newPlanId === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPlanModal((prev) => ({ ...prev, newPlanId: p.id }))}
-                      className={`w-full p-4 rounded-xl border text-left transition-all ${
-                        isSelected
-                          ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10"
-                          : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] hover:border-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-slate-900 dark:text-white">
-                          Plan {p.name}
-                        </span>
-                        <span className="font-mono font-bold text-xs text-[#ED500A]">
-                          {p.pricing.monthlyFormatted} / mes
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {p.tagline}
-                      </p>
-                      <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600 dark:text-slate-400 font-mono">
-                        <span>• Hasta {p.limits.maxUsers} usuarios</span>
-                        <span>• Hasta {p.limits.maxProducts} productos</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
-                <AdminButton
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setPlanModal({ isOpen: false, subscription: null, newPlanId: "inicio" })}
-                  disabled={isPending}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
                 >
-                  Cancelar
-                </AdminButton>
-                <AdminButton
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={isPending}
-                >
-                  Actualizar Plan
-                </AdminButton>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </form>
+
+              <form onSubmit={handlePlanSubmit} className="space-y-4">
+                <div className="space-y-2.5">
+                  {COMMERCIAL_PLANS_LIST.map((p) => {
+                    const isSelected = planModal.newPlanId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPlanModal((prev) => ({ ...prev, newPlanId: p.id }))}
+                        className={`w-full p-4 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10"
+                            : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm text-slate-900 dark:text-white">
+                            Plan {p.name}
+                          </span>
+                          <span className="font-mono font-bold text-xs text-[#ED500A]">
+                            {p.pricing.monthlyFormatted} / mes
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          {p.tagline}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600 dark:text-slate-400 font-mono">
+                          <span>• Hasta {p.limits.maxUsers} usuarios</span>
+                          <span>• Hasta {p.limits.maxProducts} productos</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPlanModal({ isOpen: false, subscription: null, newPlanId: "inicio" })}
+                    disabled={isPending}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                  >
+                    Actualizar Plan
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* 7. MODAL: CAMBIAR ESTADO DE SUSCRIPCIÓN */}
       {statusModal.isOpen && statusModal.subscription && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <ShieldAlert className="w-5 h-5" />
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Modificar Estado de Suscripción
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {statusModal.subscription.businessName}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Modificar Estado de Suscripción
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {statusModal.subscription.businessName}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStatusModal({ isOpen: false, subscription: null, targetStatus: null, reason: "" })}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleStatusSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Nuevo Estado
-                </label>
-                <select
-                  value={statusModal.targetStatus || "active"}
-                  onChange={(e) =>
-                    setStatusModal((prev) => ({
-                      ...prev,
-                      targetStatus: e.target.value as SubscriptionStatus,
-                    }))
-                  }
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                >
-                  <option value="active">Activa (Habilitada)</option>
-                  <option value="trial">Periodo de Prueba (Trial)</option>
-                  <option value="suspended">Suspendida (Bloqueo temporal)</option>
-                  <option value="canceled">Cancelada (Baja definitiva)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Motivo o justificación del cambio
-                </label>
-                <textarea
-                  rows={3}
-                  value={statusModal.reason}
-                  onChange={(e) => setStatusModal((prev) => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Explica la razón del cambio de estado para el registro de auditoría..."
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
-                <AdminButton
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setStatusModal({ isOpen: false, subscription: null, targetStatus: null, reason: "" })}
-                  disabled={isPending}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
                 >
-                  Cancelar
-                </AdminButton>
-                <AdminButton
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={isPending}
-                >
-                  Confirmar Cambio
-                </AdminButton>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </form>
+
+              <form onSubmit={handleStatusSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Nuevo Estado
+                  </label>
+                  <select
+                    value={statusModal.targetStatus || "active"}
+                    onChange={(e) =>
+                      setStatusModal((prev) => ({
+                        ...prev,
+                        targetStatus: e.target.value as SubscriptionStatus,
+                      }))
+                    }
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                  >
+                    <option value="active">Activa (Habilitada)</option>
+                    <option value="trial">Periodo de Prueba (Trial)</option>
+                    <option value="suspended">Suspendida (Bloqueo temporal)</option>
+                    <option value="canceled">Cancelada (Baja definitiva)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Motivo o justificación del cambio
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={statusModal.reason}
+                    onChange={(e) => setStatusModal((prev) => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Explica la razón del cambio de estado para el registro de auditoría..."
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStatusModal({ isOpen: false, subscription: null, targetStatus: null, reason: "" })}
+                    disabled={isPending}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                  >
+                    Confirmar Cambio
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -8,27 +8,87 @@ import {
   _resetSupportStoreForTesting,
 } from "../../src/lib/support/support-service";
 
-// Mock de Supabase para pruebas unitarias deterministas
-const mockSettingsStorage: Record<string, any> = {};
+// Mock in-memory de base de datos para pruebas unitarias deterministas y aisladas
+let inMemoryInteractions: any[] = [];
+let inMemoryTickets: any[] = [];
+let mockSettingsStorage: Record<string, any> = {};
+
+function createQueryBuilder(table: string) {
+  let targetTable = table === "support_interactions" ? inMemoryInteractions : table === "support_tickets" ? inMemoryTickets : [];
+  let filters: Array<(row: any) => boolean> = [];
+
+  const builder: any = {
+    select: (fields?: string) => builder,
+    eq: (col: string, val: any) => {
+      filters.push((row: any) => row[col] === val);
+      return builder;
+    },
+    single: async () => {
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return { data: filtered[0] || null, error: null };
+    },
+    maybeSingle: async () => {
+      if (table === "platform_settings") {
+        return { data: null, error: null };
+      }
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return { data: filtered[0] || null, error: null };
+    },
+    then: (resolve: any) => {
+      let filtered = targetTable.filter((r) => filters.every((f) => f(r)));
+      return Promise.resolve({ data: filtered, error: null }).then(resolve);
+    },
+    insert: async (record: any) => {
+      const records = Array.isArray(record) ? record : [record];
+      for (const r of records) {
+        if (table === "support_interactions") inMemoryInteractions.push({ ...r });
+        if (table === "support_tickets") inMemoryTickets.push({ ...r });
+      }
+      return { data: record, error: null };
+    },
+    upsert: async (record: any) => {
+      if (table === "platform_settings") {
+        mockSettingsStorage[record.key] = record.value;
+      }
+      return { data: record, error: null };
+    },
+    update: (updates: any) => {
+      return {
+        eq: async (col: string, val: any) => {
+          if (table === "support_interactions") {
+            inMemoryInteractions = inMemoryInteractions.map((r) =>
+              r[col] === val ? { ...r, ...updates } : r
+            );
+          }
+          if (table === "support_tickets") {
+            inMemoryTickets = inMemoryTickets.map((r) =>
+              r[col] === val ? { ...r, ...updates } : r
+            );
+          }
+          return { data: updates, error: null };
+        },
+      };
+    },
+  };
+
+  return builder;
+}
+
+vi.mock("@supabase/supabase-js", () => ({
+  createClient: vi.fn(() => ({
+    from: (table: string) => createQueryBuilder(table),
+  })),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
-    from: (table: string) => ({
-      select: () => ({
-        eq: (_key: string, val: string) => ({
-          maybeSingle: async () => ({
-            data: mockSettingsStorage[val] ? { value: mockSettingsStorage[val] } : null,
-            error: null,
-          }),
-        }),
-      }),
-      upsert: async (record: any) => {
-        mockSettingsStorage[record.key] = record.value;
-        return { data: record, error: null };
-      },
-      insert: async () => ({ data: null, error: null }),
-    }),
+    from: (table: string) => createQueryBuilder(table),
   }),
+}));
+
+vi.mock("@/lib/notifications/notifications-service", () => ({
+  createNotification: vi.fn(async () => ({})),
+  getNotifications: vi.fn(async () => []),
 }));
 
 describe("NEGOVA Support System (Phase 1): Interactions, Tickets & Workflow", () => {
@@ -48,6 +108,8 @@ describe("NEGOVA Support System (Phase 1): Interactions, Tickets & Workflow", ()
 
   beforeEach(async () => {
     // Limpiar almacenamiento antes de cada prueba
+    inMemoryInteractions = [];
+    inMemoryTickets = [];
     for (const k in mockSettingsStorage) {
       delete mockSettingsStorage[k];
     }

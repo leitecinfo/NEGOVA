@@ -61,9 +61,12 @@ export interface BusinessSalePdfData {
   legalName?: string;
   taxId?: string; // NIT / CC
   phone?: string;
+  whatsapp?: string;
   email?: string;
   address?: string;
   city?: string;
+  department?: string;
+  postalCode?: string;
   primaryColor?: string; // Hex, ej: #ED500A o #1E293B
   
   // Receptor (Cliente final del negocio)
@@ -75,7 +78,6 @@ export interface BusinessSalePdfData {
   
   // Archivos
   logoBase64?: string;
-
   
   // Fechas y detalles
   issuedAt: string;
@@ -90,9 +92,14 @@ export interface BusinessSalePdfData {
   total: number;
   currency: string; // "COP"
   
-  // Textos y pie de página
+  // Textos, observaciones, políticas y pie de página
+  headerText?: string | null;
   notes?: string | null;
+  documentObservations?: string | null;
   thankYouNote?: string | null;
+  termsAndConditions?: string | null;
+  returnPolicy?: string | null;
+  warrantyPolicy?: string | null;
   footerText?: string | null;
 }
 

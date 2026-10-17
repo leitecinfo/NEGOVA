@@ -1,5 +1,5 @@
 /**
- * Modelos y Tipos Canónicos para Documentos Comerciales de Negocios Clientes
+ * Modelos y Tipos Canónicos para Documentos Comerciales y Configuración de Negocios Clientes
  * 
  * Regla Fundamental de Aislamiento:
  * Toda configuración y todo documento pertenece estrictamente a un `businessId`.
@@ -8,26 +8,41 @@
 
 export interface BusinessDocumentConfig {
   businessId: string;
-  tradeName: string;
-  legalName?: string;
-  taxId?: string; // NIT / Cédula
-  phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  logoUrl?: string | null;
-  primaryColor: string; // Hex color de marca (ej: #ED500A, #0284C7, #16A34A)
-  documentTitleDefault: string; // "DOCUMENTO DE VENTA" | "CUENTA DE COBRO" | "ORDEN DE SERVICIO"
-  headerText?: string | null;
-  footerText?: string | null;
-  thankYouNote?: string | null;
-  termsAndConditions?: string | null;
+
+  // 1. Datos del negocio
+  tradeName: string; // Nombre comercial *
+  legalName?: string; // Razón social / titular legal
+  taxId?: string; // NIT / identificación tributaria
+  phone?: string; // Teléfono de contacto
+  whatsapp?: string; // WhatsApp de atención
+  email?: string; // Correo electrónico comercial
+  address?: string; // Dirección física
+  city?: string; // Ciudad / municipio
+  department?: string; // Departamento
+  postalCode?: string; // Código postal (opcional)
+
+  // 2. Identidad visual
+  logoUrl?: string | null; // Logotipo del negocio
+  primaryColor: string; // Hex color de marca (ej: #ED500A, #2563EB)
+
+  // 3. Comprobantes y documentos
+  documentTitleDefault: string; // Título del documento (ej: "COMPROBANTE DE VENTA", "RECIBO DE CAJA")
+  headerText?: string | null; // Subtítulo / leyenda
+  thankYouNote?: string | null; // Mensaje de agradecimiento
+  documentObservations?: string | null; // Observaciones
+  termsAndConditions?: string | null; // Términos y condiciones
+  /** @deprecated Alias de compatibilidad — usar termsAndConditions */
+  termsConditions?: string | null;
+  returnPolicy?: string | null; // Política de cambios y devoluciones
+  warrantyPolicy?: string | null; // Política de garantía
+  footerText?: string | null; // Pie de página
+
   updatedAt: string;
 }
 
 export type BusinessDocumentType = "sale" | "service" | "order" | "receipt";
-export type BusinessDocumentStatus = "completed" | "pending" | "cancelled";
-export type BusinessPaymentMethod = "cash" | "transfer" | "credit" | "other";
+export type BusinessDocumentStatus = "completed" | "pending" | "cancelled" | "issued" | "paid" | "refunded";
+export type BusinessPaymentMethod = "cash" | "transfer" | "card" | "credit" | "other";
 
 export interface BusinessDocumentItem {
   id?: string;
@@ -79,6 +94,9 @@ export interface BusinessDocumentFilterParams {
   search?: string;
   status?: string;
   type?: string;
+  paymentMethod?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   pageSize?: number;
 }

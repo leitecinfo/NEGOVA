@@ -13,6 +13,7 @@ import {
   checkBusinessPlanUserCapacity,
   assignUserToBusiness,
   removeUserFromBusiness,
+  deleteUser,
   getEligibleBusinessUsers,
   getBusinessesOptions,
   UserListFilters,
@@ -367,6 +368,103 @@ export async function getEligibleBusinessUsersAction(): Promise<{
   } catch (err: any) {
     console.error("[getEligibleBusinessUsersAction Error]:", err);
     return { success: false, users: [], error: err.message };
+  }
+}
+
+/**
+ * 13. SERVER ACTION: ELIMINAR USUARIO PERMANENTEMENTE (SOLO SUPERADMIN)
+ */
+export async function deleteUserAction(
+  userId: string,
+  confirmEmail?: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const actor = await verifyUserPermission("users.delete");
+    const result = await deleteUser(userId, confirmEmail, actor.userId, reason);
+
+    if (result.success) {
+      revalidatePath("/admin/usuarios");
+      revalidatePath("/admin/negocios");
+      revalidatePath("/admin/notificaciones");
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error("[deleteUserAction Error]:", err);
+    return {
+      success: false,
+      error: err.message || "Acceso denegado: Se requieren permisos de Super Administrador para eliminar usuarios.",
+    };
+  }
+}
+
+/**
+ * 14. SERVER ACTION: OBTENER DETALLE DE PERMISOS DE UN USUARIO (ADMIN DE PLATAFORMA)
+ */
+export async function getAdminUserPermissionsDetailAction(
+  businessId: string,
+  targetUserId: string
+) {
+  try {
+    await verifyUserPermission("users.view");
+    const { getUserEffectivePermissionsDetail } = await import("@/lib/auth/user-permissions-service");
+    const detail = await getUserEffectivePermissionsDetail(businessId, targetUserId);
+    return { success: true, data: detail };
+  } catch (err: any) {
+    console.error("[getAdminUserPermissionsDetailAction Error]:", err);
+    return {
+      success: false,
+      error: err.message || "Error al consultar los permisos del usuario.",
+    };
+  }
+}
+
+/**
+ * 15. SERVER ACTION: GUARDAR PERMISOS INDIVIDUALES PERSONALIZADOS (ADMIN DE PLATAFORMA)
+ */
+export async function saveAdminUserCustomPermissionsAction(
+  businessId: string,
+  targetUserId: string,
+  grantedPermissions: string[],
+  revokedPermissions: string[]
+): Promise<{
+  success: boolean;
+  error?: string;
+  effectivePermissions?: string[];
+}> {
+  try {
+    const actor = await verifyUserPermission("users.update");
+
+    // Seguridad: Un admin no puede modificar sus propios permisos (auto-escalada de privilegios)
+    if (actor.userId === targetUserId) {
+      return {
+        success: false,
+        error: "No puedes modificar tus propios permisos de usuario.",
+      };
+    }
+
+    const { saveUserCustomPermissions } = await import("@/lib/auth/user-permissions-service");
+    const result = await saveUserCustomPermissions({
+      businessId,
+      targetUserId,
+      actorUserId: actor.userId,
+      grantedPermissions,
+      revokedPermissions,
+    });
+
+    if (result.success) {
+      revalidatePath(`/admin/usuarios/${targetUserId}`);
+      revalidatePath(`/admin/usuarios`);
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error("[saveAdminUserCustomPermissionsAction Error]:", err);
+    return {
+      success: false,
+      error: err.message || "Error al modificar los permisos del usuario.",
+    };
   }
 }
 

@@ -301,7 +301,8 @@ const ARTICLE_CONTENTS: Record<string, RichContent> = {
   }
 };
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
+export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = React.use(params);
   const [loaded, setLoaded] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -311,7 +312,7 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
   const [contentRef, contentVisible] = useScrollObserver();
   const [recRef, recVisible] = useScrollObserver();
 
-  const post = BLOG_POSTS.find((p) => p.slug === params.slug);
+  const post = BLOG_POSTS.find((p) => p.slug === slug);
   const richContent = post ? ARTICLE_CONTENTS[post.slug] : null;
 
   // Filtrar artículos recomendados (excluyendo el actual)

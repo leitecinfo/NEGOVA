@@ -8,6 +8,10 @@ import {
   BillingInterval,
   VigenciaBadgeInfo,
 } from "@/config/plans";
+import { CommercialActivity } from "@/config/commercial-activities";
+
+export type { CommercialActivity };
+
 
 export type BusinessCategory =
   | "gastronomicos"
@@ -26,6 +30,7 @@ export type BusinessType =
   | "cafe"
   | "bar"
   | "fast_food"
+  | "fast_food_restaurant"
   | "liquor_store"
   | "bakery"
   | "pizzeria"
@@ -121,6 +126,8 @@ export interface BusinessModel {
   name: string;
   slug: string;
   businessType: BusinessType;
+  commercialActivities: CommercialActivity[];
+  settings?: Record<string, any>;
   description: string | null;
   logoUrl: string | null;
   phone: string | null;
@@ -168,6 +175,8 @@ export interface CreateBusinessInput {
   name: string;
   slug?: string;
   businessType: BusinessType;
+  commercialActivities?: CommercialActivity[];
+  settings?: Record<string, any>;
   description?: string;
   phone?: string;
   email?: string;
@@ -190,6 +199,8 @@ export interface UpdateBusinessInput {
   name?: string;
   slug?: string;
   businessType?: BusinessType;
+  commercialActivities?: CommercialActivity[];
+  settings?: Record<string, any>;
   description?: string;
   phone?: string;
   email?: string;
@@ -221,16 +232,7 @@ export const BUSINESS_CATEGORIES: BusinessCategoryDefinition[] = [
     iconName: "UtensilsCrossed",
     badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400",
     types: [
-      { value: "restaurant", label: "Restaurantes", iconName: "UtensilsCrossed" },
-      { value: "cafe", label: "Cafés & Cafeterías", iconName: "Coffee" },
-      { value: "bar", label: "Bares & Gastrobares", iconName: "Wine" },
-      { value: "fast_food", label: "Comidas Rápidas", iconName: "UtensilsCrossed" },
-      { value: "liquor_store", label: "Licoreras & Estancos", iconName: "Wine" },
-      { value: "bakery", label: "Panaderías & Pastelerías", iconName: "UtensilsCrossed" },
-      { value: "pizzeria", label: "Pizzerías", iconName: "UtensilsCrossed" },
-      { value: "ice_cream", label: "Heladerías & Postres", iconName: "UtensilsCrossed" },
-      { value: "gastronomy", label: "Gastronomía (General)", iconName: "UtensilsCrossed" },
-      { value: "gastronomy_other", label: "Otro gastronómico", iconName: "UtensilsCrossed" },
+      { value: "fast_food_restaurant", label: "Restaurante de comida rápida", iconName: "UtensilsCrossed" },
     ],
   },
   {
@@ -238,59 +240,28 @@ export const BUSINESS_CATEGORIES: BusinessCategoryDefinition[] = [
     label: "Comercio",
     iconName: "Store",
     badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
-    types: [
-      { value: "fashion", label: "Tiendas de ropa & calzado", iconName: "Store" },
-      { value: "hardware", label: "Ferreterías & Pinturas", iconName: "Store" },
-      { value: "stationery", label: "Papelerías & Variedades", iconName: "Store" },
-      { value: "technology", label: "Tecnología & Celulares", iconName: "Store" },
-      { value: "pharmacy", label: "Droguerías & Farmacias", iconName: "Store" },
-      { value: "pets", label: "Tiendas de mascotas / Pets", iconName: "Store" },
-      { value: "retail", label: "Comercio (General)", iconName: "Store" },
-      { value: "retail_other", label: "Otro comercio", iconName: "Store" },
-    ],
+    types: [],
   },
   {
     id: "servicios",
     label: "Servicios",
     iconName: "Briefcase",
     badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400",
-    types: [
-      { value: "barbershop", label: "Barberías & Peluquerías", iconName: "Briefcase" },
-      { value: "automotive", label: "Talleres mecánicos", iconName: "Briefcase" },
-      { value: "spa", label: "Estéticas & Spas", iconName: "Briefcase" },
-      { value: "technical_service", label: "Servicios técnicos", iconName: "Briefcase" },
-      { value: "laundry", label: "Lavanderías & Tintorerías", iconName: "Briefcase" },
-      { value: "gym", label: "Gimnasios & Fitness", iconName: "Briefcase" },
-      { value: "health", label: "Salud & Odontología", iconName: "Briefcase" },
-      { value: "veterinary", label: "Veterinarias", iconName: "Briefcase" },
-      { value: "professional", label: "Servicios Profesionales", iconName: "Briefcase" },
-      { value: "service", label: "Servicios (General)", iconName: "Briefcase" },
-      { value: "service_other", label: "Otro servicio", iconName: "Briefcase" },
-    ],
+    types: [],
   },
   {
     id: "mercados",
     label: "Mercados",
     iconName: "Store",
     badgeColor: "bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400",
-    types: [
-      { value: "minimarket", label: "Minimercados & Tiendas de barrio", iconName: "Store" },
-      { value: "supermarket", label: "Supermercados de barrio", iconName: "Store" },
-      { value: "fruits_vegetables", label: "Fruterías & Verdulerías", iconName: "Store" },
-      { value: "butchery", label: "Carnicerías & Charcuterías", iconName: "Store" },
-      { value: "wholesale", label: "Depósitos & Mayoristas", iconName: "Store" },
-      { value: "distributor", label: "Distribuidoras de alimentos", iconName: "Store" },
-      { value: "market_other", label: "Otro mercado", iconName: "Store" },
-    ],
+    types: [],
   },
   {
     id: "other",
     label: "Otro Sector",
     iconName: "Building2",
     badgeColor: "bg-slate-500/10 text-slate-600 border-slate-500/20 dark:text-slate-400",
-    types: [
-      { value: "other", label: "Otro sector / General", iconName: "Building2" },
-    ],
+    types: [],
   },
 ];
 
@@ -335,6 +306,13 @@ export const BUSINESS_TYPE_LABELS: Record<
     categoryLabel: "Gastronómicos",
     iconName: "UtensilsCrossed",
     badgeColor: "bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400",
+  },
+  fast_food_restaurant: {
+    label: "Restaurante de comida rápida",
+    category: "gastronomicos",
+    categoryLabel: "Gastronómicos",
+    iconName: "UtensilsCrossed",
+    badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400",
   },
   liquor_store: {
     label: "Licoreras & Estancos",

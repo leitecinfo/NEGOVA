@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T05:05:00Z",
+  "title": "Design System: NEGOVA Digital Menu",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Urbana Flame", "canonical": "#FF4D00" },
+      "comercial-primary": { "role": "primary", "displayName": "Cobalt Blue", "canonical": "#2563EB" },
+      "elegante-primary": { "role": "primary", "displayName": "Vintage Gold", "canonical": "#D4AF37" },
+      "visual-primary": { "role": "primary", "displayName": "Amber Gold", "canonical": "#F59E0B" },
+      "neutral-bg-dark": { "role": "neutral", "displayName": "Deep Noir", "canonical": "#0C0E14" },
+      "neutral-surface-dark": { "role": "neutral", "displayName": "Surface Dark", "canonical": "#141824" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Business header and hero titles." },
+      "headline": { "displayName": "Headline", "purpose": "Category sections and modal titles." },
+      "body": { "displayName": "Body", "purpose": "Product descriptions and modifier copy." },
+      "label": { "displayName": "Label", "purpose": "Category pills, tags, and prices." }
+    },
+    "shadows": [
+      { "name": "card-subtle", "value": "0 4px 20px -4px rgba(0,0,0,0.2)", "purpose": "Card depth without fuzzy halos." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Snappy mobile interaction response." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Category Pill",
+      "kind": "chip",
+      "refersTo": "category-pill",
+      "description": "Sticky horizontally scrolling category tab",
+      "html": "<button class=\"ds-cat-pill active\">Todos (12)</button>",
+      "css": ".ds-cat-pill { padding: 8px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #94A3B8; cursor: pointer; transition: all 0.2s; white-space: nowrap; } .ds-cat-pill.active { background: #FF4D00; color: #FFFFFF; border-color: #FF4D00; }"
+    },
+    {
+      "name": "Order Action Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Interactive action button to open detail modal or WhatsApp",
+      "html": "<button class=\"ds-btn-order\">Pedir por WhatsApp</button>",
+      "css": ".ds-btn-order { background: #22C55E; color: #FFFFFF; font-weight: 700; font-size: 13px; border-radius: 12px; padding: 10px 18px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s, opacity 0.15s; } .ds-btn-order:active { transform: scale(0.96); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Frictionless Culinary Connoisseur",
+    "overview": "NEGOVA Digital Menus are built as fast, immersive, touch-optimized web applications designed for immediate diner discovery and high-conversion ordering. They are not static PDF boards, printable brochures, or skeuomorphic parchment cards.",
+    "keyCharacteristics": [
+      "Web-First Ergonomics with horizontal scroll pills and bottom-sheet customization",
+      "Authentic Identity Over Gimmicks (no caution tape, no fake stickers)",
+      "Single Elevation Hierarchy (clean borders, no fuzzy halos)"
+    ],
+    "rules": [
+      { "name": "The Single-Accent Rule", "body": "Accent color is used on ≤10% of the screen.", "section": "colors" },
+      { "name": "The No-Eyebrow Rule", "body": "Headings stand on their own without fake kicker badges.", "section": "typography" },
+      { "name": "The Single-Elevation Rule", "body": "Declare border OR shadow, never stacked fuzzy halos.", "section": "elevation" }
+    ],
+    "dos": [
+      "Format all prices with business currency and proper number grouping.",
+      "Show real variants with 'Desde $X' and variant count pills.",
+      "Open ProductDetailModal for customizations before ordering."
+    ],
+    "donts": [
+      "Don't use native alerts (window.alert, window.confirm, window.prompt).",
+      "Don't invent fake products or placeholder categories.",
+      "Don't replicate physical printed paper menu skeuomorphism."
+    ]
+  }
+}

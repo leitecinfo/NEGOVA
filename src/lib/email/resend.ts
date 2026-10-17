@@ -6,6 +6,13 @@ export const DEV_RECIPIENT_EMAIL = "leitec.info@gmail.com";
 export const RESEND_FROM_EMAIL = "NEGOVA <onboarding@resend.dev>";
 
 /**
+ * Detecta si la ejecución se encuentra en un entorno de pruebas automatizadas
+ */
+export function isTestEnvironment(): boolean {
+  return process.env.NODE_ENV === "test" || !!process.env.VITEST;
+}
+
+/**
  * Devuelve el destinatario efectivo.
  * En modo de desarrollo o sin dominio propio verificado en Resend,
  * redirige automáticamente todos los correos a leitec.info@gmail.com.
@@ -34,6 +41,11 @@ export async function sendOtpEmail({
   subjectTitle,
   reasonText,
 }: SendOtpEmailParams): Promise<{ success: boolean; error?: string }> {
+  // Guard de seguridad incondicional: Bloquear llamadas a la API real de Resend durante tests
+  if (isTestEnvironment()) {
+    return { success: true };
+  }
+
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -161,6 +173,11 @@ export async function sendInvoiceEmail({
   pdfBase64,
   pdfFilename,
 }: SendInvoiceEmailParams): Promise<{ success: boolean; error?: string }> {
+  // Guard de seguridad incondicional: Bloquear llamadas a la API real de Resend durante tests
+  if (isTestEnvironment()) {
+    return { success: true };
+  }
+
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -315,6 +332,11 @@ export async function sendSupportEscalationEmail({
   conversationId: string;
   reason?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  // Guard de seguridad incondicional: Bloquear llamadas a la API real de Resend durante tests
+  if (isTestEnvironment()) {
+    return { success: true };
+  }
+
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -430,6 +452,11 @@ export async function sendWelcomeBusinessEmail({
   businessName: string;
   ownerName: string;
 }): Promise<{ success: boolean; error?: string }> {
+  // Guard de seguridad incondicional: Bloquear llamadas a la API real de Resend durante tests
+  if (isTestEnvironment()) {
+    return { success: true };
+  }
+
   try {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
@@ -517,5 +544,124 @@ export async function sendWelcomeBusinessEmail({
     return { success: false, error: err?.message || "Error de red" };
   }
 }
+
+interface SendAdminAccessRequestEmailParams {
+  to: string;
+  ownerName: string;
+  businessName: string;
+  requesterName: string;
+  ticketNumber: string;
+  scopeLabel: string;
+  durationHours: number;
+  reason: string;
+  workspaceUrl: string;
+}
+
+/**
+ * Notifica al dueño del negocio cuando el personal de soporte solicita acceso administrativo temporal
+ */
+export async function sendAdminAccessRequestEmail({
+  to,
+  ownerName,
+  businessName,
+  requesterName,
+  ticketNumber,
+  scopeLabel,
+  durationHours,
+  reason,
+  workspaceUrl,
+}: SendAdminAccessRequestEmailParams): Promise<{ success: boolean; error?: string }> {
+  if (isTestEnvironment()) {
+    return { success: true };
+  }
+
+  try {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.warn("⚠️ RESEND_API_KEY no está configurada en las variables de entorno.");
+      return { success: false, error: "Servicio de correo no configurado." };
+    }
+
+    const effectiveRecipient = getEffectiveEmailRecipient(to);
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM_EMAIL,
+        to: effectiveRecipient,
+        subject: `[Seguridad] Solicitud de acceso de soporte para ${businessName} (Ticket ${ticketNumber})`,
+        html: `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#F1F3F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F1F3F9;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#ffffff;border-radius:16px;border:1px solid #E2E8F0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid #F1F3F9;">
+              <div style="display:inline-block;background:linear-gradient(135deg,#0B0E14,#1E293B);border-radius:10px;padding:8px 18px;margin-bottom:12px;">
+                <span style="color:#ffffff;font-size:13px;font-weight:800;letter-spacing:3px;text-transform:uppercase;">NEGOVA</span>
+              </div>
+              <p style="margin:0;color:#64748B;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">Autorización de Asistencia Técnica</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px;">
+              <h2 style="margin:0 0 16px;color:#0B0E14;font-size:20px;font-weight:700;">
+                Hola, ${ownerName} 👋
+              </h2>
+              <p style="margin:0 0 20px;color:#475569;font-size:14px;line-height:1.6;">
+                El agente <strong>${requesterName}</strong> de soporte técnico de NEGOVA ha solicitado autorización de acceso de solo lectura a tu negocio <strong>${businessName}</strong> para atender el ticket <strong>${ticketNumber}</strong>.
+              </p>
+
+              <div style="background-color:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:18px;margin-bottom:24px;">
+                <p style="margin:0 0 8px;color:#64748B;font-size:12px;font-weight:600;text-transform:uppercase;">Detalles de la solicitud:</p>
+                <ul style="margin:0;padding-left:20px;color:#334155;font-size:13px;line-height:1.8;">
+                  <li><strong>Alcance:</strong> ${scopeLabel}</li>
+                  <li><strong>Duración solicitada:</strong> ${durationHours} horas</li>
+                  <li><strong>Motivo técnico:</strong> ${reason}</li>
+                </ul>
+              </div>
+
+              <div style="text-align:center;margin:28px 0;">
+                <a href="${workspaceUrl}" style="display:inline-block;background-color:#ED500A;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:10px;">
+                  Revisar y Autorizar en NEGOVA
+                </a>
+              </div>
+
+              <p style="margin:0;color:#94A3B8;font-size:12px;line-height:1.5;">
+                🔒 <em>El acceso es estrictamente de solo lectura y puedes revocarlo en cualquier momento desde tu Workspace.</em>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.warn("❌ Error al enviar notificación de acceso delegado:", errorData);
+      return { success: false, error: errorData?.message || "Error al enviar correo" };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("❌ Excepción al enviar correo de acceso delegado:", err);
+    return { success: false, error: err?.message || "Error de red" };
+  }
+}
+
 
 

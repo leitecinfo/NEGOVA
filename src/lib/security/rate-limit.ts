@@ -86,8 +86,11 @@ async function getSecurityRecord(identifier: string): Promise<RateLimitRecord> {
         .maybeSingle();
 
       if (!error) {
-        if (data && data.value) {
+        if (data && data.value && typeof data.value === "object") {
           const record = data.value as RateLimitRecord;
+          if (!Array.isArray(record.timestamps)) {
+            record.timestamps = [];
+          }
           securityMap.set(identifier, record);
           return record;
         } else {
@@ -109,7 +112,12 @@ async function getSecurityRecord(identifier: string): Promise<RateLimitRecord> {
 
   // 2. Si falló la conexión con la BD, revisar caché en memoria como respaldo
   const cached = securityMap.get(identifier);
-  if (cached) return cached;
+  if (cached) {
+    if (!Array.isArray(cached.timestamps)) {
+      cached.timestamps = [];
+    }
+    return cached;
+  }
 
   const newRecord: RateLimitRecord = {
     timestamps: [],
@@ -125,6 +133,9 @@ async function getSecurityRecord(identifier: string): Promise<RateLimitRecord> {
  * Persiste el registro de seguridad en memoria y en la base de datos (platform_settings).
  */
 async function saveSecurityRecord(identifier: string, record: RateLimitRecord): Promise<void> {
+  if (!Array.isArray(record.timestamps)) {
+    record.timestamps = [];
+  }
   securityMap.set(identifier, record);
 
   try {
@@ -273,11 +284,15 @@ export async function registerFailedLogin(
             .update({ status: "suspended", updated_at: new Date().toISOString() })
             .eq("email", sanitizedEmail);
 
-          // Registrar en auditoría
-          await admin.from("audit_logs").insert({
+          // Registrar en auditoría (Plataforma: business_id = null)
+          const { logAuditAction } = await import("@/lib/audit/audit-service");
+          await logAuditAction({
+            businessId: null,
             action: "status_change",
-            entity_type: "account_security",
+            entityType: "account_security",
+            ipAddress: ip,
             metadata: {
+              original_action: "security_permanent_lockout",
               event: "permanent_lockout",
               reason: "exceeded_3_consecutive_lockouts",
               email: sanitizedEmail,
@@ -308,24 +323,24 @@ export async function registerFailedLogin(
       saveSecurityRecord(ip, ipRecord),
     ]);
 
-    // Registrar en auditoría
+    // Registrar en auditoría (Plataforma: business_id = null)
     if (admin) {
-      try {
-        await admin.from("audit_logs").insert({
-          action: "login",
-          entity_type: "account_security",
-          metadata: {
-            event: "temporary_lockout",
-            lockout_number: record.consecutiveLockouts,
-            max_lockouts: MAX_CONSECUTIVE_LOCKOUTS,
-            duration: "15 minutos",
-            email: sanitizedEmail,
-            ip,
-          },
-        });
-      } catch (e) {
-        console.error("Error registrando bloqueo temporal en auditoría:", e);
-      }
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId: null,
+        action: "login",
+        entityType: "account_security",
+        ipAddress: ip,
+        metadata: {
+          original_action: "security_temporary_lockout",
+          event: "temporary_lockout",
+          lockout_number: record.consecutiveLockouts,
+          max_lockouts: MAX_CONSECUTIVE_LOCKOUTS,
+          duration: "15 minutos",
+          email: sanitizedEmail,
+          ip,
+        },
+      });
     }
 
     return {

@@ -27,10 +27,15 @@ import {
   Sparkles,
   Plus,
   Trash2,
+  RefreshCw,
   ExternalLink,
   Info,
   ShieldAlert,
   ArrowRight,
+  Save,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -42,6 +47,7 @@ import {
   ALL_PERMISSION_MODULES,
   RoleDefinitionMeta,
 } from "@/lib/auth/permissions";
+import { UserEffectivePermissionsDetail } from "@/lib/auth/user-permissions-service";
 import {
   updateUserProfileAction,
   changeUserRoleAction,
@@ -50,6 +56,8 @@ import {
   assignUserToBusinessAction,
   removeUserFromBusinessAction,
   checkBusinessPlanCapacityAction,
+  deleteUserAction,
+  saveAdminUserCustomPermissionsAction,
 } from "../actions";
 import {
   AdminButton,
@@ -62,10 +70,13 @@ import {
   AdminSearchSelect,
   AdminConfirmDialog,
 } from "@/components/admin/ui";
+import { ModalPortal } from "@/components/ui/modal-portal";
+import { UserPermissionsMatrixEditor } from "@/components/permissions/user-permissions-matrix-editor";
 
 interface UsuarioDetailClientProps {
   user: UserModel;
   effectivePermissions: string[];
+  permissionsDetail?: UserEffectivePermissionsDetail | null;
   auditLogs: any[];
   businesses?: Array<{ id: string; name: string; slug: string; status: string }>;
   platformRoles: RoleDefinitionMeta[];
@@ -76,7 +87,8 @@ interface UsuarioDetailClientProps {
 
 export function UsuarioDetailClient({
   user: initialUser,
-  effectivePermissions,
+  effectivePermissions: initialEffectivePermissions,
+  permissionsDetail,
   auditLogs,
   businesses = [],
   platformRoles,
@@ -89,9 +101,22 @@ export function UsuarioDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const [user, setUser] = useState<UserModel>(initialUser);
+  const [effectivePermissions, setEffectivePermissions] = useState<string[]>(initialEffectivePermissions);
   const [activeTab, setActiveTab] = useState<"permissions" | "info" | "memberships" | "audit">(
     (searchParams.get("tab") as any) || "permissions"
   );
+
+  // Estado de permisos interactivos
+  const [permissionsData, setPermissionsData] = useState<UserEffectivePermissionsDetail | null>(
+    permissionsDetail || null
+  );
+
+  useEffect(() => {
+    if (permissionsDetail) {
+      setPermissionsData(permissionsDetail);
+      setEffectivePermissions(permissionsDetail.effectivePermissions);
+    }
+  }, [permissionsDetail]);
 
   // Modales existentes
   const [isEditModalOpen, setIsEditModalOpen] = useState(searchParams.get("edit") === "true");
@@ -108,6 +133,11 @@ export function UsuarioDetailClient({
 
   // Diálogo para Desvincular de Negocio
   const [membershipToRemove, setMembershipToRemove] = useState<BusinessMembershipDetail | null>(null);
+
+  // Modal de Eliminación Permanente
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [confirmDeleteEmail, setConfirmDeleteEmail] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
 
   const isCurrentUser = user.id === currentUserId;
   const isPlatform = user.type === "platform";
@@ -184,6 +214,7 @@ export function UsuarioDetailClient({
       if (res.success) {
         toast.success(`Estado de cuenta actualizado a '${targetStatus}'.`);
         setUser((prev) => ({ ...prev, status: targetStatus }));
+        router.refresh();
       } else {
         toast.error(res.error || "Error al modificar estado.");
       }
@@ -230,11 +261,54 @@ export function UsuarioDetailClient({
     });
   };
 
+  // 6. Manejo de Eliminación Permanente de Usuario
+  const handleDeleteUser = async () => {
+    if (confirmDeleteEmail.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+      toast.error("El correo de confirmación no coincide.");
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await deleteUserAction(user.id, confirmDeleteEmail, deleteReason);
+      if (res.success) {
+        toast.success(`Usuario ${user.fullName} eliminado permanentemente.`);
+        setIsDeleteModalOpen(false);
+        router.push("/admin/usuarios");
+      } else {
+        toast.error(res.error || "No fue posible eliminar el usuario.");
+      }
+    });
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedPass(true);
     toast.success("Copiado al portapapeles.");
     setTimeout(() => setCopiedPass(false), 2500);
+  };
+
+  const handleSaveAdminPermissions = async (granted: string[], revoked: string[]) => {
+    if (!permissionsData) return;
+    const targetBusinessId = permissionsData.businessId;
+    if (!targetBusinessId) {
+      toast.error("No se encontró el negocio asociado para guardar los permisos.");
+      return;
+    }
+
+    const res = await saveAdminUserCustomPermissionsAction(
+      targetBusinessId,
+      user.id,
+      granted,
+      revoked
+    );
+
+    if (res.success) {
+      toast.success(`Permisos individuales de ${user.fullName} guardados correctamente.`);
+      return res;
+    } else {
+      toast.error(res.error || "No se pudieron guardar los permisos.");
+      throw new Error(res.error || "Error al guardar permisos.");
+    }
   };
 
   // Agrupador de Permisos Efectivos por Módulo
@@ -331,7 +405,7 @@ export function UsuarioDetailClient({
                 size="sm"
                 disabled={isCurrentUser || isPending}
                 onClick={() => handleChangeStatus("disabled")}
-                className="text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                className="text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                 leftIcon={<UserX className="w-3.5 h-3.5" />}
               >
                 Deshabilitar
@@ -346,6 +420,24 @@ export function UsuarioDetailClient({
                 leftIcon={<UserCheck className="w-3.5 h-3.5" />}
               >
                 Habilitar
+              </AdminButton>
+            )}
+
+            {/* Eliminar Usuario (Solo Superadmin y no a uno mismo) */}
+            {isSuperAdmin && !isCurrentUser && (
+              <AdminButton
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => {
+                  setConfirmDeleteEmail("");
+                  setDeleteReason("");
+                  setIsDeleteModalOpen(true);
+                }}
+                className="text-red-600 dark:text-red-400 hover:bg-red-500/10 border-red-200 dark:border-red-500/20"
+                leftIcon={<Trash2 className="w-3.5 h-3.5 text-red-500" />}
+              >
+                Eliminar
               </AdminButton>
             )}
           </div>
@@ -366,74 +458,94 @@ export function UsuarioDetailClient({
 
       {/* 3. CONTENIDO DE PESTAÑAS */}
 
-      {/* TAB A: PERMISOS CALCULADOS */}
+      {/* TAB A: PERMISOS CALCULADOS Y GESTIÓN INDIVIDUAL */}
       {activeTab === "permissions" && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#ED500A]" />
-              <span>
-                Ámbito de Seguridad: <strong>{isPlatform ? "Plataforma NEGOVA (Global)" : "Comercio (Tenant)"}</strong>
-              </span>
-            </div>
-            <span className="font-mono text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              {effectivePermissions.length} permisos habilitados
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {permissionGroups.map((group) => {
-              const activeInGroup = group.permissions.filter((p) =>
-                effectivePermissions.includes(p.code)
-              ).length;
-
-              return (
-                <div
-                  key={group.moduleId}
-                  className="p-5 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.04]">
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900 dark:text-white">
-                        {group.moduleName}
-                      </h4>
-                      <p className="text-[10px] text-slate-400">{group.description}</p>
-                    </div>
-                    <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300">
-                      {activeInGroup} / {group.permissions.length}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {group.permissions.map((perm) => {
-                      const isGranted = effectivePermissions.includes(perm.code);
-
-                      return (
-                        <div
-                          key={perm.code}
-                          className={`p-2.5 rounded-xl border flex items-start justify-between gap-2 text-xs ${
-                            isGranted
-                              ? "bg-emerald-500/5 border-emerald-500/20 text-slate-800 dark:text-slate-200"
-                              : "bg-slate-50/50 dark:bg-white/[0.01] border-slate-100 dark:border-white/5 opacity-50"
-                          }`}
-                        >
-                          <div className="space-y-0.5">
-                            <span className="font-semibold block text-[11px]">{perm.name}</span>
-                            <span className="text-[10px] font-mono text-slate-400 block">{perm.code}</span>
-                          </div>
-                          {isGranted ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mt-0.5" />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+        <div className="space-y-6">
+          {/* Si hay datos de permisos de negocio con desglose interactivo */}
+          {permissionsData ? (
+            <UserPermissionsMatrixEditor
+              permissionsData={permissionsData}
+              userName={user.fullName}
+              userRoleName={user.primaryRole.name}
+              isOwnerOrSuperAdmin={user.primaryRole.code === "owner" || user.primaryRole.code === "super_admin"}
+              isCurrentUser={isCurrentUser}
+              canEdit={user.primaryRole.code !== "owner" && user.primaryRole.code !== "super_admin" && !isCurrentUser}
+              onSave={handleSaveAdminPermissions}
+              onPermissionsUpdated={(updated) => {
+                setPermissionsData(updated);
+                setEffectivePermissions(updated.effectivePermissions);
+              }}
+            />
+          ) : (
+            /* Vista de catálogo por defecto para usuarios sin membresía de negocio */
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#ED500A]" />
+                  <span>
+                    Ámbito de Seguridad: <strong>{isPlatform ? "Plataforma NEGOVA (Global)" : "Comercio (Tenant)"}</strong>
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <span className="font-mono text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  {effectivePermissions.length} permisos habilitados
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {permissionGroups.map((group) => {
+                  const activeInGroup = group.permissions.filter((p) =>
+                    effectivePermissions.includes(p.code)
+                  ).length;
+
+                  return (
+                    <div
+                      key={group.moduleId}
+                      className="p-5 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.04]">
+                        <div>
+                          <h4 className="font-bold text-xs text-slate-900 dark:text-white">
+                            {group.moduleName}
+                          </h4>
+                          <p className="text-[10px] text-slate-400">{group.description}</p>
+                        </div>
+                        <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300">
+                          {activeInGroup} / {group.permissions.length}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {group.permissions.map((perm) => {
+                          const isGranted = effectivePermissions.includes(perm.code);
+
+                          return (
+                            <div
+                              key={perm.code}
+                              className={`p-2.5 rounded-xl border flex items-start justify-between gap-2 text-xs ${
+                                isGranted
+                                  ? "bg-emerald-500/5 border-emerald-500/20 text-slate-800 dark:text-slate-200"
+                                  : "bg-slate-50/50 dark:bg-white/[0.01] border-slate-100 dark:border-white/5 opacity-50"
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <span className="font-semibold block text-[11px]">{perm.name}</span>
+                                <span className="text-[10px] font-mono text-slate-400 block">{perm.code}</span>
+                              </div>
+                              {isGranted ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -627,39 +739,111 @@ export function UsuarioDetailClient({
         />
       )}
 
+
       {/* 6. MODAL DE EDICIÓN DE PERFIL */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-              Editar Datos de Perfil
-            </h3>
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                Editar Datos de Perfil
+              </h3>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <AdminInput
-                label="Nombre Completo"
-                required
-                value={editFullName}
-                onChange={(e) => setEditFullName(e.target.value)}
-              />
-
-              <AdminInput
-                label="Teléfono de Contacto"
-                type="tel"
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-              />
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Biografía / Notas
-                </label>
-                <textarea
-                  rows={3}
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <AdminInput
+                  label="Nombre Completo"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
                 />
+
+                <AdminInput
+                  label="Teléfono de Contacto"
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                />
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Biografía / Notas
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3">
+                  <AdminButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditModalOpen(false)}
+                  >
+                    Cancelar
+                  </AdminButton>
+                  <AdminButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isPending}
+                  >
+                    Guardar Cambios
+                  </AdminButton>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* 7. MODAL DE CAMBIO DE ROL PRINCIPAL */}
+      {isRoleModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                Cambiar Rol de {user.fullName}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Selecciona el nuevo rol correspondiente al ámbito <strong>{user.primaryRole.scope}</strong>.
+              </p>
+
+              <div className="grid grid-cols-1 gap-2 max-h-[350px] overflow-y-auto pr-1">
+                {(isPlatform ? platformRoles : businessRoles).map((role) => {
+                  const isSelected = selectedNewRole === role.code;
+
+                  return (
+                    <div
+                      key={role.code}
+                      onClick={() => setSelectedNewRole(role.code)}
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? isPlatform
+                            ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs ring-1 ring-[#ED500A]/30"
+                            : "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
+                          : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <span className={`font-bold text-xs block ${isSelected ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-slate-200"}`}>
+                          {role.name}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {role.description}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[9px] font-mono px-2 py-0.5 rounded-md border shrink-0 ${role.badgeColor}`}
+                      >
+                        {role.code}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3">
@@ -667,155 +851,176 @@ export function UsuarioDetailClient({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsEditModalOpen(false)}
+                  onClick={() => setIsRoleModalOpen(false)}
                 >
                   Cancelar
                 </AdminButton>
                 <AdminButton
-                  type="submit"
+                  type="button"
                   variant="primary"
                   size="sm"
+                  onClick={handleChangeRole}
                   isLoading={isPending}
                 >
-                  Guardar Cambios
+                  Confirmar Nuevo Rol
                 </AdminButton>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 7. MODAL DE CAMBIO DE ROL PRINCIPAL */}
-      {isRoleModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-              Cambiar Rol de {user.fullName}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Selecciona el nuevo rol correspondiente al ámbito <strong>{user.primaryRole.scope}</strong>.
-            </p>
-
-            <div className="grid grid-cols-1 gap-2 max-h-[350px] overflow-y-auto pr-1">
-              {(isPlatform ? platformRoles : businessRoles).map((role) => {
-                const isSelected = selectedNewRole === role.code;
-
-                return (
-                  <div
-                    key={role.code}
-                    onClick={() => setSelectedNewRole(role.code)}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                      isSelected
-                        ? isPlatform
-                          ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs ring-1 ring-[#ED500A]/30"
-                          : "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
-                        : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <span className={`font-bold text-xs block ${isSelected ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-slate-200"}`}>
-                        {role.name}
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {role.description}
-                      </span>
-                    </div>
-                    <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded-md border shrink-0 ${role.badgeColor}`}
-                    >
-                      {role.code}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3">
-              <AdminButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsRoleModalOpen(false)}
-              >
-                Cancelar
-              </AdminButton>
-              <AdminButton
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleChangeRole}
-                isLoading={isPending}
-              >
-                Confirmar Nuevo Rol
-              </AdminButton>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* 8. MODAL DE RESETEO DE CONTRASEÑA */}
       {isResetPassModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <KeyRound className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
-                Restablecer Contraseña
-              </h3>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Esta acción generará una nueva contraseña temporal segura para <strong>{user.fullName}</strong> y forzará la actualización obligatoria de contraseña en su próximo inicio de sesión.
-            </p>
-
-            {generatedPass ? (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-[#ED500A]/30 space-y-2 font-mono text-xs">
-                <span className="text-[10px] text-[#ED500A] font-bold block">
-                  Nueva Contraseña Temporal:
-                </span>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-sm text-slate-900 dark:text-white">
-                    {generatedPass}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(generatedPass)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#ED500A]/10 text-[#ED500A] text-[11px] font-semibold transition-all cursor-pointer font-body"
-                  >
-                    {copiedPass ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedPass ? "Copiada" : "Copiar"}</span>
-                  </button>
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <KeyRound className="w-5 h-5" />
                 </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                  Restablecer Contraseña
+                </h3>
               </div>
-            ) : null}
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <AdminButton
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsResetPassModalOpen(false)}
-              >
-                {generatedPass ? "Cerrar" : "Cancelar"}
-              </AdminButton>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Esta acción generará una nueva contraseña temporal segura para <strong>{user.fullName}</strong> y forzará la actualización obligatoria de contraseña en su próximo inicio de sesión.
+              </p>
 
-              {!generatedPass && (
+              {generatedPass ? (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-[#ED500A]/30 space-y-2 font-mono text-xs">
+                  <span className="text-[10px] text-[#ED500A] font-bold block">
+                    Nueva Contraseña Temporal:
+                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      {generatedPass}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(generatedPass)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#ED500A]/10 text-[#ED500A] text-[11px] font-semibold transition-all cursor-pointer font-body"
+                    >
+                      {copiedPass ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedPass ? "Copiada" : "Copiar"}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
                 <AdminButton
                   type="button"
-                  variant="primary"
+                  variant="outline"
                   size="sm"
-                  onClick={handleResetPassword}
-                  isLoading={isPending}
-                  className="bg-amber-600 hover:bg-amber-700"
+                  onClick={() => setIsResetPassModalOpen(false)}
                 >
-                  Generar Clave Temporal
+                  {generatedPass ? "Cerrar" : "Cancelar"}
                 </AdminButton>
-              )}
+
+                {!generatedPass && (
+                  <AdminButton
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleResetPassword}
+                    isLoading={isPending}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Generar Clave Temporal
+                  </AdminButton>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
+      )}
+
+      {/* 9. MODAL DE ELIMINACIÓN PERMANENTE CON VERIFICACIÓN */}
+      {isDeleteModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
+                    Eliminar Usuario Permanentemente
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    Acción irreversible de Superadministrador
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/15 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                <p className="leading-relaxed">
+                  Esta acción eliminará de forma definitiva la cuenta de <strong>{user.fullName}</strong> (<span className="font-mono text-slate-900 dark:text-white">{user.email}</span>).
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <li>Se revocarán todas sus sesiones activas de Supabase Auth inmediatamente.</li>
+                  <li>Se desvincularán sus membresías de comercios y perfiles asociados.</li>
+                  <li>Los registros comerciales históricos (ventas, compras, comprobantes) se conservarán íntegros.</li>
+                </ul>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                    Para confirmar, escribe el correo del usuario: <span className="font-mono text-red-600 dark:text-red-400 select-all font-bold">{user.email}</span>
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder={user.email}
+                    value={confirmDeleteEmail}
+                    onChange={(e) => setConfirmDeleteEmail(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                    Motivo de la eliminación (opcional para auditoría):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Solicitud de baja definitiva / cuenta duplicada"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    isPending ||
+                    confirmDeleteEmail.trim().toLowerCase() !== user.email.trim().toLowerCase()
+                  }
+                  onClick={handleDeleteUser}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+                >
+                  {isPending && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Eliminar Permanentemente</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

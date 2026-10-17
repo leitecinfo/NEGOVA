@@ -18,12 +18,24 @@ export function AdminMobileSidebar({ isOpen, onClose, user }: AdminMobileSidebar
   const pathname = usePathname() || "/admin";
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    principal: true,
-    gestion: true,
-    operacion: true,
-    control: true,
-    sistema: true,
+    principal: false,
+    gestion: false,
+    operacion: false,
+    control: false,
+    sistema: false,
   });
+
+  // Asegurar que la sección que contiene la ruta activa esté abierta
+  useEffect(() => {
+    ADMIN_NAV_SECTIONS.forEach((section) => {
+      const hasActive = section.items.some((item) =>
+        item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
+      );
+      if (hasActive) {
+        setOpenSections((prev) => ({ ...prev, [section.id]: true }));
+      }
+    });
+  }, [pathname]);
 
   // Prevenir scroll de fondo mientras esté abierto el drawer
   useEffect(() => {
@@ -119,7 +131,7 @@ export function AdminMobileSidebar({ isOpen, onClose, user }: AdminMobileSidebar
 
             if (visibleItems.length === 0) return null;
 
-            const isSectionOpen = openSections[section.id] ?? true;
+            const isSectionOpen = openSections[section.id] ?? false;
 
             return (
               <div key={section.id} className="space-y-1">

@@ -57,3 +57,46 @@ export interface NotificationFilterOptions {
   type?: NotificationType;
   limit?: number;
 }
+
+/**
+ * Sanitiza y valida un enlace de notificación dentro del contexto estricto de un Workspace.
+ * Evita navegación a rutas de /admin, enlaces a otros businessId (cross-tenant) o URLs externas no seguras.
+ */
+export function sanitizeWorkspaceNotificationLink(
+  link: string | null | undefined,
+  currentBusinessId: string
+): string | null {
+  if (!link || typeof link !== "string") return null;
+  const trimmed = link.trim();
+
+  // Rechazar protocolos absolutos (http:, https:, javascript:, etc.)
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    return null;
+  }
+
+  // Rechazar accesos al panel de administración
+  if (trimmed.startsWith("/admin") || trimmed.includes("/admin/")) {
+    return null;
+  }
+
+  // Si empieza por /workspace/
+  if (trimmed.startsWith("/workspace/")) {
+    const expectedPrefix = `/workspace/${currentBusinessId}`;
+    if (
+      trimmed === expectedPrefix ||
+      trimmed.startsWith(`${expectedPrefix}/`) ||
+      trimmed.startsWith(`${expectedPrefix}?`)
+    ) {
+      return trimmed;
+    }
+    // Enlace pertenece a otro negocio -> rechazar
+    return null;
+  }
+
+  // Si es una ruta relativa que empieza por / (ej: /ventas, /productos)
+  if (trimmed.startsWith("/")) {
+    return `/workspace/${currentBusinessId}${trimmed}`;
+  }
+
+  return null;
+}

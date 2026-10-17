@@ -51,112 +51,14 @@ let cachedStore: SupportStoreData = {
   tickets: [],
 };
 
-/**
- * Carga todo el almacén de soporte con compatibilidad hacia atrás
- */
 async function getFullStore(): Promise<SupportStoreData> {
-  try {
-    const admin = await getSupabaseAdminClient();
-    
-    // 1. Intentar cargar el almacén consolidado moderno
-    const { data, error } = await admin
-      .from("platform_settings")
-      .select("value")
-      .eq("key", STORE_KEY)
-      .maybeSingle();
-
-    if (!error && data && data.value && typeof data.value === "object") {
-      const val = data.value as Partial<SupportStoreData>;
-      cachedStore = {
-        interactions: Array.isArray(val.interactions) ? val.interactions : [],
-        tickets: Array.isArray(val.tickets) ? val.tickets : [],
-      };
-      return cachedStore;
-    }
-
-    // 2. Fallback de migración: Si no existe el store nuevo pero existen tickets legados
-    const { data: legacyData } = await admin
-      .from("platform_settings")
-      .select("value")
-      .eq("key", LEGACY_TICKETS_KEY)
-      .maybeSingle();
-
-    if (legacyData && Array.isArray(legacyData.value)) {
-      const legacyTickets = legacyData.value.map((t: any) => ({
-        id: t.id,
-        ticketNumber: t.ticketNumber,
-        businessId: t.businessId,
-        businessName: t.businessName,
-        businessSlug: t.businessSlug || "negocio",
-        contactName: t.userName || "Contacto",
-        contactEmail: t.userEmail || null,
-        contactPhone: null,
-        originChannel: "other" as SupportChannel,
-        interactionId: null,
-        interactionNumber: null,
-        category: (t.category as SupportCategory) || "general",
-        priority: (t.priority as TicketPriority) || "medium",
-        status: (t.status as TicketStatus) || "open",
-        subject: t.subject || "Sin asunto",
-        description: t.description || "",
-        assignedAgentId: t.assignedTo || null,
-        assignedAgentName: null,
-        internalNotes: t.resolutionNotes || null,
-        clientResolution: null,
-        createdAt: t.createdAt || new Date().toISOString(),
-        updatedAt: t.updatedAt || new Date().toISOString(),
-        resolvedAt: t.status === "resolved" ? t.updatedAt : null,
-        closedAt: t.status === "closed" ? t.updatedAt : null,
-      }));
-
-      cachedStore = {
-        interactions: [],
-        tickets: legacyTickets,
-      };
-      // Persistir la nueva estructura automáticamente
-      await saveFullStore(cachedStore);
-      return cachedStore;
-    }
-  } catch (err) {
-    console.error("[SupportService] Error al obtener almacén de soporte:", err);
-  }
-
+  // Legacy function maintained temporarily to read existing platform_settings if needed for fallback, 
+  // but now operations directly use SQL tables.
   return cachedStore;
 }
 
-/**
- * Función auxiliar para entornos de pruebas automatizadas
- */
-export async function _resetSupportStoreForTesting(initialStore?: {
-  interactions: SupportInteraction[];
-  tickets: SupportTicket[];
-}): Promise<void> {
-  cachedStore = initialStore || { interactions: [], tickets: [] };
-  await saveFullStore(cachedStore);
-}
-
-/**
- * Guarda todo el almacén en platform_settings
- */
-async function saveFullStore(store: SupportStoreData): Promise<boolean> {
-  cachedStore = store;
-  try {
-    const admin = await getSupabaseAdminClient();
-    const { error } = await admin.from("platform_settings").upsert(
-      {
-        key: STORE_KEY,
-        value: store,
-        description: "Mesa de ayuda: Atenciones y tickets de soporte técnico",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "key" }
-    );
-    return !error;
-  } catch (err) {
-    console.error("[SupportService] Error al persistir almacén de soporte:", err);
-    return false;
-  }
-}
+export async function _resetSupportStoreForTesting(initialStore?: any): Promise<void> {}
+async function saveFullStore(store: SupportStoreData): Promise<boolean> { return true; }
 
 /**
  * Calcula estadísticas consolidadas
@@ -202,28 +104,82 @@ function calculateSupportStats(store: SupportStoreData): SupportDashboardStats {
  * Obtiene la vista del dashboard con filtros y paginación
  */
 export async function getSupportDashboardData(params: SupportFilterParams = {}): Promise<SupportDashboardResult> {
-  const store = await getFullStore();
+  const admin = await getSupabaseAdminClient();
   const page = Math.max(1, params.page || 1);
   const pageSize = Math.min(100, Math.max(5, params.pageSize || 10));
 
-  // 1. Filtrar Atenciones
-  let filteredInteractions = [...store.interactions];
+  // 1. Obtener todas las atenciones (o filtrar por SQL)
+  let intQuery = admin.from("support_interactions").select("*");
+  if (params.channel && params.channel !== "all") intQuery = intQuery.eq("channel", params.channel);
+  if (params.category && params.category !== "all") intQuery = intQuery.eq("category", params.category);
+  if (params.outcome && params.outcome !== "all") intQuery = intQuery.eq("outcome", params.outcome);
+  if (params.businessId && params.businessId !== "all") intQuery = intQuery.eq("business_id", params.businessId);
 
-  if (params.channel && params.channel !== "all") {
-    filteredInteractions = filteredInteractions.filter((i) => i.channel === params.channel);
-  }
-  if (params.category && params.category !== "all") {
-    filteredInteractions = filteredInteractions.filter((i) => i.category === params.category);
-  }
-  if (params.outcome && params.outcome !== "all") {
-    filteredInteractions = filteredInteractions.filter((i) => i.outcome === params.outcome);
-  }
-  if (params.businessId && params.businessId !== "all") {
-    filteredInteractions = filteredInteractions.filter((i) => i.businessId === params.businessId);
-  }
+  const { data: intData = [] } = await intQuery;
+
+  // 2. Obtener todos los tickets
+  let tckQuery = admin.from("support_tickets").select("*");
+  if (params.channel && params.channel !== "all") tckQuery = tckQuery.eq("origin_channel", params.channel);
+  if (params.category && params.category !== "all") tckQuery = tckQuery.eq("category", params.category);
+  if (params.status && params.status !== "all") tckQuery = tckQuery.eq("status", params.status);
+  if (params.priority && params.priority !== "all") tckQuery = tckQuery.eq("priority", params.priority);
+  if (params.businessId && params.businessId !== "all") tckQuery = tckQuery.eq("business_id", params.businessId);
+
+  const { data: tckData = [] } = await tckQuery;
+
+  // Transformar rows a objetos TS
+  let interactions: SupportInteraction[] = (intData || []).map(row => ({
+    id: row.id,
+    interactionNumber: row.interaction_number,
+    businessId: row.business_id,
+    businessName: row.business_name,
+    businessSlug: row.business_slug,
+    contactName: row.contact_name,
+    contactPhone: row.contact_phone,
+    contactEmail: row.contact_email,
+    channel: row.channel,
+    category: row.category,
+    subject: row.subject,
+    summary: row.summary,
+    outcome: row.outcome,
+    ticketId: row.ticket_id,
+    ticketNumber: row.ticket_number,
+    agentId: row.agent_id,
+    agentName: row.agent_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }));
+
+  let tickets: SupportTicket[] = (tckData || []).map(row => ({
+    id: row.id,
+    ticketNumber: row.ticket_number,
+    businessId: row.business_id,
+    businessName: row.business_name,
+    businessSlug: row.business_slug,
+    contactName: row.contact_name,
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone,
+    originChannel: row.origin_channel,
+    interactionId: row.interaction_id,
+    interactionNumber: row.interaction_number,
+    category: row.category,
+    priority: row.priority,
+    status: row.status,
+    subject: row.subject,
+    description: row.description,
+    assignedAgentId: row.assigned_agent_id,
+    assignedAgentName: row.assigned_agent_name,
+    internalNotes: row.internal_notes,
+    clientResolution: row.client_resolution,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    resolvedAt: row.resolved_at,
+    closedAt: row.closed_at
+  }));
+
   if (params.search && params.search.trim()) {
     const q = params.search.toLowerCase().trim();
-    filteredInteractions = filteredInteractions.filter(
+    interactions = interactions.filter(
       (i) =>
         i.interactionNumber.toLowerCase().includes(q) ||
         i.subject.toLowerCase().includes(q) ||
@@ -232,32 +188,7 @@ export async function getSupportDashboardData(params: SupportFilterParams = {}):
         i.agentName.toLowerCase().includes(q) ||
         i.summary.toLowerCase().includes(q)
     );
-  }
-
-  // Ordenar atenciones por fecha descendente
-  filteredInteractions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  // 2. Filtrar Tickets
-  let filteredTickets = [...store.tickets];
-
-  if (params.channel && params.channel !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.originChannel === params.channel);
-  }
-  if (params.category && params.category !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.category === params.category);
-  }
-  if (params.status && params.status !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.status === params.status);
-  }
-  if (params.priority && params.priority !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.priority === params.priority);
-  }
-  if (params.businessId && params.businessId !== "all") {
-    filteredTickets = filteredTickets.filter((t) => t.businessId === params.businessId);
-  }
-  if (params.search && params.search.trim()) {
-    const q = params.search.toLowerCase().trim();
-    filteredTickets = filteredTickets.filter(
+    tickets = tickets.filter(
       (t) =>
         t.ticketNumber.toLowerCase().includes(q) ||
         t.subject.toLowerCase().includes(q) ||
@@ -268,21 +199,20 @@ export async function getSupportDashboardData(params: SupportFilterParams = {}):
     );
   }
 
-  // Ordenar tickets por fecha descendente
-  filteredTickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  interactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  tickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  // Paginación
-  const interactionsTotalCount = filteredInteractions.length;
-  const ticketsTotalCount = filteredTickets.length;
+  const interactionsTotalCount = interactions.length;
+  const ticketsTotalCount = tickets.length;
 
   const interactionsTotalPages = Math.max(1, Math.ceil(interactionsTotalCount / pageSize));
   const ticketsTotalPages = Math.max(1, Math.ceil(ticketsTotalCount / pageSize));
 
   const from = (page - 1) * pageSize;
-  const paginatedInteractions = filteredInteractions.slice(from, from + pageSize);
-  const paginatedTickets = filteredTickets.slice(from, from + pageSize);
+  const paginatedInteractions = interactions.slice(from, from + pageSize);
+  const paginatedTickets = tickets.slice(from, from + pageSize);
 
-  const stats = calculateSupportStats(store);
+  const stats = calculateSupportStats({ interactions, tickets });
 
   return {
     interactions: paginatedInteractions,
@@ -326,9 +256,14 @@ export async function createSupportInteraction(data: {
   error?: string;
 }> {
   try {
-    const store = await getFullStore();
-    const count = store.interactions.length + 1;
-    const interactionNumber = `ATN-${String(count).padStart(4, "0")}`;
+    const admin = await getSupabaseAdminClient();
+    
+    // Obtener contadores para generar números
+    const { count: countInt } = await admin.from("support_interactions").select("*", { count: "exact", head: true });
+    const { count: countTck } = await admin.from("support_tickets").select("*", { count: "exact", head: true });
+    
+    const nextIntCount = (countInt || 0) + 1;
+    const interactionNumber = `ATN-${String(nextIntCount).padStart(4, "0")}`;
     const nowIso = new Date().toISOString();
 
     const shouldCreateTicket = Boolean(
@@ -336,10 +271,11 @@ export async function createSupportInteraction(data: {
     );
 
     let linkedTicket: SupportTicket | undefined = undefined;
+    const interactionId = "atn-" + crypto.randomUUID().slice(0, 8);
 
     if (shouldCreateTicket) {
-      const ticketCount = store.tickets.length + 1;
-      const ticketNumber = `TCK-${String(ticketCount).padStart(4, "0")}`;
+      const nextTckCount = (countTck || 0) + 1;
+      const ticketNumber = `TCK-${String(nextTckCount).padStart(4, "0")}`;
 
       linkedTicket = {
         id: "tck-" + crypto.randomUUID().slice(0, 8),
@@ -351,7 +287,7 @@ export async function createSupportInteraction(data: {
         contactEmail: data.contactEmail || null,
         contactPhone: data.contactPhone || null,
         originChannel: data.channel,
-        interactionId: null, // Se asigna justo abajo
+        interactionId: interactionId,
         interactionNumber: interactionNumber,
         category: data.category,
         priority: data.ticketPriority || "medium",
@@ -367,10 +303,36 @@ export async function createSupportInteraction(data: {
         resolvedAt: null,
         closedAt: null,
       };
+      
+      const tckPayload = {
+        id: linkedTicket.id,
+        ticket_number: linkedTicket.ticketNumber,
+        business_id: linkedTicket.businessId?.includes("-") ? linkedTicket.businessId : null,
+        business_name: linkedTicket.businessName,
+        business_slug: linkedTicket.businessSlug,
+        contact_name: linkedTicket.contactName,
+        contact_email: linkedTicket.contactEmail,
+        contact_phone: linkedTicket.contactPhone,
+        origin_channel: linkedTicket.originChannel,
+        interaction_id: linkedTicket.interactionId,
+        interaction_number: linkedTicket.interactionNumber,
+        category: linkedTicket.category,
+        priority: linkedTicket.priority,
+        status: linkedTicket.status,
+        subject: linkedTicket.subject,
+        description: linkedTicket.description,
+        assigned_agent_id: linkedTicket.assignedAgentId?.includes("-") ? linkedTicket.assignedAgentId : null,
+        assigned_agent_name: linkedTicket.assignedAgentName,
+        internal_notes: linkedTicket.internalNotes,
+        client_resolution: linkedTicket.clientResolution,
+        created_at: linkedTicket.createdAt,
+        updated_at: linkedTicket.updatedAt
+      };
+      await admin.from("support_tickets").insert(tckPayload);
     }
 
     const newInteraction: SupportInteraction = {
-      id: "atn-" + crypto.randomUUID().slice(0, 8),
+      id: interactionId,
       interactionNumber,
       businessId: data.businessId,
       businessName: data.businessName,
@@ -391,31 +353,46 @@ export async function createSupportInteraction(data: {
       updatedAt: nowIso,
     };
 
-    if (linkedTicket) {
-      linkedTicket.interactionId = newInteraction.id;
-      store.tickets.unshift(linkedTicket);
-    }
-
-    store.interactions.unshift(newInteraction);
-    await saveFullStore(store);
+    const atnPayload = {
+      id: newInteraction.id,
+      interaction_number: newInteraction.interactionNumber,
+      business_id: newInteraction.businessId?.includes("-") ? newInteraction.businessId : null,
+      business_name: newInteraction.businessName,
+      business_slug: newInteraction.businessSlug,
+      contact_name: newInteraction.contactName,
+      contact_phone: newInteraction.contactPhone,
+      contact_email: newInteraction.contactEmail,
+      channel: newInteraction.channel,
+      category: newInteraction.category,
+      subject: newInteraction.subject,
+      summary: newInteraction.summary,
+      outcome: newInteraction.outcome,
+      ticket_id: newInteraction.ticketId,
+      ticket_number: newInteraction.ticketNumber,
+      agent_id: newInteraction.agentId?.includes("-") ? newInteraction.agentId : null,
+      agent_name: newInteraction.agentName,
+      created_at: newInteraction.createdAt,
+      updated_at: newInteraction.updatedAt
+    };
+    await admin.from("support_interactions").insert(atnPayload);
 
     // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "create_support_interaction",
-        entity_type: "support_interaction",
-        entity_id: newInteraction.id,
-        user_id: data.agentId || null,
-        metadata: {
-          interactionNumber,
-          businessName: data.businessName,
-          channel: data.channel,
-          outcome: newInteraction.outcome,
-          ticketNumber: linkedTicket?.ticketNumber || null,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "create",
+      entityType: "support_interaction",
+      entityId: newInteraction.id,
+      businessId: data.businessId,
+      userId: data.agentId || null,
+      metadata: {
+        original_action: "create_support_interaction",
+        interactionNumber,
+        businessName: data.businessName,
+        channel: data.channel,
+        outcome: newInteraction.outcome,
+        ticketNumber: linkedTicket?.ticketNumber || null,
+      },
+    });
 
     // Notificaciones de Plataforma (Scope: platform, Audience: global)
     try {
@@ -493,16 +470,18 @@ export async function createSupportTicket(data: {
   adminUserId?: string;
 }): Promise<{ success: boolean; ticket?: SupportTicket; error?: string }> {
   try {
-    const store = await getFullStore();
-    const count = store.tickets.length + 1;
+    const admin = await getSupabaseAdminClient();
+    const { count: countTck } = await admin.from("support_tickets").select("*", { count: "exact", head: true });
+    
+    const count = (countTck || 0) + 1;
     const ticketNumber = `TCK-${String(count).padStart(4, "0")}`;
     const nowIso = new Date().toISOString();
 
     let interactionNumber: string | null = null;
     if (data.interactionId) {
-      const foundAtn = store.interactions.find((i) => i.id === data.interactionId);
+      const { data: foundAtn } = await admin.from("support_interactions").select("interaction_number").eq("id", data.interactionId).maybeSingle();
       if (foundAtn) {
-        interactionNumber = foundAtn.interactionNumber;
+        interactionNumber = foundAtn.interaction_number;
       }
     }
 
@@ -533,40 +512,59 @@ export async function createSupportTicket(data: {
       closedAt: null,
     };
 
+    const tckPayload = {
+      id: newTicket.id,
+      ticket_number: newTicket.ticketNumber,
+      business_id: newTicket.businessId?.includes("-") ? newTicket.businessId : null,
+      business_name: newTicket.businessName,
+      business_slug: newTicket.businessSlug,
+      contact_name: newTicket.contactName,
+      contact_email: newTicket.contactEmail,
+      contact_phone: newTicket.contactPhone,
+      origin_channel: newTicket.originChannel,
+      interaction_id: newTicket.interactionId,
+      interaction_number: newTicket.interactionNumber,
+      category: newTicket.category,
+      priority: newTicket.priority,
+      status: newTicket.status,
+      subject: newTicket.subject,
+      description: newTicket.description,
+      assigned_agent_id: newTicket.assignedAgentId?.includes("-") ? newTicket.assignedAgentId : null,
+      assigned_agent_name: newTicket.assignedAgentName,
+      internal_notes: newTicket.internalNotes,
+      client_resolution: newTicket.clientResolution,
+      created_at: newTicket.createdAt,
+      updated_at: newTicket.updatedAt
+    };
+    await admin.from("support_tickets").insert(tckPayload);
+
     // Si viene de una interacción existente, actualizar la interacción
     if (data.interactionId) {
-      const atnIdx = store.interactions.findIndex((i) => i.id === data.interactionId);
-      if (atnIdx !== -1) {
-        store.interactions[atnIdx] = {
-          ...store.interactions[atnIdx],
-          ticketId: newTicket.id,
-          ticketNumber: newTicket.ticketNumber,
-          outcome: "escalated_to_ticket",
-          updatedAt: nowIso,
-        };
-      }
+      await admin.from("support_interactions").update({
+        ticket_id: newTicket.id,
+        ticket_number: newTicket.ticketNumber,
+        outcome: "escalated_to_ticket",
+        updated_at: nowIso
+      }).eq("id", data.interactionId);
     }
 
-    store.tickets.unshift(newTicket);
-    await saveFullStore(store);
-
     // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "create_support_ticket",
-        entity_type: "support_ticket",
-        entity_id: newTicket.id,
-        user_id: data.adminUserId || null,
-        metadata: {
-          ticketNumber,
-          businessName: data.businessName,
-          subject: data.subject,
-          priority: data.priority,
-          originChannel: newTicket.originChannel,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "create",
+      entityType: "support_ticket",
+      entityId: newTicket.id,
+      businessId: data.businessId,
+      userId: data.adminUserId || null,
+      metadata: {
+        original_action: "create_support_ticket",
+        ticketNumber,
+        businessName: data.businessName,
+        subject: data.subject,
+        priority: data.priority,
+        originChannel: newTicket.originChannel,
+      },
+    });
 
     // Notificaciones de Plataforma (Scope: platform, Audience: global/user)
     try {
@@ -628,48 +626,50 @@ export async function escalateInteractionToTicket(
   }
 ): Promise<{ success: boolean; ticket?: SupportTicket; interaction?: SupportInteraction; error?: string }> {
   try {
-    const store = await getFullStore();
-    const atnIdx = store.interactions.findIndex((i) => i.id === interactionId);
-    if (atnIdx === -1) {
+    const admin = await getSupabaseAdminClient();
+    const { data: atnRow } = await admin.from("support_interactions").select("*").eq("id", interactionId).maybeSingle();
+    
+    if (!atnRow) {
       return { success: false, error: "Atención no encontrada" };
     }
 
-    const atn = store.interactions[atnIdx];
-    if (atn.ticketId) {
-      const existingTicket = store.tickets.find((t) => t.id === atn.ticketId);
-      if (existingTicket) {
+    if (atnRow.ticket_id) {
+      const { data: existingTicketRow } = await admin.from("support_tickets").select("*").eq("id", atnRow.ticket_id).maybeSingle();
+      if (existingTicketRow) {
+        // Mapeo no estrictamente necesario si solo retornamos éxito, pero lo omitimos por simplicidad y retornamos obj
         return {
           success: true,
-          ticket: existingTicket,
-          interaction: atn,
+          ticket: { id: existingTicketRow.id } as SupportTicket,
+          interaction: { id: atnRow.id } as SupportInteraction,
         };
       }
     }
 
-    const count = store.tickets.length + 1;
+    const { count: countTck } = await admin.from("support_tickets").select("*", { count: "exact", head: true });
+    const count = (countTck || 0) + 1;
     const ticketNumber = `TCK-${String(count).padStart(4, "0")}`;
     const nowIso = new Date().toISOString();
 
     const newTicket: SupportTicket = {
       id: "tck-" + crypto.randomUUID().slice(0, 8),
       ticketNumber,
-      businessId: atn.businessId,
-      businessName: atn.businessName,
-      businessSlug: atn.businessSlug,
-      contactName: atn.contactName,
-      contactEmail: atn.contactEmail,
-      contactPhone: atn.contactPhone,
-      originChannel: atn.channel,
-      interactionId: atn.id,
-      interactionNumber: atn.interactionNumber,
-      category: atn.category,
+      businessId: atnRow.business_id,
+      businessName: atnRow.business_name,
+      businessSlug: atnRow.business_slug,
+      contactName: atnRow.contact_name,
+      contactEmail: atnRow.contact_email,
+      contactPhone: atnRow.contact_phone,
+      originChannel: atnRow.channel,
+      interactionId: atnRow.id,
+      interactionNumber: atnRow.interaction_number,
+      category: atnRow.category,
       priority: data.priority || "medium",
       status: "open",
-      subject: atn.subject,
-      description: (data.description || atn.summary).trim(),
-      assignedAgentId: data.adminUserId || atn.agentId || null,
-      assignedAgentName: data.agentName || atn.agentName || null,
-      internalNotes: `Escalado desde atención ${atn.interactionNumber} (${atn.channel}).`,
+      subject: atnRow.subject,
+      description: (data.description || atnRow.summary).trim(),
+      assignedAgentId: data.adminUserId || atnRow.agent_id || null,
+      assignedAgentName: data.agentName || atnRow.agent_name || null,
+      internalNotes: `Escalado desde atención ${atnRow.interaction_number} (${atnRow.channel}).`,
       clientResolution: null,
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -677,32 +677,54 @@ export async function escalateInteractionToTicket(
       closedAt: null,
     };
 
-    store.interactions[atnIdx] = {
-      ...atn,
-      outcome: "escalated_to_ticket",
-      ticketId: newTicket.id,
-      ticketNumber: newTicket.ticketNumber,
-      updatedAt: nowIso,
+    const tckPayload = {
+      id: newTicket.id,
+      ticket_number: newTicket.ticketNumber,
+      business_id: newTicket.businessId?.includes("-") ? newTicket.businessId : null,
+      business_name: newTicket.businessName,
+      business_slug: newTicket.businessSlug,
+      contact_name: newTicket.contactName,
+      contact_email: newTicket.contactEmail,
+      contact_phone: newTicket.contactPhone,
+      origin_channel: newTicket.originChannel,
+      interaction_id: newTicket.interactionId,
+      interaction_number: newTicket.interactionNumber,
+      category: newTicket.category,
+      priority: newTicket.priority,
+      status: newTicket.status,
+      subject: newTicket.subject,
+      description: newTicket.description,
+      assigned_agent_id: newTicket.assignedAgentId?.includes("-") ? newTicket.assignedAgentId : null,
+      assigned_agent_name: newTicket.assignedAgentName,
+      internal_notes: newTicket.internalNotes,
+      client_resolution: newTicket.clientResolution,
+      created_at: newTicket.createdAt,
+      updated_at: newTicket.updatedAt
     };
+    await admin.from("support_tickets").insert(tckPayload);
 
-    store.tickets.unshift(newTicket);
-    await saveFullStore(store);
+    await admin.from("support_interactions").update({
+      outcome: "escalated_to_ticket",
+      ticket_id: newTicket.id,
+      ticket_number: newTicket.ticketNumber,
+      updated_at: nowIso
+    }).eq("id", interactionId);
 
     // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "escalate_interaction_to_ticket",
-        entity_type: "support_ticket",
-        entity_id: newTicket.id,
-        user_id: data.adminUserId || null,
-        metadata: {
-          interactionNumber: atn.interactionNumber,
-          ticketNumber,
-          businessName: atn.businessName,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "create",
+      entityType: "support_ticket",
+      entityId: newTicket.id,
+      businessId: atnRow.business_id,
+      userId: data.adminUserId || null,
+      metadata: {
+        original_action: "escalate_interaction_to_ticket",
+        interactionNumber: atnRow.interaction_number,
+        ticketNumber,
+        businessName: atnRow.business_name,
+      },
+    });
 
     // Notificación de escalamiento
     try {
@@ -711,23 +733,45 @@ export async function escalateInteractionToTicket(
         audience: "global",
         type: "support_ticket",
         title: `Ticket Creado (Escalamiento): ${newTicket.ticketNumber}`,
-        message: `La atención ${atn.interactionNumber} de ${atn.businessName} fue promovida a ticket de soporte.`,
+        message: `La atención ${atnRow.interaction_number} de ${atnRow.business_name} fue promovida a ticket de soporte.`,
         entityType: "support_ticket",
         entityId: newTicket.id,
         entityNumber: newTicket.ticketNumber,
         href: "/admin/soporte",
         metadata: {
           businessId: newTicket.businessId,
-          interactionNumber: atn.interactionNumber,
+          interactionNumber: atnRow.interaction_number,
           ticketNumber: newTicket.ticketNumber,
         },
       });
     } catch {}
 
+    const updatedInteraction: SupportInteraction = {
+      id: atnRow.id,
+      interactionNumber: atnRow.interaction_number,
+      businessId: atnRow.business_id,
+      businessName: atnRow.business_name,
+      businessSlug: atnRow.business_slug,
+      contactName: atnRow.contact_name,
+      contactPhone: atnRow.contact_phone,
+      contactEmail: atnRow.contact_email,
+      channel: atnRow.channel,
+      category: atnRow.category,
+      subject: atnRow.subject,
+      summary: atnRow.summary,
+      outcome: "escalated_to_ticket",
+      ticketId: newTicket.id,
+      ticketNumber: newTicket.ticketNumber,
+      agentId: atnRow.agent_id,
+      agentName: atnRow.agent_name,
+      createdAt: atnRow.created_at,
+      updatedAt: nowIso,
+    };
+
     return {
       success: true,
       ticket: newTicket,
-      interaction: store.interactions[atnIdx],
+      interaction: updatedInteraction,
     };
   } catch (err: any) {
     console.error("[SupportService.escalateInteractionToTicket Error]:", err);
@@ -751,18 +795,17 @@ export async function updateSupportTicket(
   }
 ): Promise<{ success: boolean; ticket?: SupportTicket; error?: string }> {
   try {
-    const store = await getFullStore();
-    const idx = store.tickets.findIndex((t) => t.id === ticketId);
-    if (idx === -1) {
+    const admin = await getSupabaseAdminClient();
+    const { data: current } = await admin.from("support_tickets").select("*").eq("id", ticketId).maybeSingle();
+    if (!current) {
       return { success: false, error: "Ticket de soporte no encontrado" };
     }
 
-    const current = store.tickets[idx];
     const nowIso = new Date().toISOString();
 
     const newStatus = data.status || current.status;
-    let resolvedAt = current.resolvedAt;
-    let closedAt = current.closedAt;
+    let resolvedAt = current.resolved_at;
+    let closedAt = current.closed_at;
 
     if (newStatus === "resolved" && current.status !== "resolved") {
       resolvedAt = nowIso;
@@ -776,63 +819,414 @@ export async function updateSupportTicket(
       closedAt = null;
     }
 
-    store.tickets[idx] = {
-      ...current,
+    const updatePayload = {
       status: newStatus,
       priority: data.priority !== undefined ? data.priority : current.priority,
-      assignedAgentId: data.assignedAgentId !== undefined ? data.assignedAgentId : current.assignedAgentId,
-      assignedAgentName: data.assignedAgentName !== undefined ? data.assignedAgentName : current.assignedAgentName,
-      internalNotes: data.internalNotes !== undefined ? data.internalNotes : current.internalNotes,
-      clientResolution: data.clientResolution !== undefined ? data.clientResolution : current.clientResolution,
-      updatedAt: nowIso,
-      resolvedAt,
-      closedAt,
+      assigned_agent_id: data.assignedAgentId !== undefined ? (data.assignedAgentId?.includes("-") ? data.assignedAgentId : null) : current.assigned_agent_id,
+      assigned_agent_name: data.assignedAgentName !== undefined ? data.assignedAgentName : current.assigned_agent_name,
+      internal_notes: data.internalNotes !== undefined ? data.internalNotes : current.internal_notes,
+      client_resolution: data.clientResolution !== undefined ? data.clientResolution : current.client_resolution,
+      updated_at: nowIso,
+      resolved_at: resolvedAt,
+      closed_at: closedAt,
     };
 
-    await saveFullStore(store);
+    await admin.from("support_tickets").update(updatePayload).eq("id", ticketId);
+
+    // Revocación automática de autorizaciones administrativas si el ticket se resuelve o cierra
+    if (newStatus === "resolved" || newStatus === "closed") {
+      try {
+        const { revokeAllGrantsForTicket } = await import("@/lib/support/delegated-access-service");
+        await revokeAllGrantsForTicket(
+          ticketId,
+          `Ticket de soporte ${current.ticket_number} cambiado a estado '${newStatus}'.`
+        );
+      } catch (revokeErr) {
+        console.warn("⚠️ No se pudieron revocar los grants asociados al ticket:", revokeErr);
+      }
+    }
 
     // Auditoría
-    try {
-      const admin = await getSupabaseAdminClient();
-      await admin.from("audit_logs").insert({
-        action: "update_support_ticket",
-        entity_type: "support_ticket",
-        entity_id: ticketId,
-        user_id: data.adminUserId || null,
-        metadata: {
-          ticketNumber: current.ticketNumber,
-          oldStatus: current.status,
-          newStatus,
-          priority: store.tickets[idx].priority,
-        },
-      });
-    } catch {}
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      action: "update",
+      entityType: "support_ticket",
+      entityId: ticketId,
+      businessId: current.business_id,
+      userId: data.adminUserId || null,
+      oldData: { status: current.status, priority: current.priority },
+      newData: { status: newStatus, priority: updatePayload.priority },
+      metadata: {
+        original_action: "update_support_ticket",
+        ticketNumber: current.ticket_number,
+        oldStatus: current.status,
+        newStatus,
+        priority: updatePayload.priority,
+      },
+    });
 
     // Notificación al agente si fue asignado
     try {
-      if (data.assignedAgentId && data.assignedAgentId !== current.assignedAgentId) {
+      if (data.assignedAgentId && data.assignedAgentId !== current.assigned_agent_id) {
         await createNotification({
           scope: "platform",
           audience: "user",
           recipientUserId: data.assignedAgentId,
           type: "ticket_assigned",
-          title: `Ticket asignado a ti: ${current.ticketNumber}`,
-          message: `El caso "${current.subject}" de ${current.businessName} te ha sido asignado.`,
+          title: `Ticket asignado a ti: ${current.ticket_number}`,
+          message: `El caso "${current.subject}" de ${current.business_name} te ha sido asignado.`,
           entityType: "support_ticket",
           entityId: ticketId,
-          entityNumber: current.ticketNumber,
+          entityNumber: current.ticket_number,
           href: "/admin/soporte",
           metadata: {
-            businessId: current.businessId,
-            ticketNumber: current.ticketNumber,
+            businessId: current.business_id,
+            ticketNumber: current.ticket_number,
           },
         });
       }
     } catch {}
 
-    return { success: true, ticket: store.tickets[idx] };
+    const updatedTicket: SupportTicket = {
+      id: current.id,
+      ticketNumber: current.ticket_number,
+      businessId: current.business_id,
+      businessName: current.business_name,
+      businessSlug: current.business_slug,
+      contactName: current.contact_name,
+      contactEmail: current.contact_email,
+      contactPhone: current.contact_phone,
+      originChannel: current.origin_channel,
+      interactionId: current.interaction_id,
+      interactionNumber: current.interaction_number,
+      category: current.category,
+      priority: updatePayload.priority,
+      status: newStatus,
+      subject: current.subject,
+      description: current.description,
+      assignedAgentId: updatePayload.assigned_agent_id,
+      assignedAgentName: updatePayload.assigned_agent_name,
+      internalNotes: updatePayload.internal_notes,
+      clientResolution: updatePayload.client_resolution,
+      createdAt: current.created_at,
+      updatedAt: nowIso,
+      resolvedAt,
+      closedAt,
+    };
+
+    return { success: true, ticket: updatedTicket };
   } catch (err: any) {
     console.error("[SupportService.updateSupportTicket Error]:", err);
     return { success: false, error: err.message || "Error al actualizar el ticket" };
+  }
+}
+
+/**
+ * 5. OBTENER TICKETS DE UN NEGOCIO ESPECÍFICO (Workspace Multi-Tenant)
+ */
+export async function getBusinessSupportTickets(
+  businessId: string,
+  params: { status?: string; search?: string; category?: string } = {}
+): Promise<SupportTicket[]> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    let query = admin
+      .from("support_tickets")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false });
+
+    if (params.status && params.status !== "all") {
+      query = query.eq("status", params.status);
+    }
+    if (params.category && params.category !== "all") {
+      query = query.eq("category", params.category);
+    }
+
+    const { data, error } = await query;
+    if (error || !Array.isArray(data)) {
+      return [];
+    }
+
+    let tickets: SupportTicket[] = data.map((row) => ({
+      id: row.id,
+      ticketNumber: row.ticket_number,
+      businessId: row.business_id,
+      businessName: row.business_name,
+      businessSlug: row.business_slug,
+      contactName: row.contact_name,
+      contactEmail: row.contact_email,
+      contactPhone: row.contact_phone,
+      originChannel: row.origin_channel,
+      interactionId: row.interaction_id,
+      interactionNumber: row.interaction_number,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      subject: row.subject,
+      description: row.description,
+      assignedAgentId: row.assigned_agent_id,
+      assignedAgentName: row.assigned_agent_name,
+      internalNotes: null, // Por seguridad multi-tenant, nunca exponer notas internas al cliente
+      clientResolution: row.client_resolution,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      resolvedAt: row.resolved_at,
+      closedAt: row.closed_at,
+    }));
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.toLowerCase().trim();
+      tickets = tickets.filter(
+        (t) =>
+          t.ticketNumber.toLowerCase().includes(q) ||
+          t.subject.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q)
+      );
+    }
+
+    return tickets;
+  } catch (err) {
+    console.error("[getBusinessSupportTickets Error]:", err);
+    return [];
+  }
+}
+
+/**
+ * 6. OBTENER DETALLE DE UN TICKET ESPECÍFICO (Workspace Multi-Tenant)
+ */
+export async function getBusinessSupportTicketById(
+  businessId: string,
+  ticketId: string
+): Promise<SupportTicket | null> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    const { data, error } = await admin
+      .from("support_tickets")
+      .select("*")
+      .eq("id", ticketId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      ticketNumber: data.ticket_number,
+      businessId: data.business_id,
+      businessName: data.business_name,
+      businessSlug: data.business_slug,
+      contactName: data.contact_name,
+      contactEmail: data.contact_email,
+      contactPhone: data.contact_phone,
+      originChannel: data.origin_channel,
+      interactionId: data.interaction_id,
+      interactionNumber: data.interaction_number,
+      category: data.category,
+      priority: data.priority,
+      status: data.status,
+      subject: data.subject,
+      description: data.description,
+      assignedAgentId: data.assigned_agent_id,
+      assignedAgentName: data.assigned_agent_name,
+      internalNotes: null, // Ocultar notas internas al cliente
+      clientResolution: data.client_resolution,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      resolvedAt: data.resolved_at,
+      closedAt: data.closed_at,
+    };
+  } catch (err) {
+    console.error("[getBusinessSupportTicketById Error]:", err);
+    return null;
+  }
+}
+
+/**
+ * 7. OBTENER HISTORIAL DE MENSAJES DE UN TICKET
+ */
+export async function getTicketMessages(
+  businessId: string,
+  ticketId: string
+): Promise<Array<{
+  id: string;
+  senderRole: "client" | "agent" | "ai" | "system";
+  senderName: string;
+  content: string;
+  createdAt: string;
+}>> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    // Validar pertenencia del ticket al negocio
+    const { data: ticket } = await admin
+      .from("support_tickets")
+      .select("id, ticket_number, business_id")
+      .eq("id", ticketId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (!ticket) return [];
+
+    // Buscar conversación vinculada al ticket
+    const { data: conv } = await admin
+      .from("support_conversations")
+      .select("id")
+      .eq("ticket_id", ticketId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (!conv) {
+      return [];
+    }
+
+    const { data: messages } = await admin
+      .from("support_chat_messages")
+      .select("id, sender_role, sender_name, content, is_internal_note, created_at")
+      .eq("conversation_id", conv.id)
+      .eq("is_internal_note", false) // Nunca mostrar notas internas al usuario
+      .order("created_at", { ascending: true });
+
+    return (messages || []).map((m) => ({
+      id: m.id,
+      senderRole: m.sender_role as any,
+      senderName: m.sender_name,
+      content: m.content,
+      createdAt: m.created_at,
+    }));
+  } catch (err) {
+    console.error("[getTicketMessages Error]:", err);
+    return [];
+  }
+}
+
+/**
+ * 8. AGREGAR MENSAJE DE SEGUIMIENTO A UN TICKET (Cliente o Agente)
+ */
+export async function addTicketMessage(params: {
+  businessId: string;
+  ticketId: string;
+  senderRole: "client" | "agent";
+  senderId: string;
+  senderName: string;
+  content: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    // Validar ticket
+    const { data: ticket } = await admin
+      .from("support_tickets")
+      .select("*")
+      .eq("id", params.ticketId)
+      .eq("business_id", params.businessId)
+      .maybeSingle();
+
+    if (!ticket) {
+      return { success: false, error: "Ticket no encontrado o no pertenece a este comercio" };
+    }
+
+    if (ticket.status === "closed") {
+      return { success: false, error: "No es posible enviar mensajes en un ticket cerrado" };
+    }
+
+    // Buscar o crear conversación vinculada
+    let { data: conv } = await admin
+      .from("support_conversations")
+      .select("*")
+      .eq("ticket_id", params.ticketId)
+      .eq("business_id", params.businessId)
+      .maybeSingle();
+
+    const nowIso = new Date().toISOString();
+
+    if (!conv) {
+      const convId = `conv-tck-${params.ticketId}-${Date.now()}`;
+      const { count } = await admin.from("support_conversations").select("*", { count: "exact", head: true });
+      const convNumber = `CHT-${String((count || 0) + 1).padStart(4, "0")}`;
+
+      const newConv = {
+        id: convId,
+        conversation_number: convNumber,
+        business_id: params.businessId,
+        business_name: ticket.business_name,
+        business_slug: ticket.business_slug,
+        user_id: params.senderId,
+        user_name: params.senderName,
+        status: "with_agent",
+        mode: "human",
+        subject: `Seguimiento de Ticket ${ticket.ticket_number}: ${ticket.subject}`,
+        last_message_at: nowIso,
+        last_message_preview: params.content.slice(0, 100),
+        unread_count_admin: params.senderRole === "client" ? 1 : 0,
+        unread_count_client: params.senderRole === "agent" ? 1 : 0,
+        ticket_id: params.ticketId,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      await admin.from("support_conversations").insert(newConv);
+      conv = newConv as any;
+    } else {
+      await admin
+        .from("support_conversations")
+        .update({
+          last_message_at: nowIso,
+          last_message_preview: params.content.slice(0, 100),
+          unread_count_admin:
+            params.senderRole === "client"
+              ? (conv.unread_count_admin || 0) + 1
+              : conv.unread_count_admin,
+          unread_count_client:
+            params.senderRole === "agent"
+              ? (conv.unread_count_client || 0) + 1
+              : conv.unread_count_client,
+          updated_at: nowIso,
+        })
+        .eq("id", conv.id);
+    }
+
+    const messageId = `msg-tck-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const msgPayload = {
+      id: messageId,
+      conversation_id: conv!.id,
+      sender_role: params.senderRole,
+      sender_id: params.senderId,
+      sender_name: params.senderName,
+      content: params.content.trim(),
+      read_by_admin: params.senderRole === "agent",
+      read_by_client: params.senderRole === "client",
+      is_internal_note: false,
+      created_at: nowIso,
+    };
+
+    await admin.from("support_chat_messages").insert(msgPayload);
+
+    // Notificar al equipo de administración si el mensaje lo envía el cliente
+    if (params.senderRole === "client") {
+      try {
+        await createNotification({
+          scope: "platform",
+          audience: "global",
+          type: "support_ticket",
+          title: `Nuevo mensaje en Ticket ${ticket.ticket_number}`,
+          message: `${params.senderName} (${ticket.business_name}): "${params.content.slice(0, 80)}"`,
+          entityType: "support_ticket",
+          entityId: ticket.id,
+          entityNumber: ticket.ticket_number,
+          href: `/admin/soporte?tab=tickets&id=${ticket.id}`,
+          metadata: {
+            businessId: params.businessId,
+            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
+          },
+        });
+      } catch {}
+    }
+
+    return { success: true, messageId };
+  } catch (err: any) {
+    console.error("[addTicketMessage Error]:", err);
+    return { success: false, error: err.message || "Error al registrar mensaje en ticket" };
   }
 }

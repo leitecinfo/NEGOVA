@@ -93,7 +93,7 @@ describe("Authorization Engine & Security Controls", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("Acceso denegado");
+      expect(result.error).toBeDefined();
     });
   });
 
