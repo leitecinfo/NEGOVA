@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "../supabase/server";
+import { logAuditAction } from "@/lib/audit/audit-service";
 import {
   RestaurantTable,
   RestaurantTableWithOrder,
@@ -17,6 +18,7 @@ import {
   VALID_ORDER_STATUS_TRANSITIONS,
 } from "./types";
 import { Product, ProductModifierGroup, ProductVariant, getEffectiveVariantIngredients } from "../products/types";
+import { extractDeliveryVerification } from "@/lib/delivery/delivery-service";
 
 /**
  * Genera un hash criptográfico determinístico del contenido de un pedido
@@ -55,7 +57,7 @@ export function computeOrderPayloadHash(input: CreateRestaurantOrderInput): stri
  * Obtener cliente Supabase para operaciones del servidor autorizadas.
  * Utiliza credenciales privilegiadas en el servidor tras la debida autorización RBAC.
  */
-async function getDbClient() {
+export async function getDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -411,35 +413,42 @@ export async function releaseRestaurantTable(
       return { success: true };
     }
 
-    // Si tiene comanda activa vinculada, auditar las reglas de cierre
-    if (table.current_order_id) {
-      const { data: order } = await supabase
-        .from("restaurant_orders")
-        .select("id, order_number, status, payment_status")
-        .eq("id", table.current_order_id)
-        .eq("business_id", businessId)
-        .maybeSingle();
+    // Consultar todos los pedidos asociados a esta mesa que no estén cancelados
+    const { data: activeOrders, error: ordersErr } = await supabase
+      .from("restaurant_orders")
+      .select("id, order_number, status, payment_status")
+      .eq("table_id", tableId)
+      .eq("business_id", businessId)
+      .neq("status", "cancelled");
 
-      if (order) {
-        // Pedido cancelado: siempre elegible para liberar mesa
-        const isCancelled = order.status === "cancelled";
-        // Pedido finalizado y pagado: listo para liberar mesa
-        const isCompletedAndPaid = order.status === "delivered" && order.payment_status === "paid";
+    if (ordersErr) {
+      console.error("[releaseRestaurantTable] Error querying table orders:", ordersErr);
+      return { success: false, error: "Error al verificar las comandas de la mesa." };
+    }
 
-        if (!isCancelled && !isCompletedAndPaid) {
-          if (order.status !== "delivered") {
-            return {
-              success: false,
-              error: `No se puede liberar la mesa «${table.name_or_number}»: la comanda #${order.order_number} aún no ha sido entregada. Debes completarla o cancelarla antes de liberar la mesa.`,
-            };
-          }
-          if (order.payment_status !== "paid") {
-            return {
-              success: false,
-              error: `No se puede liberar la mesa «${table.name_or_number}»: la comanda #${order.order_number} tiene el pago pendiente. Registra el pago en Ventas o Caja antes de liberar la mesa.`,
-            };
-          }
-        }
+    if (activeOrders && activeOrders.length > 0) {
+      // 1. Validar que ninguna comanda esté aún en cocina o preparación
+      const undelivered = activeOrders.find((o) => o.status !== "delivered");
+      if (undelivered) {
+        const statusLabels: Record<string, string> = {
+          received: "recibida",
+          in_preparation: "en preparación",
+          ready: "lista para entrega",
+        };
+        const statusLabel = statusLabels[undelivered.status] || undelivered.status;
+        return {
+          success: false,
+          error: `No se puede liberar la mesa «${table.name_or_number}»: la comanda #${undelivered.order_number} aún no ha sido entregada (está ${statusLabel}). Debes completarla o cancelarla antes de liberar la mesa.`,
+        };
+      }
+
+      // 2. Validar que ninguna comanda tenga cobro pendiente
+      const unpaid = activeOrders.find((o) => o.payment_status !== "paid");
+      if (unpaid) {
+        return {
+          success: false,
+          error: `No se puede liberar la mesa «${table.name_or_number}»: la comanda #${unpaid.order_number} tiene el pago pendiente. Registra el pago en Ventas o Caja antes de liberar la mesa.`,
+        };
       }
     }
 
@@ -494,11 +503,15 @@ export async function createRestaurantOrder(
     return { success: false, error: "Destino de pedido inválido. Debe ser Mesa, Para llevar o Domicilio." };
   }
 
-  // Para consumo en mesa (dine_in), el canal de recepción siempre se resuelve a in_person
-  const resolvedChannelOrigin = input.orderType === "dine_in" ? "in_person" : input.channelOrigin;
+  // Resolver canal de origen preservando digital_menu y whatsapp según corresponda
+  const resolvedChannelOrigin = input.channelOrigin === "digital_menu"
+    ? "digital_menu"
+    : (input.channelOrigin === "whatsapp" && input.orderType !== "dine_in"
+        ? "whatsapp"
+        : (input.orderType === "dine_in" ? "in_person" : (input.channelOrigin || "in_person")));
 
-  if (!["in_person", "whatsapp"].includes(resolvedChannelOrigin)) {
-    return { success: false, error: "Canal de entrada inválido. Debe ser Presencial o WhatsApp." };
+  if (!["in_person", "whatsapp", "digital_menu"].includes(resolvedChannelOrigin)) {
+    return { success: false, error: "Canal de entrada inválido. Debe ser Presencial, WhatsApp o Menú Digital." };
   }
 
   if (input.orderType === "dine_in") {
@@ -528,9 +541,6 @@ export async function createRestaurantOrder(
   }
 
   if (input.orderType === "delivery") {
-    if (!input.customerName?.trim()) {
-      return { success: false, error: "Para pedidos a domicilio debes ingresar el nombre del destinatario." };
-    }
     if (!input.deliveryAddress?.trim()) {
       return { success: false, error: "Para pedidos a domicilio debes ingresar la dirección de entrega." };
     }
@@ -720,6 +730,14 @@ export async function createRestaurantOrder(
   const calculatedTotal = calculatedSubtotal; // En esta etapa delivery_fee es 0
   const payloadHash = computeOrderPayloadHash(input);
 
+  // Generar código de verificación aleatorio para pedidos a domicilio (PIN de 4 dígitos)
+  let finalNotes = input.notes?.trim() || null;
+  let generatedDeliveryPin: string | null = null;
+  if (input.orderType === "delivery") {
+    generatedDeliveryPin = String(Math.floor(1000 + Math.random() * 9000));
+    finalNotes = finalNotes ? `${finalNotes} [PIN:${generatedDeliveryPin}:0]` : `[PIN:${generatedDeliveryPin}:0]`;
+  }
+
   // 6. Inserción verdaderamente transaccional vía PostgreSQL RPC
   // Garantiza atomicidad total sin requerir DELETE compensatorio, serializa ordenes por tenant
   // y detecta discrepancia de contenido ante reintentos de idempotencyKey.
@@ -742,11 +760,13 @@ export async function createRestaurantOrder(
         modifiers: item.modifiers,
       })),
       p_table_id: input.orderType === "dine_in" ? input.tableId : null,
-      p_customer_name: ["delivery", "takeout"].includes(input.orderType) ? input.customerName?.trim() || null : null,
+      p_customer_name: ["delivery", "takeout"].includes(input.orderType)
+        ? input.customerName?.trim() || (input.orderType === "delivery" ? "Cliente Domicilio" : null)
+        : null,
       p_customer_phone: ["delivery", "takeout"].includes(input.orderType) ? input.customerPhone?.trim() || null : null,
       p_delivery_address: input.orderType === "delivery" ? input.deliveryAddress?.trim() : null,
       p_delivery_reference: input.orderType === "delivery" ? input.deliveryReference?.trim() || null : null,
-      p_notes: input.notes?.trim() || null,
+      p_notes: finalNotes,
       p_idempotency_key: input.idempotencyKey || null,
       p_idempotency_hash: payloadHash,
       p_user_id: userId || null,
@@ -842,6 +862,24 @@ export async function createRestaurantOrder(
       }
     } catch (tblErr) {
       console.warn("[createRestaurantOrder] Advertencia al actualizar estado de la mesa:", tblErr);
+    }
+  }
+
+  // Si el pedido es a domicilio, inicializar delivery_status como 'pending'
+  if (input.orderType === "delivery") {
+    try {
+      const orderQuery = supabase.from("restaurant_orders");
+      if (typeof (orderQuery as any)?.update === "function") {
+        await (orderQuery as any)
+          .update({
+            delivery_status: "pending",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", rpcData.order_id)
+          .eq("business_id", businessId);
+      }
+    } catch (dErr) {
+      console.warn("[createRestaurantOrder] Advertencia al inicializar delivery_status:", dErr);
     }
   }
 
@@ -970,6 +1008,7 @@ export async function getRestaurantOrdersList({
     const orders: RestaurantOrderWithDetails[] = (rawOrders || []).map((row: any) => {
       const items = Array.isArray(row.restaurant_order_items) ? row.restaurant_order_items : [];
       const tableName = row.table_id ? tableMap.get(row.table_id) || "Mesa" : null;
+      const verification = extractDeliveryVerification(row.notes);
 
       return {
         id: row.id,
@@ -981,7 +1020,7 @@ export async function getRestaurantOrdersList({
         subtotal: Number(row.subtotal || 0),
         delivery_fee: Number(row.delivery_fee || 0),
         total: Number(row.total || 0),
-        notes: row.notes || null,
+        notes: verification.cleanNotes,
         table_id: row.table_id || null,
         tableName,
         customer_name: row.customer_name || null,
@@ -990,6 +1029,8 @@ export async function getRestaurantOrdersList({
         delivery_reference: row.delivery_reference || null,
         delivery_status: row.delivery_status || null,
         driver_name: row.driver_name || null,
+        delivery_verification_code: verification.code,
+        delivery_verification_attempts: verification.attempts,
         payment_status: row.payment_status || "pending",
         idempotency_key: row.idempotency_key || null,
         idempotency_hash: row.idempotency_hash || null,
@@ -998,6 +1039,8 @@ export async function getRestaurantOrdersList({
         updated_at: row.updated_at,
         itemsCount: items.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
         items,
+        deliveryVerificationCode: verification.code,
+        deliveryVerificationAttempts: verification.attempts,
       };
     });
 
@@ -1089,6 +1132,7 @@ export async function getRestaurantOrderWithDetails(
 
     const items = Array.isArray(order.restaurant_order_items) ? order.restaurant_order_items : [];
     const tableName = order.table_id ? tableMap.get(order.table_id) || "Mesa" : null;
+    const verification = extractDeliveryVerification(order.notes);
 
     return {
       id: order.id,
@@ -1100,7 +1144,7 @@ export async function getRestaurantOrderWithDetails(
       subtotal: Number(order.subtotal || 0),
       delivery_fee: Number(order.delivery_fee || 0),
       total: Number(order.total || 0),
-      notes: order.notes || null,
+      notes: verification.cleanNotes,
       table_id: order.table_id || null,
       tableName,
       customer_name: order.customer_name || null,
@@ -1109,6 +1153,8 @@ export async function getRestaurantOrderWithDetails(
       delivery_reference: order.delivery_reference || null,
       delivery_status: order.delivery_status || null,
       driver_name: order.driver_name || null,
+      delivery_verification_code: verification.code,
+      delivery_verification_attempts: verification.attempts,
       payment_status: order.payment_status || "pending",
       idempotency_key: order.idempotency_key || null,
       idempotency_hash: order.idempotency_hash || null,
@@ -1117,6 +1163,8 @@ export async function getRestaurantOrderWithDetails(
       updated_at: order.updated_at,
       itemsCount: items.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
       items,
+      deliveryVerificationCode: verification.code,
+      deliveryVerificationAttempts: verification.attempts,
     };
   } catch (err) {
     console.error("[getRestaurantOrderWithDetails] Error:", err);
@@ -1143,6 +1191,9 @@ export async function updateRestaurantOrderStatus(
 
   // Si ya tiene el estado solicitado, retornar éxito idempotente
   if (currentOrder.status === newStatus) {
+    if (newStatus === "delivered" || newStatus === "cancelled") {
+      await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+    }
     return { success: true, order: currentOrder };
   }
 
@@ -1181,6 +1232,11 @@ export async function updateRestaurantOrderStatus(
     };
   }
 
+  // 4. Liberación / sincronización automática de mesas asociadas al pedido
+  if (newStatus === "delivered" || newStatus === "cancelled") {
+    await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+  }
+
   const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
   return {
     success: true,
@@ -1189,7 +1245,113 @@ export async function updateRestaurantOrderStatus(
 }
 
 /**
+ * Sincroniza y actualiza la ocupación de las mesas asociadas a un pedido
+ * tras una transición de estado operativo (ej. al entregarse o cancelarse).
+ * 
+ * Reglas de negocio e invariantes:
+ * 1. Identifica todas las mesas involucradas (table_id directo y cualquier mesa con current_order_id = orderId).
+ * 2. Para cada mesa, consulta sus pedidos activos (aquellos con status != 'delivered' y status != 'cancelled').
+ * 3. Si no quedan pedidos activos, la mesa se libera automáticamente (status = 'available', current_order_id = null).
+ * 4. Si aún existen pedidos activos, la mesa se conserva ocupada (status = 'occupied') y current_order_id
+ *    se enlaza al pedido activo prioritario (el más antiguo).
+ * 5. No modifica payment_status ni genera transacciones o asientos financieros.
+ * 6. Es 100% idempotente y tolera pedidos sin mesa (takeout/delivery).
+ */
+export async function syncTableOccupancyAfterOrderChange(
+  supabase: any,
+  businessId: string,
+  orderId: string,
+  directTableId?: string | null
+): Promise<void> {
+  try {
+    const tableIdsToEvaluate = new Set<string>();
+
+    if (directTableId) {
+      tableIdsToEvaluate.add(directTableId);
+    }
+
+    // Identificar cualquier mesa cuyo current_order_id apunte a este pedido
+    const tblQuery = supabase?.from?.("restaurant_tables");
+    if (tblQuery && typeof tblQuery.select === "function") {
+      const { data: linkedTables } = await tblQuery
+        .select("id")
+        .eq("current_order_id", orderId)
+        .eq("business_id", businessId);
+
+      if (linkedTables && Array.isArray(linkedTables)) {
+        for (const tbl of linkedTables) {
+          if (tbl?.id) tableIdsToEvaluate.add(tbl.id);
+        }
+      }
+    }
+
+    if (tableIdsToEvaluate.size === 0) {
+      return; // Pedido sin mesa asociada (ej. takeout o delivery)
+    }
+
+    const nowIso = new Date().toISOString();
+
+    for (const tableId of tableIdsToEvaluate) {
+      // Consultar todas las comandas de esta mesa para este comercio
+      const ordersQuery = supabase.from("restaurant_orders");
+      const { data: tableOrders, error: ordersErr } = await ordersQuery
+        .select("id, status, payment_status, created_at, order_number")
+        .eq("table_id", tableId)
+        .eq("business_id", businessId);
+
+      if (ordersErr) {
+        console.warn(`[syncTableOccupancyAfterOrderChange] Error al verificar comandas de mesa ${tableId}:`, ordersErr);
+        continue;
+      }
+
+      // Filtrar comandas activas que aún requieren mantener ocupada la mesa:
+      // Aquellas no entregadas ni canceladas (ej. 'received', 'in_preparation', 'ready')
+      const activeOrders = (tableOrders || []).filter(
+        (o: any) => o.status !== "delivered" && o.status !== "cancelled"
+      );
+
+      if (activeOrders.length === 0) {
+        // No quedan pedidos activos: LIBERAR LA MESA AUTOMÁTICAMENTE
+        if (typeof tblQuery?.update === "function") {
+          await tblQuery
+            .update({
+              status: "available",
+              current_order_id: null,
+              updated_at: nowIso,
+            })
+            .eq("id", tableId)
+            .eq("business_id", businessId);
+        }
+      } else {
+        // Quedan otras comandas activas en la misma mesa: CONSERVAR OCUPADA
+        // Ordenar por created_at para vincular el pedido activo más antiguo
+        activeOrders.sort((a: any, b: any) => {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateA - dateB;
+        });
+        const nextActive = activeOrders[0];
+
+        if (typeof tblQuery?.update === "function") {
+          await tblQuery
+            .update({
+              status: "occupied",
+              current_order_id: nextActive.id,
+              updated_at: nowIso,
+            })
+            .eq("id", tableId)
+            .eq("business_id", businessId);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[syncTableOccupancyAfterOrderChange] Error al sincronizar ocupación de mesa:", err);
+  }
+}
+
+/**
  * Cancela operativamente un pedido registrando el cambio de estado de forma segura.
+ * Sincroniza automáticamente la mesa asociada mediante syncTableOccupancyAfterOrderChange.
  */
 export async function cancelRestaurantOrder(
   businessId: string,
@@ -1197,7 +1359,81 @@ export async function cancelRestaurantOrder(
   reason?: string,
   userId?: string
 ): Promise<{ success: boolean; error?: string }> {
+  const supabase = await getDbClient();
+  const currentOrder = await getRestaurantOrderWithDetails(businessId, orderId);
+  if (!currentOrder) {
+    return { success: false, error: "Pedido no encontrado o no pertenece a este comercio." };
+  }
+
   const res = await updateRestaurantOrderStatus(businessId, orderId, "cancelled", userId);
-  return { success: res.success, error: res.error };
+  if (!res.success) {
+    return { success: false, error: res.error };
+  }
+
+  // Asegurar sincronización de mesas vinculadas
+  await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+
+  return { success: true };
 }
+
+/**
+ * Registra el pago real de un pedido operativo (actualiza payment_status a 'paid').
+ * Permite que los pedidos entregados conserven su estado pendiente hasta que se cobre efectivamente.
+ * Garantiza idempotencia y audita la transacción financiera.
+ */
+export async function registerRestaurantOrderPayment(
+  businessId: string,
+  orderId: string,
+  paymentMethod?: string,
+  userId?: string
+): Promise<{ success: boolean; error?: string; order?: RestaurantOrderWithDetails }> {
+  const supabase = await getDbClient();
+  const currentOrder = await getRestaurantOrderWithDetails(businessId, orderId);
+  if (!currentOrder) {
+    return { success: false, error: "Pedido no encontrado o no pertenece a este comercio." };
+  }
+  if (currentOrder.status === "cancelled") {
+    return { success: false, error: "No se puede registrar pago para un pedido cancelado." };
+  }
+
+  // Idempotencia: si ya está pagado, no duplicar ni re-procesar
+  if (currentOrder.payment_status === "paid") {
+    return { success: true, order: currentOrder };
+  }
+
+  const { error: updateErr } = await supabase
+    .from("restaurant_orders")
+    .update({
+      payment_status: "paid",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("business_id", businessId);
+
+  if (updateErr) {
+    return { success: false, error: updateErr.message || "Error al registrar el pago del pedido." };
+  }
+
+  // Registrar auditoría de la transacción financiera
+  try {
+    await logAuditAction({
+      businessId,
+      userId: userId || null,
+      action: "payment_registered",
+      entityType: "restaurant_order",
+      entityId: orderId,
+      metadata: {
+        orderNumber: currentOrder.order_number,
+        total: currentOrder.total,
+        paymentMethod: paymentMethod || "cash",
+      },
+    });
+  } catch (auditErr) {
+    console.warn("[registerRestaurantOrderPayment] Error registrando auditoría:", auditErr);
+  }
+
+  const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
+  return { success: true, order: refreshed || undefined };
+}
+
 

@@ -85,7 +85,9 @@ export async function updateRestaurantOrderStatusAction(
   if (result.success) {
     revalidatePath(`/workspace/${businessId}/pedidos`);
     revalidatePath(`/workspace/${businessId}/pedidos/${orderId}`);
+    revalidatePath(`/workspace/${businessId}/mesas`);
     revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/workspace/${businessId}/ventas`);
   }
 
   return result;
@@ -110,8 +112,42 @@ export async function cancelRestaurantOrderAction(
   if (result.success) {
     revalidatePath(`/workspace/${businessId}/pedidos`);
     revalidatePath(`/workspace/${businessId}/pedidos/${orderId}`);
+    revalidatePath(`/workspace/${businessId}/mesas`);
     revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/workspace/${businessId}/ventas`);
   }
 
   return result;
 }
+
+/**
+ * Server Action: Registrar el pago de un pedido operativo.
+ * Requiere permiso `sales.create`, `orders.update` o permisos de owner.
+ */
+export async function registerRestaurantOrderPaymentAction(
+  businessId: string,
+  orderId: string,
+  paymentMethod?: string
+): Promise<{ success: boolean; error?: string }> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.create");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para registrar pagos en este negocio." };
+  }
+
+  const { registerRestaurantOrderPayment } = await import("@/lib/restaurant/restaurant-service");
+  const result = await registerRestaurantOrderPayment(businessId, orderId, paymentMethod, auth.context.userId);
+
+  if (result.success) {
+    revalidatePath(`/workspace/${businessId}/pedidos`);
+    revalidatePath(`/workspace/${businessId}/pedidos/${orderId}`);
+    revalidatePath(`/workspace/${businessId}/ventas`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+  }
+
+  return { success: result.success, error: result.error };
+}
+

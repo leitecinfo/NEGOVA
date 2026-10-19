@@ -407,11 +407,11 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
         />
       ) : (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                     <th className="py-3.5 px-4">Nº Comprobante</th>
                     <th className="py-3.5 px-4">Comercio Cliente</th>
                     <th className="py-3.5 px-4">Plan & Modalidad</th>
@@ -491,7 +491,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                               setMenuAnchor({ id: inv.id, top, left, inv });
                             }
                           }}
-                          className={`p-1.5 rounded-lg border border-slate-200 dark:border-white/10 transition-colors ${
+                          className={`p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] transition-colors ${
                             menuAnchor?.id === inv.id
                               ? "bg-slate-100 dark:bg-white/[0.06]"
                               : "hover:bg-slate-50 dark:hover:bg-white/[0.02]"
@@ -522,7 +522,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {selectedInvoice && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -595,7 +595,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                 </div>
               )}
               {selectedInvoice.notes && (
-                <div className="pt-2 border-t border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400">
+                <div className="pt-2 border-t border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400">
                   <span className="font-semibold block mb-0.5">Notas:</span>
                   {selectedInvoice.notes}
                 </div>
@@ -628,7 +628,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                           }
                           setPaymentForm({ ...paymentForm, paymentMethod: method, paymentReference: newRef });
                         }}
-                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                       >
                         <option value="transfer">Transferencia Bancaria</option>
                         <option value="cash">Efectivo / Consignación</option>
@@ -644,7 +644,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                         value={paymentForm.paymentReference}
                         onChange={(e) => setPaymentForm({ ...paymentForm, paymentReference: e.target.value })}
                         placeholder={paymentForm.paymentMethod === "transfer" ? "Ej: 039401831" : "Ej: CAJA-CMP-001"}
-                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                         required
                       />
                     </div>
@@ -692,7 +692,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
                     placeholder="Ej: propietario@comercio.com"
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   />
                   <p className="text-[10px] text-slate-400">
                     Se adjuntará automáticamente el comprobante PDF oficial con plantilla institucional de NEGOVA.
@@ -733,7 +733,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {isDeleteModalOpen && selectedInvoice && (
         <ModalPortal>
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">¿Eliminar Comprobante?</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Estás a punto de eliminar el comprobante <strong>{selectedInvoice.invoiceNumber}</strong>. Esta acción no se puede deshacer y borrará el registro contable.
@@ -753,7 +753,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {isEditModalOpen && selectedInvoice && (
         <ModalPortal>
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(false)}
@@ -767,11 +767,11 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Monto (COP):</label>
-                    <input type="number" required value={editForm.amount || 0} onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white" />
+                    <input type="number" required value={editForm.amount || 0} onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado:</label>
-                    <select value={editForm.status} onChange={e => setEditForm({...editForm, status: e.target.value as InvoiceStatus})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white">
+                    <select value={editForm.status} onChange={e => setEditForm({...editForm, status: e.target.value as InvoiceStatus})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white">
                       <option value="pending">Pendiente</option>
                       <option value="paid">Pagado</option>
                       <option value="failed">Fallido</option>
@@ -780,7 +780,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Método de Pago:</label>
-                    <select value={editForm.paymentMethod} onChange={e => setEditForm({...editForm, paymentMethod: e.target.value as PaymentMethod})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white">
+                    <select value={editForm.paymentMethod} onChange={e => setEditForm({...editForm, paymentMethod: e.target.value as PaymentMethod})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white">
                       <option value="transfer">Transferencia</option>
                       <option value="cash">Efectivo</option>
                       <option value="manual">Manual</option>
@@ -788,15 +788,15 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Referencia:</label>
-                    <input type="text" value={editForm.paymentReference || ""} onChange={e => setEditForm({...editForm, paymentReference: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white" />
+                    <input type="text" value={editForm.paymentReference || ""} onChange={e => setEditForm({...editForm, paymentReference: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Observaciones / Notas:</label>
-                    <textarea rows={3} value={editForm.notes || ""} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white" />
+                    <textarea rows={3} value={editForm.notes || ""} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
                   </div>
                 </div>
                 
-                <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-white/10">
+                <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-white/[0.08]">
                   <AdminButton variant="secondary" onClick={() => setIsEditModalOpen(false)}>Cancelar</AdminButton>
                   <AdminButton variant="primary" type="submit" isLoading={isEditing}>Guardar Cambios</AdminButton>
                 </div>
@@ -819,7 +819,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
           <div
             data-invoice-actions-menu
             style={{ top: `${menuAnchor.top}px`, left: `${menuAnchor.left}px` }}
-            className="fixed w-40 z-[999999] bg-white dark:bg-[#0D0E12] rounded-xl border border-slate-200 dark:border-white/10 shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
+            className="fixed w-40 z-[999999] bg-white dark:bg-[#0D0F16] rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
           >
             <button
               onClick={() => {

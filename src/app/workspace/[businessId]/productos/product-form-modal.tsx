@@ -595,13 +595,13 @@ export function ProductFormModal({
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 mt-1 max-h-[80vh] overflow-y-auto px-2 py-1">
         {/* Selector de Tipo: Oculto para negocios de actividad única (ej. restaurante de comida rápida); visible ÚNICAMENTE para negocios híbridos que venden productos Y prestan servicios */}
         {isHybrid && (
-          <div className="flex items-center gap-3 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 w-full sm:w-fit">
+          <div className="flex items-center gap-3 p-1.5 bg-slate-100 dark:bg-white/[0.04] rounded-2xl border border-slate-200 dark:border-white/[0.08] w-full sm:w-fit">
             <button
               type="button"
               onClick={() => setProductType("product")}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                 productType === "product"
-                  ? "bg-white dark:bg-[#10141d] text-[#ED500A] shadow-xs"
+                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -614,7 +614,7 @@ export function ProductFormModal({
               onClick={() => setProductType("service")}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                 productType === "service"
-                  ? "bg-white dark:bg-[#10141d] text-[#ED500A] shadow-xs"
+                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -635,7 +635,7 @@ export function ProductFormModal({
               </label>
               <input
                 {...register("name")}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
                 placeholder={
                   productType === "service"
                     ? "Ej. Corte de cabello degradado, Asesoría contable..."
@@ -655,7 +655,7 @@ export function ProductFormModal({
               <textarea
                 {...register("description")}
                 rows={3}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 resize-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 resize-none transition-all"
                 placeholder="Detalla los beneficios, características o presentación..."
               />
             </div>
@@ -680,7 +680,7 @@ export function ProductFormModal({
                       setPriceDisplay(formatted);
                       setValue("price", raw, { shouldValidate: true });
                     }}
-                    className="w-full pl-8 pr-3.5 py-2.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
+                    className="w-full pl-8 pr-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
                     placeholder="0"
                   />
                 </div>
@@ -703,13 +703,13 @@ export function ProductFormModal({
                 </div>
 
                 {showQuickCategory ? (
-                  <div className="p-2.5 bg-slate-50 dark:bg-white/5 border border-[#ED500A]/40 rounded-xl space-y-2 animate-in fade-in duration-100">
+                  <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] border border-[#ED500A]/40 rounded-xl space-y-2 animate-in fade-in duration-100">
                     <input
                       type="text"
                       value={quickCategoryName}
                       onChange={(e) => setQuickCategoryName(e.target.value)}
                       placeholder="Nombre de categoría..."
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-lg text-xs"
+                      className="w-full px-2.5 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs"
                       autoFocus
                       onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleQuickCategoryCreate())}
                     />
@@ -734,7 +734,7 @@ export function ProductFormModal({
                 ) : (
                   <select
                     {...register("category_id")}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
+                    className="w-full px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
                   >
                     <option value="">Sin categoría asignada</option>
                     {Array.from(
@@ -755,7 +755,7 @@ export function ProductFormModal({
 
             {/* INGREDIENTES Y ALÉRGENOS (Para restaurantes / gastronomía / comida rápida) */}
             {isFoodBusiness && (
-              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
                 <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <UtensilsCrossed className="w-4 h-4 text-[#ED500A]" />
                   <span>Receta e Ingredientes</span>
@@ -771,7 +771,7 @@ export function ProductFormModal({
                       value={ingredients}
                       onChange={(e) => setIngredients(e.target.value)}
                       placeholder="Ej. Carne artesanal 150g, queso cheddar, tocineta, pan brioche..."
-                      className="w-full px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                      className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                     />
                   </div>
 
@@ -784,7 +784,7 @@ export function ProductFormModal({
                       value={allergensText}
                       onChange={(e) => setAllergensText(e.target.value)}
                       placeholder="Ej. Leche, huevo, trigo (gluten), maní"
-                      className="w-full px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                      className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                     />
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
                       Indica los alérgenos presentes en el producto según sus ingredientes y las etiquetas de los productos utilizados. Separa los alérgenos con comas.
@@ -795,7 +795,7 @@ export function ProductFormModal({
             )}
 
             {/* SECCIÓN DE VARIANTES, TAMAÑOS Y PRESENTACIONES */}
-            <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+            <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#ED500A]" />
@@ -846,7 +846,7 @@ export function ProductFormModal({
                       {variants.map((variant, vIdx) => (
                         <div
                           key={variant.id || vIdx}
-                          className="p-3.5 bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl space-y-3 shadow-2xs"
+                          className="p-3.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl space-y-3 shadow-2xs"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -861,7 +861,7 @@ export function ProductFormModal({
                                     handleUpdateVariant(vIdx, { name: e.target.value })
                                   }
                                   placeholder="Ej. Personal, Mediana, Familiar, $10.000, Talla M..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-semibold focus:outline-none"
+                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:outline-none"
                                 />
                               </div>
 
@@ -883,7 +883,7 @@ export function ProductFormModal({
                                       })
                                     }
                                     placeholder="0"
-                                    className="w-full pl-6 pr-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-semibold focus:outline-none"
+                                    className="w-full pl-6 pr-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:outline-none"
                                   />
                                 </div>
                               </div>
@@ -960,7 +960,7 @@ export function ProductFormModal({
 
             {/* SECCIÓN ADAPTATIVA SEGÚN TIPO: SERVICIO */}
             {productType === "service" && (
-              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-[#ED500A]" />
@@ -972,7 +972,7 @@ export function ProductFormModal({
                     step="5"
                     value={durationMinutes}
                     onChange={(e) => setDurationMinutes(Math.max(5, parseInt(e.target.value, 10) || 30))}
-                    className="w-full sm:w-48 px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
+                    className="w-full sm:w-48 px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
                     placeholder="30"
                   />
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -991,7 +991,7 @@ export function ProductFormModal({
 
             {/* SECCIÓN ADAPTATIVA: DATOS COMERCIALES Y RETAIL (Solo para comercios minoristas y tiendas; oculta en restaurantes y comida rápida) */}
             {!isFoodBusiness && productType === "product" && (
-              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Tag className="w-4 h-4 text-[#ED500A]" />
@@ -1010,7 +1010,7 @@ export function ProductFormModal({
                         value={sku}
                         onChange={(e) => setSku(e.target.value)}
                         placeholder="Ej. REF-001"
-                        className="w-full px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                        className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                       />
                     </div>
 
@@ -1025,7 +1025,7 @@ export function ProductFormModal({
                           value={barcode}
                           onChange={(e) => setBarcode(e.target.value)}
                           placeholder="770..."
-                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                         />
                       </div>
                     </div>
@@ -1041,7 +1041,7 @@ export function ProductFormModal({
                         value={brand}
                         onChange={(e) => setBrand(e.target.value)}
                         placeholder="Ej. Propia, Nike, Genérico"
-                        className="w-full px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                        className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                       />
                     </div>
 
@@ -1052,7 +1052,7 @@ export function ProductFormModal({
                       <select
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
-                        className="w-full px-3 py-2 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none"
+                        className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none"
                       >
                         <option value="unidad">Unidad (ud)</option>
                         <option value="porción">Porción / Plato</option>
@@ -1088,7 +1088,7 @@ export function ProductFormModal({
                           min="0"
                           value={stockQuantity}
                           onChange={(e) => setStockQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                          className="w-full sm:w-48 px-3 py-1.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-xl text-xs focus:outline-none"
+                          className="w-full sm:w-48 px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none"
                         />
                       </div>
                     )}
@@ -1098,7 +1098,7 @@ export function ProductFormModal({
             )}
 
             {/* Disponibilidad para venta */}
-            <div className="flex items-center gap-2.5 p-3 bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-xl">
+            <div className="flex items-center gap-2.5 p-3 bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-xl">
               <input
                 type="checkbox"
                 id="is_available"
@@ -1144,7 +1144,7 @@ export function ProductFormModal({
 
                 {imagePreview ? (
                   <div className="space-y-3">
-                    <div className="relative w-full h-44 rounded-xl overflow-hidden bg-slate-100 dark:bg-black/20 border border-slate-200/50 dark:border-white/10 group">
+                    <div className="relative w-full h-44 rounded-xl overflow-hidden bg-slate-100 dark:bg-black/20 border border-slate-200/50 dark:border-white/[0.08] group">
                       <img
                         src={imagePreview}
                         alt="Vista previa"
@@ -1161,7 +1161,7 @@ export function ProductFormModal({
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploadingImage}
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold transition-all shadow-2xs"
+                      className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-semibold transition-all shadow-2xs"
                     >
                       <UploadCloud className="w-3.5 h-3.5 text-[#ED500A]" />
                       <span>Cambiar fotografía</span>
@@ -1191,7 +1191,7 @@ export function ProductFormModal({
             </div>
 
             {/* SECCIÓN ADAPTATIVA: OPCIONES, SALSAS Y EXTRAS */}
-            <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-4 bg-slate-50/50 dark:bg-white/[0.02] space-y-3.5">
+            <div className="border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4 bg-slate-50/50 dark:bg-white/[0.02] space-y-3.5">
               <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-200/60 dark:border-white/5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">
@@ -1220,7 +1220,7 @@ export function ProductFormModal({
               {/* Grupos de opciones */}
               <div className="space-y-3">
                 {modifierGroups.length === 0 ? (
-                  <div className="p-3 text-center bg-white dark:bg-[#10141d] border border-dashed border-slate-200 dark:border-white/10 rounded-xl">
+                  <div className="p-3 text-center bg-white dark:bg-[#0D0F16] border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl">
                     <p className="text-xs text-slate-500 italic">
                       Sin opciones configuradas. Haz clic en <strong>"Añadir grupo"</strong> para salsas o extras.
                     </p>
@@ -1229,7 +1229,7 @@ export function ProductFormModal({
                   modifierGroups.map((group, groupIdx) => (
                     <div
                       key={group.id || groupIdx}
-                      className="p-3 bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl space-y-2.5 shadow-2xs"
+                      className="p-3 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl space-y-2.5 shadow-2xs"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
@@ -1241,7 +1241,7 @@ export function ProductFormModal({
                             value={group.name}
                             onChange={(e) => handleUpdateGroup(groupIdx, { name: e.target.value })}
                             placeholder="Ej. Salsas, Tamaño, Adiciones..."
-                            className="w-full px-2.5 py-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-semibold focus:outline-none"
+                            className="w-full px-2.5 py-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:outline-none"
                           />
                         </div>
 
@@ -1283,7 +1283,7 @@ export function ProductFormModal({
                                 handleUpdateOption(groupIdx, optIdx, { name: e.target.value })
                               }
                               placeholder="Nombre (ej. Queso extra)"
-                              className="flex-1 px-2 py-0.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded text-xs"
+                              className="flex-1 px-2 py-0.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded text-xs"
                             />
 
                             <div className="w-24 relative">
@@ -1300,7 +1300,7 @@ export function ProductFormModal({
                                   })
                                 }
                                 placeholder="0"
-                                className="w-full pl-5 pr-1 py-0.5 bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded text-xs"
+                                className="w-full pl-5 pr-1 py-0.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded text-xs"
                               />
                             </div>
 
@@ -1321,7 +1321,7 @@ export function ProductFormModal({
             </div>
 
             {/* VISTA PREVIA INTERACTIVA EN MENÚ / POS */}
-            <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 rounded-2xl space-y-3">
+            <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-[#ED500A]" />
@@ -1330,13 +1330,13 @@ export function ProductFormModal({
                 <span className="text-[10px] text-slate-400 font-medium">Interactiva</span>
               </div>
 
-              <div className="bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl p-3.5 space-y-3 shadow-2xs">
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl p-3.5 space-y-3 shadow-2xs">
                 <div className="flex items-start gap-3">
                   {imagePreview ? (
                     <img
                       src={imagePreview}
                       alt="Vista previa"
-                      className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                      className="w-14 h-14 rounded-lg object-cover border border-slate-200 dark:border-white/[0.08] shrink-0"
                     />
                   ) : (
                     <div className="w-14 h-14 rounded-lg bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">

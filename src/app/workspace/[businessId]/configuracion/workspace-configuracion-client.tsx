@@ -148,10 +148,12 @@ export function WorkspaceConfiguracionClient({
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "general"
   );
 
-  // Sincronizar pestaña activa cuando cambia el parámetro de URL (ej. ?tab=comprobantes)
+  // Sincronizar pestaña activa cuando cambia el parámetro de URL (ej. ?tab=comprobantes o volver a Configuración)
   useEffect(() => {
     if (tabFromUrl && validTabs.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
+    } else if (!tabFromUrl) {
+      setActiveTab("general");
     }
   }, [tabFromUrl]);
   const [config, setConfig] = useState<BusinessDocumentConfig>(initialConfig);
@@ -365,7 +367,7 @@ export function WorkspaceConfiguracionClient({
       </AdminKpiGrid>
 
       {/* ── TABS NAV ──────────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 p-4 shadow-xs">
+      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <AdminTabs
             activeTab={activeTab}
@@ -385,7 +387,7 @@ export function WorkspaceConfiguracionClient({
            TAB 1: DATOS DEL NEGOCIO
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "general" && (
-        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
@@ -453,7 +455,7 @@ export function WorkspaceConfiguracionClient({
            TAB 2: IDENTIDAD VISUAL
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "branding" && (
-        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center border border-orange-500/20">
@@ -470,7 +472,7 @@ export function WorkspaceConfiguracionClient({
             <div className="space-y-4">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Logotipo del negocio</label>
               <div className="flex items-start gap-6">
-                <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 flex items-center justify-center bg-slate-50 dark:bg-white/[0.02] overflow-hidden shrink-0 relative shadow-inner">
+                <div className="w-32 h-32 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/[0.08] flex items-center justify-center bg-slate-50 dark:bg-white/[0.02] overflow-hidden shrink-0 relative shadow-inner">
                   {config.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={config.logoUrl} alt="Logotipo del negocio" className="w-full h-full object-contain p-2" />
@@ -563,7 +565,7 @@ export function WorkspaceConfiguracionClient({
                       type="button"
                       disabled={!isOwner}
                       onClick={() => setConfig({ ...config, primaryColor: preset.color })}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-[11px] font-mono transition-colors disabled:opacity-50 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/5 text-[11px] font-mono transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.color }} />
                       <span>{preset.name}</span>
@@ -580,7 +582,7 @@ export function WorkspaceConfiguracionClient({
            TAB 3: COMPROBANTES Y DOCUMENTOS
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "comprobantes" && (
-        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
@@ -611,25 +613,25 @@ export function WorkspaceConfiguracionClient({
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Observaciones</label>
-              <textarea name="documentObservations" value={config.documentObservations || ""} onChange={handleChange} placeholder="Ej. Conserve este documento como constancia de su compra..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
+              <textarea name="documentObservations" value={config.documentObservations || ""} onChange={handleChange} placeholder="Ej. Conserve este documento como constancia de su compra..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Términos y condiciones</label>
-              <textarea name="termsAndConditions" value={config.termsAndConditions || ""} onChange={handleChange} placeholder="Ej. Condiciones generales aplicables a las transacciones..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
+              <textarea name="termsAndConditions" value={config.termsAndConditions || ""} onChange={handleChange} placeholder="Ej. Condiciones generales aplicables a las transacciones..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Política de cambios y devoluciones</label>
-                <textarea name="returnPolicy" value={config.returnPolicy || ""} onChange={handleChange} placeholder="Ej. Cambios dentro de los 30 días posteriores a la compra..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
+                <textarea name="returnPolicy" value={config.returnPolicy || ""} onChange={handleChange} placeholder="Ej. Cambios dentro de los 30 días posteriores a la compra..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
               </div>
               <div className="space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Política de garantía</label>
-                <textarea name="warrantyPolicy" value={config.warrantyPolicy || ""} onChange={handleChange} placeholder="Ej. Garantía de 90 días por defectos de fabricación..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
+                <textarea name="warrantyPolicy" value={config.warrantyPolicy || ""} onChange={handleChange} placeholder="Ej. Garantía de 90 días por defectos de fabricación..." rows={3} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
               </div>
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Pie de página</label>
-              <textarea name="footerText" value={config.footerText || ""} onChange={handleChange} placeholder="Ej. Comprobante comercial de control interno." rows={2} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
+              <textarea name="footerText" value={config.footerText || ""} onChange={handleChange} placeholder="Ej. Comprobante comercial de control interno." rows={2} disabled={!isOwner} className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none dark:text-white transition-all disabled:opacity-50" />
             </div>
           </div>
         </div>
@@ -641,7 +643,7 @@ export function WorkspaceConfiguracionClient({
       {activeTab === "mi-negocio" && (
         <div className="space-y-6">
           {/* ─── Tipo de negocio ─────────────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 flex items-center justify-center border border-slate-500/20">
@@ -670,7 +672,7 @@ export function WorkspaceConfiguracionClient({
           </div>
 
           {/* ─── Actividades comerciales ──────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -762,7 +764,7 @@ export function WorkspaceConfiguracionClient({
           </div>
 
           {/* ─── Mi plan ─────────────────────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
@@ -842,7 +844,7 @@ export function WorkspaceConfiguracionClient({
       {activeTab === "regional" && (
         <div className="space-y-6">
           {/* ─── Configuración regional ───────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/20">
@@ -859,7 +861,7 @@ export function WorkspaceConfiguracionClient({
                 <div className="p-5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold">Moneda</span>
-                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 border border-slate-200 dark:border-white/10">Estándar Activo</span>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 border border-slate-200 dark:border-white/[0.08]">Estándar Activo</span>
                   </div>
                   <p className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-emerald-500" />
@@ -870,7 +872,7 @@ export function WorkspaceConfiguracionClient({
                 <div className="p-5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold">Zona Horaria</span>
-                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 border border-slate-200 dark:border-white/10">Estándar Activo</span>
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 border border-slate-200 dark:border-white/[0.08]">Estándar Activo</span>
                   </div>
                   <p className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-500" />
@@ -887,7 +889,7 @@ export function WorkspaceConfiguracionClient({
           </div>
 
           {/* ─── Preferencias del POS ─────────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-500/20">
@@ -933,7 +935,7 @@ export function WorkspaceConfiguracionClient({
                   value={posSettings.receiptCopies}
                   onChange={(e) => handlePosChange("receiptCopies", Number(e.target.value))}
                   disabled={!isOwner}
-                  className="bg-white dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
+                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
                 >
                   <option value={1}>1 copia</option>
                   <option value={2}>2 copias</option>
@@ -956,7 +958,7 @@ export function WorkspaceConfiguracionClient({
                   value={posSettings.defaultPaymentMethod}
                   onChange={(e) => handlePosChange("defaultPaymentMethod", e.target.value)}
                   disabled={!isOwner}
-                  className="bg-white dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
+                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
                 >
                   <option value="cash">Efectivo</option>
                   <option value="transfer">Transferencia</option>
@@ -1000,7 +1002,7 @@ export function WorkspaceConfiguracionClient({
 
       {/* ── BARRA DE GUARDAR (tabs 1-3) ──────────────────────────────────── */}
       {isOwner && ["general", "branding", "comprobantes"].includes(activeTab) && (
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/10 shadow-xs">
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <Sparkles className="w-4 h-4 text-orange-500" />
             <span>Los cambios guardados se aplican de inmediato a los datos y comprobantes del negocio.</span>
@@ -1046,7 +1048,7 @@ interface ActivityCardProps {
 function ActivityCard({ activity, icon, iconColor, iconBg, isActive, isOwner, isLastActive, onToggle, children }: ActivityCardProps) {
   const def = COMMERCIAL_ACTIVITIES[activity];
   return (
-    <div className={`rounded-xl border p-4 transition-all duration-200 ${isActive ? "bg-white dark:bg-white/[0.03] border-slate-200 dark:border-white/10" : "bg-slate-50 dark:bg-white/[0.01] border-slate-100 dark:border-white/5 opacity-70"}`}>
+    <div className={`rounded-xl border p-4 transition-all duration-200 ${isActive ? "bg-white dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.08]" : "bg-slate-50 dark:bg-white/[0.01] border-slate-100 dark:border-white/5 opacity-70"}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${iconBg} ${iconColor} shrink-0`}>

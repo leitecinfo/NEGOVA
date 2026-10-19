@@ -52,10 +52,10 @@ export function CustomModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className={`w-full ${maxWidthClasses[maxWidth] || "max-w-md"} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4`}>
+        <div className={`w-full ${maxWidthClasses[maxWidth] || "max-w-md"} bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+            <div className="p-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/50 dark:border-white/[0.08]">
               {icons[type]}
             </div>
             <h3 className="text-lg font-bold font-title text-slate-900 dark:text-white">
@@ -64,7 +64,7 @@ export function CustomModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

@@ -83,6 +83,8 @@ export const RestaurantOrderSchema = z.object({
   delivery_reference: z.string().nullable().optional(),
   delivery_status: z.string().nullable().optional(),
   driver_name: z.string().nullable().optional(),
+  delivery_verification_code: z.string().nullable().optional(),
+  delivery_verification_attempts: z.number().default(0).optional(),
   payment_status: PaymentStatusEnum.default("pending"),
   idempotency_key: z.string().nullable().optional(),
   idempotency_hash: z.string().nullable().optional(),
@@ -152,7 +154,7 @@ export interface CreateOrderItemInput {
 
 export interface CreateRestaurantOrderInput {
   orderType: "dine_in" | "takeout" | "delivery";
-  channelOrigin: "in_person" | "whatsapp";
+  channelOrigin: "in_person" | "whatsapp" | "digital_menu";
   tableId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -192,6 +194,8 @@ export interface RestaurantOrderWithDetails extends RestaurantOrder {
   tableName?: string | null;
   itemsCount?: number;
   items?: RestaurantOrderItem[];
+  deliveryVerificationCode?: string | null;
+  deliveryVerificationAttempts?: number;
 }
 
 export interface RestaurantOrdersListResult {

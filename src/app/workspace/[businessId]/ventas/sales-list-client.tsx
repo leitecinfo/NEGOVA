@@ -41,6 +41,25 @@ interface SalesListClientProps {
   };
 }
 
+const STATUS_OPTIONS = [
+  { value: "all", label: "Todos los estados" },
+  { value: "paid", label: "Pagado" },
+  { value: "pending", label: "Pendiente de cobro" },
+  { value: "completed", label: "Completado" },
+  { value: "issued", label: "Emitido" },
+  { value: "cancelled", label: "Cancelado" },
+  { value: "refunded", label: "Reembolsado" },
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "all", label: "Todos los pagos" },
+  { value: "cash", label: "Efectivo" },
+  { value: "transfer", label: "Transferencia" },
+  { value: "card", label: "Tarjeta" },
+  { value: "credit", label: "Crédito" },
+  { value: "other", label: "Otro" },
+];
+
 export function SalesListClient({
   businessId,
   businessName,
@@ -137,6 +156,11 @@ export function SalesListClient({
           label: "Pagado",
           color: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
         };
+      case "pending":
+        return {
+          label: "Pendiente de cobro",
+          color: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+        };
       case "issued":
         return {
           label: "Emitido",
@@ -195,8 +219,9 @@ export function SalesListClient({
       maxWidth="6xl"
     >
       <div className="space-y-6 font-body">
-        {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS ESTANDARIZADOS CON EL MÓDULO USUARIOS */}
+        {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS REORGANIZADOS Y ALINEADOS */}
         <AdminTableToolbar
+          layout="stacked"
           searchQuery={search}
           onSearchChange={setSearch}
           onSearchSubmit={handleSearchSubmit}
@@ -208,7 +233,7 @@ export function SalesListClient({
           }}
           isPending={isPending}
           filters={
-            <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 w-full items-center">
               {/* Filtro de Estado */}
               <AdminSelect
                 value={status}
@@ -216,14 +241,7 @@ export function SalesListClient({
                   setStatus(val);
                   applyFilters({ status: val });
                 }}
-                options={[
-                  { value: "all", label: "Todos los estados" },
-                  { value: "paid", label: "Pagado" },
-                  { value: "completed", label: "Completado" },
-                  { value: "issued", label: "Emitido" },
-                  { value: "cancelled", label: "Cancelado" },
-                  { value: "refunded", label: "Reembolsado" },
-                ]}
+                options={STATUS_OPTIONS}
               />
 
               {/* Filtro de Método de Pago */}
@@ -233,20 +251,13 @@ export function SalesListClient({
                   setPaymentMethod(val);
                   applyFilters({ paymentMethod: val });
                 }}
-                options={[
-                  { value: "all", label: "Todos los pagos" },
-                  { value: "cash", label: "Efectivo" },
-                  { value: "transfer", label: "Transferencia" },
-                  { value: "card", label: "Tarjeta" },
-                  { value: "credit", label: "Crédito" },
-                  { value: "other", label: "Otro" },
-                ]}
+                options={PAYMENT_METHOD_OPTIONS}
               />
 
-              {/* Filtros de Rango de Fecha */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-600 dark:text-slate-300">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-[11px] text-slate-400 font-mono">Desde:</span>
+              {/* Filtro Fecha Desde */}
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                <span className="text-[11px] text-slate-400 font-mono mr-1.5 shrink-0">Desde:</span>
                 <input
                   type="date"
                   value={startDate}
@@ -254,13 +265,14 @@ export function SalesListClient({
                     setStartDate(e.target.value);
                     applyFilters({ startDate: e.target.value });
                   }}
-                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                 />
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-600 dark:text-slate-300">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="text-[11px] text-slate-400 font-mono">Hasta:</span>
+              {/* Filtro Fecha Hasta */}
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                <span className="text-[11px] text-slate-400 font-mono mr-1.5 shrink-0">Hasta:</span>
                 <input
                   type="date"
                   value={endDate}
@@ -268,34 +280,38 @@ export function SalesListClient({
                     setEndDate(e.target.value);
                     applyFilters({ endDate: e.target.value });
                   }}
-                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                 />
               </div>
 
-              {hasActiveFilters && (
+              {/* Botón Restablecer Filtros */}
+              {hasActiveFilters ? (
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-                  title="Restablecer filtros"
+                  className="h-10 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/60 dark:bg-rose-500/10 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all cursor-pointer whitespace-nowrap"
+                  title="Restablecer todos los filtros"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Limpiar</span>
+                  <span>Limpiar Filtros</span>
                 </button>
+              ) : (
+                <div className="hidden xl:block" />
               )}
-            </>
+            </div>
           }
         />
 
         {/* TABLA UNIFICADA CON ADMIN-DATA-TABLE */}
         <AdminDataTable<BusinessSaleDocument>
+          isLoading={isPending}
           data={documents}
           columns={[
             {
               header: "Comprobante",
               render: (doc) => (
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
                     <Receipt className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                   </div>
                   <div className="space-y-0.5 min-w-0">
@@ -379,7 +395,7 @@ export function SalesListClient({
                 <Link
                   href={`/workspace/${businessId}/ventas/${doc.id}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-800 dark:text-white transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 transition-colors"
                 >
                   <span>Detalle</span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
@@ -406,11 +422,11 @@ export function SalesListClient({
             return (
               <div
                 key={doc.id}
-                className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3 font-body"
+                className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3 font-body"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/[0.06] flex items-center justify-center font-bold text-slate-700 dark:text-slate-200">
                       <Receipt className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                     </div>
                     <div className="min-w-0">

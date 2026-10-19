@@ -193,7 +193,7 @@ export function WorkspaceRolesClient({
             return (
               <div
                 key={role.code}
-                className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden transition-all duration-200"
+                className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden transition-all duration-200"
               >
                 {/* Cabecera del Rol */}
                 <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
@@ -255,13 +255,13 @@ export function WorkspaceRolesClient({
                       return (
                         <div
                           key={mod.moduleId}
-                          className="rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/40 dark:bg-white/[0.01] p-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all"
+                          className="rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/40 dark:bg-white/[0.01] p-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all"
                         >
                           {/* Header del Módulo */}
                           <div>
                             <div className="flex items-center justify-between gap-2 mb-2">
                               <div className="flex items-center gap-2 min-w-0">
-                                <div className="p-1.5 rounded-lg bg-white dark:bg-[#141824] border border-slate-200/60 dark:border-white/5 shrink-0">
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/5 shrink-0">
                                   {moduleIcon}
                                 </div>
                                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -274,7 +274,7 @@ export function WorkspaceRolesClient({
                                   allActive
                                     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
                                     : noneActive
-                                    ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/10"
+                                    ? "bg-slate-100 text-slate-400 border-slate-200 dark:bg-white/5 dark:border-white/[0.08]"
                                     : "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
                                 }`}
                               >

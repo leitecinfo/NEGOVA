@@ -333,7 +333,7 @@ export function DigitalMenuClient({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Barra de Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#10141d] p-5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#0D0F16] p-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-sm">
         <div className="flex items-center gap-3">
           <Link
             href={`/workspace/${businessId}/productos`}
@@ -416,7 +416,7 @@ export function DigitalMenuClient({
           className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
             modality === "template"
               ? "bg-[#ED500A]/5 border-[#ED500A] shadow-md ring-2 ring-[#ED500A]/20"
-              : "bg-white dark:bg-[#10141d] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+              : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20"
           }`}
         >
           {modality === "template" && (
@@ -457,7 +457,7 @@ export function DigitalMenuClient({
           className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
             modality === "custom"
               ? "bg-[#ED500A]/5 border-[#ED500A] shadow-md ring-2 ring-[#ED500A]/20"
-              : "bg-white dark:bg-[#10141d] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+              : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20"
           }`}
         >
           {modality === "custom" && (
@@ -498,7 +498,7 @@ export function DigitalMenuClient({
           className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
             modality === "file"
               ? "bg-[#ED500A]/5 border-[#ED500A] shadow-md ring-2 ring-[#ED500A]/20"
-              : "bg-white dark:bg-[#10141d] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+              : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20"
           }`}
         >
           {modality === "file" && (
@@ -537,7 +537,7 @@ export function DigitalMenuClient({
           onClick={() => setMobileTab("editor")}
           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
             mobileTab === "editor"
-              ? "bg-white dark:bg-[#10141d] text-slate-900 dark:text-white shadow-sm"
+              ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-sm"
               : "text-slate-600 dark:text-slate-400"
           }`}
         >
@@ -547,7 +547,7 @@ export function DigitalMenuClient({
           onClick={() => setMobileTab("preview")}
           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
             mobileTab === "preview"
-              ? "bg-white dark:bg-[#10141d] text-slate-900 dark:text-white shadow-sm"
+              ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-sm"
               : "text-slate-600 dark:text-slate-400"
           }`}
         >
@@ -567,7 +567,7 @@ export function DigitalMenuClient({
           {/* MODALIDAD A: CATÁLOGO DE PLANTILLAS PREDISEÑADAS */}
           {/* ======================================================== */}
           {modality === "template" && (
-            <div className="bg-white dark:bg-[#10141d] p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm space-y-5">
+            <div className="bg-white dark:bg-[#0D0F16] p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-5">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   Plantillas Prediseñadas
@@ -578,7 +578,7 @@ export function DigitalMenuClient({
               </div>
 
               {/* Selector de Disposición de los Productos (Tarjetas, Lista horizontal, Solo texto) */}
-              <div className="bg-slate-50 dark:bg-white/[0.03] p-4 rounded-xl border border-slate-200 dark:border-white/10 space-y-2.5">
+              <div className="bg-slate-50 dark:bg-white/[0.03] p-4 rounded-xl border border-slate-200 dark:border-white/[0.08] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-slate-900 dark:text-white block">
@@ -604,7 +604,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "grid" || !settings.layoutStyle
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#10141d]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#0D0F16]"
                     }`}
                   >
                     <span className="text-sm">▦</span>
@@ -616,7 +616,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "list"
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#10141d]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#0D0F16]"
                     }`}
                   >
                     <span className="text-sm">☰</span>
@@ -628,7 +628,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "text" || settings.layoutStyle === "compact"
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#10141d]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-white dark:bg-[#0D0F16]"
                     }`}
                   >
                     <span className="text-sm">≡</span>
@@ -647,7 +647,7 @@ export function DigitalMenuClient({
                       className={`cursor-pointer rounded-2xl border p-4 transition-all flex flex-col justify-between gap-3 ${
                         isCurrent
                           ? "border-[#ED500A] bg-[#ED500A]/5 ring-2 ring-[#ED500A]/20 shadow-md"
-                          : "border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20"
+                          : "border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] hover:border-slate-300 dark:hover:border-white/20"
                       }`}
                     >
                       <div className="space-y-2">
@@ -715,7 +715,7 @@ export function DigitalMenuClient({
           {/* MODALIDAD B: MENÚ PERSONALIZADO */}
           {/* ======================================================== */}
           {modality === "custom" && (
-            <div className="bg-white dark:bg-[#10141d] p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+            <div className="bg-white dark:bg-[#0D0F16] p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-6">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   Personalización Visual del Menú
@@ -744,7 +744,7 @@ export function DigitalMenuClient({
                       className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all flex flex-col items-center justify-center gap-1.5 ${
                         templateId === t.id
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs ring-1 ring-[#ED500A]/30"
-                          : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
+                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
                       }`}
                     >
                       <span>{t.name.split(" ")[0]}</span>
@@ -788,7 +788,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "grid" || !settings.layoutStyle
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
                     }`}
                   >
                     <span className="text-sm">▦</span>
@@ -800,7 +800,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "list"
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
                     }`}
                   >
                     <span className="text-sm">☰</span>
@@ -812,7 +812,7 @@ export function DigitalMenuClient({
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       settings.layoutStyle === "text" || settings.layoutStyle === "compact"
                         ? "border-[#ED500A] bg-[#ED500A] text-white shadow-xs"
-                        : "border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
+                        : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 bg-slate-50 dark:bg-white/[0.02]"
                     }`}
                   >
                     <span className="text-sm">≡</span>
@@ -848,7 +848,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, primaryColor: e.target.value })
                         }
-                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent"
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/[0.08] cursor-pointer bg-transparent"
                       />
                       <input
                         type="text"
@@ -856,7 +856,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, primaryColor: e.target.value })
                         }
-                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 w-24"
+                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 w-24"
                       />
                     </div>
                   </div>
@@ -872,7 +872,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, secondaryColor: e.target.value })
                         }
-                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent"
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/[0.08] cursor-pointer bg-transparent"
                       />
                       <input
                         type="text"
@@ -880,7 +880,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, secondaryColor: e.target.value })
                         }
-                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 w-24"
+                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 w-24"
                       />
                     </div>
                   </div>
@@ -896,7 +896,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, accentColor: e.target.value })
                         }
-                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent"
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-white/[0.08] cursor-pointer bg-transparent"
                       />
                       <input
                         type="text"
@@ -904,7 +904,7 @@ export function DigitalMenuClient({
                         onChange={(e) =>
                           setSettings({ ...settings, accentColor: e.target.value })
                         }
-                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 w-24"
+                        className="text-xs font-mono uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 w-24"
                       />
                     </div>
                   </div>
@@ -924,7 +924,7 @@ export function DigitalMenuClient({
                     onChange={(e) =>
                       setSettings({ ...settings, bannerTitle: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
+                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5"
                   />
                 </div>
                 <div>
@@ -938,7 +938,7 @@ export function DigitalMenuClient({
                     onChange={(e) =>
                       setSettings({ ...settings, bannerSubtitle: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5"
+                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5"
                   />
                 </div>
               </div>
@@ -1034,7 +1034,7 @@ export function DigitalMenuClient({
           {/* MODALIDAD C: SUBIR PDF O IMAGEN */}
           {/* ======================================================== */}
           {modality === "file" && (
-            <div className="bg-white dark:bg-[#10141d] p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm space-y-6">
+            <div className="bg-white dark:bg-[#0D0F16] p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-6">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">
                   Menú en Archivo Propio (PDF o Imagen)
@@ -1057,7 +1057,7 @@ export function DigitalMenuClient({
 
               {/* Si ya tiene archivo activo */}
               {menu.file_url ? (
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 space-y-4">
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Archivo Publicado Actualmente
@@ -1173,7 +1173,7 @@ export function DigitalMenuClient({
             mobileTab === "editor" ? "hidden lg:block" : "block"
           }`}
         >
-          <div className="bg-white dark:bg-[#10141d] p-3 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-[#0D0F16] p-3 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-[#ED500A]" />
               <span className="text-xs font-bold text-slate-800 dark:text-white">
@@ -1189,7 +1189,7 @@ export function DigitalMenuClient({
               <button
                 type="button"
                 onClick={() => setIframeKey((k) => k + 1)}
-                className="p-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 title="Recargar vista previa"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -1201,7 +1201,7 @@ export function DigitalMenuClient({
                   onClick={() => setPreviewDevice("mobile")}
                   className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
                     previewDevice === "mobile"
-                      ? "bg-white dark:bg-[#10141d] text-slate-900 dark:text-white shadow-sm"
+                      ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
                   }`}
                   title="Vista móvil (375px)"
@@ -1215,7 +1215,7 @@ export function DigitalMenuClient({
                   onClick={() => setPreviewDevice("desktop")}
                   className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
                     previewDevice === "desktop"
-                      ? "bg-white dark:bg-[#10141d] text-slate-900 dark:text-white shadow-sm"
+                      ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
                   }`}
                   title="Vista completa"

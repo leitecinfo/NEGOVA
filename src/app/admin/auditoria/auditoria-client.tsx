@@ -245,7 +245,7 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
               setStartDate(e.target.value);
               fetchLogs(1, selectedAction, selectedEntity, selectedUserId, e.target.value, endDate, searchQuery);
             }}
-            className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-xs text-slate-700 dark:text-slate-300"
+            className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-700 dark:text-slate-300"
             title="Fecha inicial"
           />
           <span className="text-slate-400">a</span>
@@ -256,7 +256,7 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
               setEndDate(e.target.value);
               fetchLogs(1, selectedAction, selectedEntity, selectedUserId, startDate, e.target.value, searchQuery);
             }}
-            className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-xs text-slate-700 dark:text-slate-300"
+            className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-700 dark:text-slate-300"
             title="Fecha final"
           />
         </div>
@@ -265,7 +265,7 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-100 transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 transition-colors"
           >
             <X className="w-3 h-3 text-slate-400" />
             Limpiar Filtros
@@ -284,11 +284,11 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
         />
       ) : (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                     <th className="py-3.5 px-4">Fecha y Hora</th>
                     <th className="py-3.5 px-4">Acción / Evento</th>
                     <th className="py-3.5 px-4">Entidad Afectada</th>
@@ -365,7 +365,7 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
                             e.stopPropagation();
                             setSelectedLog(log);
                           }}
-                          className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 transition-colors"
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 transition-colors"
                           title="Ver Detalle Técnico"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -393,7 +393,7 @@ export function AuditoriaClient({ initialData }: AuditoriaClientProps) {
       {selectedLog && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="w-full max-w-xl rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">

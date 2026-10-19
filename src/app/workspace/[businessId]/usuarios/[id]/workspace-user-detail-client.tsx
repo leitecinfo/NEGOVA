@@ -51,11 +51,11 @@ export function WorkspaceUserDetailClient({
   return (
     <div className="space-y-6 font-body">
       {/* 1. TARJETA PRINCIPAL DE PERFIL DEL TRABAJADOR */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs">
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           {/* Avatar e Identidad */}
           <div className="flex items-start gap-4 sm:gap-5">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center font-title text-xl sm:text-2xl font-bold text-slate-800 dark:text-white shrink-0 shadow-xs">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/[0.08] flex items-center justify-center font-title text-xl sm:text-2xl font-bold text-slate-800 dark:text-white shrink-0 shadow-xs">
               {user.fullName.charAt(0).toUpperCase()}
             </div>
 
@@ -121,7 +121,7 @@ export function WorkspaceUserDetailClient({
           onPermissionsUpdated={setPermissionsData}
         />
       ) : (
-        <div className="p-8 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-center space-y-3">
+        <div className="p-8 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-center space-y-3">
           <Shield className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
           <h3 className="font-bold text-sm text-slate-900 dark:text-white">
             Sin matriz de permisos disponible

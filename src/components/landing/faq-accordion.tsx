@@ -34,7 +34,7 @@ export function FaqAccordion() {
   ];
 
   return (
-    <section id="faq" className="py-24 bg-white dark:bg-[#0F131C]">
+    <section id="faq" className="py-24 bg-white dark:bg-[#0B0E14]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-mono font-bold">

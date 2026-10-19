@@ -495,7 +495,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
                   className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
                     isSelected
                       ? "bg-orange-50/70 dark:bg-[#ED500A]/10 border-[#ED500A] shadow-xs"
-                      : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                      : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20"
                   }`}
                 >
                   {p.isRecommended && (
@@ -528,7 +528,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
               className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedBillingInterval === "monthly"
                   ? "bg-orange-50 dark:bg-orange-500/10 border-[#ED500A] text-slate-900 dark:text-white"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -544,7 +544,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
               className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedBillingInterval === "annual"
                   ? "bg-orange-50 dark:bg-orange-500/10 border-[#ED500A] text-slate-900 dark:text-white"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -643,7 +643,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
               className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedStatus === "trial"
                   ? "bg-amber-50 dark:bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-400 font-semibold"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
               }`}
             >
               <p className="text-xs font-bold">En Prueba (Trial)</p>
@@ -655,7 +655,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
               className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedStatus === "active"
                   ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-400 font-semibold"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
               }`}
             >
               <p className="text-xs font-bold">Activo Inmediato</p>
@@ -683,7 +683,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
           const dynamicBadge = getVigenciaStatusBadge(dynamicRemainingDays, selectedStatus, selectedStatus === "trial");
 
           return (
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 space-y-3">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.06] pb-2.5">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   Resumen de Vigencia de la Suscripción
@@ -733,7 +733,7 @@ export function NuevoNegocioClient({ plans, candidateOwners }: NuevoNegocioClien
       </div>
 
       {/* BOTONES DE ACCIÓN */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
         <AdminButton
           variant="ghost"
           size="md"

@@ -73,7 +73,7 @@ export default async function WorkspaceDashboardPage({
   const actions = session.isOwner ? (
     <Link
       href={`/workspace/${businessId}/configuracion`}
-      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors shadow-xs"
+      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-xs"
     >
       <Settings className="w-3.5 h-3.5 text-slate-500" />
       <span>Configuración</span>
@@ -91,7 +91,7 @@ export default async function WorkspaceDashboardPage({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* KPI 1: Ventas del Día */}
-        <div className="bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-xs relative overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Ventas del Día
@@ -117,7 +117,7 @@ export default async function WorkspaceDashboardPage({
         </div>
 
         {/* KPI 2: Comprobantes Históricos */}
-        <div className="bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-xs relative overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Total Histórico
@@ -138,7 +138,7 @@ export default async function WorkspaceDashboardPage({
         </div>
 
         {/* KPI 3: Aislamiento & Rol */}
-        <div className="bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-xs relative overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Operación y Seguridad
@@ -165,7 +165,7 @@ export default async function WorkspaceDashboardPage({
       {dashboardData.totalSalesCount === 0 ? (
         
         /* ESTADO VACÍO (HONESTO, SIN DATOS MOCK) */
-        <div className="bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-2xl p-10 lg:p-14 text-center max-w-xl mx-auto shadow-xs">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-10 lg:p-14 text-center max-w-xl mx-auto shadow-xs">
           <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-5 shadow-xs">
             <Receipt className="w-8 h-8" />
           </div>
@@ -191,9 +191,9 @@ export default async function WorkspaceDashboardPage({
       ) : (
 
         /* LISTADO DE COMPROBANTES RECIENTES REALES */
-        <div className="bg-white dark:bg-[#0B0E14] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs overflow-hidden">
           
-          <div className="p-6 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-6 border-b border-slate-100 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 Comprobantes y Ventas Recientes
@@ -220,7 +220,7 @@ export default async function WorkspaceDashboardPage({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                   <th className="py-3.5 px-4">Comprobante</th>
                   <th className="py-3.5 px-4">Cliente</th>
                   <th className="py-3.5 px-4">Fecha</th>
@@ -236,7 +236,7 @@ export default async function WorkspaceDashboardPage({
                   const isCompleted = doc.status === "completed";
 
                   return (
-                    <tr key={doc.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors group">
+                    <tr key={doc.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.04] transition-colors group">
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
                         <Link
                           href={`/workspace/${businessId}/ventas/${doc.id}`}

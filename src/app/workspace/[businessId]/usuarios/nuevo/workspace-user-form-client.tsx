@@ -132,7 +132,7 @@ export function WorkspaceUserFormClient({
       {/* FORMULARIO PRINCIPAL */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Bloque A: Datos Personales */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             1. Datos de Identidad y Contacto
           </h3>
@@ -177,7 +177,7 @@ export function WorkspaceUserFormClient({
         </div>
 
         {/* Bloque B: Rol y Estado */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
               2. Rol y Nivel de Acceso
@@ -200,7 +200,7 @@ export function WorkspaceUserFormClient({
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
                       isSelected
                         ? "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
-                        : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                        : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -235,7 +235,7 @@ export function WorkspaceUserFormClient({
         </div>
 
         {/* Bloque C: Seguridad y Contraseña */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             3. Seguridad y Credenciales de Acceso
           </h3>
@@ -247,7 +247,7 @@ export function WorkspaceUserFormClient({
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 passwordMode === "generate"
                   ? "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08]"
               }`}
             >
               <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
@@ -265,7 +265,7 @@ export function WorkspaceUserFormClient({
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 passwordMode === "custom"
                   ? "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08]"
               }`}
             >
               <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
@@ -340,7 +340,7 @@ export function WorkspaceUserFormClient({
       {credentialsModal.isOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <ShieldCheck className="w-6 h-6" />
@@ -388,7 +388,7 @@ export function WorkspaceUserFormClient({
                     <span className="text-[10px] uppercase font-mono text-purple-600 block font-bold">
                       Contraseña Temporal
                     </span>
-                    <div className="flex items-center justify-between gap-2 mt-1 p-2.5 rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-900 dark:text-white">
+                    <div className="flex items-center justify-between gap-2 mt-1 p-2.5 rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] font-mono text-xs text-slate-900 dark:text-white">
                       <span className="select-all font-bold tracking-wider">{credentialsModal.temporaryPassword}</span>
                       <button
                         type="button"

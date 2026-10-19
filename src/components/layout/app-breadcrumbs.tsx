@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AppNavSection } from "./navigation-types";
+import { isRouteActive } from "./navigation-utils";
 
 interface AppBreadcrumbsProps {
   navSections: AppNavSection[];
@@ -11,6 +12,7 @@ interface AppBreadcrumbsProps {
 
 export function AppBreadcrumbs({ navSections, homeUrl }: AppBreadcrumbsProps) {
   const pathname = usePathname() || homeUrl;
+  const searchParams = useSearchParams();
 
   const currentTitle = React.useMemo(() => {
     if (pathname === homeUrl) return "Inicio";
@@ -18,7 +20,7 @@ export function AppBreadcrumbs({ navSections, homeUrl }: AppBreadcrumbsProps) {
     // Extraer todos los items (y subitems si se desea) para buscar la ruta activa
     const allItems = navSections.flatMap((sec) => sec.items);
     const navItem = allItems.find((nav) =>
-      nav.exactMatch ? pathname === nav.href : pathname === nav.href || pathname.startsWith(`${nav.href}/`)
+      isRouteActive(nav.href, pathname, searchParams, nav.exactMatch)
     );
 
     if (navItem) {
@@ -32,7 +34,7 @@ export function AppBreadcrumbs({ navSections, homeUrl }: AppBreadcrumbsProps) {
     if (!last) return "Dashboard";
 
     return last.charAt(0).toUpperCase() + last.slice(1);
-  }, [pathname]);
+  }, [pathname, searchParams, navSections, homeUrl]);
 
   return (
     <div className="flex items-center min-w-0">

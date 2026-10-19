@@ -324,7 +324,7 @@ export function SuscripcionesClient({
       </AdminKpiGrid>
 
       {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
-      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] p-4 sm:p-5 shadow-xs space-y-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2">
             <div className="relative flex-1">
@@ -334,7 +334,7 @@ export function SuscripcionesClient({
                 placeholder="Buscar por negocio, slug, propietario, email o plan..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
               />
             </div>
             <AdminButton
@@ -352,7 +352,7 @@ export function SuscripcionesClient({
             <select
               value={selectedPlan}
               onChange={(e) => handleFilterChange("plan", e.target.value)}
-              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
             >
               <option value="all">Todos los Planes</option>
               <option value="inicio">Plan Inicio ($29.900)</option>
@@ -364,7 +364,7 @@ export function SuscripcionesClient({
             <select
               value={selectedStatus}
               onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
             >
               <option value="all">Todos los Estados</option>
               <option value="active">Activas</option>
@@ -378,7 +378,7 @@ export function SuscripcionesClient({
             <select
               value={selectedInterval}
               onChange={(e) => handleFilterChange("interval", e.target.value)}
-              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+              className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
             >
               <option value="all">Todas las Modalidades</option>
               <option value="monthly">Mensual</option>
@@ -417,11 +417,11 @@ export function SuscripcionesClient({
       ) : (
         <div className="space-y-4">
           {/* Vista Desktop */}
-          <div className="hidden lg:block rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+          <div className="hidden lg:block rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                     <th className="py-3.5 px-4">Negocio</th>
                     <th className="py-3.5 px-4">Propietario</th>
                     <th className="py-3.5 px-4">Plan</th>
@@ -602,7 +602,7 @@ export function SuscripcionesClient({
                             className={`p-2 rounded-xl border transition-all cursor-pointer ${
                               menuAnchor?.id === sub.id
                                 ? "bg-orange-50 dark:bg-white/10 border-orange-200 dark:border-white/20 text-[#ED500A]"
-                                : "text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
+                                : "text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/5"
                             }`}
                             title="Gestionar Suscripción"
                           >
@@ -623,7 +623,7 @@ export function SuscripcionesClient({
               <div
                 key={sub.id}
                 onClick={() => router.push(`/admin/negocios/${sub.businessId}?tab=suscripcion`)}
-                className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs space-y-3 cursor-pointer"
+                className="p-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs space-y-3 cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -734,7 +734,7 @@ export function SuscripcionesClient({
         createPortal(
           <div
             id="subscription-actions-portal-menu"
-            className="fixed z-[9999] w-56 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12141A] shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-100 text-xs"
+            className="fixed z-[9999] w-56 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-100 text-xs"
             style={{
               top: `${menuAnchor.top}px`,
               left: `${menuAnchor.left}px`,
@@ -829,7 +829,7 @@ export function SuscripcionesClient({
       {renewModal.isOpen && renewModal.subscription && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -870,7 +870,7 @@ export function SuscripcionesClient({
                           className={`p-3 rounded-xl border text-left transition-all ${
                             isSelected
                               ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10 text-slate-900 dark:text-white"
-                              : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                              : "border-slate-200 dark:border-white/[0.08] bg-slate-50/30 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300"
                           }`}
                         >
                           <p className="font-bold text-xs">{p.name}</p>
@@ -905,7 +905,7 @@ export function SuscripcionesClient({
                           className={`p-2.5 rounded-xl border text-center transition-all ${
                             isSelected
                               ? "border-[#ED500A] bg-orange-500/10 text-[#ED500A] font-bold text-xs"
-                              : "border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 text-xs hover:border-slate-300"
+                              : "border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 text-xs hover:border-slate-300"
                           }`}
                         >
                           {opt.label}
@@ -981,7 +981,7 @@ export function SuscripcionesClient({
       {planModal.isOpen && planModal.subscription && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 flex items-center justify-center">
@@ -1017,7 +1017,7 @@ export function SuscripcionesClient({
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           isSelected
                             ? "border-[#ED500A] bg-orange-50/50 dark:bg-orange-500/10"
-                            : "border-slate-200 dark:border-white/10 bg-slate-50/30 dark:bg-white/[0.02] hover:border-slate-300"
+                            : "border-slate-200 dark:border-white/[0.08] bg-slate-50/30 dark:bg-white/[0.02] hover:border-slate-300"
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1069,7 +1069,7 @@ export function SuscripcionesClient({
       {statusModal.isOpen && statusModal.subscription && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 flex items-center justify-center">
@@ -1106,7 +1106,7 @@ export function SuscripcionesClient({
                         targetStatus: e.target.value as SubscriptionStatus,
                       }))
                     }
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
                   >
                     <option value="active">Activa (Habilitada)</option>
                     <option value="trial">Periodo de Prueba (Trial)</option>
@@ -1124,7 +1124,7 @@ export function SuscripcionesClient({
                     value={statusModal.reason}
                     onChange={(e) => setStatusModal((prev) => ({ ...prev, reason: e.target.value }))}
                     placeholder="Explica la razón del cambio de estado para el registro de auditoría..."
-                    className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
                   />
                 </div>
 

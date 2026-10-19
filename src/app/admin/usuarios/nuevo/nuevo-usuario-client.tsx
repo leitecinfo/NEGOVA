@@ -156,7 +156,7 @@ export function NuevoUsuarioClient({
   return (
     <div className="space-y-6 max-w-4xl font-body">
       {/* 1. SELECTOR DE TIPO DE CUENTA */}
-      <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+      <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             1. Selecciona el Tipo de Cuenta
@@ -174,7 +174,7 @@ export function NuevoUsuarioClient({
             className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
               userType === "platform"
                 ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs ring-1 ring-[#ED500A]/30"
-                : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
             }`}
           >
             <div
@@ -203,7 +203,7 @@ export function NuevoUsuarioClient({
             className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
               userType === "business"
                 ? "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
-                : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
             }`}
           >
             <div
@@ -230,7 +230,7 @@ export function NuevoUsuarioClient({
       {/* 2. FORMULARIO PRINCIPAL */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Bloque A: Datos Personales */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             2. Datos de Identidad y Contacto
           </h3>
@@ -275,7 +275,7 @@ export function NuevoUsuarioClient({
         </div>
 
         {/* Bloque B: Rol y Estado */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
               3. Rol Inicial y Estado de Cuenta
@@ -310,7 +310,7 @@ export function NuevoUsuarioClient({
                         ? userType === "platform"
                           ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs ring-1 ring-[#ED500A]/30"
                           : "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
-                        : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                        : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -345,7 +345,7 @@ export function NuevoUsuarioClient({
         </div>
 
         {/* Bloque C: Seguridad y Contraseña */}
-        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             4. Seguridad y Credenciales de Acceso
           </h3>
@@ -357,7 +357,7 @@ export function NuevoUsuarioClient({
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 passwordMode === "generate"
                   ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08]"
               }`}
             >
               <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
@@ -375,7 +375,7 @@ export function NuevoUsuarioClient({
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 passwordMode === "custom"
                   ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs"
-                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08]"
               }`}
             >
               <div className="flex items-center gap-2 font-bold text-xs text-slate-900 dark:text-white">
@@ -498,7 +498,7 @@ export function NuevoUsuarioClient({
                     <span className="text-[10px] uppercase font-mono text-[#ED500A] block font-bold">
                       Contraseña Temporal
                     </span>
-                    <div className="flex items-center justify-between gap-2 mt-1 p-2.5 rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-900 dark:text-white">
+                    <div className="flex items-center justify-between gap-2 mt-1 p-2.5 rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-white/[0.08] font-mono text-xs text-slate-900 dark:text-white">
                       <span className="select-all font-bold tracking-wider">{credentialsModal.temporaryPassword}</span>
                       <button
                         type="button"

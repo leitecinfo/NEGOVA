@@ -85,7 +85,7 @@ export function AdminCreateTenantModal({ isOpen, onClose, onTenantCreated }: Adm
         />
 
       {/* Ventana Modal */}
-      <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl p-6 z-50 animate-in zoom-in-95 duration-150 space-y-5">
+      <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 z-50 animate-in zoom-in-95 duration-150 space-y-5">
         {/* Cabecera */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/[0.08] pb-4">
           <div className="flex items-center gap-3">

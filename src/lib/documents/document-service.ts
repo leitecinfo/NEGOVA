@@ -9,6 +9,7 @@
 import {
   BusinessDocumentConfig,
   BusinessSaleDocument,
+  BusinessDocumentItem,
   BusinessDocumentFilterParams,
 } from "./types";
 import { generateBusinessSalePdf } from "@/lib/pdf/pdf-engine";
@@ -39,6 +40,7 @@ function mapDbConfigToInterface(dbRow: any): BusinessDocumentConfig {
     termsConditions: dbRow.terms_conditions || null,
     returnPolicy: dbRow.return_policy || null,
     warrantyPolicy: dbRow.warranty_policy || null,
+    paperWidth: dbRow.paper_width || dbRow.paperWidth || "80mm",
     updatedAt: dbRow.updated_at,
   } as any;
 }
@@ -65,6 +67,7 @@ function mapInterfaceToDbConfig(config: Partial<BusinessDocumentConfig> & { term
   if (config.documentObservations !== undefined) dbRow.document_observations = config.documentObservations || null;
   if (config.returnPolicy !== undefined) dbRow.return_policy = config.returnPolicy || null;
   if (config.warrantyPolicy !== undefined) dbRow.warranty_policy = config.warrantyPolicy || null;
+  if (config.paperWidth !== undefined) dbRow.paper_width = config.paperWidth;
   
   const terms = config.termsAndConditions !== undefined ? config.termsAndConditions : config.termsConditions;
   if (terms !== undefined) dbRow.terms_conditions = terms || null;
@@ -99,6 +102,58 @@ function mapDbDocToInterface(row: any): BusinessSaleDocument {
     pdfStoragePath: row.pdf_storage_path || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function mapRestaurantOrderToDocument(
+  order: any,
+  items: any[] = []
+): BusinessSaleDocument {
+  const mappedItems: BusinessDocumentItem[] = items.map((it: any) => ({
+    id: it.id,
+    productId: it.product_id || undefined,
+    description: it.product_name,
+    quantity: Number(it.quantity || 1),
+    unitPrice: Number(it.unit_price || 0),
+    discount: 0,
+    total: Number(it.subtotal || 0),
+  }));
+
+  // Respetar estado comercial y financiero real
+  let docStatus: BusinessSaleDocument["status"] = "pending";
+  if (order.status === "cancelled") {
+    docStatus = "cancelled";
+  } else if (order.payment_status === "paid") {
+    docStatus = "paid";
+  } else {
+    docStatus = "pending";
+  }
+
+  return {
+    id: order.id,
+    businessId: order.business_id,
+    documentNumber: `ORD-${order.order_number}`,
+    documentType: "order",
+    customerName: order.customer_name || "Cliente mostrador",
+    customerId: null,
+    customerPhone: order.customer_phone || null,
+    customerEmail: null,
+    customerAddress: order.delivery_address || null,
+    items: mappedItems,
+    subtotal: Number(order.subtotal || 0),
+    discountTotal: 0,
+    taxTotal: 0,
+    total: Number(order.total || 0),
+    currency: "COP",
+    paymentMethod: "cash",
+    status: docStatus,
+    issuedAt: order.created_at,
+    dueDate: null,
+    notes: order.notes || null,
+    pdfUrl: null,
+    pdfStoragePath: null,
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
   };
 }
 
@@ -163,7 +218,14 @@ export async function getBusinessDocumentConfig(
   }
 
   if (data) {
-    return mapDbConfigToInterface(data);
+    const mapped = mapDbConfigToInterface(data);
+    if (!data.paper_width) {
+      const { data: bData } = await admin.from("businesses").select("settings").eq("id", businessId).maybeSingle();
+      if (bData?.settings?.paperWidth) {
+        mapped.paperWidth = bData.settings.paperWidth;
+      }
+    }
+    return mapped;
   }
 
   // Si no existe registro en business_document_configs, inicializar con datos del comercio
@@ -193,6 +255,7 @@ export async function getBusinessDocumentConfig(
     footerText: "Gracias por su compra. Conserve este documento.",
     thankYouNote: "¡Agradecemos su preferencia!",
     termsAndConditions: null,
+    paperWidth: "80mm",
     updatedAt: new Date().toISOString(),
   };
 
@@ -289,7 +352,24 @@ export async function saveBusinessDocumentConfig(
       };
     }
 
-    return { success: true, config: mapDbConfigToInterface(data) };
+    if (config.paperWidth) {
+      try {
+        const { data: bData } = await admin.from("businesses").select("settings").eq("id", businessId).maybeSingle();
+        const existingSettings = bData?.settings || {};
+        await admin.from("businesses").update({
+          settings: { ...existingSettings, paperWidth: config.paperWidth },
+          updated_at: new Date().toISOString(),
+        }).eq("id", businessId);
+      } catch (settingsErr) {
+        console.warn("[saveBusinessDocumentConfig] Aviso al sincronizar paperWidth en settings:", settingsErr);
+      }
+    }
+
+    const finalConfig = mapDbConfigToInterface(data);
+    if (config.paperWidth) {
+      finalConfig.paperWidth = config.paperWidth;
+    }
+    return { success: true, config: finalConfig };
   } catch (err: any) {
     console.error("[saveBusinessDocumentConfig] Excepción al guardar configuración:", err);
     return { success: false, error: err?.message || "Error al guardar configuración." };
@@ -297,7 +377,69 @@ export async function saveBusinessDocumentConfig(
 }
 
 /**
- * 3. Obtiene los documentos comerciales pertenecientes a un negocio desde public.business_sale_documents
+export function mapRestaurantOrderToDocument(order: any, items: any[] = []): BusinessSaleDocument {
+  const normalizedItems = (items || []).map((it: any) => ({
+    description: it.product_name + (it.notes ? ` (${it.notes})` : ""),
+    quantity: Number(it.quantity || 1),
+    unitPrice: Number(it.unit_price || 0),
+    discount: 0,
+    total: Number(it.subtotal || 0),
+  }));
+
+  if (Number(order.delivery_fee || 0) > 0) {
+    normalizedItems.push({
+      description: "Servicio de Domicilio",
+      quantity: 1,
+      unitPrice: Number(order.delivery_fee),
+      discount: 0,
+      total: Number(order.delivery_fee),
+    });
+  }
+
+  const subtotal = Number(order.subtotal || 0);
+  const total = Number(order.total || 0);
+
+  let docStatus: BusinessSaleDocument["status"] = "pending";
+  if (order.status === "cancelled") {
+    docStatus = "cancelled";
+  } else if (order.payment_status === "paid") {
+    docStatus = "paid";
+  } else {
+    docStatus = "pending";
+  }
+
+  return {
+    id: order.id,
+    businessId: order.business_id,
+    documentNumber: `ORD-${order.order_number}`,
+    documentType: "order",
+    customerName: order.customer_name || "Consumidor Final",
+    customerId: null,
+    customerPhone: order.customer_phone || null,
+    customerEmail: null,
+    customerAddress: order.delivery_address || null,
+    items: normalizedItems,
+    subtotal,
+    discountTotal: 0,
+    taxTotal: 0,
+    total,
+    currency: "COP",
+    paymentMethod: "cash",
+    status: docStatus,
+    issuedAt: order.created_at,
+    dueDate: null,
+    notes: order.notes || (order.order_type === "dine_in" ? "Consumo en mesa" : null),
+    pdfUrl: null,
+    pdfStoragePath: null,
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
+  };
+}
+
+/**
+ * 3. Obtiene los documentos comerciales pertenecientes a un negocio unificando
+ * facturas tradicionales (public.business_sale_documents) y pedidos entregados/cerrados
+ * (public.restaurant_orders) sin duplicar datos en base de datos.
  */
 export async function getBusinessDocumentsList(
   params: BusinessDocumentFilterParams
@@ -321,61 +463,151 @@ export async function getBusinessDocumentsList(
   } = params;
   try {
     const admin = await getSupabaseAdminClient();
-    let query = admin
-      .from("business_sale_documents")
-      .select("*", { count: "exact" })
-      .eq("business_id", businessId);
+    const shouldQueryBsd = !type || type === "all" || ["sale", "service", "receipt", "order"].includes(type);
+    const shouldQueryOrders = !type || type === "all" || type === "order";
 
-    if (status && status !== "all") {
-      if (status === "paid") {
-        query = query.in("status", ["paid", "completed"]);
-      } else {
-        query = query.eq("status", status);
+    let bsdDocuments: BusinessSaleDocument[] = [];
+    let bsdCount = 0;
+
+    if (shouldQueryBsd) {
+      let bsdQuery = admin
+        .from("business_sale_documents")
+        .select("*", { count: "exact" })
+        .eq("business_id", businessId);
+
+      if (status && status !== "all") {
+        if (status === "paid") {
+          bsdQuery = bsdQuery.in("status", ["paid", "completed"]);
+        } else {
+          bsdQuery = bsdQuery.eq("status", status);
+        }
+      }
+
+      if (type && type !== "all") {
+        bsdQuery = bsdQuery.eq("document_type", type);
+      }
+
+      if (paymentMethod && paymentMethod !== "all") {
+        if (paymentMethod === "card") {
+          bsdQuery = bsdQuery.in("payment_method", ["card", "credit"]);
+        } else {
+          bsdQuery = bsdQuery.eq("payment_method", paymentMethod);
+        }
+      }
+
+      if (startDate) {
+        bsdQuery = bsdQuery.gte("issued_at", startDate);
+      }
+
+      if (endDate) {
+        bsdQuery = bsdQuery.lte("issued_at", endDate);
+      }
+
+      if (search && search.trim()) {
+        bsdQuery = bsdQuery.or(`document_number.ilike.%${search.trim()}%,customer_name.ilike.%${search.trim()}%`);
+      }
+
+      const { data: bsdData, count: countVal, error: bsdError } = await bsdQuery
+        .order("issued_at", { ascending: false });
+
+      if (!bsdError && bsdData) {
+        bsdDocuments = bsdData.map(mapDbDocToInterface);
+        bsdCount = countVal || bsdDocuments.length;
       }
     }
 
-    if (type && type !== "all") {
-      query = query.eq("document_type", type);
-    }
+    let orderDocuments: BusinessSaleDocument[] = [];
+    let orderCount = 0;
 
-    if (paymentMethod && paymentMethod !== "all") {
-      if (paymentMethod === "card") {
-        query = query.in("payment_method", ["card", "credit"]);
+    if (shouldQueryOrders) {
+      // Los pedidos que constituyen ventas comerciales son aquellos entregados ('delivered')
+      // o cancelados ('cancelled' si se consulta explícitamente dicho estado o todos)
+      let orderQuery = admin
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(*)", { count: "exact" })
+        .eq("business_id", businessId);
+
+      if (status && status !== "all") {
+        if (status === "paid" || status === "completed") {
+          orderQuery = orderQuery.eq("status", "delivered").eq("payment_status", "paid");
+        } else if (status === "pending") {
+          orderQuery = orderQuery.eq("status", "delivered").neq("payment_status", "paid");
+        } else if (status === "cancelled") {
+          orderQuery = orderQuery.eq("status", "cancelled");
+        } else {
+          // Estados no aplicables a ventas de comandas
+          orderQuery = orderQuery.eq("id", "00000000-0000-0000-0000-000000000000");
+        }
       } else {
-        query = query.eq("payment_method", paymentMethod);
+        orderQuery = orderQuery.in("status", ["delivered", "cancelled"]);
+      }
+
+      if (paymentMethod && paymentMethod !== "all") {
+        if (paymentMethod !== "cash") {
+          // Por defecto las comandas en el modelo base se liquidan en efectivo
+          orderQuery = orderQuery.eq("id", "00000000-0000-0000-0000-000000000000");
+        }
+      }
+
+      if (startDate) {
+        orderQuery = orderQuery.gte("created_at", `${startDate.split("T")[0]}T00:00:00.000Z`);
+      }
+
+      if (endDate) {
+        orderQuery = orderQuery.lte("created_at", `${endDate.split("T")[0]}T23:59:59.999Z`);
+      }
+
+      if (search && search.trim()) {
+        const cleanSearch = search.trim();
+        const numericSearch = cleanSearch.replace(/^#|^ORD-|^DOC-ORD-/, "");
+        if (/^\d+$/.test(numericSearch)) {
+          orderQuery = orderQuery.or(`order_number.eq.${numericSearch},customer_name.ilike.%${cleanSearch}%`);
+        } else {
+          orderQuery = orderQuery.ilike("customer_name", `%${cleanSearch}%`);
+        }
+      }
+
+      const { data: orderData, count: oCount, error: orderError } = await orderQuery
+        .order("created_at", { ascending: false });
+
+      if (!orderError && orderData) {
+        orderDocuments = orderData.map((o: any) =>
+          mapRestaurantOrderToDocument(o, o.restaurant_order_items || [])
+        );
+        orderCount = oCount || orderDocuments.length;
       }
     }
 
-    if (startDate) {
-      query = query.gte("issued_at", startDate);
+    // Unificar evitando duplicados por ID de documento
+    const seenIds = new Set<string>();
+    const allDocuments: BusinessSaleDocument[] = [];
+
+    for (const doc of bsdDocuments) {
+      seenIds.add(doc.id);
+      allDocuments.push(doc);
     }
 
-    if (endDate) {
-      query = query.lte("issued_at", endDate);
+    for (const orderDoc of orderDocuments) {
+      if (!seenIds.has(orderDoc.id)) {
+        seenIds.add(orderDoc.id);
+        allDocuments.push(orderDoc);
+      }
     }
 
-    if (search && search.trim()) {
-      query = query.or(`document_number.ilike.%${search.trim()}%,customer_name.ilike.%${search.trim()}%`);
-    }
+    // Ordenar cronológicamente descendente con desempate determinista por ID
+    allDocuments.sort((a, b) => {
+      const timeDiff = new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return b.id.localeCompare(a.id);
+    });
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await query
-      .order("issued_at", { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      console.error("[getBusinessDocumentsList] Error al consultar documentos:", error);
-      return { documents: [], totalCount: 0, page, pageSize, totalPages: 1 };
-    }
-
-    const totalCount = count || 0;
+    const totalCount = allDocuments.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    const documents = (data || []).map(mapDbDocToInterface);
+    const from = (page - 1) * pageSize;
+    const paginatedDocuments = allDocuments.slice(from, from + pageSize);
 
     return {
-      documents,
+      documents: paginatedDocuments,
       totalCount,
       page,
       pageSize,
@@ -389,7 +621,7 @@ export async function getBusinessDocumentsList(
 
 /**
  * 3.1 Obtiene un documento comercial específico validando estrictamente su pertenencia al negocio.
- * Si el documento no existe o pertenece a otro negocio, retorna null de forma segura.
+ * Consulta tanto business_sale_documents como restaurant_orders (multi-tenant).
  */
 export async function getBusinessDocumentById(
   businessId: string,
@@ -397,18 +629,32 @@ export async function getBusinessDocumentById(
 ): Promise<BusinessSaleDocument | null> {
   try {
     const admin = await getSupabaseAdminClient();
-    const { data: row, error } = await admin
+    
+    // 1. Consultar comprobantes tradicionales
+    const { data: row } = await admin
       .from("business_sale_documents")
       .select("*")
       .eq("id", documentId)
       .eq("business_id", businessId)
       .maybeSingle();
 
-    if (error || !row) {
-      return null;
+    if (row) {
+      return mapDbDocToInterface(row);
     }
 
-    return mapDbDocToInterface(row);
+    // 2. Si no existe en comprobantes directos, buscar en restaurant_orders
+    const { data: orderRow } = await admin
+      .from("restaurant_orders")
+      .select("*, restaurant_order_items(*)")
+      .eq("id", documentId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (orderRow) {
+      return mapRestaurantOrderToDocument(orderRow, orderRow.restaurant_order_items || []);
+    }
+
+    return null;
   } catch (err) {
     console.error(`[getBusinessDocumentById] Error al consultar documento ${documentId}:`, err);
     return null;
@@ -609,18 +855,12 @@ export async function generateBusinessDocumentPdf(
 }> {
   try {
     const admin = await getSupabaseAdminClient();
-    const { data: docRow, error: docErr } = await admin
-      .from("business_sale_documents")
-      .select("*")
-      .eq("id", documentId)
-      .eq("business_id", businessId)
-      .maybeSingle();
+    const doc = await getBusinessDocumentById(businessId, documentId);
 
-    if (docErr || !docRow) {
+    if (!doc) {
       return { success: false, error: "Documento no encontrado o no pertenece a este negocio." };
     }
 
-    const doc = mapDbDocToInterface(docRow);
     const config = await getBusinessDocumentConfig(businessId);
 
     let logoBase64: string | undefined = undefined;
@@ -694,14 +934,15 @@ export async function generateBusinessDocumentPdf(
         doc.pdfUrl = storageRes.url;
         doc.pdfStoragePath = storageRes.storagePath;
 
-        // Actualizar URL en el registro del documento
+        // Si es comprobante directo de business_sale_documents, actualizar registro
         await admin
           .from("business_sale_documents")
           .update({
             pdf_url: storageRes.url,
             pdf_storage_path: storageRes.storagePath,
           })
-          .eq("id", doc.id);
+          .eq("id", doc.id)
+          .eq("business_id", businessId);
       }
     } catch (storageErr) {
       console.warn("Aviso al guardar buffer de PDF en Storage:", storageErr);
@@ -736,8 +977,9 @@ export async function cancelBusinessSaleDocument(
 ): Promise<{ success: boolean; document?: BusinessSaleDocument; error?: string }> {
   try {
     const admin = await getSupabaseAdminClient();
+    const nowIso = new Date().toISOString();
 
-    // 1. Validar aislamiento multi-tenant estricto
+    // 1. Validar aislamiento multi-tenant estricto en business_sale_documents
     const { data: existingDoc, error: fetchErr } = await admin
       .from("business_sale_documents")
       .select("*")
@@ -746,15 +988,90 @@ export async function cancelBusinessSaleDocument(
       .maybeSingle();
 
     if (fetchErr || !existingDoc) {
+      // Verificar si es un pedido de restaurante consultado en Ventas
+      const { data: orderRow } = await admin
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(*)")
+        .eq("id", documentId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+
+      if (orderRow) {
+        if (orderRow.status === "cancelled") {
+          return { success: false, error: "El pedido ya se encuentra cancelado." };
+        }
+        const reasonText = options?.reason?.trim();
+        const updatedNotes = reasonText
+          ? orderRow.notes
+            ? `${orderRow.notes} | Cancelación: ${reasonText}`
+            : `Cancelación: ${reasonText}`
+          : orderRow.notes;
+
+        const { data: updatedOrder, error: orderUpdateErr } = await admin
+          .from("restaurant_orders")
+          .update({
+            status: "cancelled",
+            notes: updatedNotes,
+            updated_at: nowIso,
+          })
+          .eq("id", documentId)
+          .eq("business_id", businessId)
+          .select("*, restaurant_order_items(*)")
+          .single();
+
+        if (orderUpdateErr || !updatedOrder) {
+          return { success: false, error: "No se pudo cancelar el pedido." };
+        }
+
+        if (updatedOrder.table_id) {
+          try {
+            // Verificar si existen otros pedidos activos en la misma mesa antes de liberarla
+            const { data: remainingOrders } = await admin
+              .from("restaurant_orders")
+              .select("id, status, payment_status")
+              .eq("table_id", updatedOrder.table_id)
+              .eq("business_id", businessId)
+              .neq("id", updatedOrder.id)
+              .neq("status", "cancelled");
+
+            const hasActiveOrders = (remainingOrders || []).some(
+              (o) => o.status !== "delivered" || o.payment_status !== "paid"
+            );
+
+            if (!hasActiveOrders) {
+              await admin
+                .from("restaurant_tables")
+                .update({ status: "available", current_order_id: null, updated_at: nowIso })
+                .eq("id", updatedOrder.table_id)
+                .eq("business_id", businessId);
+            } else {
+              // Si la mesa sigue teniendo pedidos activos, reasignar current_order_id
+              const nextActive = remainingOrders?.find((o) => o.status !== "cancelled");
+              if (nextActive) {
+                await admin
+                  .from("restaurant_tables")
+                  .update({ current_order_id: nextActive.id, updated_at: nowIso })
+                  .eq("id", updatedOrder.table_id)
+                  .eq("business_id", businessId);
+              }
+            }
+          } catch (tblErr) {
+            console.warn("[cancelBusinessSaleDocument] Aviso al verificar estado de mesa:", tblErr);
+          }
+        }
+
+        const mapped = mapRestaurantOrderToDocument(updatedOrder, updatedOrder.restaurant_order_items || []);
+        return { success: true, document: mapped };
+      }
+
       return { success: false, error: "Documento no encontrado o no pertenece a este negocio." };
     }
 
+    const previousStatus = existingDoc.status;
     if (existingDoc.status === "cancelled" || existingDoc.status === "annulled") {
       return { success: false, error: "El documento ya se encuentra cancelado." };
     }
 
-    const previousStatus = existingDoc.status;
-    const nowIso = new Date().toISOString();
     const reasonText = options?.reason?.trim();
     const updatedNotes = reasonText
       ? existingDoc.notes
@@ -961,47 +1278,122 @@ export async function getWorkspaceDashboardData(
     }
 
     // 2. Ventas del día (filtradas por negocio, status no cancelado y fecha de hoy)
-    const { data: todayRows, error: todayErr } = await admin
-      .from("business_sale_documents")
-      .select("total")
-      .eq("business_id", businessId)
-      .neq("status", "cancelled")
-      .gte("issued_at", startOfTodayIso);
+    const [{ data: todayBsdRows, error: todayErr }, { data: todayOrderRows, error: todayOrderErr }] = await Promise.all([
+      admin
+        .from("business_sale_documents")
+        .select("id, total")
+        .eq("business_id", businessId)
+        .neq("status", "cancelled")
+        .gte("issued_at", startOfTodayIso),
+      admin
+        .from("restaurant_orders")
+        .select("id, total")
+        .eq("business_id", businessId)
+        .eq("status", "delivered")
+        .gte("created_at", startOfTodayIso),
+    ]);
 
     if (todayErr) {
-      console.error("[getWorkspaceDashboardData] Error al consultar ventas de hoy:", todayErr);
+      console.error("[getWorkspaceDashboardData] Error al consultar ventas de hoy en BSD:", todayErr);
+    }
+    if (todayOrderErr) {
+      console.error("[getWorkspaceDashboardData] Error al consultar comandas de hoy:", todayOrderErr);
     }
 
-    const todaySalesCount = todayRows?.length || 0;
-    const todaySalesTotal = (todayRows || []).reduce((acc, row) => acc + Number(row.total || 0), 0);
+    const seenTodayIds = new Set<string>();
+    let todaySalesTotal = 0;
+    let todaySalesCount = 0;
+
+    for (const row of todayBsdRows || []) {
+      seenTodayIds.add(row.id);
+      todaySalesTotal += Number(row.total || 0);
+      todaySalesCount++;
+    }
+
+    for (const row of todayOrderRows || []) {
+      if (!seenTodayIds.has(row.id)) {
+        seenTodayIds.add(row.id);
+        todaySalesTotal += Number(row.total || 0);
+        todaySalesCount++;
+      }
+    }
 
     // 3. Documentos recientes y conteo total histórico
-    const { data: recentRows, count: totalCount, error: recentErr } = await admin
-      .from("business_sale_documents")
-      .select("*", { count: "exact" })
-      .eq("business_id", businessId)
-      .order("issued_at", { ascending: false })
-      .limit(8);
+    const [{ data: recentRows, count: totalCount, error: recentErr }, { data: recentOrderRows, count: orderTotalCount }] = await Promise.all([
+      admin
+        .from("business_sale_documents")
+        .select("*", { count: "exact" })
+        .eq("business_id", businessId)
+        .order("issued_at", { ascending: false })
+        .limit(8),
+      admin
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(*)", { count: "exact" })
+        .eq("business_id", businessId)
+        .in("status", ["delivered", "cancelled"])
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
 
     if (recentErr) {
       console.error("[getWorkspaceDashboardData] Error al consultar documentos recientes:", recentErr);
     }
 
+    const mappedBsdRecent = (recentRows || []).map(mapDbDocToInterface);
+    const mappedOrdersRecent = (recentOrderRows || []).map((o: any) =>
+      mapRestaurantOrderToDocument(o, o.restaurant_order_items || [])
+    );
+
+    const seenRecentIds = new Set<string>();
+    const unifiedRecent: BusinessSaleDocument[] = [];
+    for (const d of mappedBsdRecent) {
+      seenRecentIds.add(d.id);
+      unifiedRecent.push(d);
+    }
+    for (const od of mappedOrdersRecent) {
+      if (!seenRecentIds.has(od.id)) {
+        seenRecentIds.add(od.id);
+        unifiedRecent.push(od);
+      }
+    }
+    unifiedRecent.sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+    const recentDocuments = unifiedRecent.slice(0, 8);
+
     // 4. Total histórico vendido (no cancelado)
-    const { data: allActiveRows } = await admin
-      .from("business_sale_documents")
-      .select("total")
-      .eq("business_id", businessId)
-      .neq("status", "cancelled");
+    const [{ data: allActiveRows }, { data: allActiveOrderRows }] = await Promise.all([
+      admin
+        .from("business_sale_documents")
+        .select("id, total")
+        .eq("business_id", businessId)
+        .neq("status", "cancelled"),
+      admin
+        .from("restaurant_orders")
+        .select("id, total")
+        .eq("business_id", businessId)
+        .eq("status", "delivered"),
+    ]);
 
-    const allTimeSalesTotal = (allActiveRows || []).reduce((acc, row) => acc + Number(row.total || 0), 0);
+    const seenAllTimeIds = new Set<string>();
+    let allTimeSalesTotal = 0;
 
-    const recentDocuments = (recentRows || []).map(mapDbDocToInterface);
+    for (const row of allActiveRows || []) {
+      seenAllTimeIds.add(row.id);
+      allTimeSalesTotal += Number(row.total || 0);
+    }
+
+    for (const row of allActiveOrderRows || []) {
+      if (!seenAllTimeIds.has(row.id)) {
+        seenAllTimeIds.add(row.id);
+        allTimeSalesTotal += Number(row.total || 0);
+      }
+    }
+
+    const totalSalesCount = seenAllTimeIds.size;
 
     return {
       todaySalesTotal,
       todaySalesCount,
-      totalSalesCount: totalCount || 0,
+      totalSalesCount,
       allTimeSalesTotal,
       recentDocuments,
       businessCurrency: "COP",
@@ -1018,5 +1410,146 @@ export async function getWorkspaceDashboardData(
     };
   }
 }
+
+/**
+ * Registra el pago financiero de un documento o pedido en Ventas/Caja.
+ * Soporta tanto comprobantes de business_sale_documents como pedidos de restaurant_orders.
+ * Es idempotente y registra evento de auditoría contable.
+ */
+export async function registerBusinessDocumentPayment(
+  businessId: string,
+  documentId: string,
+  paymentData?: { paymentMethod?: string; notes?: string; userId?: string }
+): Promise<{ success: boolean; document?: BusinessSaleDocument; error?: string }> {
+  try {
+    const admin = await getSupabaseAdminClient();
+    const nowIso = new Date().toISOString();
+
+    // 1. Revisar business_sale_documents
+    const { data: bsd } = await admin
+      .from("business_sale_documents")
+      .select("*")
+      .eq("id", documentId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (bsd) {
+      if (bsd.status === "cancelled") {
+        return { success: false, error: "No se puede registrar pago para un documento cancelado." };
+      }
+      // Idempotencia: si ya está pagado o completado, retornar el comprobante existente
+      if (bsd.status === "paid" || bsd.status === "completed") {
+        return { success: true, document: mapDbDocToInterface(bsd) };
+      }
+
+      const effectivePaymentMethod = paymentData?.paymentMethod || bsd.payment_method || "cash";
+      const { data: updatedBsd, error: bsdErr } = await admin
+        .from("business_sale_documents")
+        .update({
+          status: "paid",
+          payment_method: effectivePaymentMethod,
+          updated_at: nowIso,
+        })
+        .eq("id", documentId)
+        .eq("business_id", businessId)
+        .select()
+        .single();
+
+      if (bsdErr || !updatedBsd) {
+        return { success: false, error: "Error al registrar el pago." };
+      }
+
+      try {
+        await logAuditAction({
+          action: "payment_registered",
+          businessId,
+          userId: paymentData?.userId,
+          entityType: "business_sale_document",
+          entityId: documentId,
+          oldData: { status: bsd.status, payment_method: bsd.payment_method },
+          newData: { status: "paid", payment_method: effectivePaymentMethod },
+          metadata: {
+            document_number: bsd.document_number,
+            payment_method: effectivePaymentMethod,
+            amount: bsd.total,
+            notes: paymentData?.notes,
+            paid_at: nowIso,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[registerBusinessDocumentPayment] Aviso de auditoría:", auditErr);
+      }
+
+      return { success: true, document: mapDbDocToInterface(updatedBsd) };
+    }
+
+    // 2. Revisar restaurant_orders
+    const { data: order } = await admin
+      .from("restaurant_orders")
+      .select("*, restaurant_order_items(*)")
+      .eq("id", documentId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (order) {
+      if (order.status === "cancelled") {
+        return { success: false, error: "No se puede registrar pago para un pedido cancelado." };
+      }
+      // Idempotencia: si ya está pagado, retornar sin duplicar
+      if (order.payment_status === "paid") {
+        return {
+          success: true,
+          document: mapRestaurantOrderToDocument(order, order.restaurant_order_items || []),
+        };
+      }
+
+      const { data: updatedOrder, error: orderErr } = await admin
+        .from("restaurant_orders")
+        .update({
+          payment_status: "paid",
+          updated_at: nowIso,
+        })
+        .eq("id", documentId)
+        .eq("business_id", businessId)
+        .select("*, restaurant_order_items(*)")
+        .single();
+
+      if (orderErr || !updatedOrder) {
+        return { success: false, error: "Error al registrar el pago del pedido." };
+      }
+
+      try {
+        await logAuditAction({
+          action: "payment_registered",
+          businessId,
+          userId: paymentData?.userId,
+          entityType: "restaurant_order",
+          entityId: documentId,
+          oldData: { payment_status: order.payment_status },
+          newData: { payment_status: "paid" },
+          metadata: {
+            order_number: order.order_number,
+            payment_method: paymentData?.paymentMethod || "cash",
+            amount: order.total,
+            notes: paymentData?.notes,
+            paid_at: nowIso,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[registerBusinessDocumentPayment] Aviso de auditoría:", auditErr);
+      }
+
+      return {
+        success: true,
+        document: mapRestaurantOrderToDocument(updatedOrder, updatedOrder.restaurant_order_items || []),
+      };
+    }
+
+    return { success: false, error: "Documento no encontrado o no pertenece a este negocio." };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al registrar pago." };
+  }
+}
+
 
 

@@ -218,7 +218,7 @@ export function RoleDetailClient({
   return (
     <div className="space-y-6 pb-20">
       {/* 1. BARRA DE ACCIÓN Y REGRESO */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
         <div className="flex items-center gap-3">
           <AdminButton
             href="/admin/roles"
@@ -299,7 +299,7 @@ export function RoleDetailClient({
       {activeTab === "permissions" && (
         <div className="space-y-6">
           {/* Barra de Búsqueda y Herramientas dentro de Permisos */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
             <div className="flex-1">
               <AdminSearchInput
                 placeholder="Buscar permiso por acción (ej. users.create, view, cancel)..."
@@ -333,7 +333,7 @@ export function RoleDetailClient({
               return (
                 <div
                   key={moduleGroup.moduleId}
-                  className="rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden transition-all"
+                  className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs overflow-hidden transition-all"
                 >
                   {/* Header del Módulo */}
                   <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-white/[0.01] border-b border-slate-100 dark:border-white/[0.04]">
@@ -378,7 +378,7 @@ export function RoleDetailClient({
                       <button
                         type="button"
                         onClick={() => toggleAllInModule(moduleGroup)}
-                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-[#ED500A] hover:text-[#ED500A] transition-all cursor-pointer shadow-2xs"
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-[#ED500A] hover:text-[#ED500A] transition-all cursor-pointer shadow-2xs"
                       >
                         {isAllSelected ? "Desmarcar todos" : "Marcar todos"}
                       </button>
@@ -448,7 +448,7 @@ export function RoleDetailClient({
 
       {/* --- SECCIÓN B: USUARIOS ASIGNADOS --- */}
       {activeTab === "users" && (
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold font-title text-slate-900 dark:text-white">
@@ -508,7 +508,7 @@ export function RoleDetailClient({
 
       {/* --- SECCIÓN C: INFORMACIÓN GENERAL & METADATOS --- */}
       {activeTab === "info" && (
-        <div className="p-6 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-5">
+        <div className="p-6 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-5">
           <div>
             <h3 className="text-sm font-bold font-title text-slate-900 dark:text-white">
               Ficha Técnica del Rol
@@ -560,7 +560,7 @@ export function RoleDetailClient({
       {/* 4. BANNER FLOTANTE INFERIOR DE CAMBIOS SIN GUARDAR */}
       {hasUnsavedChanges && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-2xl animate-in slide-in-from-bottom-5 duration-300">
-          <div className="p-4 rounded-2xl bg-slate-950/90 dark:bg-[#0D0E12]/95 backdrop-blur-md border border-[#ED500A]/40 text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-slate-950/90 dark:bg-[#0D0F16]/95 backdrop-blur-md border border-[#ED500A]/40 text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-[#ED500A]/20 text-[#ED500A]">
                 <AlertTriangle className="w-4 h-4" />

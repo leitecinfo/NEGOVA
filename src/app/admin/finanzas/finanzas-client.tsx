@@ -158,7 +158,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
     <div className="space-y-6 font-body">
       
       {/* FILTROS */}
-      <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs items-end">
+      <div className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs items-end">
         <div>
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Período:
@@ -166,7 +166,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
           <select
             value={filterPeriod}
             onChange={(e) => setFilterPeriod(e.target.value as any)}
-            className="p-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+            className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
           >
             <option value="all">Historico Completo</option>
             <option value="this_month">Este Mes</option>
@@ -186,7 +186,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="p-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -197,7 +197,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="p-2 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
               />
             </div>
             <div>
@@ -242,7 +242,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
       </AdminKpiGrid>
 
       {/* 2. ACCIONES Y BOTÓN REGISTRAR GASTO */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
         <div>
           <h3 className="text-sm font-bold font-title text-slate-900 dark:text-white">
             Flujo de Caja y Rendimiento Financiero de NEGOVA
@@ -263,7 +263,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
       </div>
 
       {/* 3. TABLA DE MOVIMIENTOS RECIENTES DE CAJA */}
-      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
           <span className="font-bold text-xs text-slate-900 dark:text-white font-title">
             Libro de Movimientos de Caja
@@ -283,7 +283,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                   <th className="py-3 px-4">Tipo</th>
                   <th className="py-3 px-4">Concepto</th>
                   <th className="py-3 px-4">Entidad / Categoría</th>
@@ -361,7 +361,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
       {/* 4. MODAL: REGISTRAR/EDITAR COSTO OPERATIVO */}
       {mounted && isExpenseModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 flex items-center justify-center">
@@ -393,7 +393,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                 <select
                   value={expenseForm.category}
                   onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value as PlatformExpense["category"] })}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                 >
                   <option value="infra">Infraestructura & Base de Datos</option>
                   <option value="domain_hosting">Dominio & Alojamiento Web</option>
@@ -413,7 +413,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                   value={expenseForm.concept}
                   onChange={(e) => setExpenseForm({ ...expenseForm, concept: e.target.value })}
                   placeholder="Ej: Suscripción mensual infraestructura Supabase Pro"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -431,7 +431,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                       setExpenseForm({ ...expenseForm, amount: rawValue ? parseInt(rawValue, 10) : 0 });
                     }}
                     placeholder="Ej: 110.000"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white font-mono"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                     required
                   />
                 </div>
@@ -443,7 +443,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                     type="date"
                     value={expenseForm.date}
                     onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white font-mono"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                     required
                   />
                 </div>
@@ -458,7 +458,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                   value={expenseForm.receiptReference}
                   onChange={(e) => setExpenseForm({ ...expenseForm, receiptReference: e.target.value })}
                   placeholder="Ej: INV-SUP-9821"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white font-mono"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                 />
               </div>
 

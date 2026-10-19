@@ -291,7 +291,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar sección..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
             />
           </div>
 
@@ -329,7 +329,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar sección o parámetro..."
-              className="w-full pl-10 pr-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
+              className="w-full pl-10 pr-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
             />
           </div>
 
@@ -450,7 +450,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                   <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.06]">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       {/* Nombre de la Plataforma */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">Nombre de la Plataforma</span>
                         <span className="font-bold text-slate-900 dark:text-white text-xs mt-0.5 block font-title">
                           {NEGOVA_INSTITUTIONAL_PROFILE.platformName}
@@ -458,7 +458,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Eslogan / Propuesta de Valor */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">Eslogan / Propuesta de Valor</span>
                         <span className="font-medium text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.tagline}
@@ -466,7 +466,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Correo de Soporte */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">Correo de Soporte Institucional</span>
                         <span className="font-mono text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.supportEmail}
@@ -474,7 +474,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Correo de Facturación */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">Correo de Facturación y Finanzas</span>
                         <span className="font-mono text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.billingSupportEmail}
@@ -520,7 +520,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                       {/* Nombre Completo */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs sm:col-span-2 lg:col-span-3">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs sm:col-span-2 lg:col-span-3">
                         <span className="text-[11px] text-slate-500 block font-medium">Nombre Completo del Titular</span>
                         <span className="font-bold text-slate-900 dark:text-white text-xs mt-0.5 block font-title">
                           {NEGOVA_INSTITUTIONAL_PROFILE.fullName}
@@ -528,7 +528,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Tipo y Número de Documento */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs sm:col-span-1 lg:col-span-2">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs sm:col-span-1 lg:col-span-2">
                         <span className="text-[11px] text-slate-500 block font-medium">Documento de Identidad</span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="font-semibold text-slate-900 dark:text-white font-mono">
@@ -541,7 +541,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* NIT / DIAN */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">Identificación Tributaria (DIAN)</span>
                         <span className="font-bold font-mono text-[#ED500A] text-xs mt-0.5 block">
                           NIT {NEGOVA_INSTITUTIONAL_PROFILE.fullNit}
@@ -549,7 +549,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Domicilio Fiscal */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs sm:col-span-2 lg:col-span-3">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs sm:col-span-2 lg:col-span-3">
                         <span className="text-[11px] text-slate-500 block font-medium">Domicilio Fiscal / Dirección Tributaria (RUT)</span>
                         <span className="font-medium text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.taxAddress}
@@ -557,7 +557,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Dirección Comercial */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs sm:col-span-2 lg:col-span-3">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs sm:col-span-2 lg:col-span-3">
                         <span className="text-[11px] text-slate-500 block font-medium">Dirección Comercial / Sede de NEGOVA</span>
                         <span className="font-medium text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.commercialAddress}
@@ -565,7 +565,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* Régimen Tributario */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs sm:col-span-1 lg:col-span-2">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs sm:col-span-1 lg:col-span-2">
                         <span className="text-[11px] text-slate-500 block font-medium">Régimen Tributario</span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="font-semibold text-slate-900 dark:text-white">
@@ -578,7 +578,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       </div>
 
                       {/* IVA / Impuestos */}
-                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                         <span className="text-[11px] text-slate-500 block font-medium">IVA / Impuestos</span>
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs mt-0.5 block">
                           {NEGOVA_INSTITUTIONAL_PROFILE.taxStatus}
@@ -604,7 +604,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                           Fijo
                         </span>
                       </div>
-                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-3.5 rounded-xs overflow-hidden flex flex-col shadow-2xs border border-black/10 shrink-0">
                             <div className="h-[50%] bg-[#FCD116]" />
@@ -626,7 +626,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                           Core
                         </span>
                       </div>
-                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between font-mono">
+                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between font-mono">
                         <span>COP</span>
                         <span className="text-xs font-bold text-[#ED500A]">$ COP</span>
                       </div>
@@ -641,7 +641,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                           UTC-5
                         </span>
                       </div>
-                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between font-mono">
+                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-100/70 dark:bg-white/[0.04] text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center justify-between font-mono">
                         <span>Bogota</span>
                         <span className="text-[11px] text-slate-500">UTC -05:00</span>
                       </div>
@@ -728,7 +728,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               className={`py-2 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs font-mono font-semibold transition-all cursor-pointer flex items-center justify-center ${
                                 securityConfig.adminSession.inactivityTimeoutMinutes === mins
                                   ? "bg-[#ED500A] text-white shadow-xs"
-                                  : "bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-[#ED500A]/40"
+                                  : "bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-[#ED500A]/40"
                               }`}
                             >
                               {mins}m
@@ -760,7 +760,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               className={`w-full py-2 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs font-mono text-center border transition-all ${
                                 ![15, 30, 60, 120].includes(securityConfig.adminSession.inactivityTimeoutMinutes)
                                   ? "bg-orange-50 dark:bg-[#ED500A]/10 border-[#ED500A] text-[#ED500A] font-bold"
-                                  : "bg-white dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                                  : "bg-white dark:bg-white/[0.04] border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
                               }`}
                             />
                           </div>
@@ -789,7 +789,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               },
                             })
                           }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
                         >
                           <option value={12}>12 Horas (Jornada Administrativa)</option>
                           <option value={24}>24 Horas (1 Día - Recomendado)</option>
@@ -912,7 +912,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               },
                             })
                           }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
                         >
                           <option value={7}>7 Días (Rotación Semanal)</option>
                           <option value={14}>14 Días (Quincenal)</option>
@@ -1024,7 +1024,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                         max={32}
                         value={securityConfig.minPasswordLength}
                         onChange={(e) => setSecurityConfig({ ...securityConfig, minPasswordLength: Number(e.target.value) })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                     </div>
 
@@ -1038,7 +1038,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                         max={365}
                         value={securityConfig.passwordExpirationDays}
                         onChange={(e) => setSecurityConfig({ ...securityConfig, passwordExpirationDays: Number(e.target.value) })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                     </div>
 
@@ -1052,7 +1052,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                         max={10}
                         value={securityConfig.maxLoginAttempts}
                         onChange={(e) => setSecurityConfig({ ...securityConfig, maxLoginAttempts: Number(e.target.value) })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                     </div>
 
@@ -1066,7 +1066,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                         max={120}
                         value={securityConfig.lockoutDurationMinutes}
                         onChange={(e) => setSecurityConfig({ ...securityConfig, lockoutDurationMinutes: Number(e.target.value) })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -1145,7 +1145,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             whoCanInvite: e.target.value as "super_admin_only" | "super_admin_and_staff",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                       >
                         <option value="super_admin_only">Solo Super Administrador (Recomendado)</option>
                         <option value="super_admin_and_staff">Super Administrador y Staff Autorizado</option>
@@ -1164,7 +1164,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             invitationExpiryHours: Number(e.target.value),
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                       >
                         <option value={24}>24 Horas (Alta Seguridad)</option>
                         <option value={48}>48 Horas (Estándar)</option>
@@ -1216,7 +1216,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             defaultUserStatus: e.target.value as "active" | "pending_verification",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                       >
                         <option value="active">Activo (Acceso Inmediato)</option>
                         <option value="pending_verification">Pendiente de Verificación</option>
@@ -1235,7 +1235,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             accountActivationPolicy: e.target.value as "immediate" | "manual_approval",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                       >
                         <option value="immediate">Activación Inmediata tras verificar email</option>
                         <option value="manual_approval">Aprobación manual requerida por Superadmin</option>
@@ -1341,11 +1341,11 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                     NEGOVA opera actualmente bajo un modelo de <strong>acuerdo directo con el cliente</strong> (vía WhatsApp o contacto directo). Los pagos se coordinan y verifican directamente, y la activación de planes o accesos se realiza de forma manual por el administrador desde el panel.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                       <span className="text-slate-500 block text-[11px]">Método de Cobro</span>
                       <span className="font-semibold text-slate-900 dark:text-white">Gestión Manual Directa</span>
                     </div>
-                    <div className="p-3 rounded-xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 text-xs">
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-xs">
                       <span className="text-slate-500 block text-[11px]">Pasarelas Automáticas</span>
                       <span className="font-semibold text-amber-600 dark:text-amber-400">No configuradas</span>
                     </div>
@@ -1379,7 +1379,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                         value={billingConfig.invoicePrefix || "NEG-"}
                         onChange={(e) => setBillingConfig({ ...billingConfig, invoicePrefix: e.target.value })}
                         placeholder="NEG-"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs font-mono text-slate-900 dark:text-white"
                       />
                       <p className="text-[10px] text-slate-400">
                         Prefijo de serie institucional configurado en plataforma. Nota: La emisión operativa de comprobantes SaaS actualmente genera con la serie oficial CMP-YYYY-XXXX.
@@ -1390,7 +1390,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Tratamiento de Impuestos
                       </label>
-                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-600 dark:text-slate-300">
+                      <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-600 dark:text-slate-300">
                         No configurado / Sin impuestos definidos
                       </div>
                       <p className="text-[10px] text-slate-400">
@@ -1416,7 +1416,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                   <button
                     type="button"
                     onClick={() => handleTabChange("general")}
-                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-xs font-semibold text-[#ED500A] hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-[#ED500A] hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
                   >
                     Ver en General →
                   </button>
@@ -1647,7 +1647,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                   <select
                     value={auditConfig.retentionDays}
                     onChange={(e) => setAuditConfig({ ...auditConfig, retentionDays: Number(e.target.value) as any })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                   >
                     <option value={30}>30 Días (Estándar)</option>
                     <option value={60}>60 Días</option>

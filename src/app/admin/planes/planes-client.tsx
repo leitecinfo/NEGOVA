@@ -119,7 +119,7 @@ export function PlanesClient({
       </AdminKpiGrid>
 
       {/* 2. PANEL DE CONFIGURACIÓN COMERCIAL DE DESCUENTO ANUAL */}
-      <div className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] p-6 sm:p-7 shadow-xs space-y-5">
+      <div className="rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 sm:p-7 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/[0.06]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center shrink-0 border border-orange-200/60 dark:border-orange-500/20">
@@ -211,7 +211,7 @@ export function PlanesClient({
                       }));
                     }
                   }}
-                  className="w-16 px-2 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-right font-mono font-bold text-sm text-[#ED500A] focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
+                  className="w-16 px-2 py-1 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-right font-mono font-bold text-sm text-[#ED500A] focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
                   placeholder="0"
                 />
                 <span className="text-xs font-bold text-slate-500 font-mono">%</span>
@@ -242,7 +242,7 @@ export function PlanesClient({
                   className={`flex-1 py-1 rounded-md text-[11px] font-mono font-bold transition-all cursor-pointer ${
                     discountConfig.percentage === pct
                       ? "bg-[#ED500A] text-white shadow-xs"
-                      : "bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:border-orange-300"
+                      : "bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08] hover:border-orange-300"
                   }`}
                 >
                   {pct}%
@@ -273,13 +273,13 @@ export function PlanesClient({
 
       {/* 3. CONMUTADOR DE FACTURACIÓN (MENSUAL / ANUAL) */}
       <div className="flex flex-col items-center justify-center space-y-3 pt-2">
-        <div className="inline-flex items-center p-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10">
+        <div className="inline-flex items-center p-1.5 rounded-2xl bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08]">
           <button
             type="button"
             onClick={() => setBillingInterval("monthly")}
             className={`px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               billingInterval === "monthly"
-                ? "bg-white dark:bg-[#12141A] text-slate-900 dark:text-white shadow-xs"
+                ? "bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white shadow-xs"
                 : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
@@ -290,7 +290,7 @@ export function PlanesClient({
             onClick={() => setBillingInterval("annual")}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               billingInterval === "annual"
-                ? "bg-white dark:bg-[#12141A] text-slate-900 dark:text-white shadow-xs"
+                ? "bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white shadow-xs"
                 : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
@@ -330,8 +330,8 @@ export function PlanesClient({
               key={plan.id}
               className={`relative rounded-3xl border transition-all flex flex-col justify-between ${
                 isCrece
-                  ? "border-[#ED500A] bg-white dark:bg-[#0E1017] shadow-xl shadow-orange-500/5 ring-1 ring-[#ED500A]/30"
-                  : "border-slate-200/90 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs hover:border-slate-300 dark:hover:border-white/20"
+                  ? "border-[#ED500A] bg-white dark:bg-[#0D0F16] shadow-xl shadow-orange-500/5 ring-1 ring-[#ED500A]/30"
+                  : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs hover:border-slate-300 dark:hover:border-white/20"
               } p-6 sm:p-7 space-y-6`}
             >
               {/* Badge Más Elegido */}
@@ -472,7 +472,7 @@ export function PlanesClient({
       </div>
 
       {/* 5. MATRIZ COMPARATIVA DE CAPACIDADES */}
-      <div className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/[0.06]">
           <div>
             <h3 className="text-lg font-bold font-title text-slate-900 dark:text-white">
@@ -490,7 +490,7 @@ export function PlanesClient({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+              <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                 <th className="py-3.5 px-4">Funcionalidad / Módulo</th>
                 <th className="py-3.5 px-4 text-center w-36">Inicio</th>
                 <th className="py-3.5 px-4 text-center w-36 bg-orange-500/[0.03]">Crece</th>

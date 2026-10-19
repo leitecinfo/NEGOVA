@@ -111,19 +111,11 @@ negova/
 │   │   └── error.tsx
 │   │
 │   ├── components/
-│   │   ├── ui/
-│   │   ├── layout/
-│   │   │   ├── app-sidebar.tsx
-│   │   │   ├── app-header.tsx
-│   │   │   ├── app-shell.tsx
-│   │   │   └── mobile-navigation.tsx
-│   │   └── shared/
-│   │       ├── data-table.tsx
-│   │       ├── page-header.tsx
-│   │       ├── status-badge.tsx
-│   │       ├── empty-state.tsx
-│   │       ├── loading-state.tsx
-│   │       └── confirm-dialog.tsx
+│   │   ├── ui/               # Primitivas universales y componentes desacoplados reutilizables
+│   │   ├── layout/           # Shell unificado de la aplicación (AppLayoutShell, Sidebar, Topbar, PageContainer)
+│   │   ├── admin/            # Vistas, modales y adaptadores de compatibilidad legacy para administración
+│   │   ├── workspace/        # Componentes y navegación específicos de comercios (WorkspaceNotificationDropdown, Shell)
+│   │   └── pos/              # Controles especializados del punto de venta (Screen, Cart, Modals de modificadores)
 │   │
 │   ├── features/
 │   │   ├── auth/

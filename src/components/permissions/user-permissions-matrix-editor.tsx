@@ -205,7 +205,7 @@ export function UserPermissionsMatrixEditor({
   return (
     <div className="space-y-6">
       {/* 1. BARRA SUPERIOR DE ESTADO Y ACCIONES */}
-      <div className="p-5 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-5 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-[#ED500A]" />
@@ -276,19 +276,19 @@ export function UserPermissionsMatrixEditor({
 
       {/* 3. RESUMEN DE INDICADORES NUMÉRICOS (KPI CARDS) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08]">
           <span className="text-[11px] text-slate-400 font-medium block">Total Efectivos</span>
           <span className="text-xl font-bold font-title text-slate-900 dark:text-white">
             {totalEffectiveCount}
           </span>
         </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08]">
           <span className="text-[11px] text-slate-400 font-medium block">Heredados por Rol</span>
           <span className="text-xl font-bold font-title text-slate-900 dark:text-white">
             {data.inheritedPermissions.length}
           </span>
         </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08]">
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium block">
             Excepciones Concedidas
           </span>
@@ -296,7 +296,7 @@ export function UserPermissionsMatrixEditor({
             {`+${grantedCount}`}
           </span>
         </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08]">
           <span className="text-[11px] text-red-600 dark:text-red-400 font-medium block">
             Excepciones Revocadas
           </span>
@@ -315,7 +315,7 @@ export function UserPermissionsMatrixEditor({
           return (
             <div
               key={mod.moduleId}
-              className="rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 overflow-hidden shadow-xs"
+              className="rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] overflow-hidden shadow-xs"
             >
               <button
                 type="button"
@@ -353,7 +353,7 @@ export function UserPermissionsMatrixEditor({
                           key={perm.code}
                           className={`p-3.5 rounded-2xl border transition-all flex items-start justify-between gap-3 text-xs ${
                             isEnabled
-                              ? "bg-slate-50/70 dark:bg-white/[0.02] border-slate-200 dark:border-white/10"
+                              ? "bg-slate-50/70 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08]"
                               : "bg-slate-50/20 dark:bg-transparent border-slate-100 dark:border-white/5 opacity-60"
                           }`}
                         >

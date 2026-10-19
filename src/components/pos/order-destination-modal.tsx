@@ -13,9 +13,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  MessageSquare,
   Receipt,
-  Store,
   Layers,
   Sparkles,
 } from "lucide-react";
@@ -50,9 +48,9 @@ export function OrderDestinationModal({
   onClose,
   onOrderSuccess,
 }: OrderDestinationModalProps) {
-  // Destino y Canal
+  // Destino del pedido (En POS físico el canal es siempre in_person)
   const [orderType, setOrderType] = useState<"dine_in" | "takeout" | "delivery">("dine_in");
-  const [channelOrigin, setChannelOrigin] = useState<"in_person" | "whatsapp">("in_person");
+  const channelOrigin = "in_person";
 
   // Mesa (Dine-in)
   const [selectedTableId, setSelectedTableId] = useState<string>(initialTableId || "");
@@ -77,12 +75,11 @@ export function OrderDestinationModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
 
-  // Manejo de cambio de destino asegurando coherencia con el canal
+  // Manejo de cambio de destino
   const handleSelectOrderType = (type: "dine_in" | "takeout" | "delivery") => {
     setOrderType(type);
     setErrorMessage(null);
     if (type === "dine_in") {
-      setChannelOrigin("in_person");
       if (tables.length > 0) {
         const isCurrentValid = tables.some((t) => t.id === selectedTableId && t.status === "available");
         if (!selectedTableId || !isCurrentValid) {
@@ -100,11 +97,6 @@ export function OrderDestinationModal({
       setErrorMessage(null);
       setIdempotencyKey(crypto.randomUUID());
 
-      // Consumo en local siempre es presencial
-      if (orderType === "dine_in") {
-        setChannelOrigin("in_person");
-      }
-
       // Si hay mesas y ninguna seleccionada (o la seleccionada ya no existe), preseleccionar la primera disponible
       if (tables.length > 0) {
         const isCurrentValid = tables.some((t) => t.id === selectedTableId && t.status === "available");
@@ -115,7 +107,6 @@ export function OrderDestinationModal({
       } else if (orderType === "dine_in") {
         // Si no hay mesas configuradas, sugerir Para llevar
         setOrderType("takeout");
-        setChannelOrigin("in_person");
       }
     } else {
       setIsSubmitting(false);
@@ -140,10 +131,6 @@ export function OrderDestinationModal({
     }
 
     if (orderType === "delivery") {
-      if (!customerName.trim()) {
-        setErrorMessage("Por favor ingresa el nombre de la persona que recibe el domicilio.");
-        return;
-      }
       if (!deliveryAddress.trim()) {
         setErrorMessage("Por favor ingresa la dirección completa de entrega.");
         return;
@@ -163,7 +150,9 @@ export function OrderDestinationModal({
       orderType,
       channelOrigin: effectiveChannelOrigin,
       tableId: orderType === "dine_in" ? selectedTableId : null,
-      customerName: ["delivery", "takeout"].includes(orderType) ? customerName.trim() || null : null,
+      customerName: ["delivery", "takeout"].includes(orderType)
+        ? customerName.trim() || (orderType === "delivery" ? "Cliente Domicilio" : null)
+        : null,
       customerPhone: ["delivery", "takeout"].includes(orderType) ? customerPhone.trim() || null : null,
       deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : null,
       deliveryReference: orderType === "delivery" ? deliveryReference.trim() || null : null,
@@ -223,7 +212,7 @@ export function OrderDestinationModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="w-full max-w-xl bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+          className="w-full max-w-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         >
           {/* HEADER */}
           <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0">
@@ -233,7 +222,7 @@ export function OrderDestinationModal({
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                  Destino y Canal del Pedido
+                  Destino del Pedido
                 </h3>
                 <p className="text-xs text-slate-500">
                   {tradeName || businessName} · Total: {formatCOP(summary.total)}
@@ -298,7 +287,7 @@ export function OrderDestinationModal({
                       className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
                         isSel
                           ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A] ring-1 ring-[#ED500A] shadow-xs"
-                          : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                          : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/20"
                       }`}
                     >
                       <Icon className="w-5 h-5 mb-1.5" />
@@ -312,67 +301,11 @@ export function OrderDestinationModal({
               </div>
             </div>
 
-            {/* 2. SELECCIÓN DE CANAL DE ENTRADA (SOLO PARA PARA LLEVAR O DOMICILIO) */}
-            {orderType !== "dine_in" && (
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  2. Canal de recepción *
-                </label>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  {[
-                    {
-                      id: "in_person",
-                      label: "Presencial",
-                      icon: Store,
-                      desc: "Cliente en el punto de venta",
-                    },
-                    {
-                      id: "whatsapp",
-                      label: "WhatsApp",
-                      icon: MessageSquare,
-                      desc: "Pedido recibido por chat",
-                    },
-                  ].map((c) => {
-                    const Icon = c.icon;
-                    const isSel = channelOrigin === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => setChannelOrigin(c.id as any)}
-                        className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                          isSel
-                            ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A] ring-1 ring-[#ED500A] shadow-xs"
-                            : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
-                        }`}
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            isSel
-                              ? "bg-[#ED500A] text-white"
-                              : "bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-300"
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold leading-tight">{c.label}</div>
-                          <div className="text-[10px] text-slate-400 truncate">{c.desc}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 3. CAMPOS ESPECÍFICOS SEGÚN DESTINO */}
+            {/* 2. CAMPOS ESPECÍFICOS SEGÚN DESTINO */}
 
             {/* CASO A: MESA (DINE_IN) */}
             {orderType === "dine_in" && (
-              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/10 rounded-xl space-y-3">
+              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <UtensilsCrossed className="w-3.5 h-3.5 text-[#ED500A]" />
@@ -408,8 +341,8 @@ export function OrderDestinationModal({
                           onClick={() => setSelectedTableId(tbl.id)}
                           className={`p-2.5 rounded-xl border text-left transition-all ${
                             isSel
-                              ? "bg-white dark:bg-[#10141d] border-[#ED500A] ring-2 ring-[#ED500A]/30 shadow-xs"
-                              : "bg-white dark:bg-[#10141d] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                              ? "bg-white dark:bg-[#0D0F16] border-[#ED500A] ring-2 ring-[#ED500A]/30 shadow-xs"
+                              : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -439,27 +372,26 @@ export function OrderDestinationModal({
 
             {/* CASO B: DOMICILIO (DELIVERY) */}
             {orderType === "delivery" && (
-              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/10 rounded-xl space-y-3">
+              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
                   <Bike className="w-3.5 h-3.5 text-[#ED500A]" />
-                  <span>3. Datos de entrega a domicilio *</span>
+                  <span>2. Datos de entrega a domicilio *</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Nombre del cliente / destinatario *
+                      Nombre del cliente / destinatario (Opcional)
                     </label>
                     <div className="relative">
                       <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
-                        required
                         disabled={isSubmitting}
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Ej. Carlos Mendoza"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                        placeholder="Ej. Carlos Mendoza (Opcional)"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -476,7 +408,7 @@ export function OrderDestinationModal({
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         placeholder="Ej. 300 123 4567"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -495,7 +427,7 @@ export function OrderDestinationModal({
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
                       placeholder="Ej. Calle 45 # 12 - 34, Barrio El Poblado"
-                      className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -510,7 +442,7 @@ export function OrderDestinationModal({
                     value={deliveryReference}
                     onChange={(e) => setDeliveryReference(e.target.value)}
                     placeholder="Ej. Torre 2, apto 504 / Portón negro frente al parque"
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -518,10 +450,10 @@ export function OrderDestinationModal({
 
             {/* CASO C: PARA LLEVAR (TAKEOUT) */}
             {orderType === "takeout" && (
-              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/10 rounded-xl space-y-3">
+              <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                   <ShoppingBag className="w-4 h-4 text-[#ED500A] shrink-0" />
-                  <span>3. Datos para retiro en mostrador (Opcional)</span>
+                  <span>2. Datos para retiro en mostrador (Opcional)</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 dark:border-white/5">
@@ -537,7 +469,7 @@ export function OrderDestinationModal({
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         placeholder="Ej. Andrés R."
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -554,7 +486,7 @@ export function OrderDestinationModal({
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         placeholder="Ej. 311 234 5678"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
@@ -562,10 +494,10 @@ export function OrderDestinationModal({
               </div>
             )}
 
-            {/* 4. NOTAS GENERALES DE LA COMANDA */}
+            {/* 3. NOTAS GENERALES DE LA COMANDA */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Instrucciones generales de la comanda (Opcional)
+                3. Instrucciones generales de la comanda (Opcional)
               </label>
               <input
                 type="text"
@@ -573,17 +505,17 @@ export function OrderDestinationModal({
                 value={generalNotes}
                 onChange={(e) => setGeneralNotes(e.target.value)}
                 placeholder="Ej. Empacar salsas por separado, cliente espera con prisa..."
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
               />
             </div>
 
-            {/* 5. RESUMEN COMPACTO DE LA COMANDA */}
+            {/* 4. RESUMEN COMPACTO DE LA COMANDA */}
             <div className="p-3.5 bg-slate-100/70 dark:bg-white/5 rounded-xl space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-600 dark:text-slate-400 font-medium">
                 <span>{summary.itemsCount} productos seleccionados</span>
                 <span>Subtotal: {formatCOP(summary.subtotal)}</span>
               </div>
-              <div className="flex justify-between items-center text-sm font-black text-slate-900 dark:text-white pt-1.5 border-t border-slate-200 dark:border-white/10">
+              <div className="flex justify-between items-center text-sm font-black text-slate-900 dark:text-white pt-1.5 border-t border-slate-200 dark:border-white/[0.08]">
                 <span>Total comanda</span>
                 <span className="text-[#ED500A]">{formatCOP(summary.total)}</span>
               </div>

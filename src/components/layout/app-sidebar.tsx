@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import { AppNavSection, AppBranding } from "./navigation-types";
+import { isRouteActive } from "./navigation-utils";
+import { useNavigationProgress } from "./navigation-progress-bar";
 
 interface AppSidebarProps {
   isCollapsed: boolean;
@@ -20,6 +22,8 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, branding }: AppSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
+  const searchParams = useSearchParams();
+  const { startNavigation } = useNavigationProgress();
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   // Estado de grupos desglosables / colapsables (por defecto abiertos para acceso rápido e intuitivo)
@@ -29,24 +33,27 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
     gestion: true,
     administracion: true,
     cuenta: true,
+    principal: true,
+    control: true,
+    sistema: true,
   });
 
   // Asegurar que la sección que contiene la ruta activa esté abierta
   useEffect(() => {
     navSections.forEach((section) => {
       const hasActive = section.items.some((item) =>
-        item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        isRouteActive(item.href, pathname, searchParams, item.exactMatch)
       );
       if (hasActive) {
         setOpenSections((prev) => ({ ...prev, [section.id]: true }));
       }
     });
-  }, [pathname]);
+  }, [pathname, searchParams, navSections]);
 
   const toggleSection = (sectionId: string) => {
     setOpenSections((prev) => ({
       ...prev,
-      [sectionId]: !prev[sectionId],
+      [sectionId]: !(prev[sectionId] ?? true),
     }));
   };
 
@@ -61,10 +68,15 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
       <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
         <Link
           href={branding.homeUrl}
+          onClick={() => {
+            if (pathname !== branding.homeUrl) {
+              startNavigation(branding.homeUrl);
+            }
+          }}
           className="flex items-center gap-3 w-full min-w-0 overflow-hidden focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] rounded-xl p-1.5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
         >
           {branding.logoUrl ? (
-            <div className="relative w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-white p-1 shadow-xs border border-slate-200 dark:border-white/10 overflow-hidden">
+            <div className="relative w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-white p-1 shadow-xs border border-slate-200 dark:border-white/[0.08] overflow-hidden">
               <Image
                 src={branding.logoUrl}
                 alt={branding.appTitle}
@@ -118,7 +130,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
 
           if (visibleItems.length === 0) return null;
 
-          const isSectionOpen = openSections[section.id] ?? false;
+          const isSectionOpen = openSections[section.id] ?? true;
 
           return (
             <div key={section.id} className="space-y-1">
@@ -155,9 +167,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                 <div className="space-y-1 animate-in fade-in-50 duration-150">
                   {visibleItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = item.exactMatch
-                      ? pathname === item.href
-                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
 
                     return (
                       <div
@@ -168,6 +178,11 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                       >
                         <Link
                           href={item.href}
+                          onClick={() => {
+                            if (!isActive) {
+                              startNavigation(item.href);
+                            }
+                          }}
                           className={`group flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 relative ${
                             isActive
                               ? "bg-orange-50 text-[#ED500A] font-semibold border border-orange-200/70 dark:bg-[#ED500A]/10 dark:text-[#ED500A] dark:border-[#ED500A]/20"
@@ -175,7 +190,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                           } ${isCollapsed ? "justify-center px-0 h-10 w-10 mx-auto" : ""}`}
                           aria-current={isActive ? "page" : undefined}
                         >
-                          {/* Icono */}
+                          {/* Icono estable sin desplazamientos ni spinners */}
                           <Icon
                             className={`w-4 h-4 shrink-0 transition-transform duration-150 ${
                               isActive
@@ -184,11 +199,11 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                             }`}
                           />
 
-                          {/* Texto y Badge si está expandido */}
+                          {/* Texto y Badge funcional si está expandido */}
                           {!isCollapsed && (
                             <div className="flex items-center justify-between flex-1 min-w-0">
                               <span className="truncate">{item.label}</span>
-                              {item.badge && (
+                              {item.badge ? (
                                 <span
                                   className={`ml-2 px-1.5 py-0.2 rounded text-[10px] font-mono border ${
                                     item.badge.variant === "warning"
@@ -198,7 +213,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                                 >
                                   {item.badge.text}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                           )}
 
@@ -212,7 +227,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                         {isCollapsed && hoveredItemId === item.id && (
                           <div
                             role="tooltip"
-                            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white dark:bg-[#131722] dark:text-[#F8F9FD] border border-slate-700 dark:border-[#1E2333] rounded-lg text-xs font-medium shadow-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2"
+                            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white dark:bg-[#0D0F16] dark:text-[#F8F9FD] border border-slate-700 dark:border-white/[0.08] rounded-lg text-xs font-medium shadow-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2 pointer-events-none"
                           >
                             <span>{item.label}</span>
                             {item.badge && (
@@ -234,11 +249,21 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
                           <div className="ml-7 mt-1 space-y-0.5 border-l border-slate-200 dark:border-white/[0.08] pl-2.5 animate-in fade-in-50 duration-150">
                             {item.subItems.map((subItem) => {
                               const SubIcon = subItem.icon;
+                              const isSubActive = isRouteActive(subItem.href, pathname, searchParams);
                               return (
                                 <Link
                                   key={subItem.id}
                                   href={subItem.href}
-                                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors"
+                                  onClick={() => {
+                                    if (!isSubActive) {
+                                      startNavigation(subItem.href);
+                                    }
+                                  }}
+                                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                                    isSubActive
+                                      ? "bg-orange-50 text-[#ED500A] font-semibold dark:bg-[#ED500A]/10"
+                                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
+                                  }`}
                                 >
                                   <SubIcon className="w-3 h-3 text-slate-400 shrink-0" />
                                   <span className="truncate">{subItem.label}</span>

@@ -122,7 +122,7 @@ export function AdminCommandPalette({ isOpen, onClose }: AdminCommandPaletteProp
         />
 
       {/* Contenedor del Modal */}
-      <div className="relative w-full max-w-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 duration-150 flex flex-col max-h-[75vh]">
+      <div className="relative w-full max-w-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 duration-150 flex flex-col max-h-[75vh]">
         {/* Input de Búsqueda */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />

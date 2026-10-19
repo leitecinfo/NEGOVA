@@ -59,7 +59,7 @@ export function AdminLogoutModal({ isOpen, onClose, userEmail }: AdminLogoutModa
       />
 
       {/* Ventana Modal */}
-      <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl p-6 z-50 animate-in zoom-in-95 duration-150 space-y-5">
+      <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 z-50 animate-in zoom-in-95 duration-150 space-y-5">
         {/* Cabecera con Icono de Advertencia */}
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">

@@ -69,7 +69,7 @@ export function ConfirmModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="w-full max-w-md bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4"
+          className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4"
         >
           <div className="flex items-start gap-4">
             {iconVariants[variant]}
@@ -87,12 +87,12 @@ export function ConfirmModal({
 
           {children}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/5">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors disabled:opacity-50"
             >
               {cancelText}
             </button>

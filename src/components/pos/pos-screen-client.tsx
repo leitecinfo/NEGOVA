@@ -225,7 +225,7 @@ export function PosScreenClient({
 
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-[1600px] mx-auto w-full p-3 sm:p-5 gap-4 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-[1600px] mx-auto w-full p-2.5 sm:p-4 lg:p-3.5 xl:p-4 gap-3 sm:gap-3.5 overflow-hidden">
       {/* 1. TOP BAR / CABECERA DEL POS */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-white/5 shrink-0">
         <div className="flex items-center gap-3">
@@ -287,7 +287,7 @@ export function PosScreenClient({
       {/* 2. CONTENEDOR PRINCIPAL: CATÁLOGO (IZQUIERDA) + COMANDA (DERECHA) */}
       <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
         {/* PANEL IZQUIERDO: CATÁLOGO Y FILTROS */}
-        <section className="flex-1 flex flex-col gap-3 min-w-0 bg-white dark:bg-[#0B0E14] border border-slate-200/80 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-xs overflow-hidden">
+        <section className="flex-1 flex flex-col gap-2.5 sm:gap-3 min-w-0 bg-white dark:bg-[#0B0E14] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-2.5 sm:p-3.5 shadow-xs overflow-hidden">
           {/* BUSCADOR Y TOGGLE DE DISPONIBILIDAD */}
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
             <div className="relative flex-1">
@@ -297,7 +297,7 @@ export function PosScreenClient({
                 placeholder="Buscar por nombre o descripción..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               {search && (
                 <button
@@ -316,7 +316,7 @@ export function PosScreenClient({
               className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors shrink-0 ${
                 showOnlyAvailable
                   ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
-                  : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10"
+                  : "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/[0.08]"
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
@@ -411,8 +411,8 @@ export function PosScreenClient({
                 </button>
               </div>
             ) : (
-              // Cuadrícula de 4 tarjetas por fila en escritorio con proporciones visuales óptimas
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-3.5">
+              // Cuadrícula adaptativa basada en el ancho real disponible del contenedor
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(145px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(155px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2.5 sm:gap-3.5">
                 {filteredProducts.map((prod) => {
                   const hasModifiers =
                     ((prod.metadata as any)?.modifier_groups || []).length > 0;
@@ -433,10 +433,10 @@ export function PosScreenClient({
                     <div
                       key={prod.id}
                       onClick={() => handleProductClick(prod)}
-                      className={`group relative flex flex-col bg-white dark:bg-[#10141d] border rounded-2xl overflow-hidden transition-all text-left shadow-xs ${
+                      className={`group relative flex flex-col bg-white dark:bg-[#0D0F16] border rounded-2xl overflow-hidden transition-all text-left shadow-xs ${
                         !isAvailable
                           ? "border-slate-200/60 dark:border-white/5 opacity-60 cursor-not-allowed"
-                          : "border-slate-200/80 dark:border-white/10 hover:border-[#ED500A]/50 hover:shadow-md cursor-pointer active:scale-[0.99]"
+                          : "border-slate-200/80 dark:border-white/[0.08] hover:border-[#ED500A]/50 hover:shadow-md cursor-pointer active:scale-[0.99]"
                       }`}
                     >
                       {/* IMAGEN O ICONO DEL PRODUCTO */}
@@ -450,19 +450,19 @@ export function PosScreenClient({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-white/20">
-                            <Layers className="w-8 h-8" />
+                            <Layers className="w-7 h-7 sm:w-8 sm:h-8" />
                           </div>
                         )}
 
                         {/* BADGES SUPERIORES */}
                         <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none gap-1">
                           {hasVariants ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-[#ED500A] text-white shadow-xs backdrop-blur-xs flex items-center gap-1">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-[#ED500A] text-white shadow-xs backdrop-blur-xs flex items-center gap-1 shrink-0">
                               <Sparkles className="w-2 h-2" />
                               <span>{rawVariants.length} Opc.</span>
                             </span>
                           ) : hasModifiers ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-600/90 text-white shadow-xs backdrop-blur-xs flex items-center gap-1">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-600/90 text-white shadow-xs backdrop-blur-xs flex items-center gap-1 shrink-0">
                               <Sparkles className="w-2 h-2" />
                               <span>Opciones</span>
                             </span>
@@ -471,7 +471,7 @@ export function PosScreenClient({
                           )}
 
                           {!isAvailable && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-red-600 text-white shadow-xs">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-red-600 text-white shadow-xs shrink-0">
                               Agotado
                             </span>
                           )}
@@ -484,13 +484,13 @@ export function PosScreenClient({
                           <div className="text-[9px] sm:text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono truncate">
                             {catName}
                           </div>
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-[#ED500A] transition-colors">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-2 leading-snug group-hover:text-[#ED500A] transition-colors break-words min-h-[2.3em]">
                             {prod.name}
                           </h4>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-white/5 gap-1.5">
-                          <div className="min-w-0">
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 dark:border-white/5 gap-1.5 mt-auto">
+                          <div className="min-w-0 flex-1">
                             {hasVariants && (
                               <span className="text-[9px] text-slate-400 block font-mono leading-none">Desde</span>
                             )}
@@ -524,9 +524,9 @@ export function PosScreenClient({
         </section>
 
         {/* PANEL DERECHO: COMANDA / CARRITO DE COMPRAS (DESKTOP) */}
-        <aside className="hidden lg:flex w-[360px] xl:w-[390px] shrink-0 flex-col bg-white dark:bg-[#0B0E14] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xs overflow-hidden">
+        <aside className="hidden lg:flex w-[290px] xl:w-[330px] 2xl:w-[360px] shrink-0 flex-col bg-white dark:bg-[#0B0E14] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs overflow-hidden">
           {/* Header de la comanda */}
-          <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+          <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center">
                 <Receipt className="w-4 h-4" />
@@ -554,7 +554,7 @@ export function PosScreenClient({
           </div>
 
           {/* Lista de productos de la comanda */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+          <div className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5">
             {cartItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-2 text-slate-400">
                 <ShoppingBag className="w-10 h-10 stroke-[1.5] text-slate-300 dark:text-white/20" />
@@ -617,7 +617,7 @@ export function PosScreenClient({
 
                   {/* Selector de cantidad y total de la línea */}
                   <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-white/5">
-                    <div className="flex items-center bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-lg p-0.5">
+                    <div className="flex items-center bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-lg p-0.5">
                       <button
                         type="button"
                         onClick={() => handleUpdateQuantity(item.id, -1)}
@@ -647,7 +647,7 @@ export function PosScreenClient({
           </div>
 
           {/* Resumen de totales y botón de acción (Etapa 2) */}
-          <div className="p-4 bg-slate-50/90 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-3">
+          <div className="p-3 sm:p-4 bg-slate-50/90 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-3">
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between text-slate-500">
                 <span>Subtotal ({summary.itemsCount} productos)</span>
@@ -665,10 +665,10 @@ export function PosScreenClient({
               type="button"
               disabled={cartItems.length === 0}
               onClick={() => setIsDestinationModalOpen(true)}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
+              className="w-full inline-flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-bold text-xs sm:text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
             >
-              <span>Continuar pedido — {formatCOP(summary.total)}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span className="truncate">Continuar pedido · {formatCOP(summary.total)}</span>
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </aside>
@@ -745,6 +745,7 @@ export function PosScreenClient({
         orderNumber={successOrder?.orderNumber || 0}
         orderId={successOrder?.orderId || ""}
         total={successOrder?.total || 0}
+        businessId={businessId}
         onClose={() => {
           setSuccessOrder(null);
           setCartItems([]);
@@ -759,7 +760,7 @@ export function PosScreenClient({
       {isMobileCartOpen && (
         <ModalPortal>
           <div className="fixed inset-0 m-0 z-[9999] lg:hidden flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-h-[88vh] bg-white dark:bg-[#10141d] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+            <div className="w-full max-h-[88vh] bg-white dark:bg-[#0D0F16] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
               {/* Header del drawer */}
               <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2.5">
@@ -857,7 +858,7 @@ export function PosScreenClient({
 
                       {/* Controles táctiles de cantidad y subtotal */}
                       <div className="flex justify-between items-center pt-2 border-t border-slate-200/50 dark:border-white/5">
-                        <div className="flex items-center bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl p-1">
+                        <div className="flex items-center bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl p-1">
                           <button
                             type="button"
                             onClick={() => handleUpdateQuantity(item.id, -1)}
@@ -920,7 +921,7 @@ export function PosScreenClient({
 
       {/* 8. BARRA INFERIOR PERSISTENTE PARA CELULARES (MOBILE-FIRST) */}
       {summary.itemsCount > 0 && !isMobileCartOpen && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-2.5 sm:p-3 bg-white/95 dark:bg-[#10141d]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-white/10 shadow-[0_-8px_20px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-2.5 sm:p-3 bg-white/95 dark:bg-[#0D0F16]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-white/[0.08] shadow-[0_-8px_20px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all">
           <div className="flex items-center justify-between gap-3 max-w-md mx-auto">
             <button
               type="button"

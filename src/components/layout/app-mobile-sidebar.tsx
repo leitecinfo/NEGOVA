@@ -3,9 +3,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { X, ChevronDown } from "lucide-react";
 import { AppNavSection, AppBranding, AppUserProfile } from "./navigation-types";
+import { isRouteActive } from "./navigation-utils";
+import { useNavigationProgress } from "./navigation-progress-bar";
 
 interface AppMobileSidebarProps {
   isOpen: boolean;
@@ -17,6 +19,8 @@ interface AppMobileSidebarProps {
 
 export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userProfile }: AppMobileSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
+  const searchParams = useSearchParams();
+  const { startNavigation } = useNavigationProgress();
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     operacion: true,
@@ -24,19 +28,22 @@ export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userP
     gestion: true,
     administracion: true,
     cuenta: true,
+    principal: true,
+    control: true,
+    sistema: true,
   });
 
   // Asegurar que la sección que contiene la ruta activa esté abierta
   useEffect(() => {
     navSections.forEach((section) => {
       const hasActive = section.items.some((item) =>
-        item.exactMatch ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        isRouteActive(item.href, pathname, searchParams, item.exactMatch)
       );
       if (hasActive) {
         setOpenSections((prev) => ({ ...prev, [section.id]: true }));
       }
     });
-  }, [pathname, navSections]);
+  }, [pathname, searchParams, navSections]);
 
   // Prevenir scroll de fondo mientras esté abierto el drawer
   useEffect(() => {
@@ -84,16 +91,21 @@ export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userP
       />
 
       {/* Panel Drawer */}
-      <div className="fixed inset-y-0 left-0 w-4/5 max-w-xs bg-white dark:bg-[#0D0F16] border-r border-slate-200 dark:border-white/[0.1] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+      <div className="fixed inset-y-0 left-0 w-4/5 max-w-xs bg-white dark:bg-[#0D0F16] border-r border-slate-200 dark:border-white/[0.08] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
           <Link
             href={branding.homeUrl}
-            onClick={onClose}
+            onClick={() => {
+              onClose();
+              if (pathname !== branding.homeUrl) {
+                startNavigation(branding.homeUrl);
+              }
+            }}
             className="flex items-center gap-3 overflow-hidden min-w-0 flex-1 p-1"
           >
             {branding.logoUrl ? (
-              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-xs overflow-hidden relative shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 dark:border-white/[0.08] p-1 flex items-center justify-center shadow-xs overflow-hidden relative shrink-0">
                 <Image
                   src={branding.logoUrl}
                   alt={branding.appTitle}
@@ -152,7 +164,7 @@ export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userP
 
             if (visibleItems.length === 0) return null;
 
-            const isSectionOpen = openSections[section.id] ?? false;
+            const isSectionOpen = openSections[section.id] ?? true;
 
             return (
               <div key={section.id} className="space-y-1">
@@ -180,59 +192,72 @@ export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userP
                   <div className="space-y-1 animate-in fade-in-50 duration-150">
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
-                      const isActive = item.exactMatch
-                        ? pathname === item.href
-                        : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                      const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
 
-                      return (
-                        <div key={item.id} className="space-y-1">
-                          <Link
-                            href={item.href}
-                            onClick={onClose}
-                            className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                              isActive
-                                ? "bg-orange-50 text-[#ED500A] font-semibold border border-orange-200/70 dark:bg-[#ED500A]/10 dark:text-[#ED500A] dark:border-[#ED500A]/20"
-                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <Icon className={`w-4 h-4 ${isActive ? "text-[#ED500A]" : "text-slate-400"}`} />
-                              <span>{item.label}</span>
-                            </div>
-                            {item.badge && (
-                              <span
-                                className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${
-                                  item.badge.variant === "warning"
-                                    ? "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
-                                    : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:border-white/[0.08]"
-                                }`}
-                              >
-                                {item.badge.text}
-                              </span>
-                            )}
-                          </Link>
+                    return (
+                      <div key={item.id} className="space-y-1">
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            onClose();
+                            if (!isActive) {
+                              startNavigation(item.href);
+                            }
+                          }}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                            isActive
+                              ? "bg-orange-50 text-[#ED500A] font-semibold border border-orange-200/70 dark:bg-[#ED500A]/10 dark:text-[#ED500A] dark:border-[#ED500A]/20"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon className={`w-4 h-4 ${isActive ? "text-[#ED500A]" : "text-slate-400"}`} />
+                            <span>{item.label}</span>
+                          </div>
+                          {item.badge ? (
+                            <span
+                              className={`px-1.5 py-0.2 rounded text-[10px] font-mono border ${
+                                item.badge.variant === "warning"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20"
+                                  : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:border-white/[0.08]"
+                              }`}
+                            >
+                              {item.badge.text}
+                            </span>
+                          ) : null}
+                        </Link>
 
-                          {/* Sub-items si están activos */}
-                          {isActive && item.subItems && (
-                            <div className="ml-7 space-y-1 border-l border-slate-200 dark:border-white/[0.08] pl-2.5 pt-1">
-                              {item.subItems.map((subItem) => {
-                                const SubIcon = subItem.icon;
-                                return (
-                                  <Link
-                                    key={subItem.id}
-                                    href={subItem.href}
-                                    onClick={onClose}
-                                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04] transition-colors"
-                                  >
-                                    <SubIcon className="w-3 h-3 text-slate-400 shrink-0" />
-                                    <span className="truncate">{subItem.label}</span>
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
+                        {/* Sub-items si están activos */}
+                        {isActive && item.subItems && (
+                          <div className="ml-7 space-y-1 border-l border-slate-200 dark:border-white/[0.08] pl-2.5 pt-1">
+                            {item.subItems.map((subItem) => {
+                              const SubIcon = subItem.icon;
+                              const isSubActive = isRouteActive(subItem.href, pathname, searchParams);
+                              return (
+                                <Link
+                                  key={subItem.id}
+                                  href={subItem.href}
+                                  onClick={() => {
+                                    onClose();
+                                    if (!isSubActive) {
+                                      startNavigation(subItem.href);
+                                    }
+                                  }}
+                                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                                    isSubActive
+                                      ? "bg-orange-50 text-[#ED500A] font-semibold dark:bg-[#ED500A]/10"
+                                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.04]"
+                                  }`}
+                                >
+                                  <SubIcon className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="truncate">{subItem.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
                     })}
                   </div>
                 )}

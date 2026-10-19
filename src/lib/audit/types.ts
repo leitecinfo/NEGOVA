@@ -23,6 +23,7 @@ export interface LogAuditActionParams {
   entityId?: string | null;
   businessId?: string | null;
   businessName?: string | null;
+  description?: string | null;
   oldData?: Record<string, any> | null;
   newData?: Record<string, any> | null;
   metadata?: Record<string, any> | null;

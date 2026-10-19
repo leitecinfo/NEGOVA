@@ -211,7 +211,7 @@ export function WorkspaceNominaClient({
       </div>
 
       {/* 2. SELECTOR DE PERÍODOS Y ACCIONES */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
         <div className="flex items-center gap-3">
           <Calendar className="w-5 h-5 text-slate-400" />
           <div>
@@ -224,7 +224,7 @@ export function WorkspaceNominaClient({
               className="text-xs font-bold text-slate-900 dark:text-white bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
             >
               {periods.map((p) => (
-                <option key={p.id} value={p.id} className="dark:bg-[#12141C]">
+                <option key={p.id} value={p.id} className="dark:bg-[#0D0F16]">
                   {p.name} ({p.startDate} a {p.endDate}) — {p.status === "paid" ? "Pagado" : "Pendiente"}
                 </option>
               ))}
@@ -246,7 +246,7 @@ export function WorkspaceNominaClient({
 
       {/* 3. TABLA DE COMPROBANTES / LIQUIDACIONES */}
       {!selectedPeriod || receipts.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-white dark:bg-[#0D0E12] border border-dashed border-slate-200 dark:border-white/10 space-y-3">
+        <div className="p-12 text-center rounded-3xl bg-white dark:bg-[#0D0F16] border border-dashed border-slate-200 dark:border-white/[0.08] space-y-3">
           <Wallet className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
           <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">
             No hay liquidaciones registradas en este período
@@ -266,7 +266,7 @@ export function WorkspaceNominaClient({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white">
               Comprobantes de Pago del Período ({receipts.length})
             </h4>
@@ -395,7 +395,7 @@ export function WorkspaceNominaClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-5"
+              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
@@ -421,7 +421,7 @@ export function WorkspaceNominaClient({
                     required
                     value={newPeriodData.name}
                     onChange={(e) => setNewPeriodData({ ...newPeriodData, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   />
                 </div>
 
@@ -432,7 +432,7 @@ export function WorkspaceNominaClient({
                   <select
                     value={newPeriodData.periodType}
                     onChange={(e) => setNewPeriodData({ ...newPeriodData, periodType: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   >
                     <option value="biweekly">Quincenal (Calcula mitad del salario base)</option>
                     <option value="monthly">Mensual (Calcula salario base completo)</option>
@@ -450,7 +450,7 @@ export function WorkspaceNominaClient({
                       required
                       value={newPeriodData.startDate}
                       onChange={(e) => setNewPeriodData({ ...newPeriodData, startDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                   <div>
@@ -462,7 +462,7 @@ export function WorkspaceNominaClient({
                       required
                       value={newPeriodData.endDate}
                       onChange={(e) => setNewPeriodData({ ...newPeriodData, endDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                 </div>
@@ -471,7 +471,7 @@ export function WorkspaceNominaClient({
                   <button
                     type="button"
                     onClick={() => setCreateModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
                   >
                     Cancelar
                   </button>
@@ -494,7 +494,7 @@ export function WorkspaceNominaClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-5"
+              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
@@ -530,7 +530,7 @@ export function WorkspaceNominaClient({
                   <select
                     value={paymentForm.paymentMethod}
                     onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   >
                     <option value="bank_transfer">Transferencia Bancaria</option>
                     <option value="cash">Efectivo (Caja Menor)</option>
@@ -547,7 +547,7 @@ export function WorkspaceNominaClient({
                     type="text"
                     value={paymentForm.paymentReference}
                     onChange={(e) => setPaymentForm({ ...paymentForm, paymentReference: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     placeholder="Ej. TRANSF-902182"
                   />
                 </div>
@@ -560,7 +560,7 @@ export function WorkspaceNominaClient({
                   <button
                     type="button"
                     onClick={() => setPaymentModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300"
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300"
                   >
                     Cancelar
                   </button>
@@ -583,7 +583,7 @@ export function WorkspaceNominaClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 space-y-6"
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 space-y-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
@@ -610,7 +610,7 @@ export function WorkspaceNominaClient({
               </div>
 
               {/* CUERPO DEL COMPROBANTE */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 space-y-3 text-xs">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] space-y-3 text-xs">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 dark:border-white/5">
                   <span className="text-slate-500">Colaborador:</span>
                   <strong className="text-slate-900 dark:text-white">{voucherReceipt.employeeName}</strong>

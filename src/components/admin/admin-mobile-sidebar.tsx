@@ -83,7 +83,7 @@ export function AdminMobileSidebar({ isOpen, onClose, user }: AdminMobileSidebar
       />
 
       {/* Panel Drawer */}
-      <div className="fixed inset-y-0 left-0 w-4/5 max-w-xs bg-white dark:bg-[#0D0F16] border-r border-slate-200 dark:border-white/[0.1] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+      <div className="fixed inset-y-0 left-0 w-4/5 max-w-xs bg-white dark:bg-[#0D0F16] border-r border-slate-200 dark:border-white/10 shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
         {/* Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
           <Link

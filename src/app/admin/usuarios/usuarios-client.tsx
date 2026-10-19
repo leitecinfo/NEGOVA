@@ -463,15 +463,15 @@ export function UsuariosClient({
       ) : (
         <div className="space-y-4">
           {/* VISTA TABULAR PARA DESKTOP */}
-          <div className="hidden md:block rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden">
+          <div className="hidden md:block rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className={`w-full text-left border-collapse ${STICKY_FIRST_COLUMN ? "min-w-[850px]" : ""}`}>
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                     <th
                       className={`py-3.5 px-4 ${
                         STICKY_FIRST_COLUMN
-                          ? "sticky left-0 z-20 bg-slate-50/95 dark:bg-[#0D0E12]/95 backdrop-blur-xs border-r border-slate-200/80 dark:border-white/10 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.4)]"
+                          ? "sticky left-0 z-20 bg-slate-50/95 dark:bg-[#0D0F16]/95 backdrop-blur-xs border-r border-slate-200/80 dark:border-white/[0.08] shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.4)]"
                           : ""
                       }`}
                     >
@@ -499,12 +499,12 @@ export function UsuariosClient({
                         <td
                           className={`py-3.5 px-4 ${
                             STICKY_FIRST_COLUMN
-                              ? "sticky left-0 z-10 bg-white group-hover:bg-slate-50/90 dark:bg-[#0D0E12] dark:group-hover:bg-[#14161F] border-r border-slate-200/80 dark:border-white/10 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.4)]"
+                              ? "sticky left-0 z-10 bg-white group-hover:bg-slate-50/90 dark:bg-[#0D0F16] dark:group-hover:bg-[#14161F] border-r border-slate-200/80 dark:border-white/[0.08] shadow-[4px_0_12px_-2px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.4)]"
                               : ""
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/[0.08] flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
                               {user.fullName.charAt(0).toUpperCase()}
                             </div>
                             <div className="space-y-0.5 min-w-0">
@@ -628,7 +628,7 @@ export function UsuariosClient({
                             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                               menuAnchor?.id === user.id
                                 ? "bg-slate-200 dark:bg-white/20 text-slate-900 dark:text-white border-slate-300 dark:border-white/20 shadow-xs"
-                                : "bg-slate-50/50 dark:bg-white/[0.03] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] border-slate-200/80 dark:border-white/10"
+                                : "bg-slate-50/50 dark:bg-white/[0.03] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] border-slate-200/80 dark:border-white/[0.08]"
                             }`}
                             title="Acciones del Usuario"
                           >
@@ -648,7 +648,7 @@ export function UsuariosClient({
             {data.users.map((user) => (
               <div
                 key={user.id}
-                className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3"
+                className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
@@ -753,7 +753,7 @@ export function UsuariosClient({
           <div
             data-user-actions-menu
             style={{ top: `${menuAnchor.top}px`, left: `${menuAnchor.left}px` }}
-            className="fixed w-52 rounded-xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
+            className="fixed w-52 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-3 py-1.5 border-b border-slate-100 dark:border-white/[0.06] text-[11px] font-semibold text-slate-400 font-mono truncate">
@@ -850,7 +850,7 @@ export function UsuariosClient({
       {deleteModal.isOpen && deleteModal.user && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
@@ -887,7 +887,7 @@ export function UsuariosClient({
                     placeholder={deleteModal.user.email}
                     value={deleteModal.confirmEmailInput}
                     onChange={(e) => setDeleteModal((prev) => ({ ...prev, confirmEmailInput: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
                   />
                 </div>
 
@@ -900,7 +900,7 @@ export function UsuariosClient({
                     placeholder="Ej: Solicitud de baja definitiva / cuenta duplicada"
                     value={deleteModal.reason}
                     onChange={(e) => setDeleteModal((prev) => ({ ...prev, reason: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
                   />
                 </div>
               </div>
@@ -910,7 +910,7 @@ export function UsuariosClient({
                   type="button"
                   disabled={isPending}
                   onClick={() => setDeleteModal((prev) => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>

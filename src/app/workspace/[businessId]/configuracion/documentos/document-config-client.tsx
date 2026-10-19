@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { updateDocumentConfigAction, uploadBusinessLogoAction } from "./actions";
 import { toast } from "sonner";
-import { Save, Upload, Image as ImageIcon, Type, PaintBucket, Building2 } from "lucide-react";
+import { Save, Upload, Image as ImageIcon, Type, PaintBucket, Building2, Printer } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/admin-button";
 import { AdminInput } from "@/components/admin/ui/admin-input";
 
@@ -64,7 +64,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
   return (
     <div className="space-y-8">
       {/* 1. Datos del Comercio en el Documento */}
-      <div className="bg-white dark:bg-[#0B0E14] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shadow-xs">
         <div className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] px-6 py-4 flex items-center gap-3">
           <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg">
             <Building2 className="w-5 h-5" />
@@ -164,7 +164,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
       </div>
 
       {/* 2. Identidad Visual */}
-      <div className="bg-white dark:bg-[#0B0E14] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shadow-xs">
         <div className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] px-6 py-4 flex items-center gap-3">
           <div className="p-2 bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg">
             <PaintBucket className="w-5 h-5" />
@@ -257,7 +257,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
       </div>
 
       {/* 3. Textos y Personalización del Documento */}
-      <div className="bg-white dark:bg-[#0B0E14] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shadow-xs">
         <div className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] px-6 py-4 flex items-center gap-3">
           <div className="p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg">
             <Type className="w-5 h-5" />
@@ -317,7 +317,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
               onChange={handleChange}
               placeholder="Ej. Conserve este documento como constancia..."
               rows={2}
-              className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+              className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
             />
           </div>
 
@@ -331,7 +331,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
               onChange={handleChange}
               placeholder="Ej. Condiciones generales de venta y entrega de productos..."
               rows={2}
-              className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+              className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
             />
           </div>
 
@@ -346,7 +346,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
                 onChange={handleChange}
                 placeholder="Ej. Los cambios de mercancía se aceptan dentro de los 30 días..."
                 rows={2}
-                className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
               />
             </div>
 
@@ -360,7 +360,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
                 onChange={handleChange}
                 placeholder="Ej. Garantía de 90 días por defectos de fábrica..."
                 rows={2}
-                className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
               />
             </div>
           </div>
@@ -375,9 +375,82 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
               onChange={handleChange}
               placeholder="Ej. Documento comercial de control interno."
               rows={2}
-              className="w-full bg-slate-50 dark:bg-[#12141A] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+              className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
             />
           </div>
+        </div>
+      </div>
+
+      {/* 3. Configuración de Impresión Térmica (Comprobante POS / Restaurante) */}
+      <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shadow-xs">
+        <div className="border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg">
+              <Printer className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900 dark:text-white">
+                Impresión Térmica de Comprobantes (POS y Domicilios)
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Selecciona el ancho de rollo predeterminado para tus tiquetes en caja, salón y domicilios.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20">
+            {config.paperWidth || "80mm"}
+          </span>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setConfig({ ...config, paperWidth: "80mm" })}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                (config.paperWidth || "80mm") === "80mm"
+                  ? "bg-emerald-50/50 dark:bg-emerald-500/10 border-emerald-500 ring-2 ring-emerald-500/20"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  80 mm (Estándar Punto de Venta)
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  80 mm
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Recomendado para impresoras de caja fijas (Epson TM-T20, Star Micronics, Xprinter 80mm). Permite ver columnas completas de Cantidad, P. Unitario e Importe alineados.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConfig({ ...config, paperWidth: "58mm" })}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                config.paperWidth === "58mm"
+                  ? "bg-emerald-50/50 dark:bg-emerald-500/10 border-emerald-500 ring-2 ring-emerald-500/20"
+                  : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  58 mm (Compacta / Portátil)
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  58 mm
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Diseñado para impresoras térmicas pequeñas, Bluetooth o portátiles. Formato optimizado para rollos angostos sin recortes de texto ni desbordes.
+              </p>
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+            * Podrás alternar entre 58 mm y 80 mm en cualquier momento desde la vista previa de impresión antes de enviar el tiquete a la impresora.
+          </p>
         </div>
       </div>
 

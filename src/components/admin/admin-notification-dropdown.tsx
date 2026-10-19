@@ -162,7 +162,7 @@ export function AdminNotificationDropdown() {
         <div
           role="region"
           aria-label="Vista previa de notificaciones"
-          className="absolute right-0 mt-1.5 w-80 sm:w-96 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-1.5 w-80 sm:w-96 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Header */}
           <div className="p-3.5 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/80 dark:bg-white/[0.02]">

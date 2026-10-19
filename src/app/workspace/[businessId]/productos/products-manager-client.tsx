@@ -24,7 +24,6 @@ import { CommercialActivity } from "@/config/commercial-activities";
 import { ProductFormModal } from "./product-form-modal";
 import { CategoryManagerModal } from "./category-manager-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { AppLoadingScreen } from "@/components/ui/app-loading-screen";
 import {
   toggleProductAvailabilityAction,
   archiveProductAction,
@@ -71,13 +70,6 @@ export function ProductsManagerClient({
   const [productToArchive, setProductToArchive] = useState<{ id: string; name: string } | null>(null);
 
   const [isPending, startTransition] = useTransition();
-  const [isNavigatingMenu, startNavigatingMenu] = useTransition();
-
-  const handleOpenDigitalMenu = () => {
-    startNavigatingMenu(() => {
-      router.push(`/workspace/${businessId}/productos/menu`);
-    });
-  };
 
   const handleRefreshCategories = async () => {
     const res = await getCategoriesAction(businessId);
@@ -180,14 +172,14 @@ export function ProductsManagerClient({
               placeholder="Buscar por nombre o descripción..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 w-full"
+              className="pl-9 pr-4 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/50 w-full transition-colors"
             />
           </div>
 
           <select
             value={availabilityFilter}
             onChange={(e) => setAvailabilityFilter(e.target.value as any)}
-            className="px-3 py-2 bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-xl text-sm focus:outline-none"
+            className="px-3 py-2 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-sm focus:outline-hidden transition-colors"
           >
             <option value="all">Todos ({products.length})</option>
             <option value="available">Disponibles ({activeCount})</option>
@@ -197,23 +189,18 @@ export function ProductsManagerClient({
 
         {/* Botones de Acción */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
-          <button
-            onClick={handleOpenDigitalMenu}
-            disabled={isNavigatingMenu}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-all disabled:opacity-75 cursor-pointer shadow-sm active:scale-95"
+          <Link
+            href={`/workspace/${businessId}/productos/menu`}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors shadow-2xs"
             title="Abrir configuración del Menú Digital"
           >
-            {isNavigatingMenu ? (
-              <Loader2 className="w-4 h-4 text-[#ED500A] animate-spin" />
-            ) : (
-              <BookOpen className="w-4 h-4 text-[#ED500A]" />
-            )}
-            <span>{isNavigatingMenu ? "Cargando menú..." : "Menú Digital"}</span>
-          </button>
+            <BookOpen className="w-4 h-4 text-[#ED500A]" />
+            <span>Menú Digital</span>
+          </Link>
 
           <button
             onClick={() => setIsCategoryModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors shadow-2xs"
           >
             <FolderKanban className="w-4 h-4 text-[#ED500A]" />
             <span>Categorías ({categories.length})</span>
@@ -224,7 +211,7 @@ export function ProductsManagerClient({
               setEditingProduct(null);
               setIsProductModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>Nuevo Producto</span>
@@ -233,13 +220,13 @@ export function ProductsManagerClient({
       </div>
 
       {/* BARRA HORIZONTAL DE CATEGORÍAS (PILLS) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar border-b border-slate-200/60 dark:border-white/5">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar border-b border-slate-200/60 dark:border-white/[0.06]">
         <button
           onClick={() => setSelectedCategory("all")}
           className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
             selectedCategory === "all"
               ? "bg-[#ED500A] text-white shadow-xs"
-              : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              : "bg-slate-100 dark:bg-white/[0.04] border border-transparent dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-white/[0.08]"
           }`}
         >
           Todas ({products.length})
@@ -262,7 +249,7 @@ export function ProductsManagerClient({
                 className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   isSelected
                     ? "bg-[#ED500A] text-white shadow-xs"
-                    : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    : "bg-slate-100 dark:bg-white/[0.04] border border-transparent dark:border-white/[0.06] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-white/[0.08]"
                 }`}
               >
                 <span>{c.name}</span>
@@ -270,7 +257,7 @@ export function ProductsManagerClient({
                   className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                     isSelected
                       ? "bg-white/20 text-white"
-                      : "bg-slate-200 dark:bg-white/10 text-slate-500"
+                      : "bg-slate-200 dark:bg-white/[0.08] text-slate-500 dark:text-slate-400"
                   }`}
                 >
                   {countInCat}
@@ -284,7 +271,7 @@ export function ProductsManagerClient({
             handleRefreshCategories();
             setIsCategoryModalOpen(true);
           }}
-          className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 border border-dashed border-slate-300 dark:border-white/15 text-slate-500 hover:text-[#ED500A] rounded-xl text-xs font-medium hover:border-[#ED500A]/40 transition-colors"
+          className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 border border-dashed border-slate-300 dark:border-white/[0.12] text-slate-500 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] rounded-xl text-xs font-medium hover:border-[#ED500A]/40 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Gestionar</span>
@@ -293,12 +280,12 @@ export function ProductsManagerClient({
 
       {/* Grid de Productos */}
       {filteredProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-300 dark:border-white/10 rounded-2xl bg-slate-50/50 dark:bg-white/5">
+        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-300 dark:border-white/[0.08] rounded-2xl bg-slate-50/50 dark:bg-white/[0.02]">
           <PackageSearch className="w-12 h-12 text-slate-400 mb-3" />
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             No se encontraron productos
           </h3>
-          <p className="text-sm text-slate-500 max-w-sm mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mt-1">
             {search || selectedCategory !== "all" || availabilityFilter !== "all"
               ? "No hay resultados para los filtros seleccionados. Intenta cambiar los criterios de búsqueda o categoría."
               : "Tu catálogo está listo. Haz clic en 'Nuevo Producto' para comenzar a añadir tus platos, artículos o servicios."}
@@ -326,7 +313,7 @@ export function ProductsManagerClient({
             return (
               <div
                 key={product.id}
-                className="group relative bg-white dark:bg-[#10141d] border border-slate-200 dark:border-white/10 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-xs"
+                className="group relative bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-white/[0.18] transition-all shadow-xs"
               >
                 <div>
                   {/* Encabezado: Nombre, Categoría y Acciones */}
@@ -346,7 +333,7 @@ export function ProductsManagerClient({
                           setEditingProduct(product);
                           setIsProductModalOpen(true);
                         }}
-                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
                         title="Editar producto"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -355,7 +342,7 @@ export function ProductsManagerClient({
                   </div>
 
                   {/* Imagen del producto con fallback profesional */}
-                  <div className="mt-3 relative h-36 rounded-xl overflow-hidden bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 flex items-center justify-center">
+                  <div className="mt-3 relative h-36 rounded-xl overflow-hidden bg-slate-100 dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/[0.06] flex items-center justify-center">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
@@ -414,7 +401,7 @@ export function ProductsManagerClient({
                     )}
 
                     {(product.metadata as any)?.unit && (product.metadata as any).unit !== "unidad" && (
-                      <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+                      <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-white/[0.06]">
                         {(product.metadata as any).unit}
                       </span>
                     )}
@@ -432,7 +419,7 @@ export function ProductsManagerClient({
                 </div>
 
                 {/* Pie de la tarjeta: Estado, Precio y Archivar */}
-                <div className="mt-4 pt-3.5 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+                <div className="mt-4 pt-3.5 flex items-center justify-between border-t border-slate-100 dark:border-white/[0.06]">
                   <div className="flex flex-col">
                     <span className="text-base font-bold text-slate-900 dark:text-white">
                       {formatCOP(product.price)}
@@ -443,10 +430,10 @@ export function ProductsManagerClient({
                       <button
                         onClick={() => handleToggleAvailability(product.id, product.is_available)}
                         disabled={isPending}
-                        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                           product.is_available
                             ? "bg-emerald-500"
-                            : "bg-slate-300 dark:bg-slate-700"
+                            : "bg-slate-300 dark:bg-white/[0.15]"
                         }`}
                         title={product.is_available ? "Cambiar a Agotado" : "Cambiar a Disponible"}
                       >
@@ -525,11 +512,6 @@ export function ProductsManagerClient({
         variant="danger"
         isLoading={isPending}
       />
-
-      {/* Pantalla Completa de Carga al Navegar a Menú Digital */}
-      {isNavigatingMenu && (
-        <AppLoadingScreen title="NEGOVA" subtitle="Cargando Menú Digital..." fullScreen={true} />
-      )}
     </div>
   );
 }

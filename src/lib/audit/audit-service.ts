@@ -103,6 +103,7 @@ export async function logAuditAction(params: LogAuditActionParams): Promise<{ su
 
     const metadataPayload: Record<string, any> = {
       ...(params.metadata || {}),
+      ...(params.description ? { description: params.description } : {}),
       ...(specificAction ? { original_action: specificAction } : {}),
     };
 

@@ -222,11 +222,11 @@ export function AdminPersonalClient({
               resetLabel="Registrar Primer Empleado"
             />
           ) : (
-            <div className="rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden">
+            <div className="rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[700px] text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-mono">
+                    <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-mono">
                       <th className="py-3 px-4">Empleado Interno</th>
                       <th className="py-3 px-4">Documento</th>
                       <th className="py-3 px-4">Cargo en NEGOVA</th>
@@ -294,7 +294,7 @@ export function AdminPersonalClient({
               {periods.map((per) => (
                 <div
                   key={per.id}
-                  className="p-5 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4"
+                  className="p-5 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-white/[0.06]">
                     <div>
@@ -357,7 +357,7 @@ export function AdminPersonalClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-5"
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
@@ -382,7 +382,7 @@ export function AdminPersonalClient({
                       required
                       value={empForm.firstName}
                       onChange={(e) => setEmpForm({ ...empForm, firstName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                       placeholder="Ej. Ana María"
                     />
                   </div>
@@ -393,7 +393,7 @@ export function AdminPersonalClient({
                       required
                       value={empForm.lastName}
                       onChange={(e) => setEmpForm({ ...empForm, lastName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                       placeholder="Ej. Restrepo"
                     />
                   </div>
@@ -407,7 +407,7 @@ export function AdminPersonalClient({
                       required
                       value={empForm.documentNumber}
                       onChange={(e) => setEmpForm({ ...empForm, documentNumber: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
@@ -417,7 +417,7 @@ export function AdminPersonalClient({
                       required
                       value={empForm.jobTitle}
                       onChange={(e) => setEmpForm({ ...empForm, jobTitle: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                       placeholder="Ej. Desarrollador Backend"
                     />
                   </div>
@@ -431,7 +431,7 @@ export function AdminPersonalClient({
                     required
                     value={empForm.baseSalary || ""}
                     onChange={(e) => setEmpForm({ ...empForm, baseSalary: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     placeholder="Ej. 4500000"
                   />
                 </div>
@@ -440,7 +440,7 @@ export function AdminPersonalClient({
                   <button
                     type="button"
                     onClick={() => setCreateEmployeeModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600"
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600"
                   >
                     Cancelar
                   </button>
@@ -463,7 +463,7 @@ export function AdminPersonalClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-5"
+              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
@@ -487,7 +487,7 @@ export function AdminPersonalClient({
                     required
                     value={periodForm.name}
                     onChange={(e) => setPeriodForm({ ...periodForm, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   />
                 </div>
 
@@ -499,7 +499,7 @@ export function AdminPersonalClient({
                       required
                       value={periodForm.startDate}
                       onChange={(e) => setPeriodForm({ ...periodForm, startDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                   <div>
@@ -509,7 +509,7 @@ export function AdminPersonalClient({
                       required
                       value={periodForm.endDate}
                       onChange={(e) => setPeriodForm({ ...periodForm, endDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                 </div>

@@ -207,6 +207,10 @@ const createMockSupabase = () => ({
               filtered = filtered.filter((o) => (o as any)[col] === val);
               return chain;
             },
+            neq: (col: string, val: any) => {
+              filtered = filtered.filter((o) => (o as any)[col] !== val);
+              return chain;
+            },
             in: (col: string, vals: string[]) => {
               filtered = filtered.filter((o) => vals.includes((o as any)[col]));
               return chain;

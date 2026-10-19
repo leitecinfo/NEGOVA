@@ -191,7 +191,7 @@ export function AdminGrowthChart({ monthlyData, currentMrr = 0 }: AdminGrowthCha
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="rounded-xl bg-slate-900 text-white dark:bg-[#131722] dark:text-white p-3 border border-slate-700 dark:border-[#1E2333] shadow-xl text-xs space-y-1">
+                    <div className="rounded-xl bg-slate-900 text-white dark:bg-[#0D0F16] dark:text-white p-3 border border-slate-700 dark:border-white/[0.08] shadow-xl text-xs space-y-1">
                       <p className="font-mono text-slate-400 font-semibold">{label}</p>
                       <p className="font-title font-bold text-sm">
                         {activeConf.formatter(payload[0].value as number)}

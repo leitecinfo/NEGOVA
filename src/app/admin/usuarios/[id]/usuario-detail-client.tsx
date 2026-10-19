@@ -319,11 +319,11 @@ export function UsuarioDetailClient({
   return (
     <div className="space-y-6 font-body">
       {/* 1. TARJETA PRINCIPAL DE PERFIL */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs">
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           {/* Avatar e Identidad */}
           <div className="flex items-start gap-4 sm:gap-5">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center font-title text-xl sm:text-2xl font-bold text-slate-800 dark:text-white shrink-0 shadow-xs">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/[0.08] flex items-center justify-center font-title text-xl sm:text-2xl font-bold text-slate-800 dark:text-white shrink-0 shadow-xs">
               {user.fullName.charAt(0).toUpperCase()}
             </div>
 
@@ -479,7 +479,7 @@ export function UsuarioDetailClient({
           ) : (
             /* Vista de catálogo por defecto para usuarios sin membresía de negocio */
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <Shield className="w-4 h-4 text-[#ED500A]" />
                   <span>
@@ -500,7 +500,7 @@ export function UsuarioDetailClient({
                   return (
                     <div
                       key={group.moduleId}
-                      className="p-5 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3"
+                      className="p-5 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-3"
                     >
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.04]">
                         <div>
@@ -551,7 +551,7 @@ export function UsuarioDetailClient({
 
       {/* TAB B: MEMBRESÍAS DE NEGOCIOS */}
       {activeTab === "memberships" && (
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-6">
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/[0.06]">
             <div>
               <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
@@ -648,7 +648,7 @@ export function UsuarioDetailClient({
 
       {/* TAB C: INFORMACIÓN GENERAL */}
       {activeTab === "info" && (
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             Detalles Técnicos de Identidad
           </h3>
@@ -684,7 +684,7 @@ export function UsuarioDetailClient({
 
       {/* TAB D: AUDITORÍA */}
       {activeTab === "audit" && (
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
             Historial de Auditoría y Trazabilidad
           </h3>
@@ -695,7 +695,7 @@ export function UsuarioDetailClient({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 text-[10px] uppercase font-mono text-slate-400">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] text-[10px] uppercase font-mono text-slate-400">
                     <th className="py-2.5 px-3">Fecha</th>
                     <th className="py-2.5 px-3">Acción</th>
                     <th className="py-2.5 px-3">Tipo de Entidad</th>
@@ -744,7 +744,7 @@ export function UsuarioDetailClient({
       {isEditModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Editar Datos de Perfil
               </h3>
@@ -772,7 +772,7 @@ export function UsuarioDetailClient({
                     rows={3}
                     value={editBio}
                     onChange={(e) => setEditBio(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                   />
                 </div>
 
@@ -804,7 +804,7 @@ export function UsuarioDetailClient({
       {isRoleModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Cambiar Rol de {user.fullName}
               </h3>
@@ -825,7 +825,7 @@ export function UsuarioDetailClient({
                           ? isPlatform
                             ? "bg-[#ED500A]/5 border-[#ED500A] dark:bg-[#ED500A]/10 shadow-xs ring-1 ring-[#ED500A]/30"
                             : "bg-purple-500/5 border-purple-500 dark:bg-purple-500/10 shadow-xs ring-1 ring-purple-500/30"
-                          : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 hover:border-slate-300"
+                          : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
                       }`}
                     >
                       <div>
@@ -874,7 +874,7 @@ export function UsuarioDetailClient({
       {isResetPassModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
                   <KeyRound className="w-5 h-5" />
@@ -941,7 +941,7 @@ export function UsuarioDetailClient({
       {isDeleteModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-white dark:bg-[#0D0E12] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
@@ -978,7 +978,7 @@ export function UsuarioDetailClient({
                     placeholder={user.email}
                     value={confirmDeleteEmail}
                     onChange={(e) => setConfirmDeleteEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
                   />
                 </div>
 
@@ -991,7 +991,7 @@ export function UsuarioDetailClient({
                     placeholder="Ej: Solicitud de baja definitiva / cuenta duplicada"
                     value={deleteReason}
                     onChange={(e) => setDeleteReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
                   />
                 </div>
               </div>
@@ -1001,7 +1001,7 @@ export function UsuarioDetailClient({
                   type="button"
                   disabled={isPending}
                   onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>

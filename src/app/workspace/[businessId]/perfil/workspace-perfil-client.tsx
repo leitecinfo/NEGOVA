@@ -352,7 +352,7 @@ export function WorkspacePerfilClient({
             onClick={() => setActiveTab("general")}
             className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
               activeTab === "general"
-                ? "bg-white dark:bg-[#1A1D27] text-slate-900 dark:text-white shadow-xs"
+                ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
@@ -365,7 +365,7 @@ export function WorkspacePerfilClient({
             onClick={() => setActiveTab("seguridad")}
             className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
               activeTab === "seguridad"
-                ? "bg-white dark:bg-[#1A1D27] text-slate-900 dark:text-white shadow-xs"
+                ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             }`}
           >

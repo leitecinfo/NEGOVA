@@ -32,13 +32,13 @@
     --secondary-foreground: 0 0% 100%;
     /* #FFFFFF */
 
-    --muted: 220 18% 89%;
-    /* #DEDFE8 (Contenedores neutros suaves) */
+    --muted: 220 18% 92%;
+    /* #E4E5EE (Contenedores neutros suaves) */
     --muted-foreground: 218 10% 40%;
     /* #60626A */
 
     --accent: 18 92% 48%;
-    /* #ED500A / #AB3500 (Naranja energía/acciones) */
+    /* #ED500A (Naranja energía/acciones) */
     --accent-foreground: 0 0% 100%;
     /* #FFFFFF */
 
@@ -47,10 +47,10 @@
     --destructive-foreground: 0 0% 100%;
     /* #FFFFFF */
 
-    --border: 218 29% 6% / 0.08;
-    /* Borde sutil al 8% */
-    --input: 218 29% 6% / 0.10;
-    /* Input border al 10% */
+    --border: 218 20% 90%;
+    /* Borde sutil slate-200 */
+    --input: 218 20% 90%;
+    /* Input border */
     --ring: 18 92% 48%;
     /* Ring de enfoque (Naranja Accent) */
 
@@ -59,28 +59,44 @@
   }
 
   .dark {
+    /* Fondo principal: Profundo y sobrio (0dp) */
     --background: 218 29% 6%;
     /* #0B0E14 */
     --foreground: 228 50% 98%;
-    /* #F8F9FD */
-    --card: 218 29% 10%;
-    /* Superficie oscura */
+    /* #F8F9FD (Texto principal alto contraste) */
+
+    /* Superficie elevada para Tarjetas, Paneles y Tablas (2dp) */
+    --card: 227 26% 7%;
+    /* #0D0F16 (Superficie canónica de los módulos «En construcción») */
     --card-foreground: 228 50% 98%;
-    --popover: 218 29% 10%;
+
+    /* Superficie para Modales, Popovers y Dropdowns (4dp) */
+    --popover: 227 28% 9%;
+    /* #111420 (Superficie elevada del gradiente de referencia) */
     --popover-foreground: 228 50% 98%;
+
     --primary: 220 3% 80%;
     --primary-foreground: 218 29% 6%;
-    --secondary: 225 5% 25%;
+
+    --secondary: 225 15% 20%;
     --secondary-foreground: 228 50% 98%;
-    --muted: 218 20% 18%;
-    --muted-foreground: 218 10% 65%;
+
+    /* Contenedores inset y pills secundarios */
+    --muted: 227 20% 10%;
+    /* #141620 */
+    --muted-foreground: 215 20% 65%;
+    /* #94A3B8 (WCAG AA contraste > 4.5:1) */
+
     --accent: 18 92% 48%;
     /* #ED500A Naranja Accent */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
+
+    --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
+
+    --border: 227 18% 13%;
+    /* Bordes acordes a white/[0.08] */
+    --input: 227 18% 13%;
     --ring: 18 92% 48%;
   }
 }

@@ -733,4 +733,101 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
       expect(resSummary.data?.total).toBe(4);
     });
   });
+
+  // ============================================================================
+  // 9. REGLAS Y VALIDACIONES DE DRAG & DROP EN TABLERO KANBAN
+  // ============================================================================
+  describe("9. Reglas Operativas y Drag & Drop del Tablero Kanban", () => {
+    beforeEach(() => {
+      mockAuthPermissions = {
+        "orders.view": true,
+        "orders.update": true,
+        "orders.cancel": true,
+      };
+    });
+
+    it("permite transiciones válidas de arrastre en secuencia operativa", async () => {
+      // 1. received -> in_preparation
+      expect(VALID_ORDER_STATUS_TRANSITIONS["received"]).toContain("in_preparation");
+      const res1 = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "in_preparation");
+      expect(res1.success).toBe(true);
+
+      // 2. in_preparation -> ready
+      expect(VALID_ORDER_STATUS_TRANSITIONS["in_preparation"]).toContain("ready");
+      const res2 = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "ready");
+      expect(res2.success).toBe(true);
+
+      // 3. ready -> delivered
+      expect(VALID_ORDER_STATUS_TRANSITIONS["ready"]).toContain("delivered");
+      const res3 = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "delivered");
+      expect(res3.success).toBe(true);
+
+      const finalOrder = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-001");
+      expect(finalOrder?.status).toBe("delivered");
+    });
+
+    it("bloquea saltos de etapa no permitidos (ej. de received directamente a delivered)", async () => {
+      expect(VALID_ORDER_STATUS_TRANSITIONS["received"]).not.toContain("delivered");
+
+      const res = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "delivered");
+      expect(res.success).toBe(false);
+      expect(res.error).toContain("Transición no permitida");
+
+      // La orden permanece en su estado original (rollback asegurado)
+      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-001");
+      expect(check?.status).toBe("received");
+    });
+
+    it("no permite que pedidos entregados vuelvan a la cocina o a recibidos", async () => {
+      expect(VALID_ORDER_STATUS_TRANSITIONS["delivered"]).toHaveLength(0);
+
+      const resBack = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-004", "in_preparation");
+      expect(resBack.success).toBe(false);
+      expect(resBack.error).toContain("Transición no permitida");
+
+      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-004");
+      expect(check?.status).toBe("delivered");
+    });
+
+    it("no permite que un pedido cancelado sea reactivado mediante arrastre", async () => {
+      // Cancelamos ord-003 primero para simular comanda anulada
+      await cancelRestaurantOrder(BUSINESS_A, "ord-003", "Cancelado de prueba");
+      expect(VALID_ORDER_STATUS_TRANSITIONS["cancelled"]).toHaveLength(0);
+
+      const res = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-003", "received");
+      expect(res.success).toBe(false);
+      expect(res.error).toContain("Transición no permitida");
+
+      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-003");
+      expect(check?.status).toBe("cancelled");
+    });
+
+    it("al arrastrar a entregado, conserva estrictamente el estado de pago pendiente", async () => {
+      // ord-001 inicia en 'received' con 'pending'
+      const resPrep = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "in_preparation");
+      expect(resPrep.success).toBe(true);
+
+      const resReady = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "ready");
+      expect(resReady.success).toBe(true);
+
+      const resDeliver = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "delivered");
+      expect(resDeliver.success).toBe(true);
+
+      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-001");
+      expect(check?.status).toBe("delivered");
+      expect(check?.payment_status).toBe("pending"); // Nunca convierte a pagado automáticamente
+    });
+
+    it("evita que un usuario sin permisos actualice el estado por drag and drop", async () => {
+      mockAuthPermissions["orders.update"] = false;
+      mockAuthPermissions["orders.manage"] = false;
+
+      const res = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "in_preparation");
+      expect(res.success).toBe(false);
+      expect(res.error).toContain("Permiso insuficiente");
+
+      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-001");
+      expect(check?.status).toBe("received");
+    });
+  });
 });

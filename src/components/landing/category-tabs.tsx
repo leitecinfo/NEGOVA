@@ -95,7 +95,7 @@ export function CategoryTabs() {
   const current = categories[activeTab];
 
   return (
-    <section id="categorias" className="py-24 bg-white dark:bg-[#0F131C] border-y border-slate-200 dark:border-slate-800">
+    <section id="categorias" className="py-24 bg-white dark:bg-[#0D0F16] border-y border-slate-200 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         <div className="text-center space-y-4 max-w-3xl mx-auto">
@@ -170,7 +170,7 @@ export function CategoryTabs() {
           </div>
 
           {/* LISTA DE NICHOS ESPECÍFICOS */}
-          <div className="bg-white dark:bg-[#0F131C] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
+          <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
             <h4 className="font-title font-bold text-sm text-slate-400 uppercase tracking-wider">
               Tipos de establecimientos compatibles:
             </h4>

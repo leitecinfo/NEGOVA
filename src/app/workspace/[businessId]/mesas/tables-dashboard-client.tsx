@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -71,6 +71,35 @@ export function TablesDashboardClient({
 }: TablesDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Sincronización automática periódica y al recuperar foco de ventana
+  useEffect(() => {
+    const handleFocus = () => {
+      router.refresh();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Sondeo suave cada 12 segundos para reflejar liberaciones automáticas en tiempo real
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }, 12000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+    };
+  }, [router]);
 
   // Estados locales de filtrado, búsqueda y modo de vista
   const [search, setSearch] = useState("");
@@ -273,13 +302,13 @@ export function TablesDashboardClient({
       actions={
         <div className="flex items-center gap-2">
           {/* Switcher de Vista: Salón Gráfico vs Lista */}
-          <div className="hidden sm:inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs">
+          <div className="hidden sm:inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] text-xs">
             <button
               type="button"
               onClick={() => setViewMode("floor")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
                 viewMode === "floor"
-                  ? "bg-white dark:bg-[#1A1D24] text-slate-900 dark:text-white shadow-xs font-semibold"
+                  ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs font-semibold"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
               title="Vista de plano de salón gráfico con mesas y sillas"
@@ -292,7 +321,7 @@ export function TablesDashboardClient({
               onClick={() => setViewMode("compact")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
                 viewMode === "compact"
-                  ? "bg-white dark:bg-[#1A1D24] text-slate-900 dark:text-white shadow-xs font-semibold"
+                  ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs font-semibold"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
               title="Vista compacta de mesas para alta densidad"
@@ -363,7 +392,7 @@ export function TablesDashboardClient({
         {/* ========================================================================= */}
         {/* 2. BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS RÁPIDOS */}
         {/* ========================================================================= */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
           {/* Segmented Quick Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             <button
@@ -379,7 +408,7 @@ export function TablesDashboardClient({
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                   statusFilter === "all"
-                    ? "bg-white/20 text-white dark:bg-black/10 dark:text-slate-900"
+                    ? "bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900"
                     : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300"
                 }`}
               >
@@ -429,7 +458,7 @@ export function TablesDashboardClient({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar mesa o cliente..."
-                className="w-full h-9 pl-9 pr-8 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                className="w-full h-9 pl-9 pr-8 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
               />
               {search && (
                 <button
@@ -446,7 +475,7 @@ export function TablesDashboardClient({
               type="button"
               onClick={() => router.refresh()}
               disabled={isPending}
-              className="p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0"
+              className="p-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0"
               title="Refrescar estado de mesas"
             >
               <RefreshCw className={`w-4 h-4 ${isPending ? "animate-spin text-[#ED500A]" : ""}`} />
@@ -497,7 +526,7 @@ export function TablesDashboardClient({
                         className={`w-11 h-4 rounded-t-xl rounded-b-xs border transition-all duration-300 shadow-xs ${
                           isOccupied
                             ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                            : "bg-slate-100 dark:bg-[#1E222D] border-slate-300 dark:border-white/10 group-hover:border-emerald-500/40"
+                            : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
                         }`}
                       />
                     ))}
@@ -514,7 +543,7 @@ export function TablesDashboardClient({
                             className={`w-4 h-11 rounded-l-xl rounded-r-xs border transition-all duration-300 shadow-xs ${
                               isOccupied
                                 ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                                : "bg-slate-100 dark:bg-[#1E222D] border-slate-300 dark:border-white/10 group-hover:border-emerald-500/40"
+                                : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
                             }`}
                           />
                         ))}
@@ -525,10 +554,10 @@ export function TablesDashboardClient({
 
                     {/* SUPERFICIE DE LA MESA */}
                     <div
-                      className={`relative flex-1 rounded-3xl p-5 border-2 transition-all duration-300 overflow-hidden shadow-md group-hover:-translate-y-1 group-hover:shadow-xl ${
+                      className={`relative flex-1 rounded-3xl p-4 sm:p-5 border-2 transition-all duration-300 overflow-hidden shadow-md group-hover:-translate-y-1 group-hover:shadow-xl ${
                         isOccupied
                           ? "bg-gradient-to-b from-amber-50/90 via-white to-amber-50/50 dark:from-[#1E1913] dark:via-[#16130F] dark:to-[#120F0C] border-amber-400/80 dark:border-amber-500/40 shadow-amber-500/5 group-hover:border-amber-500"
-                          : "bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#171A23] dark:via-[#13161C] dark:to-[#0E1015] border-slate-200 dark:border-white/10 group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/5"
+                          : "bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#171A23] dark:via-[#13161C] dark:to-[#0E1015] border-slate-200 dark:border-white/[0.08] group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/5"
                       }`}
                     >
                       {/* Ambient Accent Watermark */}
@@ -537,95 +566,116 @@ export function TablesDashboardClient({
                       </div>
 
                       {/* CABECERA DE LA MESA: NOMBRE, CAPACIDAD Y ESTADO */}
-                      <div className="flex items-start justify-between gap-2 relative z-10">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                              {tbl.name_or_number}
-                            </h3>
-                            {/* Chip de comensales / capacidad */}
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10">
-                              <Users className="w-3 h-3 text-slate-400" />
-                              <span>{tbl.capacity || 4} pax</span>
-                            </span>
-                          </div>
+                      <div className={`space-y-2 relative ${activeMenuTableId === tbl.id ? "z-30" : "z-10"}`}>
+                        {/* Fila 1: Nombre de la mesa y Estado */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight whitespace-nowrap min-w-0 truncate">
+                            {tbl.name_or_number}
+                          </h3>
 
-                          <p className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-1">
-                            {isOccupied ? (
-                              <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-                                <Clock className="w-3 h-3 animate-spin text-amber-500" style={{ animationDuration: "12s" }} />
-                                {durationText || "En servicio"}
-                              </span>
-                            ) : (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Lista para comanda
-                              </span>
+                          {/* ESTADO VIBRANTE DE LA MESA */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border shadow-xs ${
+                                isOccupied
+                                  ? "bg-amber-500 text-white border-amber-600 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30"
+                                  : "bg-emerald-500 text-white border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isOccupied ? "bg-white dark:bg-amber-400 animate-ping" : "bg-white dark:bg-emerald-400"
+                                }`}
+                              />
+                              <span>{isOccupied ? "OCUPADA" : "LIBRE"}</span>
+                            </span>
+
+                            {/* Menú Administrativo Flotante */}
+                            {canManageTables && (
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuTableId(activeMenuTableId === tbl.id ? null : tbl.id);
+                                  }}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                                  title="Opciones administrativas"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {activeMenuTableId === tbl.id && (
+                                  <>
+                                    {/* Backdrop transparente para cerrar al hacer clic afuera */}
+                                    <div
+                                      className="fixed inset-0 z-40 cursor-default"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveMenuTableId(null);
+                                      }}
+                                    />
+
+                                    {/* Dropdown completamente opaco con sombra y z-index superior */}
+                                    <div className="absolute right-0 top-full mt-1.5 w-40 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/15 rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveMenuTableId(null);
+                                          handleOpenEditModal(tbl);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>Editar Mesa</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveMenuTableId(null);
+                                          setTableToDelete(tbl);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                        <span>Eliminar Mesa</span>
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
                             )}
-                          </p>
+                          </div>
                         </div>
 
-                        {/* ESTADO VIBRANTE DE LA MESA */}
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black border shadow-xs ${
-                              isOccupied
-                                ? "bg-amber-500 text-white border-amber-600 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30"
-                                : "bg-emerald-500 text-white border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isOccupied ? "bg-white dark:bg-amber-400 animate-ping" : "bg-white dark:bg-emerald-400"
-                              }`}
-                            />
-                            <span>{isOccupied ? "OCUPADA" : "LIBRE"}</span>
+                        {/* Fila 2: Capacidad y Duración / Estado operativo */}
+                        <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
+                          {/* Chip de comensales / capacidad */}
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08] shrink-0">
+                            <Users className="w-3 h-3 text-slate-400" />
+                            <span>{tbl.capacity || 4} pax</span>
                           </span>
 
-                          {/* Menú Administrativo Flotante */}
-                          {canManageTables && (
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setActiveMenuTableId(activeMenuTableId === tbl.id ? null : tbl.id)
-                                }
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-                                title="Opciones administrativas"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-
-                              {activeMenuTableId === tbl.id && (
-                                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-[#16181E] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditModal(tbl)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors font-medium text-left"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>Editar Mesa</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMenuTableId(null);
-                                      setTableToDelete(tbl);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors font-medium text-left"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span>Eliminar Mesa</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <div className="truncate text-right">
+                            {isOccupied ? (
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-end gap-1 text-[11px] truncate">
+                                <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                                <span className="truncate">{durationText || "En servicio"}</span>
+                              </span>
+                            ) : (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1 text-[11px]">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                                <span>Lista para comanda</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       {/* CENTRO DE LA MESA: COMANDA ACTIVA O INVITACIÓN POS */}
-                      <div className="mt-4 relative z-10">
+                      <div className="mt-4 relative z-0">
                         {isOccupied && activeOrder ? (
                           <div className="p-3 rounded-2xl bg-amber-500/[0.08] dark:bg-amber-500/[0.06] border border-amber-300/60 dark:border-amber-500/20 space-y-2">
                             {/* Comanda # y Monto Grande */}
@@ -652,7 +702,7 @@ export function TablesDashboardClient({
                             </div>
                           </div>
                         ) : (
-                          <div className="py-4 px-3 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 text-center">
+                          <div className="py-4 px-3 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] text-center">
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                               Mesa libre para nuevo pedido
                             </p>
@@ -661,7 +711,7 @@ export function TablesDashboardClient({
                       </div>
 
                       {/* BOTONERA OPERATIVA DE LA MESA */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2 relative z-10">
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2 relative z-0">
                         {isOccupied && activeOrder ? (
                           <>
                             <Link
@@ -704,7 +754,7 @@ export function TablesDashboardClient({
                             className={`w-4 h-11 rounded-r-xl rounded-l-xs border transition-all duration-300 shadow-xs ${
                               isOccupied
                                 ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                                : "bg-slate-100 dark:bg-[#1E222D] border-slate-300 dark:border-white/10 group-hover:border-emerald-500/40"
+                                : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
                             }`}
                           />
                         ))}
@@ -722,7 +772,7 @@ export function TablesDashboardClient({
                         className={`w-11 h-4 rounded-b-xl rounded-t-xs border transition-all duration-300 shadow-xs ${
                           isOccupied
                             ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                            : "bg-slate-100 dark:bg-[#1E222D] border-slate-300 dark:border-white/10 group-hover:border-emerald-500/40"
+                            : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
                         }`}
                       />
                     ))}
@@ -746,8 +796,8 @@ export function TablesDashboardClient({
                   key={tbl.id}
                   className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
                     isOccupied
-                      ? "bg-amber-50/40 dark:bg-[#14120E] border-amber-300/80 dark:border-amber-500/30 shadow-xs"
-                      : "bg-white dark:bg-[#0D0E12] border-slate-200 dark:border-white/10 hover:border-emerald-500/40"
+                      ? "bg-amber-50/40 dark:bg-amber-500/10 border-amber-300/80 dark:border-amber-500/30 shadow-xs"
+                      : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-emerald-500/40"
                   }`}
                 >
                   <div className="min-w-0">
@@ -826,7 +876,7 @@ export function TablesDashboardClient({
       {isCreateModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body">
-            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               {/* Header */}
               <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -870,7 +920,7 @@ export function TablesDashboardClient({
                       setCreateForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
                     placeholder="Ej. Mesa 5, Barra 2, Terraza 3..."
-                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                   />
                 </div>
 
@@ -890,7 +940,7 @@ export function TablesDashboardClient({
                           capacity: Number(e.target.value) || 4,
                         }))
                       }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
 
@@ -908,7 +958,7 @@ export function TablesDashboardClient({
                           sort_order: Number(e.target.value) || 0,
                         }))
                       }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
                 </div>
@@ -945,7 +995,7 @@ export function TablesDashboardClient({
       {editingTable && (
         <ModalPortal>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body">
-            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               {/* Header */}
               <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -988,7 +1038,7 @@ export function TablesDashboardClient({
                     onChange={(e) =>
                       setEditForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
-                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                   />
                 </div>
 
@@ -1008,7 +1058,7 @@ export function TablesDashboardClient({
                           capacity: Number(e.target.value) || 4,
                         }))
                       }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
 
@@ -1026,7 +1076,7 @@ export function TablesDashboardClient({
                           sort_order: Number(e.target.value) || 0,
                         }))
                       }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
                 </div>

@@ -44,7 +44,7 @@ const CATEGORY_LABELS: Record<SupportCategory, string> = {
 const PRIORITY_LABELS: Record<TicketPriority, { label: string; badgeClass: string }> = {
   low: {
     label: "Baja",
-    badgeClass: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-300 dark:border-white/10",
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-300 dark:border-white/[0.08]",
   },
   medium: {
     label: "Media",
@@ -78,7 +78,7 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; badgeClass: string; i
   },
   closed: {
     label: "Cerrada",
-    badgeClass: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10",
+    badgeClass: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/[0.08]",
     icon: CheckCircle2,
   },
 };
@@ -287,7 +287,7 @@ export function WorkspaceSoporteClient({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por código (TCK-XXXX) o asunto..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] transition-all"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] transition-all"
               />
             </div>
 
@@ -296,7 +296,7 @@ export function WorkspaceSoporteClient({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
               >
                 <option value="all">Todos los estados</option>
                 <option value="open">Abierta</option>
@@ -308,7 +308,7 @@ export function WorkspaceSoporteClient({
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
               >
                 <option value="all">Todas las categorías</option>
                 <option value="technical">Técnico</option>
@@ -504,7 +504,7 @@ export function WorkspaceSoporteClient({
                                 ? "bg-[#ED500A] text-white rounded-tr-xs"
                                 : isAgent
                                 ? "bg-blue-600 text-white rounded-tl-xs"
-                                : "bg-white dark:bg-[#1A1D27] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/10 rounded-tl-xs"
+                                : "bg-white dark:bg-[#0D0F16] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-tl-xs"
                             }`}
                           >
                             <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -531,7 +531,7 @@ export function WorkspaceSoporteClient({
                       onChange={(e) => setReplyContent(e.target.value)}
                       placeholder="Escribe un mensaje o responde al equipo de soporte..."
                       disabled={isSendingReply}
-                      className="flex-1 px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] transition-all"
+                      className="flex-1 px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] transition-all"
                     />
                     <button
                       type="submit"
@@ -562,8 +562,8 @@ export function WorkspaceSoporteClient({
               onClick={() => setIsCreateModalOpen(false)}
             />
 
-            <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl p-6 z-10 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-3">
+            <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 z-10 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center">
                     <Headphones className="w-4 h-4" />
@@ -597,7 +597,7 @@ export function WorkspaceSoporteClient({
                     value={formSubject}
                     onChange={(e) => setFormSubject(e.target.value)}
                     placeholder="Ej: Inconveniente con cierre de turno de caja o impresión"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     required
                   />
                 </div>
@@ -610,7 +610,7 @@ export function WorkspaceSoporteClient({
                     <select
                       value={formCategory}
                       onChange={(e) => setFormCategory(e.target.value as SupportCategory)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     >
                       <option value="technical">Fallo técnico o error</option>
                       <option value="usage_inquiry">Duda de funcionamiento</option>
@@ -627,7 +627,7 @@ export function WorkspaceSoporteClient({
                     <select
                       value={formPriority}
                       onChange={(e) => setFormPriority(e.target.value as TicketPriority)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     >
                       <option value="low">Baja - Consulta general</option>
                       <option value="medium">Media - Operación normal</option>
@@ -646,12 +646,12 @@ export function WorkspaceSoporteClient({
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     placeholder="Describe con precisión qué ocurrió, los pasos para reproducir o la duda que requieres solucionar..."
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] resize-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] resize-none"
                     required
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/10">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setIsCreateModalOpen(false)}

@@ -36,6 +36,7 @@ export interface BusinessDocumentConfig {
   returnPolicy?: string | null; // Política de cambios y devoluciones
   warrantyPolicy?: string | null; // Política de garantía
   footerText?: string | null; // Pie de página
+  paperWidth?: "58mm" | "80mm"; // Ancho de papel térmico predeterminado (58 mm u 80 mm)
 
   updatedAt: string;
 }

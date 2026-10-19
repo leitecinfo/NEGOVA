@@ -412,7 +412,7 @@ export function WorkspacePersonalClient({
                     setNoveltyEmployee(emp);
                     setNoveltyModalOpen(true);
                   }}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer"
                   title="Registrar horas extra, bonos o anticipos"
                 >
                   + Novedad
@@ -451,7 +451,7 @@ export function WorkspacePersonalClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 space-y-6"
+              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 space-y-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
@@ -493,7 +493,7 @@ export function WorkspacePersonalClient({
                         required
                         value={formData.firstName}
                         onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. Juan Carlos"
                       />
                     </div>
@@ -506,7 +506,7 @@ export function WorkspacePersonalClient({
                         required
                         value={formData.lastName}
                         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. Gómez Díaz"
                       />
                     </div>
@@ -517,7 +517,7 @@ export function WorkspacePersonalClient({
                       <select
                         value={formData.documentType}
                         onChange={(e) => setFormData({ ...formData, documentType: e.target.value as any })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                       >
                         <option value="CC">Cédula de Ciudadanía (CC)</option>
                         <option value="CE">Cédula de Extranjería (CE)</option>
@@ -535,7 +535,7 @@ export function WorkspacePersonalClient({
                         required
                         value={formData.documentNumber}
                         onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. 1020304050"
                       />
                     </div>
@@ -547,7 +547,7 @@ export function WorkspacePersonalClient({
                         type="email"
                         value={formData.email || ""}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="colaborador@negocio.com"
                       />
                     </div>
@@ -559,7 +559,7 @@ export function WorkspacePersonalClient({
                         type="tel"
                         value={formData.phone || ""}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. 3001234567"
                       />
                     </div>
@@ -581,7 +581,7 @@ export function WorkspacePersonalClient({
                         required
                         value={formData.jobTitle}
                         onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. Cajero, Cocinero, Mesero"
                       />
                     </div>
@@ -595,7 +595,7 @@ export function WorkspacePersonalClient({
                         required
                         value={formData.baseSalary || ""}
                         onChange={(e) => setFormData({ ...formData, baseSalary: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
                         placeholder="Ej. 1400000"
                       />
                     </div>
@@ -606,7 +606,7 @@ export function WorkspacePersonalClient({
                       <select
                         value={formData.payFrequency}
                         onChange={(e) => setFormData({ ...formData, payFrequency: e.target.value as any })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                       >
                         <option value="biweekly">Quincenal (Cada 15 días)</option>
                         <option value="monthly">Mensual</option>
@@ -622,7 +622,7 @@ export function WorkspacePersonalClient({
                         type="date"
                         value={formData.hireDate}
                         onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
                       />
                     </div>
                   </div>
@@ -641,7 +641,7 @@ export function WorkspacePersonalClient({
                       <select
                         value={formData.paymentMethod}
                         onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as any })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                       >
                         <option value="bank_transfer">Transferencia Bancaria</option>
                         <option value="cash">Efectivo</option>
@@ -657,7 +657,7 @@ export function WorkspacePersonalClient({
                         type="text"
                         value={formData.bankName || ""}
                         onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                         placeholder="Ej. Bancolombia, Nequi"
                       />
                     </div>
@@ -669,7 +669,7 @@ export function WorkspacePersonalClient({
                         type="text"
                         value={formData.accountNumber || ""}
                         onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
                         placeholder="Ej. 123456789"
                       />
                     </div>
@@ -680,7 +680,7 @@ export function WorkspacePersonalClient({
                   <button
                     type="button"
                     onClick={() => setCreateModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -703,7 +703,7 @@ export function WorkspacePersonalClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-5"
+              className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
@@ -732,7 +732,7 @@ export function WorkspacePersonalClient({
                   <select
                     value={noveltyData.noveltyType}
                     onChange={(e) => setNoveltyData({ ...noveltyData, noveltyType: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                   >
                     <option value="bonus">Bonificación / Incentivo (+)</option>
                     <option value="overtime">Horas Extras (+)</option>
@@ -751,7 +751,7 @@ export function WorkspacePersonalClient({
                     required
                     value={noveltyData.description}
                     onChange={(e) => setNoveltyData({ ...noveltyData, description: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                     placeholder="Ej. Bono por ventas del fin de semana"
                   />
                 </div>
@@ -767,7 +767,7 @@ export function WorkspacePersonalClient({
                       required
                       value={noveltyData.amount || ""}
                       onChange={(e) => setNoveltyData({ ...noveltyData, amount: Number(e.target.value) })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
                       placeholder="Ej. 50000"
                     />
                   </div>
@@ -780,7 +780,7 @@ export function WorkspacePersonalClient({
                       required
                       value={noveltyData.startDate}
                       onChange={(e) => setNoveltyData({ ...noveltyData, startDate: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500 font-mono"
                     />
                   </div>
                 </div>
@@ -789,7 +789,7 @@ export function WorkspacePersonalClient({
                   <button
                     type="button"
                     onClick={() => setNoveltyModalOpen(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -812,7 +812,7 @@ export function WorkspacePersonalClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
             <div
-              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-8 space-y-6"
+              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 space-y-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
@@ -888,11 +888,11 @@ export function WorkspacePersonalClient({
                 </div>
 
                 {employeeNovelties.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 text-center">
+                  <p className="text-xs text-slate-400 p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] text-center">
                     No hay novedades registradas para este colaborador.
                   </p>
                 ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-white/[0.06] rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden text-xs">
+                  <div className="divide-y divide-slate-100 dark:divide-white/[0.06] rounded-xl border border-slate-200 dark:border-white/[0.08] overflow-hidden text-xs">
                     {employeeNovelties.map((nov) => (
                       <div key={nov.id} className="p-3 flex items-center justify-between">
                         <div>

@@ -147,12 +147,6 @@ const createMockSupabase = () => ({
 
       // Validación de delivery
       if (p_order_type === "delivery") {
-        if (!p_customer_name || !p_customer_name.trim()) {
-          return {
-            data: null,
-            error: new Error("CUSTOMER_NAME_REQUIRED: Para pedidos a domicilio debes ingresar el nombre del destinatario."),
-          };
-        }
         if (!p_delivery_address || !p_delivery_address.trim()) {
           return {
             data: null,
@@ -184,6 +178,7 @@ const createMockSupabase = () => ({
         customer_phone: ["delivery", "takeout"].includes(p_order_type) ? (p_customer_phone?.trim() || null) : null,
         delivery_address: p_order_type === "delivery" ? (p_delivery_address?.trim() || null) : null,
         delivery_reference: p_order_type === "delivery" ? (p_delivery_reference?.trim() || null) : null,
+        delivery_status: p_order_type === "delivery" ? "pending" : null,
         payment_status: "pending",
         idempotency_key: p_idempotency_key,
         idempotency_hash: p_idempotency_hash,
@@ -1052,7 +1047,7 @@ describe("NEGOVA — ETAPA 3: Revisión Correctiva de Atomicidad, Idempotencia y
       expect(saved.table_id).toBeNull();
     });
 
-    it("M3a. Pedido a domicilio sin nombre: debe rechazarse", async () => {
+    it("M3a. Pedido a domicilio sin nombre: debe aceptarse con cliente por defecto y generar verificación", async () => {
       const input: CreateRestaurantOrderInput = {
         orderType: "delivery",
         channelOrigin: "whatsapp",
@@ -1062,8 +1057,14 @@ describe("NEGOVA — ETAPA 3: Revisión Correctiva de Atomicidad, Idempotencia y
       };
 
       const result = await createRestaurantOrder(BUSINESS_A, input);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("nombre del destinatario");
+      expect(result.success).toBe(true);
+      expect(result.orderId).toBeDefined();
+
+      const saved = await getRestaurantOrderById(BUSINESS_A, result.orderId!);
+      expect(saved).not.toBeNull();
+      expect(saved?.delivery_address).toBe("Carrera 15 # 85-30");
+      expect(saved?.delivery_status).toBe("pending");
+      expect(saved?.notes).toContain("[PIN:");
     });
 
     it("M3b. Pedido a domicilio sin dirección de entrega: debe rechazarse", async () => {

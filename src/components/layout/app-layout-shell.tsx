@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { AppMobileSidebar } from "./app-mobile-sidebar";
 import { AppTopbar } from "./app-topbar";
 import { AppThemeProvider } from "./app-theme-context";
+import { NavigationProgressProvider } from "./navigation-progress-bar";
 import { AppNavSection, AppBranding, AppUserProfile } from "./navigation-types";
 
 interface AppLayoutShellProps {
@@ -96,7 +97,11 @@ function AppLayoutInner({ children, userProfile, navSections, branding, rightAct
 export function AppLayoutShell(props: AppLayoutShellProps) {
   return (
     <AppThemeProvider>
-      <AppLayoutInner {...props}>{props.children}</AppLayoutInner>
+      <Suspense fallback={null}>
+        <NavigationProgressProvider>
+          <AppLayoutInner {...props}>{props.children}</AppLayoutInner>
+        </NavigationProgressProvider>
+      </Suspense>
     </AppThemeProvider>
   );
 }

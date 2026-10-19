@@ -82,8 +82,8 @@ export function AdminConfirmDialog({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-        <div className="bg-white dark:bg-[#11131F] border border-slate-200 dark:border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${config.iconBg}`}>
@@ -110,9 +110,9 @@ export function AdminConfirmDialog({
           </p>
 
           {itemDetails && itemDetails.length > 0 && (
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-1 font-mono text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-100 dark:border-white/5 space-y-1 font-mono text-xs">
               {itemDetails.map((detail, idx) => (
-                <div key={idx} className="flex justify-between gap-2 text-slate-500">
+                <div key={idx} className="flex justify-between gap-2 text-slate-500 dark:text-slate-400">
                   <span>{detail.label}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {detail.value}
@@ -133,7 +133,7 @@ export function AdminConfirmDialog({
                 placeholder={reasonPlaceholder}
                 rows={3}
                 disabled={isLoading}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.04] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
               />
             </div>
           )}

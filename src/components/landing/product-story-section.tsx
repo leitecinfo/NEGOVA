@@ -125,7 +125,7 @@ export function ProductStorySection() {
         <div ref={row1Ref} className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-stretch mb-6 sm:mb-8">
           {/* 1. VENDE (VUELA DESDE LA IZQUIERDA) */}
           <div
-            className={`md:col-span-7 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden scroll-fly-left stagger-1 ${
+            className={`md:col-span-7 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden scroll-fly-left stagger-1 ${
               row1Visible ? "in-view" : ""
             }`}
           >
@@ -172,7 +172,7 @@ export function ProductStorySection() {
 
           {/* 2. STOCK (VUELA DESDE LA DERECHA) */}
           <div
-            className={`md:col-span-5 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden scroll-fly-right stagger-2 ${
+            className={`md:col-span-5 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden scroll-fly-right stagger-2 ${
               row1Visible ? "in-view" : ""
             }`}
           >
@@ -217,7 +217,7 @@ export function ProductStorySection() {
         <div ref={row2Ref} className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-stretch mb-6 sm:mb-8">
           {/* 3. ADMINISTRA TU CAJA (VUELA DESDE LA IZQUIERDA + BORDE ORBITAL PERPETUO) */}
           <div
-            className={`md:col-span-5 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-left stagger-1 ${
+            className={`md:col-span-5 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-left stagger-1 ${
               row2Visible ? "in-view" : ""
             }`}
           >
@@ -259,7 +259,7 @@ export function ProductStorySection() {
 
           {/* 4. CONOCE A TUS CLIENTES (VUELA DESDE LA DERECHA + BORDE ORBITAL PERPETUO) */}
           <div
-            className={`md:col-span-7 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-right stagger-2 ${
+            className={`md:col-span-7 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-right stagger-2 ${
               row2Visible ? "in-view" : ""
             }`}
           >
@@ -321,7 +321,7 @@ export function ProductStorySection() {
         <div ref={row3Ref} className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-stretch">
           {/* 5. ANALIZA TU NEGOCIO (VUELA DESDE LA IZQUIERDA) */}
           <div
-            className={`md:col-span-6 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-left stagger-1 ${
+            className={`md:col-span-6 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-left stagger-1 ${
               row3Visible ? "in-view" : ""
             }`}
           >
@@ -369,7 +369,7 @@ export function ProductStorySection() {
 
           {/* 6. ACCEDE DESDE CUALQUIER LUGAR (VUELA DESDE LA DERECHA) */}
           <div
-            className={`md:col-span-6 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-right stagger-2 ${
+            className={`md:col-span-6 p-7 sm:p-9 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl flex flex-col justify-between group hover:border-[#ED500A]/30 transition-all duration-300 relative overflow-hidden border-glow-card scroll-fly-right stagger-2 ${
               row3Visible ? "in-view" : ""
             }`}
           >

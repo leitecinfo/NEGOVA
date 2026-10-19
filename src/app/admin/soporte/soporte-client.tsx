@@ -825,7 +825,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       </div>
 
       {/* 3. SELECTOR DE PESTAÑAS (ATENCIONES VS TICKETS) */}
-      <div className="flex border-b border-slate-200 dark:border-white/10 gap-6 text-xs font-semibold">
+      <div className="flex border-b border-slate-200 dark:border-white/[0.08] gap-6 text-xs font-semibold">
         <button
           type="button"
           onClick={() => {
@@ -1012,11 +1012,11 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
               resetLabel="Limpiar Filtros"
             />
           ) : (
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                    <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                       <th className="py-3.5 px-4">Atención / Motivo</th>
                       <th className="py-3.5 px-4">Comercio / Contacto</th>
                       <th className="py-3.5 px-4">Canal</th>
@@ -1037,7 +1037,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                         {/* ID y Motivo */}
                         <td className="py-3.5 px-4">
                           <div className="space-y-0.5 max-w-[240px]">
-                            <span className="font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/10">
+                            <span className="font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/[0.08]">
                               {atn.interactionNumber}
                             </span>
                             <p className="font-bold text-slate-900 dark:text-white truncate mt-1">
@@ -1136,11 +1136,11 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
               resetLabel="Limpiar Filtros"
             />
           ) : (
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+            <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                    <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                       <th className="py-3.5 px-4">Ticket / Asunto</th>
                       <th className="py-3.5 px-4">Comercio / Solicitante</th>
                       <th className="py-3.5 px-4">Canal Origen</th>
@@ -1251,7 +1251,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {activeTab === "chat" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* COLUMNA IZQUIERDA: LISTADO DE CONVERSACIONES (4 COLS) */}
-          <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden flex flex-col h-[680px]">
+          <div className="lg:col-span-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden flex flex-col h-[680px]">
             {/* Cabecera del listado */}
             <div className="p-3.5 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1278,7 +1278,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
               <div className="flex gap-1.5">
                 <select
                   id="demo-chat-select"
-                  className="w-full text-xs p-1.5 rounded-lg border border-purple-200 dark:border-purple-500/20 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                  className="w-full text-xs p-1.5 rounded-lg border border-purple-200 dark:border-purple-500/20 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                   defaultValue={businesses[0]?.id}
                 >
                   {businesses.map((b) => (
@@ -1371,7 +1371,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
           </div>
 
           {/* COLUMNA DERECHA: FLUJO EN TIEMPO REAL Y ACCIONES (8 COLS) */}
-          <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs flex flex-col h-[680px] overflow-hidden">
+          <div className="lg:col-span-8 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs flex flex-col h-[680px] overflow-hidden">
             {selectedConversation ? (
               <>
                 {/* Header de conversación activa */}
@@ -1506,11 +1506,11 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     if (msg.senderRole === "ai") {
                       return (
                         <div key={msg.id} className="flex gap-2.5 max-w-[78%] items-start ml-auto flex-row-reverse animate-in fade-in">
-                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-200 dark:border-white/10 shadow-2xs">
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-200 dark:border-white/[0.08] shadow-2xs">
                             <Bot className="w-4 h-4" />
                           </div>
-                          <div className="p-3.5 rounded-2xl rounded-tr-sm bg-slate-100 dark:bg-[#1A1D24] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 shadow-2xs space-y-1.5">
-                            <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-1">
+                          <div className="p-3.5 rounded-2xl rounded-tr-sm bg-slate-100 dark:bg-white/[0.06] text-slate-900 dark:text-white border border-slate-200 dark:border-white/[0.08] shadow-2xs space-y-1.5">
+                            <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.08] pb-1">
                               <span className="font-bold text-[10px] text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
                                 <Sparkles className="w-2.5 h-2.5 text-[#ED500A]" /> IA DE SOPORTE NEGOVA
                               </span>
@@ -1552,7 +1552,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                         <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 border border-blue-500/20 shadow-2xs">
                           <User className="w-4 h-4" />
                         </div>
-                        <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#151822] border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white space-y-1.5 shadow-2xs">
+                        <div className="p-3.5 rounded-2xl rounded-tl-sm bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] text-slate-900 dark:text-white space-y-1.5 shadow-2xs">
                           <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-white/[0.06] pb-1">
                             <span className="font-bold text-[10px] text-blue-600 dark:text-blue-400">
                               {msg.senderName} (Cliente)
@@ -1579,7 +1579,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                       value={clientSimulateInput}
                       onChange={(e) => setClientSimulateInput(e.target.value)}
                       placeholder='Ej: "No puedo registrar una venta" o "Quiero hablar con una persona"'
-                      className="flex-1 text-xs p-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                      className="flex-1 text-xs p-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                     />
                     <AdminButton
                       variant="outline"
@@ -1595,7 +1595,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
 
                 {/* Input de respuesta como Agente con Control de Modo */}
                 {selectedConversation.mode === "ai" ? (
-                  <div className="p-3.5 border-t border-slate-200 dark:border-white/10 bg-purple-50/40 dark:bg-purple-950/15 flex items-center justify-between gap-3">
+                  <div className="p-3.5 border-t border-slate-200 dark:border-white/[0.08] bg-purple-50/40 dark:bg-purple-950/15 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
                       <Lock className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                       <span>
@@ -1614,7 +1614,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     </AdminButton>
                   </div>
                 ) : (
-                  <div className="border-t border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12]">
+                  <div className="border-t border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16]">
                     <div className="px-3.5 pt-2 pb-1 flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-100 dark:border-white/[0.04]">
                       <span className="flex items-center gap-1.5 text-[#ED500A] font-semibold">
                         <UserCheck className="w-3.5 h-3.5" /> Estás respondiendo como Asesor Humano (La IA está pausada)
@@ -1633,7 +1633,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                         value={agentMessageInput}
                         onChange={(e) => setAgentMessageInput(e.target.value)}
                         placeholder="Escribe tu respuesta como Asesor Humano de NEGOVA..."
-                        className="flex-1 text-xs p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-[#12141A] text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
+                        className="flex-1 text-xs p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
                         autoFocus
                       />
                       <AdminButton
@@ -1668,7 +1668,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {convertChatModal.open && selectedConversation && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2">
                 {convertChatModal.type === "atn" ? (
@@ -1700,7 +1700,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   type="text"
                   value={`${selectedConversation.businessName} (${selectedConversation.userName})`}
                   disabled
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-slate-500"
+                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-100 dark:bg-white/[0.04] text-slate-500"
                 />
               </div>
 
@@ -1711,7 +1711,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                 <select
                   value={convertChatForm.category}
                   onChange={(e) => setConvertChatForm({ ...convertChatForm, category: e.target.value as SupportCategory })}
-                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                 >
                   <option value="usage_inquiry">Dudas de Uso de la Plataforma</option>
                   <option value="technical">Problema Técnico / Falla</option>
@@ -1730,7 +1730,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   value={convertChatForm.subject}
                   onChange={(e) => setConvertChatForm({ ...convertChatForm, subject: e.target.value })}
                   placeholder="Ej: Orientación sobre arqueo de caja"
-                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -1743,7 +1743,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   value={convertChatForm.summaryOrDesc}
                   onChange={(e) => setConvertChatForm({ ...convertChatForm, summaryOrDesc: e.target.value })}
                   rows={3}
-                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                  className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -1756,7 +1756,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={convertChatForm.outcome}
                     onChange={(e) => setConvertChatForm({ ...convertChatForm, outcome: e.target.value as InteractionOutcome })}
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                   >
                     <option value="resolved_immediately">Resuelto de inmediato</option>
                     <option value="information_provided">Información suministrada</option>
@@ -1772,7 +1772,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={convertChatForm.priority}
                     onChange={(e) => setConvertChatForm({ ...convertChatForm, priority: e.target.value as TicketPriority })}
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-slate-900 dark:text-white"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
                   >
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
@@ -1805,7 +1805,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {isNewInteractionModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -1839,7 +1839,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={interactionForm.businessId}
                     onChange={(e) => handleBusinessChangeForInteraction(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                   >
                     {!interactionForm.businessId && (
                       <option value="" disabled>
@@ -1861,7 +1861,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={interactionForm.channel}
                     onChange={(e) => setInteractionForm({ ...interactionForm, channel: e.target.value as SupportChannel })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-medium"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-medium"
                   >
                     <option value="whatsapp">WhatsApp</option>
                     <option value="phone">Llamada Telefónica</option>
@@ -1883,7 +1883,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     value={interactionForm.contactName}
                     onChange={(e) => setInteractionForm({ ...interactionForm, contactName: e.target.value })}
                     placeholder="Ej.: Juan Pérez"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                     required
                   />
                 </div>
@@ -1896,7 +1896,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     value={interactionForm.contactPhone}
                     onChange={(e) => setInteractionForm({ ...interactionForm, contactPhone: e.target.value })}
                     placeholder="Ej.: 300 123 4567"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-mono"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-mono"
                   />
                 </div>
               </div>
@@ -1910,7 +1910,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={interactionForm.category}
                     onChange={(e) => setInteractionForm({ ...interactionForm, category: e.target.value as SupportCategory })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                   >
                     <option value="usage_inquiry">Dudas de Uso / Capacitación</option>
                     <option value="technical">Técnico / Fallas</option>
@@ -1934,7 +1934,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                         createLinkedTicket: val === "escalated_to_ticket",
                       });
                     }}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-medium"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30 font-medium"
                   >
                     <option value="resolved_immediately">Resuelto de inmediato</option>
                     <option value="escalated_to_ticket">Escalar a Ticket de Soporte</option>
@@ -1954,7 +1954,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   value={interactionForm.subject}
                   onChange={(e) => setInteractionForm({ ...interactionForm, subject: e.target.value })}
                   placeholder="Ej.: No puede registrar una venta"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                   required
                 />
               </div>
@@ -1969,7 +1969,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   onChange={(e) => setInteractionForm({ ...interactionForm, summary: e.target.value })}
                   placeholder="Ej.: Se explicó cómo registrar una venta y el usuario confirmó que pudo realizar el proceso correctamente."
                   rows={3}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                   required
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -1991,7 +1991,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     <select
                       value={interactionForm.ticketPriority}
                       onChange={(e) => setInteractionForm({ ...interactionForm, ticketPriority: e.target.value as TicketPriority })}
-                      className="w-full p-2 rounded-lg border border-amber-300 dark:border-amber-500/30 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                      className="w-full p-2 rounded-lg border border-amber-300 dark:border-amber-500/30 bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                     >
                       <option value="low">Baja</option>
                       <option value="medium">Media</option>
@@ -2020,7 +2020,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {isNewTicketModalOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -2052,7 +2052,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                 <select
                   value={ticketForm.businessId}
                   onChange={(e) => handleBusinessChangeForTicket(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
                 >
                   {businesses.map((biz) => (
                     <option key={biz.id} value={biz.id}>
@@ -2072,7 +2072,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     value={ticketForm.contactName}
                     onChange={(e) => setTicketForm({ ...ticketForm, contactName: e.target.value })}
                     placeholder="Nombre"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                     required
                   />
                 </div>
@@ -2085,7 +2085,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                     value={ticketForm.contactEmail}
                     onChange={(e) => setTicketForm({ ...ticketForm, contactEmail: e.target.value })}
                     placeholder="contacto@negocio.com"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white font-mono"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                   />
                 </div>
                 <div>
@@ -2095,7 +2095,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={ticketForm.originChannel}
                     onChange={(e) => setTicketForm({ ...ticketForm, originChannel: e.target.value as SupportChannel })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   >
                     <option value="whatsapp">WhatsApp</option>
                     <option value="phone">Llamada</option>
@@ -2114,7 +2114,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={ticketForm.category}
                     onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value as SupportCategory })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   >
                     <option value="technical">Técnico / Fallas</option>
                     <option value="usage_inquiry">Dudas de Uso</option>
@@ -2131,7 +2131,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   <select
                     value={ticketForm.priority}
                     onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value as TicketPriority })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   >
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
@@ -2150,7 +2150,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   value={ticketForm.subject}
                   onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
                   placeholder="Ej: Inconsistencia en sincronización de cierre de caja"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -2164,7 +2164,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                   onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
                   placeholder="Pasos para reproducir, mensaje de error o detalles técnicos observados..."
                   rows={3}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -2201,10 +2201,10 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {selectedInteraction && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
-                <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded border border-slate-200 dark:border-white/10">
+                <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded border border-slate-200 dark:border-white/[0.08]">
                   {selectedInteraction.interactionNumber}
                 </span>
                 {getChannelBadge(selectedInteraction.channel)}
@@ -2284,7 +2284,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
       {selectedTicket && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -2363,7 +2363,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                 onChange={(e) => setTicketEditState({ ...ticketEditState, internalNotes: e.target.value })}
                 placeholder="Diagnóstico técnico, causa raíz, revisión de código o notas privadas..."
                 rows={2}
-                className="w-full p-2.5 rounded-lg border border-amber-300/70 dark:border-amber-500/30 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                className="w-full p-2.5 rounded-lg border border-amber-300/70 dark:border-amber-500/30 bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
               />
             </div>
 
@@ -2378,7 +2378,7 @@ export function SoporteClient({ initialData, businesses }: SoporteClientProps) {
                 onChange={(e) => setTicketEditState({ ...ticketEditState, clientResolution: e.target.value })}
                 placeholder="Escribe la solución explicada al cliente o el mensaje final de cierre..."
                 rows={2}
-                className="w-full p-2.5 rounded-lg border border-emerald-300/70 dark:border-emerald-500/30 bg-white dark:bg-[#12141A] text-xs text-slate-900 dark:text-white"
+                className="w-full p-2.5 rounded-lg border border-emerald-300/70 dark:border-emerald-500/30 bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
               />
             </div>
 

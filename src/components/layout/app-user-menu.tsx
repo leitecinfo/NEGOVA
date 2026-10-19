@@ -80,10 +80,10 @@ export function AppUserMenu({ userProfile, branding, onOpenLogoutModal }: AppUse
         <div
           role="menu"
           aria-orientation="vertical"
-          className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Header con Perfil */}
-          <div className="p-3.5 border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] flex items-center gap-3">
+          <div className="p-3.5 border-b border-slate-200 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.03] flex items-center gap-3">
             <UserAvatar
               src={userProfile.avatarUrl}
               value={userProfile.email}

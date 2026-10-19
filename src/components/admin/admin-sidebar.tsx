@@ -192,7 +192,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, user }: AdminSideb
                         {isCollapsed && hoveredItemId === item.id && (
                           <div
                             role="tooltip"
-                            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white dark:bg-[#131722] dark:text-[#F8F9FD] border border-slate-700 dark:border-[#1E2333] rounded-lg text-xs font-medium shadow-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2"
+                            className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-1.5 bg-slate-900 text-white dark:bg-[#0D0F16] dark:text-[#F8F9FD] border border-slate-700 dark:border-white/[0.08] rounded-lg text-xs font-medium shadow-xl whitespace-nowrap z-50 animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2"
                           >
                             <span>{item.label}</span>
                             {item.badge && (

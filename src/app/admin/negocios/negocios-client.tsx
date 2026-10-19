@@ -519,11 +519,11 @@ export function NegociosClient({
       ) : (
         <div className="space-y-4">
           {/* Vista Desktop */}
-          <div className="hidden md:block rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0E12] shadow-xs overflow-hidden">
+          <div className="hidden md:block rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                     <th className="py-3.5 px-4">Negocio</th>
                     <th className="py-3.5 px-4">Rubro / Categoría</th>
                     <th className="py-3.5 px-4">Propietario</th>
@@ -547,7 +547,7 @@ export function NegociosClient({
                         {/* Negocio */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-100 to-amber-50 dark:from-white/10 dark:to-white/5 border border-orange-200/60 dark:border-white/10 flex items-center justify-center text-xs font-bold text-[#ED500A] dark:text-orange-400 shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-100 to-amber-50 dark:from-white/10 dark:to-white/5 border border-orange-200/60 dark:border-white/[0.08] flex items-center justify-center text-xs font-bold text-[#ED500A] dark:text-orange-400 shrink-0">
                               {biz.logoUrl ? (
                                 <img src={biz.logoUrl} alt={biz.name} className="w-full h-full object-cover rounded-xl" />
                               ) : (
@@ -653,7 +653,7 @@ export function NegociosClient({
                             className={`p-2 rounded-xl border transition-all cursor-pointer ${
                               menuAnchor?.id === biz.id
                                 ? "bg-orange-50 dark:bg-white/10 border-orange-200 dark:border-white/20 text-[#ED500A]"
-                                : "text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
+                                : "text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/5"
                             }`}
                             title="Acciones del Negocio"
                           >
@@ -675,7 +675,7 @@ export function NegociosClient({
               const statusMeta = BUSINESS_STATUS_LABELS[biz.status] || BUSINESS_STATUS_LABELS.inactive;
 
               return (
-                <div key={biz.id} className="p-4 space-y-3 bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 rounded-2xl mb-3">
+                <div key={biz.id} className="p-4 space-y-3 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl mb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] font-bold text-xs flex items-center justify-center shrink-0">
@@ -773,7 +773,7 @@ export function NegociosClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div
-              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0E1017] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header del Modal */}
@@ -938,7 +938,7 @@ export function NegociosClient({
                   <button
                     type="button"
                     onClick={() => setEditModal((prev) => ({ ...prev, isOpen: false, business: null }))}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -1012,7 +1012,7 @@ export function NegociosClient({
           <div
             data-actions-menu
             style={{ top: `${menuAnchor.top}px`, left: `${menuAnchor.left}px` }}
-            className="fixed w-52 rounded-xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
+            className="fixed w-52 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-3 py-1.5 border-b border-slate-100 dark:border-white/[0.06] text-[11px] font-semibold text-slate-400 font-mono truncate">

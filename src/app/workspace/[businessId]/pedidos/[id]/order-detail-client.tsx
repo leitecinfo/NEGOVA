@@ -31,6 +31,8 @@ import {
   RestaurantOrderWithDetails,
   VALID_ORDER_STATUS_TRANSITIONS,
 } from "@/lib/restaurant/types";
+import { BusinessDocumentConfig } from "@/lib/documents/types";
+import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import {
   updateRestaurantOrderStatusAction,
   cancelRestaurantOrderAction,
@@ -39,8 +41,10 @@ import {
 interface OrderDetailClientProps {
   businessId: string;
   businessName: string;
+  tradeName?: string;
   businessTimezone: string;
   initialOrder: RestaurantOrderWithDetails;
+  config?: BusinessDocumentConfig;
   canUpdateOrder: boolean;
   canCancelOrder: boolean;
 }
@@ -48,8 +52,10 @@ interface OrderDetailClientProps {
 export function OrderDetailClient({
   businessId,
   businessName,
+  tradeName,
   businessTimezone,
   initialOrder,
+  config,
   canUpdateOrder,
   canCancelOrder,
 }: OrderDetailClientProps) {
@@ -58,6 +64,7 @@ export function OrderDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -109,7 +116,7 @@ export function OrderDetailClient({
         return {
           label: "Entregado",
           icon: PackageCheck,
-          color: "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10",
+          color: "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08]",
           description: "La orden fue despachada y entregada al cliente.",
         };
       case "cancelled":
@@ -123,7 +130,7 @@ export function OrderDetailClient({
         return {
           label: status,
           icon: Clock,
-          color: "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10",
+          color: "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/[0.08]",
           description: "Estado de la comanda.",
         };
     }
@@ -189,7 +196,7 @@ export function OrderDetailClient({
       default:
         return {
           label: "Pendiente de pago",
-          color: "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10",
+          color: "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08]",
           subtext: "El pago aún no ha sido registrado.",
         };
     }
@@ -259,12 +266,12 @@ export function OrderDetailClient({
 
           <button
             type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition-colors"
-            title="Imprimir comanda"
+            onClick={() => setIsTicketModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 transition-colors cursor-pointer"
+            title="Imprimir tiquete térmico"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Imprimir</span>
+            <span className="hidden sm:inline">Imprimir Tiquete</span>
           </button>
         </div>
       }
@@ -272,7 +279,7 @@ export function OrderDetailClient({
     >
       <div className="space-y-6 font-body">
         {/* 1. FLUJO DE TRANSICIONES OPERATIVAS DISPONIBLES */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -340,11 +347,11 @@ export function OrderDetailClient({
         </div>
 
         {/* 2. GRILLA PRINCIPAL: DETALLE DE ARTÍCULOS (IZQUIERDA) + INFO GENERAL Y PAGO (DERECHA) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* COLUMNA IZQUIERDA (2/3): PRODUCTOS Y LÍNEAS DE LA COMANDA */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden">
-              <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* COLUMNA IZQUIERDA: PRODUCTOS Y LÍNEAS DE LA COMANDA */}
+          <div className="lg:col-span-7 xl:col-span-7 space-y-6">
+            <div className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold">
                     <UtensilsCrossed className="w-4 h-4" />
@@ -420,12 +427,12 @@ export function OrderDetailClient({
 
               {/* OBSERVACIONES GENERALES */}
               {order.notes && (
-                <div className="p-4 bg-slate-50/60 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-1">
+                <div className="p-4 bg-slate-50/70 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <FileText className="w-3.5 h-3.5 text-slate-400" />
                     <span>Instrucciones generales del pedido:</span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-[#10141d] p-2 rounded-xl border border-slate-200/60 dark:border-white/5">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-[#0D0F16] p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5 leading-relaxed">
                     {order.notes}
                   </p>
                 </div>
@@ -433,22 +440,81 @@ export function OrderDetailClient({
             </div>
           </div>
 
-          {/* COLUMNA DERECHA (1/3): DESTINO, CLIENTE Y RESUMEN FINANCIERO */}
-          <div className="space-y-6">
-            {/* CARD DE DESTINO Y CLIENTE */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+          {/* COLUMNA DERECHA: DESTINO, CLIENTE Y RESUMEN FINANCIERO */}
+          <div className="lg:col-span-5 xl:col-span-5 space-y-5">
+            {/* 3. CARD DE DATOS DE ENTREGA */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-white/5">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono whitespace-nowrap">
                   Datos de Entrega
                 </span>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold border ${typeConfig.color}`}>
-                  <TypeIcon className="w-3.5 h-3.5" />
-                  <span>{typeConfig.label}</span>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border shrink-0 whitespace-nowrap self-start sm:self-auto ${typeConfig.color}`}>
+                  <TypeIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">{typeConfig.label}</span>
                 </span>
               </div>
 
               <div className="space-y-3 text-xs">
-                {/* Canal */}
+                {/* Detalle del destino según tipo de comanda */}
+                {order.order_type === "dine_in" && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                      <UtensilsCrossed className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-mono">Ubicación asignada</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                        {order.tableName ? `Mesa: ${order.tableName}` : "Salón principal"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {order.order_type === "delivery" && order.delivery_address && (
+                  <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 space-y-1">
+                    <span className="text-[10px] text-slate-400 block font-mono">Dirección de entrega</span>
+                    <div className="flex items-start gap-2 text-slate-700 dark:text-slate-300 mt-0.5">
+                      <MapPin className="w-4 h-4 text-[#ED500A] shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+                          {order.delivery_address}
+                        </p>
+                        {order.delivery_reference && (
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Ref: {order.delivery_reference}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {order.order_type === "takeout" && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-mono">Modalidad</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs">
+                        Para llevar (Recogida en mostrador)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 4. CARD DE DATOS DEL PEDIDO */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+              <div className="pb-3 border-b border-slate-100 dark:border-white/5">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono whitespace-nowrap">
+                  Datos del Pedido
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {/* Canal de origen */}
                 <div>
                   <span className="text-[10px] text-slate-400 block font-mono">Canal de origen</span>
                   <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
@@ -458,7 +524,7 @@ export function OrderDetailClient({
                 </div>
 
                 {/* Cliente */}
-                <div>
+                <div className="pt-2 border-t border-slate-100 dark:border-white/5">
                   <span className="text-[10px] text-slate-400 block font-mono">Cliente</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm block mt-0.5">
                     {order.customer_name || "Cliente mostrador"}
@@ -470,34 +536,16 @@ export function OrderDetailClient({
                     </div>
                   )}
                 </div>
-
-                {/* Dirección para domicilios */}
-                {order.order_type === "delivery" && order.delivery_address && (
-                  <div className="pt-2 border-t border-slate-100 dark:border-white/5">
-                    <span className="text-[10px] text-slate-400 block font-mono">Dirección de entrega</span>
-                    <div className="flex items-start gap-1.5 font-medium text-slate-700 dark:text-slate-300 mt-1">
-                      <MapPin className="w-3.5 h-3.5 text-[#ED500A] shrink-0 mt-0.5" />
-                      <div>
-                        <p>{order.delivery_address}</p>
-                        {order.delivery_reference && (
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Ref: {order.delivery_reference}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* CARD DE RESUMEN ECONÓMICO Y PAGO */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+            {/* 5. CARD DE INFORMACIÓN DEL PAGO */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
-                  Totales & Pago
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono whitespace-nowrap">
+                  Información del Pago
                 </span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold border ${paymentConfig.color}`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold border whitespace-nowrap ${paymentConfig.color}`}>
                   {paymentConfig.label}
                 </span>
               </div>
@@ -519,13 +567,13 @@ export function OrderDetailClient({
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-base font-black text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-white/10">
+                <div className="flex items-center justify-between text-base font-black text-slate-900 dark:text-white pt-2 border-t border-slate-200/80 dark:border-white/[0.08]">
                   <span>Total Pedido</span>
                   <span className="text-[#ED500A] font-mono">{formatCOP(order.total)}</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-500 space-y-1">
+              <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 text-[11px] text-slate-500 space-y-1">
                 <p className="font-semibold text-slate-700 dark:text-slate-300">
                   Estado del cobro: {paymentConfig.label}
                 </p>
@@ -552,6 +600,54 @@ export function OrderDetailClient({
             { label: "Destino", value: typeConfig.label },
             { label: "Total", value: formatCOP(order.total) },
           ]}
+        />
+
+        {/* MODAL DE TIQUETE TÉRMICO (58mm / 80mm) */}
+        <ThermalTicketModal
+          documentNumber={`ORD-${order.order_number}`}
+          issuedAt={order.created_at}
+          business={{
+            name: businessName,
+            tradeName: tradeName || config?.tradeName || businessName,
+            legalName: config?.legalName,
+            taxId: config?.taxId,
+            address: config?.address,
+            city: config?.city,
+            phone: config?.phone,
+            whatsapp: config?.whatsapp,
+            logoUrl: config?.logoUrl,
+          }}
+          orderType={order.order_type}
+          tableName={order.tableName || undefined}
+          customer={{
+            name: order.customer_name,
+            phone: order.customer_phone,
+            address: order.delivery_address,
+            deliveryReference: order.delivery_reference,
+          }}
+          items={
+            order.items?.map((it) => ({
+              description: it.product_name,
+              quantity: it.quantity,
+              unitPrice: it.unit_price,
+              total: it.subtotal,
+              notes: it.notes,
+              modifiers: it.modifiers,
+            })) || []
+          }
+          subtotal={order.subtotal}
+          deliveryFee={order.delivery_fee}
+          total={order.total}
+          paymentMethod="cash"
+          paymentStatus={order.payment_status}
+          notes={order.notes}
+          thankYouNote={config?.thankYouNote}
+          documentObservations={config?.documentObservations}
+          footerText={config?.footerText}
+          headerText={config?.headerText}
+          defaultPaperWidth={config?.paperWidth || "80mm"}
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
         />
       </div>
     </AppPageContainer>

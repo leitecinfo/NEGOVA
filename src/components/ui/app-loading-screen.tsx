@@ -15,7 +15,7 @@ export function AppLoadingScreen({
     <div
       className={`${
         fullScreen
-          ? "fixed inset-0 z-50 flex items-center justify-center bg-white/95 dark:bg-[#0B0D13]/95 backdrop-blur-md"
+          ? "fixed inset-0 z-50 flex items-center justify-center bg-white/95 dark:bg-[#0B0E14]/95 backdrop-blur-md"
           : "min-h-[70vh] w-full flex items-center justify-center"
       }`}
     >

@@ -401,6 +401,7 @@ export function WorkspaceUsuariosClient({
 
       {/* TABLA UNIFICADA CON ADMIN-DATA-TABLE */}
       <AdminDataTable<UserModel>
+        isLoading={isPending}
         data={data.users}
         columns={[
           {
@@ -409,7 +410,7 @@ export function WorkspaceUsuariosClient({
               const isCurrentUser = user.id === currentUserId;
               return (
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/[0.08] flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
                     {user.fullName.charAt(0).toUpperCase()}
                   </div>
                   <div className="space-y-0.5 min-w-0">
@@ -554,7 +555,7 @@ export function WorkspaceUsuariosClient({
                 className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                   menuAnchor?.id === user.id
                     ? "bg-slate-200 dark:bg-white/20 text-slate-900 dark:text-white border-slate-300 dark:border-white/20 shadow-xs"
-                    : "bg-slate-50/50 dark:bg-white/[0.03] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] border-slate-200/80 dark:border-white/10"
+                    : "bg-slate-50/50 dark:bg-white/[0.03] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] border-slate-200/80 dark:border-white/[0.08]"
                 }`}
                 title="Acciones del Usuario"
               >
@@ -580,7 +581,7 @@ export function WorkspaceUsuariosClient({
         renderMobileCard={(user) => (
           <div
             key={user.id}
-            className="p-4 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs space-y-3"
+            className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-3"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-3">
@@ -680,7 +681,7 @@ export function WorkspaceUsuariosClient({
       {tempPasswordModal.isOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl p-6 space-y-4">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-4">
               <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                   <KeyRound className="w-5 h-5" />
@@ -699,7 +700,7 @@ export function WorkspaceUsuariosClient({
                 Copia esta clave temporal y compártela de forma segura con el colaborador. El sistema le exigirá crear una contraseña definitiva en su primer inicio de sesión:
               </p>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 font-mono text-xs font-bold text-slate-900 dark:text-white">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] font-mono text-xs font-bold text-slate-900 dark:text-white">
                 <span className="select-all tracking-wider">{tempPasswordModal.password}</span>
                 <button
                   type="button"
@@ -748,7 +749,7 @@ export function WorkspaceUsuariosClient({
           <div
             data-user-actions-menu
             style={{ top: `${menuAnchor.top}px`, left: `${menuAnchor.left}px` }}
-            className="fixed w-56 rounded-xl bg-white dark:bg-[#12141C] border border-slate-200 dark:border-white/10 shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
+            className="fixed w-56 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl z-[9999] py-1 text-left ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in zoom-in-95 duration-100 font-body"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-3 py-1.5 border-b border-slate-100 dark:border-white/[0.06] text-[11px] font-semibold text-slate-400 font-mono truncate">

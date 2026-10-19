@@ -192,3 +192,34 @@ export async function downloadSalePdfAction(
   const result = await generateBusinessDocumentPdf(businessId, documentId);
   return result;
 }
+
+/**
+ * Server Action: Registrar el cobro o pago de un documento o comanda en Ventas
+ * Protegido con sales.create o rol de owner.
+ */
+export async function registerSalePaymentAction(
+  businessId: string,
+  documentId: string,
+  paymentMethod?: string
+): Promise<{ success: boolean; error?: string }> {
+  const auth = await verifyWorkspaceAction(businessId, "sales.create");
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para registrar pagos en este negocio." };
+  }
+
+  const { registerBusinessDocumentPayment } = await import("@/lib/documents/document-service");
+  const result = await registerBusinessDocumentPayment(businessId, documentId, {
+    paymentMethod,
+    userId: auth.context.userId,
+  });
+
+  if (result.success) {
+    revalidatePath(`/workspace/${businessId}`);
+    revalidatePath(`/workspace/${businessId}/ventas`);
+    revalidatePath(`/workspace/${businessId}/ventas/${documentId}`);
+    revalidatePath(`/workspace/${businessId}/pedidos`);
+  }
+
+  return { success: result.success, error: result.error };
+}
+

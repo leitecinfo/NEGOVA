@@ -154,13 +154,13 @@ export function RolesClient({
           </>
         }
         actions={
-          <div className="hidden sm:flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs shrink-0">
+          <div className="hidden sm:flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs shrink-0">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 viewMode === "grid"
-                  ? "bg-white dark:bg-[#0D0E12] text-[#ED500A] shadow-2xs"
+                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-2xs"
                   : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
               title="Vista de cuadrícula"
@@ -172,7 +172,7 @@ export function RolesClient({
               onClick={() => setViewMode("table")}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white dark:bg-[#0D0E12] text-[#ED500A] shadow-2xs"
+                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-2xs"
                   : "text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
               title="Vista de tabla"
@@ -205,7 +205,7 @@ export function RolesClient({
             return (
               <div
                 key={role.code}
-                className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs hover:border-[#ED500A]/40 transition-all flex flex-col justify-between space-y-5 relative group"
+                className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs hover:border-[#ED500A]/40 transition-all flex flex-col justify-between space-y-5 relative group"
               >
                 <div className="space-y-3.5">
                   {/* Top Badges */}
@@ -283,10 +283,10 @@ export function RolesClient({
         </div>
       ) : (
         /* VISTA TABLA */
-        <div className="rounded-2xl bg-white dark:bg-[#0D0E12] border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden">
+        <div className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
-              <thead className="bg-slate-50/50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/10 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+              <thead className="bg-slate-50/50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.08] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
                 <tr>
                   <th className="py-3.5 px-4">Nombre del Rol</th>
                   <th className="py-3.5 px-4">Código</th>

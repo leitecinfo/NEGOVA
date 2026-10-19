@@ -48,7 +48,7 @@ export default async function WorkspaceOrdersListPage({
       startDate,
       endDate,
       page,
-      pageSize: 10,
+      pageSize: 30,
     }),
     getRestaurantOrdersSummary(businessId),
   ]);

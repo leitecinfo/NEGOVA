@@ -29,7 +29,7 @@ export function AdminTopbar({
 }: AdminTopbarProps) {
 
   return (
-    <header className="sticky top-0 z-20 h-16 w-full bg-white/95 dark:bg-[#0D0F16]/90 backdrop-blur-md border-b border-slate-200 dark:border-white/[0.08] px-4 sm:px-6 flex items-center justify-between gap-4 transition-colors duration-200">
+    <header className="sticky top-0 z-20 h-16 w-full bg-white/95 dark:bg-[#0D0F16]/95 backdrop-blur-md border-b border-slate-200 dark:border-white/10 px-4 sm:px-6 flex items-center justify-between gap-4 transition-colors duration-200">
       {/* 1. Área Izquierda: Controles de Navegación & Breadcrumbs */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Toggle únicamente para dispositivos móviles */}

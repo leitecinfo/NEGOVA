@@ -339,7 +339,7 @@ export function NegocioDetailClient({
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-orange-50 hover:text-[#ED500A] dark:hover:bg-white/15 transition-all cursor-pointer group"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] hover:bg-orange-50 hover:text-[#ED500A] dark:hover:bg-white/15 transition-all cursor-pointer group"
                   title="Haz clic para cambiar el rubro o datos"
                 >
                   <span>{typeMeta.label}</span>
@@ -1173,7 +1173,7 @@ export function NegocioDetailClient({
       {assignModal.isOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center">
                   <User className="w-5 h-5" />
@@ -1269,7 +1269,7 @@ export function NegocioDetailClient({
       {statusModal.isOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Cambiar Estado Operacional
               </h3>
@@ -1334,7 +1334,7 @@ export function NegocioDetailClient({
       {renewModal.isOpen && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] flex items-center justify-center">
@@ -1395,7 +1395,7 @@ export function NegocioDetailClient({
                           className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
                             isSelected
                               ? "bg-orange-50 dark:bg-orange-500/10 border-[#ED500A] text-[#ED500A]"
-                              : "bg-slate-50/60 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                              : "bg-slate-50/60 dark:bg-white/[0.02] border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300"
                           }`}
                         >
                           {item.label}
@@ -1459,7 +1459,7 @@ export function NegocioDetailClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div
-              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0E1017] border border-slate-200 dark:border-white/10 shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header del Modal */}
@@ -1624,7 +1624,7 @@ export function NegocioDetailClient({
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>

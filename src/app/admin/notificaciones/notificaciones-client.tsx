@@ -606,7 +606,7 @@ export function NotificacionesClient({
                       {Object.entries(selectedNotif.metadata).map(([key, value]) => (
                         <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                           <span className="text-slate-500 dark:text-slate-400 font-medium sm:w-1/3 truncate">{key}:</span>
-                          <span className="font-mono text-slate-700 dark:text-slate-300 bg-white dark:bg-[#1A1D27] px-2 py-0.5 rounded border border-slate-200 dark:border-white/[0.08] flex-1 break-all">
+                          <span className="font-mono text-slate-700 dark:text-slate-300 bg-white dark:bg-white/[0.04] px-2 py-0.5 rounded border border-slate-200 dark:border-white/[0.08] flex-1 break-all">
                             {String(value)}
                           </span>
                         </div>
