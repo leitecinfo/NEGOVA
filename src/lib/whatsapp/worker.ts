@@ -270,7 +270,11 @@ export class WhatsAppWorker {
       throw new Error(`Worker ${this.workerId} perdió la propiedad del bloqueo sobre el evento ${event.id}`);
     }
 
-    const metaMessageId = event.metaMessageId || event.payload?.id;
+    const metaMessageId =
+      event.payload?.id ||
+      (event.metaMessageId?.startsWith("status:")
+        ? event.metaMessageId.split(":")[1]
+        : event.metaMessageId);
     const status = event.payload?.status;
 
     if (!metaMessageId || !status) {

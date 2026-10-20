@@ -852,7 +852,7 @@ describe("NEGOVA — WhatsApp IA Lote 1: Suite de Seguridad y Resiliencia", () =
       expect(json.enqueuedCount).toBe(1);
       expect(inMemoryEvents.length).toBe(1);
       expect(inMemoryEvents[0].event_type).toBe("status");
-      expect(inMemoryEvents[0].meta_message_id).toBe("wamid_status_msg_001");
+      expect(inMemoryEvents[0].meta_message_id).toBe("status:wamid_status_msg_001:delivered");
     });
 
     it("El worker actualiza el estado de entrega en mensajes salientes si existe el wamid", async () => {
@@ -1009,7 +1009,10 @@ describe("NEGOVA — WhatsApp IA Lote 1: Suite de Seguridad y Resiliencia", () =
       const { handleWebhookPost } = await import("../../src/app/api/webhooks/whatsapp/route");
       const res = await handleWebhookPost(req, mockClient);
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.received).toBe(true);
+      expect(json.enqueuedCount).toBe(0);
     });
 
     it("Deduplicación estricta por meta_message_id (wamid)", async () => {
@@ -1383,4 +1386,304 @@ describe("NEGOVA — WhatsApp IA Lote 1: Suite de Seguridad y Resiliencia", () =
       expect(persistRes.messageId).toBeUndefined();
     });
   });
+
+  // =========================================================================
+  // Suite Específica: Verificación Meta Webhook GET y POST (Contrato Oficial)
+  // =========================================================================
+  describe("Suite Específica: Verificación Meta Webhook GET y POST (Contrato Oficial)", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+      process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = "meta_test_verify_token_secure_12345";
+      process.env.WHATSAPP_APP_SECRET = testAppSecret;
+    });
+
+    // 1. GET con token válido
+    it("GET: responde HTTP 200 con el challenge en texto plano si mode=subscribe y token coincide", async () => {
+      const challengeCode = "challenge_code_987654321";
+      const url = new URL("https://negova.vercel.app/api/webhooks/whatsapp");
+      url.searchParams.set("hub.mode", "subscribe");
+      url.searchParams.set("hub.verify_token", "meta_test_verify_token_secure_12345");
+      url.searchParams.set("hub.challenge", challengeCode);
+
+      const req = new NextRequest(url.toString(), { method: "GET" });
+      const res = await webhookGet(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("text/plain");
+      const text = await res.text();
+      expect(text).toBe(challengeCode);
+    });
+
+    // 2. GET con token inválido
+    it("GET: rechaza con HTTP 403 si el verify_token es incorrecto sin revelar secretos", async () => {
+      const url = new URL("https://negova.vercel.app/api/webhooks/whatsapp");
+      url.searchParams.set("hub.mode", "subscribe");
+      url.searchParams.set("hub.verify_token", "token_falso_atacante");
+      url.searchParams.set("hub.challenge", "challenge_123");
+
+      const req = new NextRequest(url.toString(), { method: "GET" });
+      const res = await webhookGet(req);
+
+      expect(res.status).toBe(403);
+      const text = await res.text();
+      expect(text).toBe("Verificación rechazada");
+    });
+
+    // 3. GET con parámetros incompletos
+    it("GET: rechaza con HTTP 400 si faltan parámetros requeridos por Meta", async () => {
+      const url = new URL("https://negova.vercel.app/api/webhooks/whatsapp?hub.mode=subscribe");
+      const req = new NextRequest(url.toString(), { method: "GET" });
+      const res = await webhookGet(req);
+
+      expect(res.status).toBe(400);
+      const text = await res.text();
+      expect(text).toContain("incompletos");
+    });
+
+    // 4. GET cuando mode no es subscribe
+    it("GET: rechaza con HTTP 403 si hub.mode no es 'subscribe'", async () => {
+      const url = new URL("https://negova.vercel.app/api/webhooks/whatsapp");
+      url.searchParams.set("hub.mode", "unsubscribe");
+      url.searchParams.set("hub.verify_token", "meta_test_verify_token_secure_12345");
+      url.searchParams.set("hub.challenge", "challenge_123");
+
+      const req = new NextRequest(url.toString(), { method: "GET" });
+      const res = await webhookGet(req);
+
+      expect(res.status).toBe(403);
+    });
+
+    // 5. GET cuando la variable de entorno no está configurada
+    it("GET: rechaza con HTTP 403 si WHATSAPP_WEBHOOK_VERIFY_TOKEN no está definido en el servidor", async () => {
+      delete process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+      delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+      const url = new URL("https://negova.vercel.app/api/webhooks/whatsapp");
+      url.searchParams.set("hub.mode", "subscribe");
+      url.searchParams.set("hub.verify_token", "cualquier_token");
+      url.searchParams.set("hub.challenge", "challenge_123");
+
+      const req = new NextRequest(url.toString(), { method: "GET" });
+      const res = await webhookGet(req);
+
+      expect(res.status).toBe(403);
+    });
+
+    // 6. POST: Acepta firma con prefijo en mayúsculas (SHA256=...)
+    it("POST: acepta firma HMAC con prefijo case-insensitive (SHA256=...)", async () => {
+      const payload = {
+        object: "whatsapp_business_account",
+        entry: [
+          {
+            id: "waba_001",
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  messaging_product: "whatsapp",
+                  metadata: { phone_number_id: testPhoneId },
+                  messages: [{ from: "573001234567", id: "wamid_ci_prefix_01", text: { body: "Hola" } }],
+                },
+              },
+            ],
+          },
+        ],
+      };
+      const rawBody = JSON.stringify(payload);
+      const hmac = crypto.createHmac("sha256", testAppSecret).update(rawBody).digest("hex");
+
+      const req = new NextRequest("https://negova.vercel.app/api/webhooks/whatsapp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-hub-signature-256": `SHA256=${hmac}`,
+        },
+        body: rawBody,
+      });
+
+      const res = await handleWebhookPost(req, mockClient);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.received).toBe(true);
+    });
+
+    // 7. POST: Aislamiento estricto multiempresa entre dos negocios
+    it("POST: asigna cada mensaje al negocio correcto según el phone_number_id del receptor", async () => {
+      const bizA = "00000000-0000-0000-0000-000000000001";
+      const bizB = "00000000-0000-0000-0000-000000000002";
+      const phoneA = "phone_biz_a_111111";
+      const phoneB = "phone_biz_b_222222";
+
+      inMemoryConfigs.push(
+        { business_id: bizA, phone_number_id: phoneA, status: "active", verified_name: "Negocio A" },
+        { business_id: bizB, phone_number_id: phoneB, status: "active", verified_name: "Negocio B" }
+      );
+
+      const payload = {
+        object: "whatsapp_business_account",
+        entry: [
+          {
+            id: "waba_shared",
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  messaging_product: "whatsapp",
+                  metadata: { phone_number_id: phoneA },
+                  messages: [{ from: "573111111111", id: "wamid_tenant_a_01", text: { body: "Pedido A" } }],
+                },
+              },
+              {
+                field: "messages",
+                value: {
+                  messaging_product: "whatsapp",
+                  metadata: { phone_number_id: phoneB },
+                  messages: [{ from: "573222222222", id: "wamid_tenant_b_01", text: { body: "Pedido B" } }],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const rawBody = JSON.stringify(payload);
+      const hmac = crypto.createHmac("sha256", testAppSecret).update(rawBody).digest("hex");
+
+      const req = new NextRequest("https://negova.vercel.app/api/webhooks/whatsapp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-hub-signature-256": `sha256=${hmac}`,
+        },
+        body: rawBody,
+      });
+
+      const res = await handleWebhookPost(req, mockClient);
+      expect(res.status).toBe(200);
+
+      const eventA = inMemoryEvents.find((e) => e.meta_message_id === "wamid_tenant_a_01");
+      const eventB = inMemoryEvents.find((e) => e.meta_message_id === "wamid_tenant_b_01");
+
+      expect(eventA).toBeDefined();
+      expect(eventA.business_id).toBe(bizA);
+
+      expect(eventB).toBeDefined();
+      expect(eventB.business_id).toBe(bizB);
+    });
+
+    // 8. Distingue deduplicación entre mensaje y estados sucesivos del mismo mensaje
+    it("POST: no confunde estados sucesivos (delivered, read) como duplicados entre sí", async () => {
+      const payloadDelivered = {
+        object: "whatsapp_business_account",
+        entry: [
+          {
+            id: "waba_001",
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  messaging_product: "whatsapp",
+                  metadata: { phone_number_id: testPhoneId },
+                  statuses: [{ id: "wamid_status_lifecycle_100", status: "delivered", recipient_id: "573001234567" }],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const payloadRead = {
+        object: "whatsapp_business_account",
+        entry: [
+          {
+            id: "waba_001",
+            changes: [
+              {
+                field: "messages",
+                value: {
+                  messaging_product: "whatsapp",
+                  metadata: { phone_number_id: testPhoneId },
+                  statuses: [{ id: "wamid_status_lifecycle_100", status: "read", recipient_id: "573001234567" }],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const rawDelivered = JSON.stringify(payloadDelivered);
+      const hmacDelivered = crypto.createHmac("sha256", testAppSecret).update(rawDelivered).digest("hex");
+
+      const reqDelivered = new NextRequest("https://negova.vercel.app/api/webhooks/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-hub-signature-256": `sha256=${hmacDelivered}` },
+        body: rawDelivered,
+      });
+
+      const resDelivered = await handleWebhookPost(reqDelivered, mockClient);
+      expect(resDelivered.status).toBe(200);
+
+      // Enviar el evento de lectura ('read') para el MISMO wamid
+      const rawRead = JSON.stringify(payloadRead);
+      const hmacRead = crypto.createHmac("sha256", testAppSecret).update(rawRead).digest("hex");
+
+      const reqRead = new NextRequest("https://negova.vercel.app/api/webhooks/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-hub-signature-256": `sha256=${hmacRead}` },
+        body: rawRead,
+      });
+
+      const resRead = await handleWebhookPost(reqRead, mockClient);
+      expect(resRead.status).toBe(200);
+
+      // Ambos eventos deben haberse persistido de forma independiente
+      const deliveredEvt = inMemoryEvents.find((e) => e.meta_message_id === "status:wamid_status_lifecycle_100:delivered");
+      const readEvt = inMemoryEvents.find((e) => e.meta_message_id === "status:wamid_status_lifecycle_100:read");
+
+      expect(deliveredEvt).toBeDefined();
+      expect(readEvt).toBeDefined();
+    });
+  });
+
+  // =========================================================================
+  // Suite: Protección y Ejecución del Cron Worker de WhatsApp
+  // =========================================================================
+  describe("Suite: Protección y Ejecución del Cron Worker de WhatsApp", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+      process.env.CRON_SECRET = "super_secure_cron_secret_negotiated";
+    });
+
+    it("Rechaza con HTTP 401 si la cabecera Authorization está ausente o es inválida", async () => {
+      const { GET: cronGet } = await import("../../src/app/api/cron/whatsapp-worker/route");
+
+      const reqNoAuth = new NextRequest("https://negova.vercel.app/api/cron/whatsapp-worker", { method: "GET" });
+      const resNoAuth = await cronGet(reqNoAuth);
+      expect(resNoAuth.status).toBe(401);
+
+      const reqBadAuth = new NextRequest("https://negova.vercel.app/api/cron/whatsapp-worker", {
+        method: "GET",
+        headers: { Authorization: "Bearer token_falso" },
+      });
+      const resBadAuth = await cronGet(reqBadAuth);
+      expect(resBadAuth.status).toBe(401);
+    });
+
+    it("Rechaza con HTTP 500 si CRON_SECRET no está configurado en el servidor", async () => {
+      delete process.env.CRON_SECRET;
+      const { GET: cronGet } = await import("../../src/app/api/cron/whatsapp-worker/route");
+
+      const req = new NextRequest("https://negova.vercel.app/api/cron/whatsapp-worker", {
+        method: "GET",
+        headers: { Authorization: "Bearer token" },
+      });
+      const res = await cronGet(req);
+      expect(res.status).toBe(500);
+    });
+  });
 });
+

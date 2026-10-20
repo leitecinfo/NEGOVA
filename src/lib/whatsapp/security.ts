@@ -80,6 +80,25 @@ export function resolveEncryptionKey(
 }
 
 /**
+ * Comparación timing-safe para tokens y secretos en memoria.
+ */
+export function timingSafeCompare(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
+  const bufA = Buffer.from(a.trim());
+  const bufB = Buffer.from(b.trim());
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  try {
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Valida la firma `x-hub-signature-256` enviada por Meta en las cabeceras HTTP.
  * Previene ataques de timing usando `crypto.timingSafeEqual`.
  */
@@ -93,7 +112,7 @@ export function verifyMetaWebhookSignature(
   }
 
   const parts = signatureHeader.trim().split("=");
-  if (parts.length !== 2 || parts[0] !== "sha256") {
+  if (parts.length !== 2 || parts[0].toLowerCase() !== "sha256") {
     return false;
   }
 

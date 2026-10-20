@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { verifyMetaWebhookSignature, sanitizeLog } from "@/lib/whatsapp/security";
+import { verifyMetaWebhookSignature, timingSafeCompare, sanitizeLog } from "@/lib/whatsapp/security";
 import { WhatsAppQueueService } from "@/lib/whatsapp/queue-service";
 import { WhatsAppConversationService } from "@/lib/whatsapp/conversation-service";
 import { MetaWebhookPayload } from "@/lib/whatsapp/types";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function getServiceDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,7 +39,14 @@ export async function GET(req: NextRequest) {
       process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
       process.env.WHATSAPP_VERIFY_TOKEN;
 
-    if (mode === "subscribe" && expectedToken && token === expectedToken) {
+    if (!expectedToken) {
+      console.warn(
+        "[WhatsApp Webhook GET] WHATSAPP_WEBHOOK_VERIFY_TOKEN no está configurado en las variables de entorno."
+      );
+      return new Response("Verificación rechazada", { status: 403 });
+    }
+
+    if (mode === "subscribe" && timingSafeCompare(token, expectedToken)) {
       // Retornar el challenge de Meta como texto plano tal como exige la documentación oficial
       return new Response(challenge, {
         status: 200,
@@ -264,12 +274,11 @@ export async function handleWebhookPost(req: NextRequest, customDbClient?: any) 
 
         if (!config) {
           console.warn(
-            `[WhatsApp Webhook] Phone Number ID ${phoneNumberId} no vinculado a ningún negocio activo.`
+            `[WhatsApp Webhook] Evento firmado reconocido pero ignorado (cuarentena): Phone Number ID ${phoneNumberId} no está vinculado a ningún negocio activo.`
           );
-          return NextResponse.json(
-            { error: "Identificador de número receptor no reconocido o inactivo" },
-            { status: 422 }
-          );
+          // Reconocimiento seguro: Responder 200 para evitar que Meta reintente durante 7 días
+          // y deshabilite el webhook de la app, sin procesar ni asociar el evento a ningún negocio.
+          continue;
         }
 
         const businessId = config.businessId;
@@ -302,6 +311,7 @@ export async function handleWebhookPost(req: NextRequest, customDbClient?: any) 
         }
 
         // 8. Ingesta validada de estados de entrega/lectura (value.statuses - WHK-02)
+        // Distingue transiciones (sent, delivered, read) para no descartar estados válidos como duplicados del wamid.
         if (Array.isArray(value.statuses)) {
           for (const statusItem of value.statuses) {
             if (!statusItem.id || !statusItem.status) {
@@ -312,10 +322,12 @@ export async function handleWebhookPost(req: NextRequest, customDbClient?: any) 
               continue;
             }
 
+            const statusDedupKey = `status:${statusItem.id}:${statusItem.status}`;
+
             const enqueueResult = await WhatsAppQueueService.enqueue(dbClient, {
               businessId,
               phoneNumberId,
-              metaMessageId: statusItem.id,
+              metaMessageId: statusDedupKey,
               senderPhone: statusItem.recipient_id || "",
               eventType: "status",
               payload: statusItem,
