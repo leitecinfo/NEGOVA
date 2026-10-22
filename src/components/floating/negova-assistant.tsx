@@ -312,8 +312,7 @@ export function NegovaAssistant() {
         >
           Pregunta a NEGOVA
         </div>
-
-        <button
+                <button
           onClick={() => setIsOpen(!isOpen)}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
@@ -321,10 +320,10 @@ export function NegovaAssistant() {
           onBlur={() => setShowTooltip(false)}
           aria-label="Abrir asistente de IA NEGOVA"
           aria-expanded={isOpen}
-          className="w-13 h-13 sm:w-16 sm:h-16 flex items-center justify-center hover:scale-105 sm:hover:scale-110 active:scale-95 transition-all duration-300 focus:outline-hidden cursor-pointer relative group drop-shadow-[0_8px_20px_rgba(237,80,10,0.4)] sm:drop-shadow-[0_10px_25px_rgba(237,80,10,0.45)] hover:drop-shadow-[0_15px_30px_rgba(237,80,10,0.7)]"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#0B0E14] border-2 border-[#ED500A]/60 flex items-center justify-center hover:scale-105 sm:hover:scale-110 active:scale-95 transition-all duration-300 focus:outline-hidden cursor-pointer relative group drop-shadow-[0_8px_20px_rgba(237,80,10,0.4)] sm:drop-shadow-[0_10px_25px_rgba(237,80,10,0.45)] hover:drop-shadow-[0_15px_30px_rgba(237,80,10,0.7)]"
         >
-          <AnimatedRobotAvatar className="w-full h-full group-hover:rotate-3 transition-transform duration-300" />
-          <span className="absolute top-1 right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#ED500A] border-2 border-[#0B0E14] animate-pulse" />
+          <AnimatedRobotAvatar className="w-7 h-7 sm:w-8 sm:h-8 group-hover:rotate-3 transition-transform duration-300" />
+          <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-[#ED500A] border-2 border-[#0B0E14] animate-pulse" />
         </button>
       </div>
 
