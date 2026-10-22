@@ -424,12 +424,20 @@ function EditPaymentMethodModal({
               <select
                 value={breBKeyType}
                 onChange={(e) => setBreBKeyType(e.target.value as BreBKeyType)}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px]"
+                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px] dark:[color-scheme:dark] cursor-pointer"
               >
-                <option value="phone">Número de celular</option>
-                <option value="email">Correo electrónico</option>
-                <option value="alphanumeric">Llave alfanumérica</option>
-                <option value="merchant_code">Código de comercio</option>
+                <option value="phone" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
+                  Número de celular
+                </option>
+                <option value="email" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
+                  Correo electrónico
+                </option>
+                <option value="alphanumeric" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
+                  Llave alfanumérica
+                </option>
+                <option value="merchant_code" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
+                  Código de comercio
+                </option>
               </select>
               <p className="text-[11px] text-slate-500">
                 Selecciona la forma en que tu cuenta bancaria o billetera recibe transferencias Bre-B.
@@ -444,10 +452,10 @@ function EditPaymentMethodModal({
               <select
                 value={destinationType}
                 onChange={(e) => setDestinationType(e.target.value as PaymentDestinationType)}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px]"
+                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px] dark:[color-scheme:dark] cursor-pointer"
               >
                 {meta.allowedDestinationTypes.map((t) => (
-                  <option key={t.value} value={t.value}>
+                  <option key={t.value} value={t.value} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
                     {t.label}
                   </option>
                 ))}
