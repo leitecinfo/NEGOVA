@@ -14,9 +14,9 @@ import { Footer } from "@/components/landing/footer";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden w-full">
       <Navbar />
-      <main>
+      <main className="overflow-x-hidden w-full">
         <HeroSection />
         <ProductStorySection />
         <HowItWorksSection />

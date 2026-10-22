@@ -8,8 +8,8 @@ import { PosScreenClient } from "@/components/pos/pos-screen-client";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Punto de Venta (POS) | NEGOVA",
-    description: "Módulo mobile-first de punto de venta y toma de comandas multicanal.",
+    title: "Vender | NEGOVA",
+    description: "Módulo mobile-first de punto de venta y toma de ventas multicanal.",
   };
 }
 

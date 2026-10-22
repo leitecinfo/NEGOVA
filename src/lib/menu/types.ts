@@ -18,7 +18,11 @@ export interface DigitalMenuCustomSettings {
   showAddress: boolean;
   bannerTitle?: string;
   bannerSubtitle?: string;
+  deliveryFee?: number;
+  deliveryEnabled?: boolean;
 }
+
+export type PublicOrderPaymentMethod = "cash" | "transfer";
 
 export interface BusinessDigitalMenu {
   id: string;
@@ -51,11 +55,14 @@ export interface DigitalMenuPublicBusiness {
   schedule?: string | null;
 }
 
+import { PublicPaymentMethodDTO } from "../payments/types";
+
 export interface DigitalMenuPublicData {
   business: DigitalMenuPublicBusiness;
   menu: BusinessDigitalMenu;
   categories: Category[];
   products: Product[];
+  paymentMethods?: PublicPaymentMethodDTO[];
 }
 
 export const DEFAULT_DIGITAL_MENU_SETTINGS: DigitalMenuCustomSettings = {
@@ -70,6 +77,8 @@ export const DEFAULT_DIGITAL_MENU_SETTINGS: DigitalMenuCustomSettings = {
   showPrices: true,
   showContactInfo: true,
   showAddress: true,
+  deliveryFee: 0,
+  deliveryEnabled: true,
 };
 
 export interface TemplateMetadata {

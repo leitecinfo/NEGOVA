@@ -8,6 +8,7 @@ import {
   uploadDigitalMenuFileStorage,
   deleteDigitalMenuFileStorage,
 } from "@/lib/storage/supabase-storage";
+import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
 
 async function getDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -303,6 +304,22 @@ export async function getPublicDigitalMenu(
     .eq("business_id", business.id)
     .maybeSingle();
 
+  // 3. Extraer datos extendidos (WhatsApp, delivery settings, etc.)
+  const settingsObj = (business.settings as any) || {};
+  const deliveryConfig = settingsObj.delivery;
+
+  let effectiveDeliveryEnabled = menu?.custom_settings?.deliveryEnabled ?? DEFAULT_DIGITAL_MENU_SETTINGS.deliveryEnabled;
+  let effectiveDeliveryFee = menu?.custom_settings?.deliveryFee ?? DEFAULT_DIGITAL_MENU_SETTINGS.deliveryFee;
+
+  if (deliveryConfig && typeof deliveryConfig === "object") {
+    if (typeof deliveryConfig.enabled === "boolean") {
+      effectiveDeliveryEnabled = deliveryConfig.enabled;
+    }
+    if (typeof deliveryConfig.fee === "number" && !isNaN(deliveryConfig.fee) && deliveryConfig.fee >= 0) {
+      effectiveDeliveryFee = deliveryConfig.fee;
+    }
+  }
+
   // Si no tiene registro aún, proveer el default
   const effectiveMenu: BusinessDigitalMenu = menu || {
     id: "default",
@@ -310,7 +327,11 @@ export async function getPublicDigitalMenu(
     is_published: true,
     modality: "template",
     template_id: "urbana",
-    custom_settings: DEFAULT_DIGITAL_MENU_SETTINGS,
+    custom_settings: {
+      ...DEFAULT_DIGITAL_MENU_SETTINGS,
+      deliveryEnabled: effectiveDeliveryEnabled,
+      deliveryFee: effectiveDeliveryFee,
+    },
     file_url: null,
     file_storage_path: null,
     file_type: null,
@@ -320,8 +341,12 @@ export async function getPublicDigitalMenu(
     updated_at: new Date().toISOString(),
   };
 
-  // 3. Extraer datos de contacto extendidos (WhatsApp, etc. desde settings si existen)
-  const settingsObj = (business.settings as any) || {};
+  // Asegurar consistencia de la configuración de domicilios
+  effectiveMenu.custom_settings = {
+    ...effectiveMenu.custom_settings,
+    deliveryEnabled: effectiveDeliveryEnabled,
+    deliveryFee: effectiveDeliveryFee,
+  };
   const whatsapp = settingsObj.whatsapp || business.phone;
   const instagram = settingsObj.instagram || null;
   const schedule = settingsObj.schedule || null;
@@ -351,8 +376,8 @@ export async function getPublicDigitalMenu(
     };
   }
 
-  // 4. Si la modalidad es plantilla o personalizada, cargar categorías y productos reales
-  const [categoriesRes, productsRes] = await Promise.all([
+  // 4. Si la modalidad es plantilla o personalizada, cargar categorías, productos y métodos de pago activos
+  const [categoriesRes, productsRes, paymentMethods] = await Promise.all([
     supabase
       .from("categories")
       .select("id, business_id, name, description, sort_order, status, created_at, updated_at")
@@ -369,6 +394,8 @@ export async function getPublicDigitalMenu(
       .eq("is_available", true)
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
+
+    getPublicBusinessPaymentMethods(business.id),
   ]);
 
   return {
@@ -376,5 +403,6 @@ export async function getPublicDigitalMenu(
     menu: effectiveMenu,
     categories: (categoriesRes.data || []) as any,
     products: (productsRes.data || []) as any,
+    paymentMethods,
   };
 }

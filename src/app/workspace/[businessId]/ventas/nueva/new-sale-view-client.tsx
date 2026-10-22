@@ -6,6 +6,8 @@ import { NewSaleFormClient } from "./new-sale-form-client";
 import { Product, Category } from "@/lib/products/types";
 import { RestaurantTable } from "@/lib/restaurant/types";
 
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
+
 interface NewSaleViewClientProps {
   businessId: string;
   businessName: string;
@@ -20,6 +22,7 @@ interface NewSaleViewClientProps {
     defaultPaymentMethod?: "cash" | "transfer" | "card";
     askCustomerName?: boolean;
   };
+  paymentMethods?: PublicPaymentMethodDTO[];
 }
 
 export function NewSaleViewClient({
@@ -31,6 +34,7 @@ export function NewSaleViewClient({
   initialCategories,
   initialTables = [],
   posSettings,
+  paymentMethods,
 }: NewSaleViewClientProps) {
   // Por defecto, abre la interfaz ágil de POS si hay productos o se accede a nueva venta
   const [mode, setMode] = useState<"pos" | "manual">("pos");
@@ -44,6 +48,7 @@ export function NewSaleViewClient({
         primaryColor={primaryColor}
         onSwitchToPos={() => setMode("pos")}
         posSettings={posSettings}
+        paymentMethods={paymentMethods}
       />
     );
   }

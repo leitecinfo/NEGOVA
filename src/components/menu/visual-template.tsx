@@ -12,6 +12,7 @@ import {
   Search,
   X,
   Plus,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Product, Category, ProductVariant } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
@@ -19,14 +20,18 @@ import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
 interface Props {
   business: DigitalMenuPublicBusiness;
   categories: Category[];
   products: Product[];
   settings?: DigitalMenuCustomSettings;
+  paymentMethods?: PublicPaymentMethodDTO[];
   isPreview?: boolean;
   isMobile?: boolean;
+  activeTable?: { id: string; name_or_number: string } | null;
+  tableToken?: string | null;
 }
 
 export function VisualMenuTemplate({
@@ -34,8 +39,11 @@ export function VisualMenuTemplate({
   categories,
   products,
   settings,
+  paymentMethods,
   isPreview = false,
   isMobile = false,
+  activeTable,
+  tableToken,
 }: Props) {
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -95,6 +103,7 @@ export function VisualMenuTemplate({
         [cartKey]: {
           id: cartKey,
           productId: product.id,
+          variantId: variant?.id || null,
           name: product.name,
           variantName,
           unitPrice,
@@ -309,6 +318,13 @@ export function VisualMenuTemplate({
           </p>
         )}
 
+        {activeTable && (
+          <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-[#FFD60A] border-[2px] border-[#111111] shadow-[2px_2px_0_#111111] text-xs font-black uppercase text-[#111111]">
+            <UtensilsCrossed className="w-3.5 h-3.5" />
+            <span>Mesa: <strong>{activeTable.name_or_number}</strong></span>
+          </div>
+        )}
+
         {!isPreview && (
           <div className="mt-3 flex justify-center">
             <button
@@ -475,7 +491,13 @@ export function VisualMenuTemplate({
         theme="light"
         onAddToCart={(item) => {
           setCart((prev) => {
-            const cartKey = item.variantName ? `${item.productId}_${item.variantName}` : item.productId;
+            const modHash = (item.selectedModifiers || [])
+              .map((m) => `${m.groupId}:${m.optionId}`)
+              .sort()
+              .join("|");
+            const cartKey = item.variantId
+              ? `${item.productId}_${item.variantId}${modHash ? `_${modHash}` : ""}`
+              : `${item.productId}${modHash ? `_${modHash}` : ""}`;
             const current = prev[cartKey];
             const newQty = (current ? current.quantity : 0) + item.quantity;
             return {
@@ -483,11 +505,13 @@ export function VisualMenuTemplate({
               [cartKey]: {
                 id: cartKey,
                 productId: item.productId,
+                variantId: item.variantId || null,
                 name: item.name,
                 variantName: item.variantName,
                 unitPrice: item.unitPrice,
                 quantity: newQty,
                 image_url: item.image_url,
+                selectedModifiers: item.selectedModifiers,
               },
             };
           });
@@ -495,17 +519,23 @@ export function VisualMenuTemplate({
         }}
       />
 
-      {/* 7. CARRITO FLOTANTE DESPLEGABLE & WHATSAPP (DEMO HTML) */}
+      {/* 7. CARRITO FLOTANTE DESPLEGABLE & MODALIDADES */}
       <MenuCartDrawer
         cart={cart}
         onUpdateQuantity={updateCartQuantity}
         onClearCart={clearCart}
         currency={business.currency || "COP"}
+        businessId={business.id}
         businessName={business.name}
         whatsappPhone={cleanWhatsapp}
         theme="brutal"
         accentColor={ac}
         isPreview={isPreview}
+        activeTable={activeTable}
+        tableToken={tableToken}
+        deliveryFee={settings?.deliveryFee || 0}
+        deliveryEnabled={settings?.deliveryEnabled !== false}
+        paymentMethods={paymentMethods}
       />
     </div>
   );

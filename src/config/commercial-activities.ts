@@ -395,9 +395,6 @@ export function getCatalogModuleLabel(
     return "Servicios";
   }
 
-  // Solo productos
-  const isFood = (businessType || "").toLowerCase().includes("food") ||
-    (businessType || "").toLowerCase().includes("rest") ||
-    (businessType || "").toLowerCase().includes("comida");
-  return isFood ? "Menú y Productos" : "Productos";
+  // Solo productos / inventario
+  return "Inventario";
 }

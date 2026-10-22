@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, useTransition, useRef, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { BusinessDocumentConfig } from "@/lib/documents/types";
 import {
   updateWorkspaceConfigAction,
@@ -9,6 +9,8 @@ import {
   removeWorkspaceLogoAction,
   updateCommercialActivitiesAction,
   updateBusinessSettingsAction,
+  updateHeaderQuickAccessAction,
+  updateDeliverySettingsAction,
 } from "./actions";
 import { toast } from "sonner";
 import {
@@ -38,6 +40,7 @@ import {
   ChevronUp,
   Info,
   AlertCircle,
+  Bike,
 } from "lucide-react";
 import { AdminTabs } from "@/components/admin/ui/admin-tabs";
 import { AdminKpiGrid, AdminKpiCard } from "@/components/admin/ui/admin-kpi-card";
@@ -48,8 +51,14 @@ import { ImageCropperModal } from "@/components/ui/image-cropper-modal";
 import { CommercialActivity, PlanFeatureKey, COMMERCIAL_ACTIVITIES, PLAN_FEATURES } from "@/config/commercial-activities";
 import { CommercialPlan, PlanLimits, PlanId } from "@/config/plans";
 import { BUSINESS_TYPE_LABELS, BusinessType } from "@/lib/businesses/types";
+import {
+  buildWorkspaceNavSections,
+  getDefaultQuickAccessModuleId,
+} from "@/config/workspace-navigation";
 
-type ConfigTabId = "general" | "branding" | "comprobantes" | "mi-negocio" | "regional";
+import { PaymentMethodsTab } from "@/components/configuracion/payment-methods-tab";
+
+type ConfigTabId = "general" | "branding" | "comprobantes" | "mi-negocio" | "regional" | "pagos";
 
 // ─── Tipos de POS Settings ───────────────────────────────────────────────────
 interface PosSettings {
@@ -143,7 +152,7 @@ export function WorkspaceConfiguracionClient({
   // ─── Estado ─────────────────────────────────────────────────────────────
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as ConfigTabId | null;
-  const validTabs: ConfigTabId[] = ["general", "branding", "comprobantes", "mi-negocio", "regional"];
+  const validTabs: ConfigTabId[] = ["general", "branding", "pagos", "comprobantes", "mi-negocio", "regional"];
   const [activeTab, setActiveTab] = useState<ConfigTabId>(
     tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "general"
   );
@@ -170,6 +179,82 @@ export function WorkspaceConfiguracionClient({
     ...((businessSettings.pos as Partial<PosSettings>) || {}),
   });
   const [isSavingSettings, startSettingsTransition] = useTransition();
+  const router = useRouter();
+  const defaultQuickAccess = getDefaultQuickAccessModuleId(businessType, activities);
+  const [headerQuickAccess, setHeaderQuickAccess] = useState<string>(
+    (businessSettings.headerQuickAccess as string) || defaultQuickAccess
+  );
+  const [isSavingQuickAccess, startQuickAccessTransition] = useTransition();
+
+  const availableNavSections = useMemo(() => {
+    return buildWorkspaceNavSections(businessId, {
+      businessType,
+      commercialActivities: activities,
+      isOwner,
+      roleCode: userRole,
+    });
+  }, [businessId, businessType, activities, isOwner, userRole]);
+
+  const availableModules = useMemo(() => {
+    return availableNavSections.flatMap((s) => s.items);
+  }, [availableNavSections]);
+
+  const handleSaveHeaderQuickAccess = () => {
+    if (!isOwner) {
+      toast.error("Solo el propietario puede modificar el acceso rápido del encabezado.");
+      return;
+    }
+    startQuickAccessTransition(async () => {
+      const res = await updateHeaderQuickAccessAction(businessId, headerQuickAccess);
+      if (res.success) {
+        toast.success("Acceso rápido del encabezado actualizado correctamente.");
+        window.dispatchEvent(
+          new CustomEvent("negova:header-quick-access-updated", {
+            detail: headerQuickAccess,
+          })
+        );
+        router.refresh();
+      } else {
+        toast.error("Error al actualizar acceso rápido", { description: res.error });
+      }
+    });
+  };
+
+  // ─── Configuración de Domicilios (Tarifa y Activación) ─────────────────────
+  const initialDelivery = (businessSettings.delivery as { enabled?: boolean; fee?: number } | undefined) || {};
+  const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(
+    initialDelivery.enabled !== false
+  );
+  const [deliveryFee, setDeliveryFee] = useState<number>(
+    typeof initialDelivery.fee === "number" && !isNaN(initialDelivery.fee) && initialDelivery.fee >= 0
+      ? initialDelivery.fee
+      : 0
+  );
+  const [isSavingDelivery, startDeliveryTransition] = useTransition();
+
+  const handleSaveDeliverySettings = () => {
+    if (!isOwner) {
+      toast.error("Solo el propietario puede modificar la configuración de domicilios.");
+      return;
+    }
+    if (deliveryFee < 0 || isNaN(deliveryFee)) {
+      toast.error("La tarifa de domicilio debe ser un número válido mayor o igual a 0.");
+      return;
+    }
+    startDeliveryTransition(async () => {
+      const res = await updateDeliverySettingsAction(businessId, {
+        enabled: deliveryEnabled,
+        fee: deliveryFee,
+      });
+      if (res.success) {
+        toast.success("Configuración de domicilios guardada correctamente.");
+        router.refresh();
+      } else {
+        toast.error("Error al actualizar domicilios", { description: res.error });
+      }
+    });
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Handlers generales ──────────────────────────────────────────────────
@@ -318,6 +403,7 @@ export function WorkspaceConfiguracionClient({
   const TABS = [
     { id: "general", label: "Datos del negocio" },
     { id: "branding", label: "Identidad visual" },
+    { id: "pagos", label: "Métodos de pago" },
     { id: "comprobantes", label: "Comprobantes" },
     { id: "mi-negocio", label: "Mi negocio" },
     { id: "regional", label: "Regional y preferencias" },
@@ -888,6 +974,244 @@ export function WorkspaceConfiguracionClient({
             </div>
           </div>
 
+          {/* ─── Acceso Rápido del Encabezado ─────────────────────────── */}
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-500/20">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
+                      Acceso rápido del encabezado
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Personaliza el módulo prioritario visible en la barra superior para acceder a él con un solo clic.
+                    </p>
+                  </div>
+                </div>
+
+                {isOwner ? (
+                  <AdminButton
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSaveHeaderQuickAccess}
+                    disabled={isSavingQuickAccess}
+                    leftIcon={<Save className="w-4 h-4" />}
+                  >
+                    {isSavingQuickAccess ? "Guardando..." : "Guardar acceso rápido"}
+                  </AdminButton>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                    <Lock className="w-3.5 h-3.5" />
+                    Solo Propietario
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Vista previa en tiempo real */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                <div>
+                  <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold">
+                    Vista previa activa
+                  </span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Así se mostrará el botón en la barra superior junto al reloj y notificaciones.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const previewItem = availableModules.find((m) => m.id === headerQuickAccess) || availableModules[0];
+                    if (!previewItem) return null;
+                    const PreviewIcon = previewItem.icon;
+                    return (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.1] text-slate-800 dark:text-white text-xs font-semibold shadow-2xs">
+                        <PreviewIcon className="w-4 h-4 text-[#ED500A]" />
+                        <span>{previewItem.label}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Selector interactivo de módulos disponibles */}
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">
+                  Selecciona el módulo de destino
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {availableModules.map((mod) => {
+                    const ModIcon = mod.icon;
+                    const isSelected = headerQuickAccess === mod.id;
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() => {
+                          if (!isOwner) return;
+                          setHeaderQuickAccess(mod.id);
+                        }}
+                        disabled={!isOwner || isSavingQuickAccess}
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? "bg-orange-50/50 dark:bg-[#ED500A]/10 border-[#ED500A] shadow-xs ring-1 ring-[#ED500A]/20"
+                            : "bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/70 dark:border-white/[0.06] hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
+                        } ${!isOwner ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-[#ED500A] text-white shadow-xs"
+                              : "bg-slate-200/60 dark:bg-white/5 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <ModIcon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                              {mod.label}
+                            </span>
+                            {isSelected && (
+                              <CheckCircle2 className="w-4 h-4 text-[#ED500A] shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                            {mod.description || "Módulo disponible"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── Configuración de Domicilios ───────────────────────────── */}
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-500/20">
+                    <Bike className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
+                      Configuración de domicilios
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Define la disponibilidad del servicio y la tarifa fija cobrada en los pedidos a domicilio del menú digital.
+                    </p>
+                  </div>
+                </div>
+
+                {isOwner ? (
+                  <AdminButton
+                    variant="primary"
+                    size="sm"
+                    onClick={handleSaveDeliverySettings}
+                    disabled={isSavingDelivery}
+                    leftIcon={<Save className="w-4 h-4" />}
+                  >
+                    {isSavingDelivery ? "Guardando..." : "Guardar domicilios"}
+                  </AdminButton>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                    <Lock className="w-3.5 h-3.5" />
+                    Solo Propietario
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Activar/Desactivar servicio de domicilio */}
+              <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      Habilitar servicio de domicilio
+                    </p>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      deliveryEnabled
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                        : "bg-slate-200/70 dark:bg-white/10 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/5"
+                    }`}>
+                      {deliveryEnabled ? "Servicio Activo" : "Servicio Inactivo"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Permite a los comensales seleccionar entrega a domicilio en el menú digital. Si se desactiva, solo podrán pedir para recoger o en mesa.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  value={deliveryEnabled}
+                  onChange={(v) => isOwner && setDeliveryEnabled(v)}
+                  disabled={!isOwner || isSavingDelivery}
+                />
+              </div>
+
+              {/* Tarifa fija de domicilio */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Tarifa fija de entrega a domicilio ({businessCurrency || "COP"})
+                      </p>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20">
+                        Tarifa Única por Pedido
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Este importe se sumará exactamente una vez al subtotal cuando el cliente elija la modalidad «Domicilio». No se suma a pedidos para recoger ni en mesa.
+                    </p>
+                  </div>
+                  <div className="text-right sm:shrink-0">
+                    <span className="text-xs text-slate-400 block font-mono">Valor actual</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+                      {new Intl.NumberFormat("es-CO", {
+                        style: "currency",
+                        currency: businessCurrency || "COP",
+                        maximumFractionDigits: 0,
+                      }).format(deliveryFee)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <div className="relative max-w-xs">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={deliveryFee}
+                      onChange={(e) => {
+                        if (!isOwner) return;
+                        const val = parseFloat(e.target.value);
+                        setDeliveryFee(isNaN(val) ? 0 : Math.max(0, val));
+                      }}
+                      disabled={!isOwner || isSavingDelivery || !deliveryEnabled}
+                      placeholder="Ej. 5000"
+                      className="w-full pl-7 pr-3 py-2 rounded-xl text-sm font-mono border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>Ingresa 0 para ofrecer entregas a domicilio gratuitas o sin recargo adicional.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ─── Preferencias del POS ─────────────────────────────────────── */}
           <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
@@ -998,6 +1322,13 @@ export function WorkspaceConfiguracionClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+           TAB MÉTODOS DE PAGO Y COBRO
+      ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "pagos" && (
+        <PaymentMethodsTab businessId={businessId} isOwner={isOwner} />
       )}
 
       {/* ── BARRA DE GUARDAR (tabs 1-3) ──────────────────────────────────── */}

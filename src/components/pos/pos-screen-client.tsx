@@ -34,6 +34,7 @@ import { RestaurantTable } from "@/lib/restaurant/types";
 import { ModifierSelectionModal } from "./modifier-selection-modal";
 import { OrderDestinationModal } from "./order-destination-modal";
 import { OrderSuccessModal } from "./order-success-modal";
+import { ProductFormModal } from "@/app/workspace/[businessId]/productos/product-form-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { toast } from "sonner";
@@ -66,8 +67,9 @@ export function PosScreenClient({
   const router = useRouter();
 
   // 1. Estado del catálogo
-  const [products] = useState<Product[]>(initialProducts);
-  const [categories] = useState<Category[]>(initialCategories);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
   const tables = initialTables;
 
   // 2. Filtros y búsqueda
@@ -220,13 +222,13 @@ export function PosScreenClient({
   const handleClearCart = () => {
     setCartItems([]);
     setIsClearCartConfirmOpen(false);
-    toast.success("Comanda vaciada");
+    toast.success("Venta vaciada");
   };
 
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-[1600px] mx-auto w-full p-2.5 sm:p-4 lg:p-3.5 xl:p-4 gap-3 sm:gap-3.5 overflow-hidden">
-      {/* 1. TOP BAR / CABECERA DEL POS */}
+      {/* 1. TOP BAR / CABECERA DE VENDER */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-white/5 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-black text-lg shrink-0">
@@ -235,14 +237,14 @@ export function PosScreenClient({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
-                Punto de Venta (POS)
+                Vender
               </h1>
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400">
-                Selección de pedido
+                Selección de productos
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {tradeName || businessName} · Catálogo y comanda temporal
+              {tradeName || businessName} · Catálogo y venta actual
             </p>
           </div>
         </div>
@@ -264,7 +266,7 @@ export function PosScreenClient({
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl transition-colors"
           >
             <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Gestionar Catálogo</span>
+            <span className="hidden sm:inline">Gestionar Inventario</span>
           </Link>
 
           {/* Botón flotante móvil para ver carrito */}
@@ -274,7 +276,7 @@ export function PosScreenClient({
             className="lg:hidden relative inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold bg-[#ED500A] text-white rounded-xl shadow-sm"
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Ver Pedido</span>
+            <span>Ver Venta</span>
             {summary.itemsCount > 0 && (
               <span className="w-5 h-5 rounded-full bg-white text-[#ED500A] text-[10px] font-black flex items-center justify-center">
                 {summary.itemsCount}
@@ -360,60 +362,28 @@ export function PosScreenClient({
 
           {/* GRID DE PRODUCTOS */}
           <div className={`flex-1 overflow-y-auto pr-1 ${summary.itemsCount > 0 ? "pb-28 lg:pb-2" : "pb-4"}`}>
-            {products.length === 0 ? (
-              // Catálogo vacío total
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-3">
-                <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <Layers className="w-8 h-8" />
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(145px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(155px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2.5 sm:gap-3.5">
+              {/* TARJETA DE ACCESO RÁPIDO: CREAR NUEVO PRODUCTO (SIEMPRE PRIMER ELEMENTO) */}
+              <button
+                type="button"
+                onClick={() => setIsCreateProductOpen(true)}
+                className="group relative flex flex-col bg-[#ED500A]/[0.03] dark:bg-[#ED500A]/[0.06] hover:bg-[#ED500A]/[0.08] dark:hover:bg-[#ED500A]/[0.12] border-2 border-dashed border-[#ED500A]/40 hover:border-[#ED500A] rounded-2xl overflow-hidden transition-all text-center cursor-pointer shadow-xs active:scale-[0.98]"
+                aria-label="Crear nuevo producto"
+              >
+                <div className="w-full aspect-[4/3] flex items-center justify-center bg-[#ED500A]/10 text-[#ED500A] group-hover:bg-[#ED500A] group-hover:text-white transition-all shrink-0">
+                  <Plus className="w-8 h-8 sm:w-10 sm:h-10 transition-transform group-hover:scale-110" />
                 </div>
-                <div className="space-y-1 max-w-sm">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Catálogo sin productos
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Aún no has registrado productos en tu negocio. Registra platos, bebidas o
-                    artículos para habilitar el POS.
-                  </p>
+                <div className="p-2.5 sm:p-3 flex-1 flex flex-col items-center justify-center gap-1 min-w-0">
+                  <span className="text-xs sm:text-sm font-bold text-[#ED500A] leading-tight">
+                    Crear nuevo producto
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                    Acceso rápido
+                  </span>
                 </div>
-                <Link
-                  href={`/workspace/${businessId}/productos`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Crear productos ahora</span>
-                </Link>
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              // Búsqueda sin coincidencias
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 flex items-center justify-center">
-                  <Search className="w-7 h-7" />
-                </div>
-                <div className="space-y-1 max-w-sm">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    No hay productos coincidentes
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    No encontramos ningún producto que coincida con tus criterios de búsqueda o
-                    categoría.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedCategory("all");
-                    setShowOnlyAvailable(false);
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
-                >
-                  Limpiar filtros
-                </button>
-              </div>
-            ) : (
-              // Cuadrícula adaptativa basada en el ancho real disponible del contenedor
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(145px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(155px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2.5 sm:gap-3.5">
-                {filteredProducts.map((prod) => {
+              </button>
+
+              {filteredProducts.map((prod) => {
                   const hasModifiers =
                     ((prod.metadata as any)?.modifier_groups || []).length > 0;
                   const rawVariants: any[] = (prod.metadata as any)?.variants || [];
@@ -519,13 +489,30 @@ export function PosScreenClient({
                   );
                 })}
               </div>
+            {filteredProducts.length === 0 && products.length > 0 && (
+              <div className="py-6 text-center space-y-2">
+                <p className="text-xs text-slate-400">
+                  No hay otros productos que coincidan con la búsqueda. Puedes crear uno nuevo con la tarjeta anterior.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setSelectedCategory("all");
+                    setShowOnlyAvailable(false);
+                  }}
+                  className="px-3 py-1 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
             )}
           </div>
         </section>
 
-        {/* PANEL DERECHO: COMANDA / CARRITO DE COMPRAS (DESKTOP) */}
+        {/* PANEL DERECHO: VENTA ACTUAL / CARRITO DE COMPRAS (DESKTOP) */}
         <aside className="hidden lg:flex w-[290px] xl:w-[330px] 2xl:w-[360px] shrink-0 flex-col bg-white dark:bg-[#0B0E14] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs overflow-hidden">
-          {/* Header de la comanda */}
+          {/* Header de la venta */}
           <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center">
@@ -533,10 +520,10 @@ export function PosScreenClient({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                  Comanda actual
+                  Venta actual
                 </h3>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {summary.itemsCount} {summary.itemsCount === 1 ? "artículo" : "artículos"}
+                  {summary.itemsCount} {summary.itemsCount === 1 ? "producto" : "productos"}
                 </span>
               </div>
             </div>
@@ -546,20 +533,20 @@ export function PosScreenClient({
                 type="button"
                 onClick={() => setIsClearCartConfirmOpen(true)}
                 className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                title="Vaciar comanda"
+                title="Vaciar venta"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* Lista de productos de la comanda */}
+          {/* Lista de productos de la venta */}
           <div className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-2.5">
             {cartItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-2 text-slate-400">
                 <ShoppingBag className="w-10 h-10 stroke-[1.5] text-slate-300 dark:text-white/20" />
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[200px]">
-                  Tu comanda está vacía. Selecciona productos para iniciar el pedido.
+                  Tu venta actual está vacía. Selecciona productos para iniciar la venta.
                 </p>
               </div>
             ) : (
@@ -656,7 +643,7 @@ export function PosScreenClient({
                 </span>
               </div>
               <div className="flex items-center justify-between text-base font-black text-slate-900 dark:text-white pt-1 border-t border-slate-200/80 dark:border-white/5">
-                <span>Total comanda</span>
+                <span>Total de la venta</span>
                 <span className="text-[#ED500A]">{formatCOP(summary.total)}</span>
               </div>
             </div>
@@ -667,7 +654,7 @@ export function PosScreenClient({
               onClick={() => setIsDestinationModalOpen(true)}
               className="w-full inline-flex items-center justify-center gap-2 py-3 px-3 rounded-xl font-bold text-xs sm:text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
             >
-              <span className="truncate">Continuar pedido · {formatCOP(summary.total)}</span>
+              <span className="truncate">Continuar venta · {formatCOP(summary.total)}</span>
               <ArrowRight className="w-4 h-4 shrink-0" />
             </button>
           </div>
@@ -686,14 +673,14 @@ export function PosScreenClient({
         }}
       />
 
-      {/* 4. MODAL DE CONFIRMACIÓN PARA VACIAR COMANDA */}
+      {/* 4. MODAL DE CONFIRMACIÓN PARA VACIAR VENTA */}
       <ConfirmModal
         isOpen={isClearCartConfirmOpen}
         onClose={() => setIsClearCartConfirmOpen(false)}
         onConfirm={handleClearCart}
-        title="¿Vaciar comanda completa?"
-        description="Se eliminarán todos los productos y configuraciones seleccionados en este pedido."
-        confirmText="Vaciar pedido"
+        title="¿Vaciar venta actual?"
+        description="Se eliminarán todos los productos y configuraciones seleccionados en esta venta."
+        confirmText="Vaciar venta"
         variant="danger"
       />
 
@@ -707,7 +694,7 @@ export function PosScreenClient({
           }
         }}
         title={`¿Eliminar «${itemToDelete?.productName}»?`}
-        description="Este producto será removido de la comanda actual."
+        description="Este producto será removido de la venta actual."
         confirmText="Eliminar"
         variant="danger"
       />
@@ -756,7 +743,7 @@ export function PosScreenClient({
         }}
       />
 
-      {/* 7. DRAWER MÓVIL DEL CARRITO / COMANDA (MOBILE-FIRST) */}
+      {/* 7. DRAWER MÓVIL DE LA VENTA (MOBILE-FIRST) */}
       {isMobileCartOpen && (
         <ModalPortal>
           <div className="fixed inset-0 m-0 z-[9999] lg:hidden flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -769,10 +756,10 @@ export function PosScreenClient({
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                      Comanda actual
+                      Venta actual
                     </h3>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {summary.itemsCount} {summary.itemsCount === 1 ? "artículo" : "artículos"}
+                      {summary.itemsCount} {summary.itemsCount === 1 ? "producto" : "productos"}
                     </span>
                   </div>
                 </div>
@@ -783,7 +770,7 @@ export function PosScreenClient({
                       type="button"
                       onClick={() => setIsClearCartConfirmOpen(true)}
                       className="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                      title="Vaciar comanda"
+                      title="Vaciar venta"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -805,7 +792,7 @@ export function PosScreenClient({
                   <div className="h-full py-12 flex flex-col items-center justify-center text-center space-y-2 text-slate-400">
                     <ShoppingBag className="w-12 h-12 stroke-[1.5] text-slate-300 dark:text-white/20" />
                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-[220px]">
-                      Tu comanda está vacía. Selecciona productos del catálogo para armar el pedido.
+                      Tu venta actual está vacía. Selecciona productos del catálogo para armar la venta.
                     </p>
                   </div>
                 ) : (
@@ -897,7 +884,7 @@ export function PosScreenClient({
                 </div>
 
                 <div className="flex justify-between items-center text-base font-black text-slate-900 dark:text-white pt-1 border-t border-slate-200/70 dark:border-white/5">
-                  <span>Total comanda</span>
+                  <span>Total de la venta</span>
                   <span className="text-[#ED500A]">{formatCOP(summary.total)}</span>
                 </div>
 
@@ -910,7 +897,7 @@ export function PosScreenClient({
                   }}
                   className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-lg shadow-[#ED500A]/25 min-h-[48px] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Continuar pedido — {formatCOP(summary.total)}</span>
+                  <span>Continuar venta — {formatCOP(summary.total)}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -936,7 +923,7 @@ export function PosScreenClient({
               </div>
               <div className="min-w-0">
                 <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {summary.itemsCount} {summary.itemsCount === 1 ? "artículo" : "artículos"}
+                  {summary.itemsCount} {summary.itemsCount === 1 ? "producto" : "productos"}
                 </div>
                 <div className="text-sm font-black text-slate-900 dark:text-white truncate">
                   {formatCOP(summary.total)}
@@ -949,12 +936,29 @@ export function PosScreenClient({
               onClick={() => setIsMobileCartOpen(true)}
               className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-xs bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/25 shrink-0 active:scale-[0.98] transition-transform min-h-[44px]"
             >
-              <span>Ver Pedido</span>
+              <span>Ver Venta</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
+
+      {/* 9. MODAL DE CREACIÓN RÁPIDA DE PRODUCTO (REUTILIZA FORMULARIO EXISTENTE DE INVENTARIO) */}
+      <ProductFormModal
+        isOpen={isCreateProductOpen}
+        onClose={() => setIsCreateProductOpen(false)}
+        businessId={businessId}
+        categories={categories}
+        product={null}
+        onSuccess={(newProduct) => {
+          setProducts((prev) => [newProduct, ...prev]);
+          setIsCreateProductOpen(false);
+          toast.success(`Producto «${newProduct.name}» añadido a la venta.`);
+        }}
+        onCategoryCreated={(newCategory) => {
+          setCategories((prev) => [...prev, newCategory]);
+        }}
+      />
     </div>
   );
 }

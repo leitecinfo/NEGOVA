@@ -45,6 +45,7 @@ export async function saveDigitalMenuConfigAction(
       return { success: false, error: res.error };
     }
 
+    revalidatePath(`/workspace/${businessId}/presencia-digital`);
     revalidatePath(`/workspace/${businessId}/productos/menu`);
     revalidatePath(`/workspace/${businessId}/productos`);
     return { success: true, data: res.data };
@@ -74,6 +75,7 @@ export async function uploadDigitalMenuFileAction(
       return { success: false, error: res.error };
     }
 
+    revalidatePath(`/workspace/${businessId}/presencia-digital`);
     revalidatePath(`/workspace/${businessId}/productos/menu`);
     return { success: true, data: res.data };
   } catch (err: any) {
@@ -96,6 +98,7 @@ export async function removeDigitalMenuFileAction(
       return { success: false, error: res.error };
     }
 
+    revalidatePath(`/workspace/${businessId}/presencia-digital`);
     revalidatePath(`/workspace/${businessId}/productos/menu`);
     return { success: true, data: res.data };
   } catch (err: any) {
@@ -119,6 +122,7 @@ export async function togglePublishDigitalMenuAction(
       return { success: false, error: res.error };
     }
 
+    revalidatePath(`/workspace/${businessId}/presencia-digital`);
     revalidatePath(`/workspace/${businessId}/productos/menu`);
     return { success: true, data: res.data };
   } catch (err: any) {

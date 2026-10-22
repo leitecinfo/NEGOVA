@@ -193,3 +193,105 @@ export async function releaseRestaurantTableAction(
 
   return res;
 }
+
+/**
+ * Server Action: Obtiene el token seguro y enlace del menú para el QR de una mesa.
+ */
+export async function getTableQrDataAction(
+  businessId: string,
+  tableId: string
+): Promise<{
+  success: boolean;
+  token?: string;
+  qrVersion?: number;
+  qrIsActive?: boolean;
+  error?: string;
+}> {
+  let auth = await verifyWorkspaceAction(businessId, "tables.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.view");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No autorizado para consultar mesas." };
+  }
+
+  try {
+    const { getRestaurantTables } = await import("@/lib/restaurant/restaurant-service");
+    const { generateTableQrToken } = await import("@/lib/restaurant/table-qr-service");
+
+    const tables = await getRestaurantTables(businessId);
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) {
+      return { success: false, error: "Mesa no encontrada." };
+    }
+
+    const version = (table as any).qr_version || 1;
+    const isActive = (table as any).qr_is_active !== false;
+    const token = generateTableQrToken(businessId, tableId, version);
+
+    return {
+      success: true,
+      token,
+      qrVersion: version,
+      qrIsActive: isActive,
+    };
+  } catch (err: any) {
+    console.error("[getTableQrDataAction] Error:", err);
+    return { success: false, error: err?.message || "Error al generar enlace QR." };
+  }
+}
+
+/**
+ * Server Action: Regenera el código QR de una mesa incrementando su versión criptográfica.
+ */
+export async function regenerateTableQrAction(
+  businessId: string,
+  tableId: string
+): Promise<{ success: boolean; newVersion?: number; error?: string }> {
+  let auth = await verifyWorkspaceAction(businessId, "tables.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "tables.manage");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No autorizado para regenerar QR." };
+  }
+
+  const { regenerateTableQr } = await import("@/lib/restaurant/restaurant-service");
+  const res = await regenerateTableQr(businessId, tableId);
+
+  if (res.success) {
+    revalidatePath(`/workspace/${businessId}/mesas`);
+  }
+
+  return res;
+}
+
+/**
+ * Server Action: Activa o desactiva el acceso QR de una mesa.
+ */
+export async function toggleTableQrActiveAction(
+  businessId: string,
+  tableId: string,
+  isActive: boolean
+): Promise<{ success: boolean; error?: string }> {
+  let auth = await verifyWorkspaceAction(businessId, "tables.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "tables.manage");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No autorizado para modificar estado del QR." };
+  }
+
+  const { toggleTableQrActive } = await import("@/lib/restaurant/restaurant-service");
+  const res = await toggleTableQrActive(businessId, tableId, isActive);
+
+  if (res.success) {
+    revalidatePath(`/workspace/${businessId}/mesas`);
+  }
+
+  return res;
+}
+

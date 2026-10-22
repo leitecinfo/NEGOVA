@@ -227,12 +227,14 @@ export function Navbar() {
     <>
       <header
         className={`sticky top-0 z-50 w-full transition-all duration-300 ease-in-out ${
-          scrolled
+          mobileMenuOpen
+            ? "py-3 bg-white dark:bg-[#0B0E14] border-b border-slate-200 dark:border-white/10 shadow-md"
+            : scrolled
             ? "py-3 bg-white/90 dark:bg-[#0B0E14]/90 backdrop-blur-md border-b border-[#0B0E14]/5 dark:border-white/10 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.03)]"
-            : "py-5 bg-transparent border-b border-transparent"
+            : "py-3.5 sm:py-5 bg-transparent border-b border-transparent"
         }`}
       >
-        <div className="max-w-[1400px] mx-auto px-6 sm:px-8 lg:px-12 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 flex items-center justify-between">
           
           {/* IZQUIERDA: LOGO NEGOVA */}
           <div className="flex items-center">
@@ -550,7 +552,7 @@ export function Navbar() {
           </div>
 
           {/* MÓVIL: BOTÓN MENÚ Y ACCIÓN RÁPIDA */}
-          <div className="flex md:hidden items-center gap-2.5">
+          <div className="flex md:hidden items-center gap-2">
             {user ? (
               <Link
                 href={user.dashboardUrl || "/admin"}
@@ -564,7 +566,7 @@ export function Navbar() {
                 href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center bg-[#ED500A] text-white font-title font-bold text-xs px-3.5 py-2 rounded-lg"
+                className="inline-flex items-center justify-center bg-[#ED500A] hover:bg-[#d64505] text-white font-title font-bold text-xs px-3 py-2 rounded-lg transition-colors"
               >
                 Comenzar
               </a>
@@ -583,11 +585,19 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* MENÚ MÓVIL FULLSCREEN / CON ACORDEÓN PARA CATEGORÍAS Y FUNCIONALIDADES */}
+      {/* MENÚ MÓVIL / CON ACORDEÓN PARA CATEGORÍAS Y FUNCIONALIDADES */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden bg-[#0B0E14]/40 backdrop-blur-sm animate-fade-in">
-          <div className="fixed inset-x-0 top-[65px] bg-white dark:bg-[#0B0E14] border-b border-[#0B0E14]/10 dark:border-white/10 p-6 shadow-2xl max-h-[calc(100vh-80px)] overflow-y-auto">
-            <nav className="flex flex-col gap-3">
+        <div className="fixed inset-0 z-40 md:hidden bg-[#0B0E14]/50 backdrop-blur-xs animate-fade-in">
+          {/* Fondo para cerrar al tocar fuera */}
+          <div
+            className="absolute inset-0"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Menú desplegable fijado debajo del header */}
+          <div className="relative top-[57px] sm:top-[65px] w-full max-w-full bg-white dark:bg-[#0B0E14] border-b border-slate-200 dark:border-white/10 px-5 pt-3 pb-10 shadow-2xl max-h-[calc(100dvh-57px)] sm:max-h-[calc(100dvh-65px)] overflow-y-auto overscroll-contain">
+            <nav className="flex flex-col gap-2.5 max-w-full">
               
               <Link
                 href="/"

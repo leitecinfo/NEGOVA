@@ -19,7 +19,7 @@ export function FloatingWrapper() {
   return (
     <aside
       aria-label="Asistentes flotantes de ayuda"
-      className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3.5 pointer-events-auto"
+      className="fixed bottom-4 right-3 sm:bottom-5 sm:right-5 z-40 flex flex-col items-end gap-2.5 sm:gap-3.5 pointer-events-auto max-w-[calc(100vw-24px)]"
     >
       {/* Botón flotante Asistente IA (Arriba) */}
       <NegovaAssistant />

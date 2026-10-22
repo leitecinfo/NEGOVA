@@ -10,6 +10,7 @@ import {
   CreditCard,
   Banknote,
   ArrowRight,
+  Eye,
 } from "lucide-react";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import type { BusinessSaleDocument } from "@/lib/documents/types";
@@ -392,14 +393,19 @@ export function SalesListClient({
               className: "whitespace-nowrap text-right",
               align: "right",
               render: (doc) => (
-                <Link
-                  href={`/workspace/${businessId}/ventas/${doc.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 transition-colors"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/workspace/${businessId}/ventas/${doc.id}`);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-[#ED500A]/10 hover:text-[#ED500A] dark:bg-white/5 dark:hover:bg-[#ED500A]/20 dark:hover:text-[#ED500A] text-slate-700 dark:text-slate-200 transition-all cursor-pointer group"
+                  aria-label={`Ver detalle de venta ${doc.documentNumber}`}
+                  title="Ver detalle de la venta"
                 >
-                  <span>Detalle</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
+                  <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+                  <span>Ver detalle</span>
+                </button>
               ),
             },
           ]}

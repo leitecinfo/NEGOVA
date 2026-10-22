@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureNegovaBucket, STORAGE_PATHS } from "@/lib/storage/supabase-storage";
 import { verifyWorkspaceAction } from "@/lib/auth/workspace-context";
 import { logAuditAction } from "@/lib/audit/audit-service";
+import { WORKSPACE_MODULES_CATALOG } from "@/config/workspace-navigation";
 
 /**
  * Actualiza la configuración global del negocio / tenant en PostgreSQL.
@@ -472,3 +473,243 @@ export async function updateBusinessSettingsAction(
     return { success: false, error: err.message || "Error al guardar preferencias del negocio." };
   }
 }
+
+/**
+ * Actualiza el módulo de acceso rápido del encabezado en businesses.settings.headerQuickAccess.
+ * Solo el propietario autorizado del negocio puede modificar esta preferencia.
+ * Valida que el moduleId pertenezca al catálogo oficial de módulos de NEGOVA.
+ */
+export async function updateHeaderQuickAccessAction(
+  businessId: string,
+  moduleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "business_settings.update");
+    if (!auth.success) {
+      return { success: false, error: auth.error || "No autorizado para modificar la configuración." };
+    }
+
+    // Solo el propietario o super administrador puede modificar el acceso rápido
+    if (!auth.context?.isOwner && !auth.context?.isSuperAdmin) {
+      return { success: false, error: "Solo el propietario del negocio puede modificar el acceso rápido del encabezado." };
+    }
+
+    // Lista blanca estricta: validar que el moduleId pertenezca al catálogo oficial
+    const validModule = WORKSPACE_MODULES_CATALOG.find((m) => m.id === moduleId);
+    if (!validModule) {
+      return { success: false, error: "El módulo seleccionado no es válido en el catálogo de NEGOVA." };
+    }
+
+    let adminClient: any;
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+      adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+    } else {
+      adminClient = await createClient();
+    }
+
+    // Obtener settings existentes
+    const { data: currentBiz } = await adminClient
+      .from("businesses")
+      .select("settings")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    const currentSettings = (currentBiz?.settings as Record<string, unknown>) || {};
+
+    // Merge seguro: conserva intactas todas las demás claves de businesses.settings
+    const mergedSettings: Record<string, unknown> = {
+      ...currentSettings,
+      headerQuickAccess: validModule.id,
+    };
+
+    const { error: updateError } = await adminClient
+      .from("businesses")
+      .update({ settings: mergedSettings, updated_at: new Date().toISOString() })
+      .eq("id", businessId);
+
+    if (updateError) {
+      return { success: false, error: "No fue posible guardar el acceso rápido del encabezado." };
+    }
+
+    // Auditoría
+    try {
+      await logAuditAction({
+        userId: auth.context?.userId,
+        action: "update",
+        entityType: "business_settings",
+        entityId: businessId,
+        businessId,
+        businessName: auth.context?.businessName,
+        metadata: {
+          original_action: "update_header_quick_access",
+          header_quick_access: validModule.id,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[updateHeaderQuickAccessAction] Aviso al registrar auditoría:", auditErr);
+    }
+
+    revalidatePath(`/workspace/${businessId}`);
+    revalidatePath(`/workspace/${businessId}/configuracion`);
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al actualizar el acceso rápido del encabezado." };
+  }
+}
+
+/**
+ * Actualiza la configuración comercial de domicilios (activación y tarifa fija en COP).
+ * - Restringido exclusivamente al propietario (isOwner) o superAdmin.
+ * - Valida importes monetarios válidos (>= 0 y dentro de rangos normales).
+ * - Persiste en businesses.settings.delivery y sincroniza business_digital_menus.
+ * - Registra evento en auditoría forense y revalida rutas de workspace.
+ */
+export async function updateDeliverySettingsAction(
+  businessId: string,
+  payload: {
+    enabled: boolean;
+    fee: number;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "business_settings.update");
+    if (!auth.success) {
+      return { success: false, error: auth.error || "No autorizado para modificar la configuración." };
+    }
+
+    // Solo el propietario o super administrador puede modificar la tarifa y servicio de domicilio
+    if (!auth.context?.isOwner && !auth.context?.isSuperAdmin) {
+      return {
+        success: false,
+        error: "Solo el propietario del negocio puede modificar la configuración de domicilios.",
+      };
+    }
+
+    // Validaciones estrictas de datos
+    if (typeof payload.enabled !== "boolean") {
+      return { success: false, error: "El estado de activación del servicio debe ser booleano." };
+    }
+
+    if (
+      typeof payload.fee !== "number" ||
+      isNaN(payload.fee) ||
+      payload.fee < 0 ||
+      payload.fee > 10_000_000
+    ) {
+      return {
+        success: false,
+        error: "La tarifa de domicilio debe ser un valor monetario válido entre 0 y $10.000.000 COP.",
+      };
+    }
+
+    const roundedFee = Math.round(payload.fee);
+
+    let adminClient: any;
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+      adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+    } else {
+      adminClient = await createClient();
+    }
+
+    // 1. Obtener settings actuales de businesses para merge seguro
+    const { data: currentBiz, error: fetchBizError } = await adminClient
+      .from("businesses")
+      .select("settings")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    if (fetchBizError) {
+      return { success: false, error: "No fue posible consultar la configuración actual del negocio." };
+    }
+
+    const currentSettings = (currentBiz?.settings as Record<string, unknown>) || {};
+    const mergedSettings: Record<string, unknown> = {
+      ...currentSettings,
+      delivery: {
+        enabled: payload.enabled,
+        fee: roundedFee,
+      },
+    };
+
+    const { error: updateBizError } = await adminClient
+      .from("businesses")
+      .update({
+        settings: mergedSettings,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", businessId);
+
+    if (updateBizError) {
+      return { success: false, error: "No fue posible guardar la configuración de domicilios en el negocio." };
+    }
+
+    // 2. Sincronizar business_digital_menus (si existe el registro)
+    try {
+      const { data: currentMenu } = await adminClient
+        .from("business_digital_menus")
+        .select("custom_settings")
+        .eq("business_id", businessId)
+        .maybeSingle();
+
+      if (currentMenu) {
+        const mergedCustomSettings = {
+          ...(currentMenu.custom_settings || {}),
+          deliveryEnabled: payload.enabled,
+          deliveryFee: roundedFee,
+        };
+        await adminClient
+          .from("business_digital_menus")
+          .update({
+            custom_settings: mergedCustomSettings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("business_id", businessId);
+      }
+    } catch (menuSyncErr) {
+      console.warn("[updateDeliverySettingsAction] Aviso al sincronizar menú digital:", menuSyncErr);
+    }
+
+    // 3. Auditoría forense
+    try {
+      await logAuditAction({
+        userId: auth.context?.userId,
+        action: "update",
+        entityType: "business_settings",
+        entityId: businessId,
+        businessId,
+        businessName: auth.context?.businessName,
+        metadata: {
+          original_action: "update_delivery_settings",
+          delivery_enabled: payload.enabled,
+          delivery_fee: roundedFee,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[updateDeliverySettingsAction] Aviso al registrar auditoría:", auditErr);
+    }
+
+    // 4. Revalidar rutas
+    revalidatePath(`/workspace/${businessId}`);
+    revalidatePath(`/workspace/${businessId}/configuracion`);
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Error al actualizar la configuración de domicilios.",
+    };
+  }
+}
+
+

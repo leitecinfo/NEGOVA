@@ -283,7 +283,7 @@ export function OrdersListClient({
           icon: Clock,
           color: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20",
           headerColor: "border-t-blue-500",
-          nextAction: { targetStatus: "in_preparation", label: "A Cocina", icon: ChefHat },
+          nextAction: { targetStatus: "in_preparation", label: "Confirmar Pedido", icon: CheckCircle2 },
         };
       case "in_preparation":
         return {
@@ -651,6 +651,14 @@ export function OrdersListClient({
                 <TypeIcon className="w-3 h-3 shrink-0" />
                 <span className="truncate">{typeBadge.label}</span>
               </span>
+
+              {/* Badge de Pendiente de Confirmación para pedidos recién recibidos */}
+              {order.status === "received" && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 shrink-0">
+                  <Clock className="w-2.5 h-2.5 animate-pulse" />
+                  <span>Por Confirmar</span>
+                </span>
+              )}
             </div>
 
             {/* Badge de Pago a la derecha */}
@@ -776,22 +784,63 @@ export function OrdersListClient({
             </span>
           </div>
 
-          {/* ACCIÓN PRINCIPAL (Si el pedido está activo y tiene próximo estado) */}
-          {canUpdateOrder && nextAction && !isFinished && (
-            <button
-              type="button"
-              disabled={isPending || isThisOrderUpdating}
-              onClick={() => handleQuickStatusTransition(order, nextAction.targetStatus)}
-              className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50"
-              title={`Pasar pedido a: ${nextAction.label}`}
-            >
-              {isThisOrderUpdating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
+          {/* ACCIÓN PRINCIPAL:
+              - Si está en "received" (recibido / pendiente): botones explícitos de Confirmar (pasa a cocina) y Rechazar (cancela comanda y libera mesa)
+              - Si está en preparación o listo: botón de avance habitual
+          */}
+          {canUpdateOrder && order.status === "received" ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                disabled={isPending || isThisOrderUpdating}
+                onClick={() => handleQuickStatusTransition(order, "in_preparation")}
+                className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                title="Confirmar comanda y pasar a preparación en cocina"
+              >
+                {isThisOrderUpdating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>Confirmar</span>
+              </button>
+
+              {canCancelOrder && (
+                <button
+                  type="button"
+                  disabled={isPending || isThisOrderUpdating}
+                  onClick={() =>
+                    setCancelModal({
+                      isOpen: true,
+                      order,
+                      reason: "",
+                    })
+                  }
+                  className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Rechazar comanda"
+                >
+                  <X className="w-3.5 h-3.5 shrink-0" />
+                  <span>Rechazar</span>
+                </button>
               )}
-              <span>{nextAction.label}</span>
-            </button>
+            </div>
+          ) : (
+            canUpdateOrder && nextAction && !isFinished && (
+              <button
+                type="button"
+                disabled={isPending || isThisOrderUpdating}
+                onClick={() => handleQuickStatusTransition(order, nextAction.targetStatus)}
+                className="w-full h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                title={`Pasar pedido a: ${nextAction.label}`}
+              >
+                {isThisOrderUpdating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
+                )}
+                <span>{nextAction.label}</span>
+              </button>
+            )
           )}
 
           {/* ACCIONES SECUNDARIAS:

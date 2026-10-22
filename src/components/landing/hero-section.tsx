@@ -47,11 +47,10 @@ export function HeroSection() {
   const textTranslateY = Math.min(scrollY * 0.28, 140);
   const textOpacity = Math.max(1 - scrollY * 0.0022, 0);
 
-  // 2. Mockup de Producto (Velocidad media: Y sube lento, escala reduce ligeramente de 1 a 0.95 y desenfoque de salida sutil)
+  // 2. Mockup de Producto (Velocidad media: Y sube lento, escala reduce ligeramente de 1 a 0.95 manteniendo nitidez absoluta)
   const mockupTranslateY = Math.min(scrollY * 0.16, 95);
   const mockupScale = Math.max(1 - scrollY * 0.00022, 0.94);
   const mockupOpacity = Math.max(1 - scrollY * 0.0018, 0.15);
-  const mockupImageBlur = Math.min(scrollY * 0.012, 6);
 
   // 3. Atmósfera de Luz (Velocidad muy lenta: Y sube sutilmente, blur se expande de 110px a 140px)
   const atmosphereTranslateY = Math.min(scrollY * 0.07, 45);
@@ -92,7 +91,7 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 sm:px-8 lg:px-12 relative z-10">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-12 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* ÁREA DE CONTENIDO COMERCIAL (SALIDA VINCULADA AL SCROLL EN PARALLAX RÁPIDO) */}
           <div
@@ -116,7 +115,7 @@ export function HeroSection() {
             <h1 className="font-title font-extrabold text-4xl sm:text-5xl lg:text-[54px] text-[#0B0E14] dark:text-white tracking-tight leading-[1.08] hero-reveal-2 relative">
               <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span>Gestión</span>
-                <span className="inline-block relative min-w-[220px] text-[#ED500A]">
+                <span className="inline-block relative min-w-[170px] sm:min-w-[220px] text-[#ED500A]">
                   <span
                     key={dynamicWords[activeWordIndex]}
                     className="inline-block animate-in fade-in slide-in-from-bottom-1 duration-300 underline decoration-[#ED500A]/30 underline-offset-8"
@@ -242,9 +241,6 @@ export function HeroSection() {
                   width={1536}
                   height={1024}
                   className="w-full h-auto object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.14)] dark:drop-shadow-[0_30px_60px_rgba(0,0,0,0.7)] transition-all duration-75"
-                  style={{
-                    filter: `blur(${mockupImageBlur}px)`,
-                  }}
                   priority
                 />
               </div>

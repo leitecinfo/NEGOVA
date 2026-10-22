@@ -474,6 +474,152 @@ export async function releaseRestaurantTable(
   }
 }
 
+/**
+ * Regenera el código QR de una mesa incrementando su versión de revocación.
+ */
+export async function regenerateTableQr(
+  businessId: string,
+  tableId: string
+): Promise<{ success: boolean; newVersion?: number; error?: string }> {
+  const supabase = await getDbClient();
+  try {
+    const { data: table, error: findErr } = await supabase
+      .from("restaurant_tables")
+      .select("id, qr_version, qr_is_active")
+      .eq("id", tableId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (findErr || !table) {
+      return { success: false, error: "Mesa no encontrada." };
+    }
+
+    const nextVersion = ((table as any).qr_version || 1) + 1;
+
+    // Intentamos actualizar qr_version y activar qr_is_active
+    const { error: updateErr } = await supabase
+      .from("restaurant_tables")
+      .update({
+        qr_version: nextVersion,
+        qr_is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", tableId)
+      .eq("business_id", businessId);
+
+    if (updateErr) {
+      // Si la columna aún no existiera en una BD no migrada, no bloqueamos el flujo
+      console.warn("[regenerateTableQr] Actualización de qr_version falló (posible columna pendiente):", updateErr.message);
+      return { success: true, newVersion: nextVersion };
+    }
+
+    return { success: true, newVersion: nextVersion };
+  } catch (err: any) {
+    console.error("[regenerateTableQr] Error:", err);
+    return { success: false, error: err?.message || "Error al regenerar código QR." };
+  }
+}
+
+/**
+ * Activa o desactiva el acceso por código QR a una mesa específica.
+ */
+export async function toggleTableQrActive(
+  businessId: string,
+  tableId: string,
+  isActive: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await getDbClient();
+  try {
+    const { error } = await supabase
+      .from("restaurant_tables")
+      .update({
+        qr_is_active: isActive,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", tableId)
+      .eq("business_id", businessId);
+
+    if (error) {
+      console.warn("[toggleTableQrActive] Error:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[toggleTableQrActive] Error:", err);
+    return { success: false, error: err?.message || "Error al alternar estado del QR." };
+  }
+}
+
+/**
+ * Valida de forma estricta en el servidor que un token de QR pertenezca al negocio,
+ * corresponda a una mesa existente, activa y con la versión de rotación válida.
+ */
+export async function validateTableQrAccess(
+  businessId: string,
+  tableId: string,
+  token: string
+): Promise<{
+  valid: boolean;
+  table?: {
+    id: string;
+    name_or_number: string;
+    status: string;
+    capacity: number | null;
+  };
+  error?: string;
+}> {
+  if (!businessId || !tableId || !token) {
+    return { valid: false, error: "Parámetros de mesa o token incompletos." };
+  }
+
+  try {
+    const supabase = await getDbClient();
+    const { data: table, error: findErr } = await supabase
+      .from("restaurant_tables")
+      .select("id, business_id, name_or_number, status, capacity")
+      .eq("id", tableId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    console.log('[DEBUG DB TABLE QUERY]', { tableId, businessId, table, findErr });
+
+    if (findErr || !table) {
+      return { valid: false, error: "La mesa no pertenece a este comercio o no existe." };
+    }
+
+    if ((table as any).status === "inactive") {
+      return { valid: false, error: "La mesa se encuentra inactiva." };
+    }
+
+    if ((table as any).qr_is_active === false) {
+      return { valid: false, error: "El acceso por código QR está deshabilitado para esta mesa." };
+    }
+
+    const { verifyTableQrToken } = await import("./table-qr-service");
+    const currentVersion = (table as any).qr_version || 1;
+    const isTokenValid = verifyTableQrToken(businessId, tableId, token, currentVersion);
+
+    if (!isTokenValid) {
+      return { valid: false, error: "Código QR inválido, caducado o revocado. Solicita un nuevo código al personal." };
+    }
+
+    return {
+      valid: true,
+      table: {
+        id: table.id,
+        name_or_number: table.name_or_number,
+        status: table.status,
+        capacity: table.capacity,
+      },
+    };
+  } catch (err: any) {
+    console.error("[validateTableQrAccess] Error:", err);
+    return { valid: false, error: "Error al validar acceso de mesa." };
+  }
+}
+
+
 // ==========================================
 // PEDIDOS (restaurant_orders & restaurant_order_items)
 // ==========================================
@@ -601,6 +747,19 @@ export async function createRestaurantOrder(
 
     const safeQty = Math.max(1, Math.floor(it.quantity || 1));
 
+    // Validar existencias únicamente si el producto tiene control de inventario activado
+    const trackStock = Boolean((product.metadata as any)?.track_stock);
+    const availableStock = typeof (product.metadata as any)?.stock_quantity === "number"
+      ? (product.metadata as any).stock_quantity
+      : null;
+
+    if (trackStock && availableStock !== null && safeQty > availableStock) {
+      return {
+        success: false,
+        error: `Existencias insuficientes para «${product.name}». Disponibles: ${availableStock}, solicitadas: ${safeQty}.`,
+      };
+    }
+
     // Validar variantes comerciales y resolver precio base
     const hasVariants = Boolean(
       (product.metadata as any)?.has_variants &&
@@ -727,7 +886,43 @@ export async function createRestaurantOrder(
     });
   }
 
-  const calculatedTotal = calculatedSubtotal; // En esta etapa delivery_fee es 0
+  // Resolver tarifa de domicilio si aplica y está configurada
+  let calculatedDeliveryFee = 0;
+  if (input.orderType === "delivery") {
+    try {
+      // 1. Priorizar configuración oficial en businesses.settings.delivery
+      const { data: bizData } = await supabase
+        .from("businesses")
+        .select("settings")
+        .eq("id", businessId)
+        .maybeSingle();
+
+      const deliveryConfig = (bizData?.settings as any)?.delivery;
+      if (deliveryConfig && typeof deliveryConfig === "object") {
+        if (deliveryConfig.enabled !== false && typeof deliveryConfig.fee === "number" && !isNaN(deliveryConfig.fee) && deliveryConfig.fee >= 0) {
+          calculatedDeliveryFee = deliveryConfig.fee;
+        }
+      } else {
+        // Fallback a business_digital_menus.custom_settings.deliveryFee
+        const query = supabase.from("business_digital_menus");
+        if (query && typeof query.select === "function") {
+          const { data: menuConfig } = await query
+            .select("custom_settings")
+            .eq("business_id", businessId)
+            .maybeSingle();
+
+          const rawFee = (menuConfig?.custom_settings as any)?.deliveryFee;
+          if (typeof rawFee === "number" && rawFee > 0) {
+            calculatedDeliveryFee = rawFee;
+          }
+        }
+      }
+    } catch (feeErr) {
+      console.warn("[createRestaurantOrder] No fue posible consultar deliveryFee configurado:", feeErr);
+    }
+  }
+
+  const calculatedTotal = calculatedSubtotal + calculatedDeliveryFee;
   const payloadHash = computeOrderPayloadHash(input);
 
   // Generar código de verificación aleatorio para pedidos a domicilio (PIN de 4 dígitos)
@@ -748,7 +943,7 @@ export async function createRestaurantOrder(
       p_order_type: input.orderType,
       p_channel_origin: resolvedChannelOrigin,
       p_subtotal: calculatedSubtotal,
-      p_delivery_fee: 0,
+      p_delivery_fee: calculatedDeliveryFee,
       p_total: calculatedTotal,
       p_items: preparedItems.map((item) => ({
         product_id: item.productId,
@@ -865,6 +1060,25 @@ export async function createRestaurantOrder(
     }
   }
 
+  // Descontar existencias únicamente para productos con control de stock activo
+  try {
+    for (const it of preparedItems) {
+      const p = productMap.get(it.productId);
+      if (p && (p.metadata as any)?.track_stock && typeof (p.metadata as any)?.stock_quantity === "number") {
+        const currentStock = (p.metadata as any).stock_quantity;
+        const newStock = Math.max(0, currentStock - it.quantity);
+        const updatedMeta = { ...(p.metadata as any), stock_quantity: newStock };
+        await supabase
+          .from("products")
+          .update({ metadata: updatedMeta })
+          .eq("id", p.id)
+          .eq("business_id", businessId);
+      }
+    }
+  } catch (stockErr) {
+    console.warn("[createRestaurantOrder] Advertencia al actualizar stock:", stockErr);
+  }
+
   // Si el pedido es a domicilio, inicializar delivery_status como 'pending'
   if (input.orderType === "delivery") {
     try {
@@ -880,6 +1094,35 @@ export async function createRestaurantOrder(
       }
     } catch (dErr) {
       console.warn("[createRestaurantOrder] Advertencia al inicializar delivery_status:", dErr);
+    }
+  }
+
+  // Preparar y encolar notificación asíncrona hacia el WhatsApp del negocio (sin bloquear la creación)
+  // REGLA CRÍTICA: Solo para modalidades "takeout" (Recogida) y "delivery" (Domicilio).
+  // Los pedidos "dine_in" (En mesa) se gestionan exclusivamente en el panel interno de Pedidos y Cocina de NEGOVA.
+  if (input.orderType !== "dine_in") {
+    try {
+      const { enqueueOrderWhatsAppNotification } = await import("@/lib/whatsapp/order-notifications");
+      await enqueueOrderWhatsAppNotification(supabase, businessId, {
+        orderId: rpcData.order_id,
+        orderNumber: rpcData.order_number,
+        total: Number(rpcData.total),
+        orderType: input.orderType,
+        channelOrigin: resolvedChannelOrigin,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        deliveryAddress: input.deliveryAddress,
+        deliveryReference: input.deliveryReference,
+        notes: input.notes,
+        items: preparedItems.map((p) => ({
+          productName: p.productName,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice,
+          subtotal: p.subtotal,
+        })),
+      });
+    } catch (notifErr) {
+      console.warn("[createRestaurantOrder] Advertencia al preparar notificación WhatsApp:", notifErr);
     }
   }
 

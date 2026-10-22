@@ -81,6 +81,7 @@ export const ProductMetadataSchema = z
     unit: z.string().trim().nullable().optional(),
     track_stock: z.boolean().default(false),
     stock_quantity: z.coerce.number().int().min(0).nullable().optional(),
+    min_stock: z.coerce.number().int().min(0).nullable().optional(),
     duration_minutes: z.coerce.number().int().min(0).nullable().optional(),
     allergens: z.array(z.string()).default([]),
     ingredients: z.string().trim().nullable().optional(),

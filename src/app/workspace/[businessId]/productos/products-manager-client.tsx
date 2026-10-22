@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import Link from "next/link";
 import {
   Plus,
   Search,
@@ -16,7 +15,6 @@ import {
   XCircle,
   Sparkles,
   Layers3,
-  BookOpen,
   Loader2,
 } from "lucide-react";
 import { Product, Category } from "@/lib/products/types";
@@ -189,15 +187,6 @@ export function ProductsManagerClient({
 
         {/* Botones de Acción */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
-          <Link
-            href={`/workspace/${businessId}/productos/menu`}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors shadow-2xs"
-            title="Abrir configuración del Menú Digital"
-          >
-            <BookOpen className="w-4 h-4 text-[#ED500A]" />
-            <span>Menú Digital</span>
-          </Link>
-
           <button
             onClick={() => setIsCategoryModalOpen(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-sm font-semibold transition-colors shadow-2xs"
@@ -403,6 +392,28 @@ export function ProductsManagerClient({
                     {(product.metadata as any)?.unit && (product.metadata as any).unit !== "unidad" && (
                       <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-white/[0.06]">
                         {(product.metadata as any).unit}
+                      </span>
+                    )}
+
+                    {/* Badge de Existencias / Stock */}
+                    {(product.metadata as any)?.track_stock && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                          typeof (product.metadata as any)?.min_stock === "number" &&
+                          typeof (product.metadata as any)?.stock_quantity === "number" &&
+                          (product.metadata as any).stock_quantity <= (product.metadata as any).min_stock
+                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                        }`}
+                      >
+                        <PackageSearch className="w-3 h-3" />
+                        <span>
+                          Stock: {(product.metadata as any)?.stock_quantity ?? 0}
+                          {typeof (product.metadata as any)?.min_stock === "number" &&
+                            typeof (product.metadata as any)?.stock_quantity === "number" &&
+                            (product.metadata as any).stock_quantity <= (product.metadata as any).min_stock &&
+                            " (Bajo)"}
+                        </span>
                       </span>
                     )}
 

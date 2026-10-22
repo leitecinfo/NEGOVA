@@ -19,14 +19,18 @@ import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
 interface Props {
   business: DigitalMenuPublicBusiness;
   categories: Category[];
   products: Product[];
   settings?: DigitalMenuCustomSettings;
+  paymentMethods?: PublicPaymentMethodDTO[];
   isPreview?: boolean;
   isMobile?: boolean;
+  activeTable?: { id: string; name_or_number: string } | null;
+  tableToken?: string | null;
 }
 
 export function EleganteMenuTemplate({
@@ -34,8 +38,11 @@ export function EleganteMenuTemplate({
   categories,
   products,
   settings,
+  paymentMethods,
   isPreview = false,
   isMobile = false,
+  activeTable,
+  tableToken,
 }: Props) {
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -95,6 +102,7 @@ export function EleganteMenuTemplate({
         [cartKey]: {
           id: cartKey,
           productId: product.id,
+          variantId: variant?.id || null,
           name: product.name,
           variantName,
           unitPrice,
@@ -227,6 +235,13 @@ export function EleganteMenuTemplate({
           <p className="text-xs sm:text-sm text-stone-400 font-light tracking-wide mt-2 max-w-md mx-auto leading-relaxed">
             {settings?.bannerSubtitle || "Carta gastronómica & creaciones culinarias"}
           </p>
+
+          {activeTable && (
+            <div className="inline-flex items-center gap-2 mt-3 px-3.5 py-1.5 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/40 text-xs font-semibold text-[#C5A059] shadow-sm animate-in fade-in">
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+              <span>Mesa asignada: <strong>{activeTable.name_or_number}</strong></span>
+            </div>
+          )}
 
           {showContact && (
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 mt-5 text-xs font-light tracking-wide">
@@ -424,7 +439,13 @@ export function EleganteMenuTemplate({
         theme="dark"
         onAddToCart={(item) => {
           setCart((prev) => {
-            const cartKey = item.variantName ? `${item.productId}_${item.variantName}` : item.productId;
+            const modHash = (item.selectedModifiers || [])
+              .map((m) => `${m.groupId}:${m.optionId}`)
+              .sort()
+              .join("|");
+            const cartKey = item.variantId
+              ? `${item.productId}_${item.variantId}${modHash ? `_${modHash}` : ""}`
+              : `${item.productId}${modHash ? `_${modHash}` : ""}`;
             const current = prev[cartKey];
             const newQty = (current ? current.quantity : 0) + item.quantity;
             return {
@@ -432,11 +453,13 @@ export function EleganteMenuTemplate({
               [cartKey]: {
                 id: cartKey,
                 productId: item.productId,
+                variantId: item.variantId || null,
                 name: item.name,
                 variantName: item.variantName,
                 unitPrice: item.unitPrice,
                 quantity: newQty,
                 image_url: item.image_url,
+                selectedModifiers: item.selectedModifiers,
               },
             };
           });
@@ -444,17 +467,23 @@ export function EleganteMenuTemplate({
         }}
       />
 
-      {/* CARRITO FLOTANTE DESPLEGABLE & WHATSAPP (DEMO HTML) */}
+      {/* CARRITO FLOTANTE DESPLEGABLE & MODALIDADES */}
       <MenuCartDrawer
         cart={cart}
         onUpdateQuantity={updateCartQuantity}
         onClearCart={clearCart}
         currency={business.currency || "COP"}
+        businessId={business.id}
         businessName={business.name}
         whatsappPhone={cleanWhatsapp}
         theme="elegante"
         accentColor={gold}
         isPreview={isPreview}
+        activeTable={activeTable}
+        tableToken={tableToken}
+        deliveryFee={settings?.deliveryFee || 0}
+        deliveryEnabled={settings?.deliveryEnabled !== false}
+        paymentMethods={paymentMethods}
       />
     </div>
   );
@@ -537,7 +566,7 @@ function EleganteProductCard({
           <button
             type="button"
             onClick={handleAddClick}
-            className="px-3.5 py-1 rounded-full border text-xs font-medium transition-colors"
+            className="px-3.5 py-1 rounded-full border text-xs font-medium transition-colors cursor-pointer touch-manipulation active:scale-95"
             style={{
               borderColor: `${goldColor}60`,
               color: goldColor,
@@ -594,7 +623,7 @@ function EleganteProductCard({
             <button
               type="button"
               onClick={handleAddClick}
-              className="px-3 py-0.5 rounded-full text-[11px] font-medium transition-colors hover:bg-white/10 border"
+              className="px-3 py-0.5 rounded-full text-[11px] font-medium transition-colors hover:bg-white/10 border cursor-pointer touch-manipulation active:scale-95"
               style={{
                 borderColor: `${goldColor}60`,
                 color: goldColor,
@@ -671,7 +700,7 @@ function EleganteProductCard({
           <button
             type="button"
             onClick={handleAddClick}
-            className="px-4 py-1.5 rounded-full text-xs font-medium transition-colors hover:bg-white/10 border"
+            className="px-4 py-1.5 rounded-full text-xs font-medium transition-colors hover:bg-white/10 border cursor-pointer touch-manipulation active:scale-95"
             style={{
               borderColor: `${goldColor}60`,
               color: goldColor,

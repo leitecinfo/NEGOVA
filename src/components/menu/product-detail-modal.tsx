@@ -26,10 +26,18 @@ interface Props {
   onAddToCart?: (item: {
     productId: string;
     name: string;
+    variantId?: string | null;
     variantName?: string;
     unitPrice: number;
     quantity: number;
     image_url?: string | null;
+    selectedModifiers?: Array<{
+      groupId: string;
+      groupName: string;
+      optionId: string;
+      optionName: string;
+      price: number;
+    }>;
   }) => void;
 }
 
@@ -109,15 +117,24 @@ export function ProductDetailModal({
 
   // Calcular precio de extras seleccionados
   let extrasPrice = 0;
-  const chosenModifiersList: { groupName: string; optionName: string; price: number }[] = [];
+  const chosenModifiersList: {
+    groupId: string;
+    groupName: string;
+    optionId: string;
+    optionName: string;
+    price: number;
+  }[] = [];
 
   modifierGroups.forEach((group) => {
     const chosenIds = selectedModifiers[group.name] || [];
     group.options.forEach((opt) => {
-      if (chosenIds.includes(opt.id || opt.name)) {
+      const optId = opt.id || opt.name;
+      if (chosenIds.includes(optId)) {
         extrasPrice += opt.price || 0;
         chosenModifiersList.push({
+          groupId: group.id || group.name,
           groupName: group.name,
+          optionId: optId,
           optionName: opt.name,
           price: opt.price || 0,
         });
@@ -440,7 +457,7 @@ export function ProductDetailModal({
 
         {/* Barra Inferior Fija: Selector de Cantidad & Botón de Pedido WhatsApp */}
         <div
-          className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 ${
+          className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 ${
             isDark ? "bg-[#0E1017] border-white/10" : "bg-slate-50 border-slate-200"
           }`}
         >
@@ -481,14 +498,16 @@ export function ProductDetailModal({
                   onAddToCart({
                     productId: product.id,
                     name: product.name,
+                    variantId: selectedVariant?.id || null,
                     variantName: selectedVariant?.name,
                     unitPrice: unitTotal,
                     quantity,
                     image_url: product.image_url,
+                    selectedModifiers: chosenModifiersList.length > 0 ? chosenModifiersList : undefined,
                   });
                   onClose();
                 }}
-                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer touch-manipulation"
                 style={{ backgroundColor: primaryColor }}
               >
                 <Plus className="w-4 h-4" />

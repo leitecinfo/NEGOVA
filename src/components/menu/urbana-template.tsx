@@ -11,6 +11,7 @@ import {
   Search,
   X,
   ShoppingBag,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Product, Category, ProductVariant } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
@@ -19,13 +20,18 @@ import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
 
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
+
 interface Props {
   business: DigitalMenuPublicBusiness;
   categories: Category[];
   products: Product[];
   settings?: DigitalMenuCustomSettings;
+  paymentMethods?: PublicPaymentMethodDTO[];
   isPreview?: boolean;
   isMobile?: boolean;
+  activeTable?: { id: string; name_or_number: string } | null;
+  tableToken?: string | null;
 }
 
 export function UrbanaMenuTemplate({
@@ -33,8 +39,11 @@ export function UrbanaMenuTemplate({
   categories,
   products,
   settings,
+  paymentMethods,
   isPreview = false,
   isMobile = false,
+  activeTable,
+  tableToken,
 }: Props) {
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -95,6 +104,7 @@ export function UrbanaMenuTemplate({
         [cartKey]: {
           id: cartKey,
           productId: product.id,
+          variantId: variant?.id || null,
           name: product.name,
           variantName,
           unitPrice,
@@ -225,6 +235,16 @@ export function UrbanaMenuTemplate({
         <p className="font-sans text-xs sm:text-sm text-slate-300 font-medium tracking-wide mt-2 max-w-md mx-auto">
           {settings?.bannerSubtitle || "Comida rápida · Domicilios y para llevar"}
         </p>
+
+        {activeTable && (
+          <div
+            className="inline-flex items-center gap-2 mt-3 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white border shadow-md animate-in fade-in"
+            style={{ backgroundColor: `${primary}30`, borderColor: primary }}
+          >
+            <UtensilsCrossed className="w-3.5 h-3.5" style={{ color: primary }} />
+            <span>Mesa asignada: <strong>{activeTable.name_or_number}</strong></span>
+          </div>
+        )}
 
         {!isPreview && (
           <div className="mt-3 flex justify-center">
@@ -442,7 +462,13 @@ export function UrbanaMenuTemplate({
         theme="dark"
         onAddToCart={(item) => {
           setCart((prev) => {
-            const cartKey = item.variantName ? `${item.productId}_${item.variantName}` : item.productId;
+            const modHash = (item.selectedModifiers || [])
+              .map((m) => `${m.groupId}:${m.optionId}`)
+              .sort()
+              .join("|");
+            const cartKey = item.variantId
+              ? `${item.productId}_${item.variantId}${modHash ? `_${modHash}` : ""}`
+              : `${item.productId}${modHash ? `_${modHash}` : ""}`;
             const current = prev[cartKey];
             const newQty = (current ? current.quantity : 0) + item.quantity;
             return {
@@ -450,11 +476,13 @@ export function UrbanaMenuTemplate({
               [cartKey]: {
                 id: cartKey,
                 productId: item.productId,
+                variantId: item.variantId || null,
                 name: item.name,
                 variantName: item.variantName,
                 unitPrice: item.unitPrice,
                 quantity: newQty,
                 image_url: item.image_url,
+                selectedModifiers: item.selectedModifiers,
               },
             };
           });
@@ -462,17 +490,23 @@ export function UrbanaMenuTemplate({
         }}
       />
 
-      {/* CARRITO FLOTANTE DESPLEGABLE & WHATSAPP (DEMO HTML) */}
+      {/* CARRITO FLOTANTE DESPLEGABLE & MODALIDADES */}
       <MenuCartDrawer
         cart={cart}
         onUpdateQuantity={updateCartQuantity}
         onClearCart={clearCart}
         currency={business.currency || "COP"}
+        businessId={business.id}
         businessName={business.name}
         whatsappPhone={cleanWhatsapp}
         theme="dark"
         accentColor={primary}
         isPreview={isPreview}
+        activeTable={activeTable}
+        tableToken={tableToken}
+        deliveryFee={settings?.deliveryFee || 0}
+        deliveryEnabled={settings?.deliveryEnabled !== false}
+        paymentMethods={paymentMethods}
       />
     </div>
   );

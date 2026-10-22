@@ -306,7 +306,7 @@ export function NegovaAssistant() {
       {/* ── BOTÓN FLOTANTE DEL ASISTENTE IA ── */}
       <div className="relative group">
         <div
-          className={`absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 rounded-xl bg-[#0B0E14] text-white font-title font-semibold text-xs whitespace-nowrap shadow-lg border border-white/10 transition-all duration-200 pointer-events-none ${
+          className={`hidden sm:block absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 rounded-xl bg-[#0B0E14] text-white font-title font-semibold text-xs whitespace-nowrap shadow-lg border border-white/10 transition-all duration-200 pointer-events-none ${
             showTooltip && !isOpen ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
           }`}
         >
@@ -321,16 +321,16 @@ export function NegovaAssistant() {
           onBlur={() => setShowTooltip(false)}
           aria-label="Abrir asistente de IA NEGOVA"
           aria-expanded={isOpen}
-          className="w-16 h-16 sm:w-18 sm:h-18 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300 focus:outline-hidden cursor-pointer relative group drop-shadow-[0_10px_25px_rgba(237,80,10,0.45)] hover:drop-shadow-[0_15px_30px_rgba(237,80,10,0.7)]"
+          className="w-13 h-13 sm:w-16 sm:h-16 flex items-center justify-center hover:scale-105 sm:hover:scale-110 active:scale-95 transition-all duration-300 focus:outline-hidden cursor-pointer relative group drop-shadow-[0_8px_20px_rgba(237,80,10,0.4)] sm:drop-shadow-[0_10px_25px_rgba(237,80,10,0.45)] hover:drop-shadow-[0_15px_30px_rgba(237,80,10,0.7)]"
         >
           <AnimatedRobotAvatar className="w-full h-full group-hover:rotate-3 transition-transform duration-300" />
-          <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#ED500A] border-2 border-[#0B0E14] animate-pulse" />
+          <span className="absolute top-1 right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-[#ED500A] border-2 border-[#0B0E14] animate-pulse" />
         </button>
       </div>
 
       {/* ── PANEL DE CHAT FLOTANTE (EN PANTALLA SOBRE LA PÁGINA) ── */}
       {isOpen && (
-        <div className="fixed inset-x-3 bottom-3 top-20 sm:top-auto sm:right-6 sm:bottom-24 sm:left-auto z-50 w-auto sm:w-[420px] h-auto sm:h-[580px] rounded-3xl bg-white text-[#0B0E14] border border-slate-200 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden animate-fade-in">
+        <div className="fixed inset-x-2 sm:inset-x-auto sm:right-6 bottom-2 sm:bottom-24 top-16 sm:top-auto z-50 w-auto sm:w-[420px] h-auto sm:h-[580px] rounded-3xl bg-white text-[#0B0E14] border border-slate-200 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden animate-fade-in max-w-[calc(100vw-16px)]">
           
           {/* HEADER DEL ASISTENTE */}
           <div className="p-4 sm:p-5 bg-[#0B0E14] text-white flex items-center justify-between border-b border-white/10 relative">

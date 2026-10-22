@@ -17,11 +17,14 @@ import { PdfViewerComponent } from "./pdf-viewer";
 import { ImageViewerComponent } from "./image-viewer";
 import { FileQuestion, AlertCircle } from "lucide-react";
 
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
+
 interface Props {
   business: DigitalMenuPublicBusiness;
   menu: BusinessDigitalMenu;
   categories: Category[];
   products: Product[];
+  paymentMethods?: PublicPaymentMethodDTO[];
   isPreview?: boolean;
   isMobile?: boolean;
   overrideModality?: DigitalMenuModality;
@@ -30,6 +33,8 @@ interface Props {
   overrideFileUrl?: string | null;
   overrideFileType?: "pdf" | "image" | null;
   overrideFileName?: string | null;
+  activeTable?: { id: string; name_or_number: string } | null;
+  tableToken?: string | null;
 }
 
 export function TemplateRenderer({
@@ -37,6 +42,7 @@ export function TemplateRenderer({
   menu,
   categories,
   products,
+  paymentMethods,
   isPreview = false,
   isMobile = false,
   overrideModality,
@@ -45,6 +51,8 @@ export function TemplateRenderer({
   overrideFileUrl,
   overrideFileType,
   overrideFileName,
+  activeTable,
+  tableToken,
 }: Props) {
   const modality = overrideModality || menu.modality || "template";
   const templateId = overrideTemplateId || menu.template_id || "urbana";
@@ -99,8 +107,11 @@ export function TemplateRenderer({
           categories={categories}
           products={products}
           settings={settings}
+          paymentMethods={paymentMethods}
           isPreview={isPreview}
           isMobile={isMobile}
+          activeTable={activeTable}
+          tableToken={tableToken}
         />
       );
 
@@ -111,8 +122,11 @@ export function TemplateRenderer({
           categories={categories}
           products={products}
           settings={settings}
+          paymentMethods={paymentMethods}
           isPreview={isPreview}
           isMobile={isMobile}
+          activeTable={activeTable}
+          tableToken={tableToken}
         />
       );
 
@@ -123,8 +137,11 @@ export function TemplateRenderer({
           categories={categories}
           products={products}
           settings={settings}
+          paymentMethods={paymentMethods}
           isPreview={isPreview}
           isMobile={isMobile}
+          activeTable={activeTable}
+          tableToken={tableToken}
         />
       );
 
@@ -136,8 +153,11 @@ export function TemplateRenderer({
           categories={categories}
           products={products}
           settings={settings}
+          paymentMethods={paymentMethods}
           isPreview={isPreview}
           isMobile={isMobile}
+          activeTable={activeTable}
+          tableToken={tableToken}
         />
       );
   }

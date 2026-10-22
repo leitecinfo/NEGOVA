@@ -52,8 +52,10 @@ describe("NEGOVA — Módulo de Menú Digital", () => {
       const menuMod = WORKSPACE_MODULES_CATALOG.find((m) => m.id === "menu-digital");
       expect(menuMod).toBeDefined();
       expect(menuMod?.group).toBe("catalogo");
-      expect(menuMod?.href).toBe("productos/menu");
+      expect(menuMod?.href).toBe("presencia-digital");
       expect(menuMod?.status).toBe("implemented");
+      expect(menuMod?.label).toBe("Presencia digital");
+      expect(menuMod?.showInMenu).toBe(true);
     });
 
     it("el catálogo canónico debe mantener la sección de Catálogo limpia con acceso centralizado a productos y menú", () => {
@@ -67,6 +69,7 @@ describe("NEGOVA — Módulo de Menú Digital", () => {
 
       const items = catalogoSection?.items.map((i) => i.id);
       expect(items).toContain("productos");
+      expect(items).toContain("menu-digital");
     });
   });
 

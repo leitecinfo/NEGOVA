@@ -353,7 +353,7 @@ export function WorkspaceUsuariosClient({
     <div className="space-y-6 font-body">
       <AdminKpiGrid cols={3}>
         <AdminKpiCard
-          title="Total Usuarios"
+          title="Total Empleados"
           value={data.stats.total}
           subtext="Colaboradores del negocio"
           icon={<Users className="w-4 h-4" />}
@@ -405,7 +405,7 @@ export function WorkspaceUsuariosClient({
         data={data.users}
         columns={[
           {
-            header: "Usuario",
+            header: "Empleado",
             render: (user) => {
               const isCurrentUser = user.id === currentUserId;
               return (

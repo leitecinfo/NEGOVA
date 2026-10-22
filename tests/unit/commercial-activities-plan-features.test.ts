@@ -114,9 +114,9 @@ describe("NEGOVA — Arquitectura de Actividades Comerciales y Funcionalidades p
       // Citas e inventario minorista NO deben estar habilitados
       expect(itemIds).not.toContain("citas");
 
-      // La etiqueta del catálogo debe estar adaptada a gastronomía
+      // La etiqueta del catálogo debe estar adaptada a gastronomía / inventario
       const catalogItem = allItems.find((i) => i.id === "productos");
-      expect(catalogItem?.label).toBe("Menú y Productos");
+      expect(catalogItem?.label).toBe("Inventario");
     });
 
     it("no debe permitir acceso a citas ni servicios en un restaurante de comida rápida", () => {

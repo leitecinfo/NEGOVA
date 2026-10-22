@@ -23,6 +23,11 @@ import {
   FileText,
   AlertTriangle,
   Receipt,
+  DollarSign,
+  Banknote,
+  CreditCard,
+  Loader2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
@@ -36,6 +41,7 @@ import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import {
   updateRestaurantOrderStatusAction,
   cancelRestaurantOrderAction,
+  registerRestaurantOrderPaymentAction,
 } from "../actions";
 
 interface OrderDetailClientProps {
@@ -47,6 +53,7 @@ interface OrderDetailClientProps {
   config?: BusinessDocumentConfig;
   canUpdateOrder: boolean;
   canCancelOrder: boolean;
+  canRegisterPayment?: boolean;
 }
 
 export function OrderDetailClient({
@@ -58,6 +65,7 @@ export function OrderDetailClient({
   config,
   canUpdateOrder,
   canCancelOrder,
+  canRegisterPayment = false,
 }: OrderDetailClientProps) {
   const router = useRouter();
   const [order, setOrder] = useState<RestaurantOrderWithDetails>(initialOrder);
@@ -65,6 +73,35 @@ export function OrderDetailClient({
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+
+  const [paymentModal, setPaymentModal] = useState<{
+    isOpen: boolean;
+    paymentMethod: "cash" | "card" | "transfer" | "other";
+    isSubmitting: boolean;
+  }>({
+    isOpen: false,
+    paymentMethod: "cash",
+    isSubmitting: false,
+  });
+
+  const handleConfirmPayment = async () => {
+    setPaymentModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const res = await registerRestaurantOrderPaymentAction(businessId, order.id, paymentModal.paymentMethod);
+      if (res.success) {
+        toast.success(`Pago registrado correctamente para el pedido #${order.order_number}`);
+        setOrder((prev) => ({ ...prev, payment_status: "paid" }));
+        setPaymentModal({ isOpen: false, paymentMethod: "cash", isSubmitting: false });
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo registrar el cobro.");
+        setPaymentModal((prev) => ({ ...prev, isSubmitting: false }));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Error al registrar el cobro.");
+      setPaymentModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  };
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -295,15 +332,29 @@ export function OrderDetailClient({
             {canUpdateOrder && allowedTransitions.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 {allowedTransitions.includes("in_preparation") && (
-                  <button
-                    type="button"
-                    onClick={() => handleStatusTransition("in_preparation")}
-                    disabled={isPending}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors disabled:opacity-50"
-                  >
-                    <ChefHat className="w-4 h-4" />
-                    <span>Iniciar Preparación</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleStatusTransition("in_preparation")}
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirmar Pedido (A Cocina)</span>
+                    </button>
+
+                    {canCancelOrder && (
+                      <button
+                        type="button"
+                        onClick={() => setIsCancelModalOpen(true)}
+                        disabled={isPending}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>Rechazar Pedido</span>
+                      </button>
+                    )}
+                  </>
                 )}
 
                 {allowedTransitions.includes("ready") && (
@@ -578,12 +629,170 @@ export function OrderDetailClient({
                   Estado del cobro: {paymentConfig.label}
                 </p>
                 <p>
-                  El registro y cobro de comprobantes fiscales se realiza a través del módulo de Ventas y POS.
+                  {order.payment_status === "paid"
+                    ? "El pago ha sido registrado y conciliado con la orden."
+                    : "El cobro puede registrarse aquí o conciliarse como comprobante fiscal en Ventas / POS."}
                 </p>
               </div>
+
+              {/* BOTÓN REGISTRAR COBRO SI ESTÁ PENDIENTE */}
+              {order.payment_status === "pending" && order.status !== "cancelled" && canRegisterPayment && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPaymentModal({
+                      isOpen: true,
+                      paymentMethod: "cash",
+                      isSubmitting: false,
+                    })
+                  }
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors cursor-pointer"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  <span>Registrar Cobro</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {/* MODAL PARA REGISTRAR PAGO DIRECTO */}
+        {paymentModal.isOpen && (
+          <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col font-body"
+            >
+              {/* HEADER */}
+              <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                      Registrar Cobro
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Pedido #{order.order_number}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={paymentModal.isSubmitting}
+                  onClick={() =>
+                    setPaymentModal({
+                      isOpen: false,
+                      paymentMethod: "cash",
+                      isSubmitting: false,
+                    })
+                  }
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* CONTENIDO */}
+              <div className="p-5 space-y-4">
+                {/* TOTAL A COBRAR */}
+                <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-xl text-center space-y-1">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Total a Cobrar
+                  </span>
+                  <div className="text-2xl font-mono font-extrabold text-[#ED500A]">
+                    {formatCOP(order.total)}
+                  </div>
+                  {order.customer_name && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Cliente: {order.customer_name}
+                    </p>
+                  )}
+                </div>
+
+                {/* SELECCIÓN DE MÉTODO DE PAGO */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Método de pago recibido
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: "cash", label: "Efectivo", icon: Banknote },
+                      { id: "card", label: "Tarjeta", icon: CreditCard },
+                      { id: "transfer", label: "Transferencia", icon: Phone },
+                      { id: "other", label: "Otro medio", icon: FileText },
+                    ].map((m) => {
+                      const Icon = m.icon;
+                      const isSel = paymentModal.paymentMethod === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          disabled={paymentModal.isSubmitting}
+                          onClick={() =>
+                            setPaymentModal((prev) => ({
+                              ...prev,
+                              paymentMethod: m.id as any,
+                            }))
+                          }
+                          className={`p-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
+                            isSel
+                              ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A] ring-1 ring-[#ED500A]"
+                              : "bg-white dark:bg-white/5 border-slate-200 dark:border-white/[0.08] hover:border-slate-300"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold">{m.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* FOOTER */}
+              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={paymentModal.isSubmitting}
+                  onClick={() =>
+                    setPaymentModal({
+                      isOpen: false,
+                      paymentMethod: "cash",
+                      isSubmitting: false,
+                    })
+                  }
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  disabled={paymentModal.isSubmitting}
+                  onClick={handleConfirmPayment}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {paymentModal.isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Registrando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirmar Cobro</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* MODAL DE CONFIRMACIÓN DE CANCELACIÓN */}
         <AdminConfirmDialog

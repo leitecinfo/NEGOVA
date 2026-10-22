@@ -39,12 +39,12 @@ export default async function WorkspaceUsuariosPage({
 
   return (
     <AppPageContainer
-      title="Equipo de Trabajo"
-      description="Administra los colaboradores que tienen acceso a este negocio."
+      title="Empleados"
+      description="Administra los empleados y colaboradores que tienen acceso a este negocio."
       badge={
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400">
           <Users className="w-3.5 h-3.5" />
-          Miembros del Comercio
+          Empleados del Comercio
         </span>
       }
       actions={

@@ -9,6 +9,8 @@ export const RestaurantTableSchema = z.object({
   status: z.enum(["available", "occupied"]).default("available"),
   current_order_id: z.string().uuid().nullable().optional(),
   sort_order: z.number().optional().default(0),
+  qr_version: z.number().optional().default(1),
+  qr_is_active: z.boolean().optional().default(true),
   created_at: z.string(),
   updated_at: z.string(),
 });

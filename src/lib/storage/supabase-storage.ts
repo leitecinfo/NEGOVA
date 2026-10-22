@@ -33,6 +33,10 @@ export const STORAGE_PATHS = {
   businessMenuDir: (businessId: string) => `businesses/${businessId}/menu`,
   businessMenuFile: (businessId: string, filename: string) => `businesses/${businessId}/menu/${filename}`,
 
+  // 4.1 Métodos de Pago y QR
+  businessPaymentQrDir: (businessId: string) => `businesses/${businessId}/payments/qr`,
+  businessPaymentQrFile: (businessId: string, filename: string) => `businesses/${businessId}/payments/qr/${filename}`,
+
   // 5. Recursos Institucionales de NEGOVA
   platformBrandingDir: () => `platform/branding`,
 } as const;

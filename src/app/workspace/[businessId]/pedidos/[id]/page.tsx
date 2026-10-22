@@ -47,6 +47,12 @@ export default async function WorkspaceOrderDetailPage({
   const canCancelOrder =
     session.isOwner || hasPlatformPermission(session.roleCode, "orders.cancel");
 
+  const canRegisterPayment =
+    session.isOwner ||
+    hasPlatformPermission(session.roleCode, "orders.update") ||
+    hasPlatformPermission(session.roleCode, "orders.manage") ||
+    hasPlatformPermission(session.roleCode, "sales.create");
+
   return (
     <OrderDetailClient
       businessId={businessId}
@@ -57,6 +63,7 @@ export default async function WorkspaceOrderDetailPage({
       config={config}
       canUpdateOrder={canUpdateOrder}
       canCancelOrder={canCancelOrder}
+      canRegisterPayment={canRegisterPayment}
     />
   );
 }

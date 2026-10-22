@@ -12,6 +12,7 @@ import {
   X,
   ShoppingBag,
   Store,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Product, Category, ProductVariant } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
@@ -19,14 +20,18 @@ import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
 interface Props {
   business: DigitalMenuPublicBusiness;
   categories: Category[];
   products: Product[];
   settings?: DigitalMenuCustomSettings;
+  paymentMethods?: PublicPaymentMethodDTO[];
   isPreview?: boolean;
   isMobile?: boolean;
+  activeTable?: { id: string; name_or_number: string } | null;
+  tableToken?: string | null;
 }
 
 export function ComercialMenuTemplate({
@@ -34,8 +39,11 @@ export function ComercialMenuTemplate({
   categories,
   products,
   settings,
+  paymentMethods,
   isPreview = false,
   isMobile = false,
+  activeTable,
+  tableToken,
 }: Props) {
   const [selectedCat, setSelectedCat] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -96,6 +104,7 @@ export function ComercialMenuTemplate({
         [cartKey]: {
           id: cartKey,
           productId: product.id,
+          variantId: variant?.id || null,
           name: product.name,
           variantName,
           unitPrice,
@@ -220,6 +229,12 @@ export function ComercialMenuTemplate({
               <p className="text-[11px] sm:text-xs tracking-widest uppercase text-slate-500 font-semibold mt-1">
                 {settings?.bannerSubtitle || "Catálogo oficial & pedidos directos"}
               </p>
+              {activeTable && (
+                <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-800">
+                  <UtensilsCrossed className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Mesa: <strong>{activeTable.name_or_number}</strong></span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -409,7 +424,13 @@ export function ComercialMenuTemplate({
         theme="light"
         onAddToCart={(item) => {
           setCart((prev) => {
-            const cartKey = item.variantName ? `${item.productId}_${item.variantName}` : item.productId;
+            const modHash = (item.selectedModifiers || [])
+              .map((m) => `${m.groupId}:${m.optionId}`)
+              .sort()
+              .join("|");
+            const cartKey = item.variantId
+              ? `${item.productId}_${item.variantId}${modHash ? `_${modHash}` : ""}`
+              : `${item.productId}${modHash ? `_${modHash}` : ""}`;
             const current = prev[cartKey];
             const newQty = (current ? current.quantity : 0) + item.quantity;
             return {
@@ -417,11 +438,13 @@ export function ComercialMenuTemplate({
               [cartKey]: {
                 id: cartKey,
                 productId: item.productId,
+                variantId: item.variantId || null,
                 name: item.name,
                 variantName: item.variantName,
                 unitPrice: item.unitPrice,
                 quantity: newQty,
                 image_url: item.image_url,
+                selectedModifiers: item.selectedModifiers,
               },
             };
           });
@@ -429,17 +452,23 @@ export function ComercialMenuTemplate({
         }}
       />
 
-      {/* 6. CARRITO FLOTANTE DESPLEGABLE & WHATSAPP (DEMO HTML) */}
+      {/* 6. CARRITO FLOTANTE DESPLEGABLE & MODALIDADES */}
       <MenuCartDrawer
         cart={cart}
         onUpdateQuantity={updateCartQuantity}
         onClearCart={clearCart}
         currency={business.currency || "COP"}
+        businessId={business.id}
         businessName={business.name}
         whatsappPhone={cleanWhatsapp}
         theme="light"
-        accentColor="#111111"
+        accentColor={settings?.primaryColor || "#111111"}
         isPreview={isPreview}
+        activeTable={activeTable}
+        tableToken={tableToken}
+        deliveryFee={settings?.deliveryFee || 0}
+        deliveryEnabled={settings?.deliveryEnabled !== false}
+        paymentMethods={paymentMethods}
       />
     </div>
   );

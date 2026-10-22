@@ -19,9 +19,15 @@ import {
   Loader2,
   ShoppingBag,
   Store,
+  Copy,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createSaleAction, type CreateSaleItemInput } from "../actions";
 import type { BusinessPaymentMethod } from "@/lib/documents/types";
+import { PublicPaymentMethodDTO } from "@/lib/payments/types";
+import { PaymentMethodLogo } from "@/components/payments/payment-method-logo";
+import { getDestinationTypeLabel } from "@/lib/payments/payment-methods-catalog";
 
 interface NewSaleFormClientProps {
   businessId: string;
@@ -35,6 +41,7 @@ interface NewSaleFormClientProps {
     defaultPaymentMethod?: "cash" | "transfer" | "card";
     askCustomerName?: boolean;
   };
+  paymentMethods?: PublicPaymentMethodDTO[];
 }
 
 interface SaleLineItem {
@@ -52,8 +59,45 @@ export function NewSaleFormClient({
   primaryColor = "#0284C7",
   onSwitchToPos,
   posSettings,
+  paymentMethods,
 }: NewSaleFormClientProps) {
   const router = useRouter();
+
+  // Métodos de cobro disponibles para este comercio
+  const availableMethods = React.useMemo<PublicPaymentMethodDTO[]>(() => {
+    if (paymentMethods && paymentMethods.length > 0) {
+      return paymentMethods;
+    }
+    return [
+      {
+        code: "cash",
+        name: "Efectivo",
+        category: "Efectivo",
+        logoPath: null,
+        accountHolder: null,
+        destinationType: null,
+        destinationValue: null,
+        instructions: null,
+        breBKeyType: null,
+        qrUrl: null,
+      },
+    ];
+  }, [paymentMethods]);
+
+  const [selectedMethodCode, setSelectedMethodCode] = useState<string>("cash");
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  const handleCopy = (text: string, label: string) => {
+    if (typeof window !== "undefined" && navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedText(text);
+      toast.success(`${label} copiado al portapapeles.`);
+      setTimeout(() => setCopiedText(null), 2500);
+    }
+  };
+
+  const selectedEntity =
+    availableMethods.find((m) => m.code === selectedMethodCode) || availableMethods[0];
 
   // 1. Datos del cliente (consume askCustomerName si está configurado)
   const [customerName, setCustomerName] = useState(
@@ -69,10 +113,7 @@ export function NewSaleFormClient({
     { id: "1", description: "", quantity: 1, unitPrice: "", discount: 0 },
   ]);
 
-  // 3. Método de pago (consume defaultPaymentMethod desde las preferencias del POS)
-  const [paymentMethod, setPaymentMethod] = useState<BusinessPaymentMethod>(
-    posSettings?.defaultPaymentMethod || "cash"
-  );
+  // 3. Notas y observaciones
   const [notes, setNotes] = useState("");
 
   // 4. Descuentos globales e impuestos
@@ -171,6 +212,15 @@ export function NewSaleFormClient({
     setIsSubmitting(true);
 
     try {
+      const effectivePaymentMethod: BusinessPaymentMethod =
+        selectedMethodCode === "cash" ? "cash" : "transfer";
+
+      let finalNotes = notes.trim();
+      if (selectedMethodCode !== "cash" && selectedEntity) {
+        const entityTag = `[Medio de cobro: ${selectedEntity.name}${selectedEntity.destinationValue ? ` - ${selectedEntity.destinationValue}` : ""}]`;
+        finalNotes = finalNotes ? `${entityTag} ${finalNotes}` : entityTag;
+      }
+
       const res = await createSaleAction(businessId, {
         customerName: effectiveCustomerName,
         customerId: customerId.trim() || null,
@@ -178,8 +228,8 @@ export function NewSaleFormClient({
         customerEmail: customerEmail.trim() || null,
         customerAddress: customerAddress.trim() || null,
         documentType: "sale",
-        paymentMethod,
-        notes: notes.trim() || null,
+        paymentMethod: effectivePaymentMethod,
+        notes: finalNotes || null,
         items: payloadItems,
         discountTotal: Number(globalDiscount) || 0,
         taxTotal: taxTotal,
@@ -447,35 +497,133 @@ export function NewSaleFormClient({
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Método de pago registrado
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: "cash", label: "Efectivo", icon: Banknote },
-                  { id: "transfer", label: "Transferencia", icon: CreditCard },
-                  { id: "card", label: "Tarjeta", icon: CreditCard },
-                  { id: "other", label: "Otro", icon: Receipt },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const isSelected = paymentMethod === m.id;
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Método de cobro registrado
+                </label>
+                <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                  {selectedEntity.name}
+                </span>
+              </div>
+
+              {/* Selector de métodos disponibles para este comercio */}
+              <div className={`grid ${availableMethods.length > 2 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2"} gap-2`}>
+                {availableMethods.map((m) => {
+                  const isSelected = selectedMethodCode === m.code;
                   return (
                     <button
                       type="button"
-                      key={m.id}
-                      onClick={() => setPaymentMethod(m.id as BusinessPaymentMethod)}
-                      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-xs font-semibold transition-all ${
+                      key={m.code}
+                      onClick={() => setSelectedMethodCode(m.code)}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer min-h-[44px] ${
                         isSelected
-                          ? "border-blue-600 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-xs"
+                          ? "border-blue-600 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shadow-xs"
                           : "border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
-                      <span>{m.label}</span>
+                      <PaymentMethodLogo code={m.code} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-semibold leading-tight block truncate">
+                          {m.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block truncate leading-none mt-0.5">
+                          {m.code === "cash" ? "Efectivo" : m.category}
+                        </span>
+                      </div>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Ficha de datos de cobro de la entidad elegida en POS */}
+              {selectedEntity.code !== "cash" && selectedEntity.destinationValue && (
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-xs space-y-2.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
+                    <div className="flex items-center gap-2">
+                      <PaymentMethodLogo code={selectedEntity.code} size="sm" />
+                      <div>
+                        <span className="font-bold text-slate-900 dark:text-white block">{selectedEntity.name}</span>
+                        <span className="text-[10px] text-slate-500 block">
+                          {selectedEntity.code === "bre_b"
+                            ? `Llave: ${getDestinationTypeLabel(null, selectedEntity.breBKeyType)}`
+                            : getDestinationTypeLabel(selectedEntity.destinationType)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total venta</span>
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                        ${total.toLocaleString("es-CO")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">
+                        {selectedEntity.code === "bre_b" ? "Llave Bre-B" : "Número de cuenta / celular"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 font-mono text-xs font-bold truncate text-slate-900 dark:text-white select-all">
+                        {selectedEntity.destinationValue}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopy(
+                            selectedEntity.destinationValue!,
+                            selectedEntity.code === "bre_b" ? "Llave Bre-B" : "Número de cuenta"
+                          )
+                        }
+                        className="px-3 py-2 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 hover:bg-blue-100 flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+                      >
+                        {copiedText === selectedEntity.destinationValue ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copiado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>{selectedEntity.code === "bre_b" ? "Copiar llave" : "Copiar"}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedEntity.accountHolder && (
+                    <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className="font-semibold">Titular: </span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{selectedEntity.accountHolder}</span>
+                    </div>
+                  )}
+
+                  {selectedEntity.qrUrl && (
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 flex flex-col items-center gap-1">
+                      <span className="text-[10px] uppercase font-semibold text-slate-400">QR de cobro</span>
+                      <div className="p-2 bg-white rounded-lg border border-slate-200 dark:border-white/10 max-w-[130px]">
+                        <img src={selectedEntity.qrUrl} alt={`QR ${selectedEntity.name}`} className="w-full h-auto object-contain" />
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedEntity.instructions && (
+                    <div className="pt-1 text-[11px] text-slate-500 italic bg-white/40 dark:bg-white/[0.02] p-2 rounded-lg">
+                      "{selectedEntity.instructions}"
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedEntity.code === "cash" && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs flex items-center gap-2">
+                  <Banknote className="w-4 h-4 shrink-0" />
+                  <span>Cobro en efectivo: recibe y valida el dinero en caja antes de emitir comprobante.</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5 pt-2">

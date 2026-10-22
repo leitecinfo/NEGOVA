@@ -24,6 +24,7 @@ import {
   ChefHat,
   Bike,
   Calendar,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { AppNavSection, AppNavItem } from "../components/layout/navigation-types";
@@ -124,8 +125,8 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
   },
   {
     id: "pos",
-    label: "Punto de venta",
-    shortDescription: "Interfaz operativa para registrar ventas y comandas.",
+    label: "Vender",
+    shortDescription: "Iniciar ventas, seleccionar productos y registrar cobros.",
     group: "operacion",
     groupLabel: "Operación",
     icon: Store,
@@ -202,8 +203,8 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
   // ==========================================
   {
     id: "productos",
-    label: "Productos y servicios",
-    shortDescription: "Crear, editar, activar, desactivar y consultar catálogo.",
+    label: "Inventario",
+    shortDescription: "Crear, editar, activar, desactivar y consultar inventario y catálogo.",
     group: "catalogo",
     groupLabel: "Catálogo",
     icon: Boxes,
@@ -214,15 +215,16 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
   },
   {
     id: "menu-digital",
-    label: "Menú digital",
-    shortDescription: "Personalizar y publicar la carta digital con enlace público y QR.",
+    label: "Presencia digital",
+    shortDescription: "Personalizar y publicar la carta y catálogo público con enlace web y QR.",
     group: "catalogo",
     groupLabel: "Catálogo",
-    icon: BookOpen,
-    href: "productos/menu",
+    icon: Globe,
+    href: "presencia-digital",
     level: "core",
     status: "implemented",
-    showInMenu: false,
+    compatibleBusinessTypes: GASTRONOMY_BUSINESS_TYPES,
+    showInMenu: true,
   },
 
   // ==========================================
@@ -339,7 +341,7 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
   // ==========================================
   {
     id: "usuarios",
-    label: "Usuarios",
+    label: "Empleados",
     shortDescription: "Gestionar las personas que tienen acceso al negocio.",
     group: "administracion",
     groupLabel: "Administración",
@@ -349,6 +351,29 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
     status: "implemented",
     minRoleLevel: "owner",
     showInMenu: true,
+  },
+  {
+    id: "nomina",
+    label: "Nómina",
+    shortDescription: "Liquidación y gestión de turnos y pagos a colaboradores.",
+    group: "administracion",
+    groupLabel: "Administración",
+    icon: Wallet,
+    href: "modulo/nomina",
+    level: "core",
+    status: "under_construction",
+    minRoleLevel: "owner",
+    showInMenu: true,
+    underConstructionDetails: {
+      category: "Gestión de Nómina y Pagos",
+      summary: "Liquidación y registro de turnos, salarios, adelantos y pagos a colaboradores.",
+      plannedFeatures: [
+        "Control de periodos de nómina (semanal, quincenal o mensual).",
+        "Registro de horas trabajadas, turnos y novedades laborales.",
+        "Generación y descarga de comprobantes de pago.",
+        "Integración de pagos con el flujo de gastos del negocio.",
+      ],
+    },
   },
   {
     id: "roles",
@@ -539,19 +564,7 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
     minRoleLevel: "owner",
     showInMenu: false,
   },
-  {
-    id: "nomina",
-    label: "Nómina y pagos",
-    shortDescription: "Períodos de nómina y comprobantes de pago.",
-    group: "administracion",
-    groupLabel: "Administración",
-    icon: Wallet,
-    href: "nomina",
-    level: "core",
-    status: "implemented",
-    minRoleLevel: "owner",
-    showInMenu: false,
-  },
+
   {
     id: "menu",
     label: "Menú gastronómico",
@@ -702,4 +715,72 @@ export function buildWorkspaceNavSections(
   }
 
   return sections;
+}
+
+/**
+ * Obtiene el identificador del módulo predeterminado para el acceso rápido del encabezado
+ * según la vertical del negocio y sus actividades comerciales habilitadas.
+ */
+export function getDefaultQuickAccessModuleId(
+  businessType?: string | null,
+  commercialActivities?: CommercialActivity[]
+): string {
+  // 1. Restaurantes y gastronomía: Pedidos
+  if (isGastronomyBusiness(businessType)) {
+    return "pedidos";
+  }
+
+  const activities =
+    commercialActivities && commercialActivities.length > 0
+      ? commercialActivities
+      : getDefaultActivitiesForBusinessType(businessType);
+
+  // 2. Servicios con citas / barberías / salones: Citas
+  if (hasCommercialActivity(activities, "manage_appointments")) {
+    return "citas";
+  }
+
+  // 3. Comercio general / retail / tiendas: Ventas
+  return "ventas";
+}
+
+/**
+ * Resuelve el elemento de navegación (AppNavItem) para el acceso rápido del encabezado.
+ * Garantiza que el módulo seleccionado o de respaldo esté realmente habilitado y autorizado para el usuario.
+ */
+export function resolveQuickAccessItem(
+  sections: AppNavSection[],
+  configuredModuleId?: string | null,
+  businessType?: string | null,
+  commercialActivities?: CommercialActivity[]
+): AppNavItem | null {
+  const allItems = sections.flatMap((s) => s.items);
+  if (allItems.length === 0) return null;
+
+  // 1. Si el propietario configuró una preferencia y el módulo está habilitado y permitido
+  if (configuredModuleId) {
+    const configuredItem = allItems.find((i) => i.id === configuredModuleId);
+    if (configuredItem && configuredItem.allowed !== false) {
+      return configuredItem;
+    }
+  }
+
+  // 2. Si no hay preferencia o no es válida, intentar con el predeterminado de la vertical
+  const defaultId = getDefaultQuickAccessModuleId(businessType, commercialActivities);
+  const defaultItem = allItems.find((i) => i.id === defaultId);
+  if (defaultItem && defaultItem.allowed !== false) {
+    return defaultItem;
+  }
+
+  // 3. Respaldo seguro: buscar 'ventas', luego 'pos', luego 'pedidos' o el primer módulo permitido
+  const fallbackVentas = allItems.find((i) => i.id === "ventas" && i.allowed !== false);
+  if (fallbackVentas) return fallbackVentas;
+
+  const fallbackPos = allItems.find((i) => i.id === "pos" && i.allowed !== false);
+  if (fallbackPos) return fallbackPos;
+
+  const fallbackPedidos = allItems.find((i) => i.id === "pedidos" && i.allowed !== false);
+  if (fallbackPedidos) return fallbackPedidos;
+
+  return allItems.find((i) => i.allowed !== false) || null;
 }

@@ -29,6 +29,10 @@ interface PageProps {
     address?: string;
     title?: string;
     subtitle?: string;
+    fee?: string;
+    delivery?: string;
+    table?: string;
+    token?: string;
   }>;
 }
 
@@ -160,7 +164,22 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
     ...(sp.address !== undefined ? { showAddress: sp.address === "true" } : {}),
     ...(sp.title !== undefined ? { bannerTitle: sp.title } : {}),
     ...(sp.subtitle !== undefined ? { bannerSubtitle: sp.subtitle } : {}),
+    ...(sp.fee !== undefined ? { deliveryFee: Math.max(0, parseFloat(sp.fee) || 0) } : {}),
+    ...(sp.delivery !== undefined ? { deliveryEnabled: sp.delivery === "true" } : {}),
   };
+
+  // Validación de mesa mediante QR si vienen en la URL
+  let activeTable: { id: string; name_or_number: string } | null = null;
+  if (sp.table && sp.token) {
+    const { validateTableQrAccess } = await import("@/lib/restaurant/restaurant-service");
+    const valRes = await validateTableQrAccess(business.id, sp.table, sp.token);
+    if (valRes.valid && valRes.table) {
+      activeTable = {
+        id: valRes.table.id,
+        name_or_number: valRes.table.name_or_number,
+      };
+    }
+  }
 
   // Menú publicado o vista previa activa
   return (
@@ -169,10 +188,13 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
       menu={menu}
       categories={categories}
       products={products}
+      paymentMethods={data.paymentMethods}
       isPreview={false}
       overrideModality={overrideModality}
       overrideTemplateId={overrideTemplateId as any}
       overrideSettings={overrideSettings}
+      activeTable={activeTable}
+      tableToken={activeTable ? (sp.token || null) : null}
     />
   );
 }

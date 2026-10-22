@@ -5,6 +5,8 @@ import { getProducts, getCategories } from "@/lib/products/products-service";
 import { getRestaurantTables } from "@/lib/restaurant/restaurant-service";
 import { NewSaleViewClient } from "./new-sale-view-client";
 
+import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
+
 export default async function WorkspaceNewSalePage({
   params,
 }: {
@@ -15,12 +17,13 @@ export default async function WorkspaceNewSalePage({
   // 1. Validar autorización multi-tenant para registrar ventas (sales.create)
   const session = await requireWorkspaceSession(businessId, "sales.create");
 
-  // 2. Obtener configuración comercial, catálogo de productos, categorías y mesas en paralelo
-  const [config, products, categories, tables] = await Promise.all([
+  // 2. Obtener configuración comercial, catálogo de productos, categorías, mesas y métodos de pago activos
+  const [config, products, categories, tables, paymentMethods] = await Promise.all([
     getBusinessDocumentConfig(businessId),
     getProducts(businessId, { status: "active" }),
     getCategories(businessId),
     getRestaurantTables(businessId),
+    getPublicBusinessPaymentMethods(businessId),
   ]);
 
   return (
@@ -33,6 +36,7 @@ export default async function WorkspaceNewSalePage({
       initialCategories={categories}
       initialTables={tables}
       posSettings={(session.businessSettings?.pos as any) || undefined}
+      paymentMethods={paymentMethods}
     />
   );
 }

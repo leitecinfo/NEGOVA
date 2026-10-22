@@ -109,6 +109,7 @@ export function DigitalMenuClient({
     params.set("address", String(settings.showAddress ?? true));
     if (settings.bannerTitle !== undefined) params.set("title", settings.bannerTitle);
     if (settings.bannerSubtitle !== undefined) params.set("subtitle", settings.bannerSubtitle);
+    if (settings.deliveryFee !== undefined) params.set("fee", String(settings.deliveryFee));
 
     return `/menu/${business.slug || business.id}?${params.toString()}`;
   }, [business.slug, business.id, templateId, modality, settings]);
@@ -338,14 +339,14 @@ export function DigitalMenuClient({
           <Link
             href={`/workspace/${businessId}/productos`}
             className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 transition-colors"
-            title="Volver a Productos"
+            title="Volver a Inventario"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                Menú Digital del Negocio
+                Presencia Digital — Menú Digital
               </h1>
               {isPublished ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400">
@@ -359,7 +360,7 @@ export function DigitalMenuClient({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Administra la experiencia pública de tu carta y compártela mediante enlace web o código QR.
+              Administra la exposición pública de tu oferta comercial, carta digital y compártela mediante enlace web o código QR.
             </p>
           </div>
         </div>
@@ -1008,6 +1009,30 @@ export function DigitalMenuClient({
                     />
                     <span>Mostrar dirección y ciudad</span>
                   </label>
+                </div>
+
+                {/* Tarifa de Domicilio predeterminada */}
+                <div className="pt-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Tarifa de Entrega a Domicilio ({business.currency || "COP"})
+                  </label>
+                  <p className="text-[11px] text-slate-400 mb-1.5">
+                    Se sumará automáticamente al subtotal cuando el cliente elija la modalidad «Domicilio». Si es 0 o vacío, no se cobrará recargo.
+                  </p>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={settings.deliveryFee ?? 0}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        deliveryFee: Math.max(0, parseFloat(e.target.value) || 0),
+                      })
+                    }
+                    placeholder="0"
+                    className="w-full max-w-xs px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 font-mono"
+                  />
                 </div>
               </div>
 

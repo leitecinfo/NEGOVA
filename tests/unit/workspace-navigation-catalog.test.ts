@@ -151,8 +151,8 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       // 1. Operación: Inicio, Punto de venta, Ventas, Pedidos, Mesas
       expect(sectionMap["operacion"]).toEqual(["dashboard", "pos", "ventas", "pedidos", "mesas"]);
 
-      // 2. Catálogo: Productos y servicios
-      expect(sectionMap["catalogo"]).toEqual(["productos"]);
+      // 2. Catálogo: Inventario y Presencia digital
+      expect(sectionMap["catalogo"]).toEqual(["productos", "menu-digital"]);
 
       // 3. Gestión del negocio: Clientes, Gastos, Finanzas, Documentos, Reportes
       expect(sectionMap["gestion"]).toEqual([
@@ -163,8 +163,8 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
         "reportes",
       ]);
 
-      // 4. Administración: Usuarios, Roles y permisos, Configuración del negocio
-      expect(sectionMap["administracion"]).toEqual(["usuarios", "roles", "configuracion"]);
+      // 4. Administración: Usuarios/Empleados, Nómina, Roles y permisos, Configuración del negocio
+      expect(sectionMap["administracion"]).toEqual(["usuarios", "nomina", "roles", "configuracion"]);
 
       // 5. Cuenta: Notificaciones, Mi perfil, Soporte
       expect(sectionMap["cuenta"]).toEqual(["notificaciones", "perfil", "soporte"]);
@@ -177,7 +177,7 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       const pos = allItems.find((i: AppNavItem) => i.id === "pos");
       expect(pos).toBeDefined();
       expect(pos?.href).toBe(`/workspace/${businessId}/pos`);
-      expect(pos?.label).toBe("Punto de venta");
+      expect(pos?.label).toBe("Vender");
       expect(pos?.badge).toBeUndefined();
 
       const ventas = allItems.find((i: AppNavItem) => i.id === "ventas");

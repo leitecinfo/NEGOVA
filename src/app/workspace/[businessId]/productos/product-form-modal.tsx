@@ -160,6 +160,7 @@ export function ProductFormModal({
   const [unit, setUnit] = useState<string>(existingMeta.unit || "unidad");
   const [trackStock, setTrackStock] = useState<boolean>(Boolean(existingMeta.track_stock));
   const [stockQuantity, setStockQuantity] = useState<number>(existingMeta.stock_quantity ?? 0);
+  const [minStock, setMinStock] = useState<number | null>(existingMeta.min_stock ?? null);
   const [durationMinutes, setDurationMinutes] = useState<number>(existingMeta.duration_minutes ?? 30);
 
   // Gastronomía opcional
@@ -248,6 +249,9 @@ export function ProductFormModal({
     const meta = (product?.metadata as any) || {};
     setAllergensText(Array.isArray(meta.allergens) ? meta.allergens.join(", ") : "");
     setIngredients(meta.ingredients || "");
+    setTrackStock(Boolean(meta.track_stock));
+    setStockQuantity(meta.stock_quantity ?? 0);
+    setMinStock(meta.min_stock ?? null);
     setProductType(
       isFoodBusiness
         ? "product"
@@ -506,24 +510,12 @@ export function ProductFormModal({
             : isFoodBusiness
             ? existingMeta.brand || null
             : null,
-        unit:
-          !isFoodBusiness && productType === "product"
-            ? unit.trim() || "unidad"
-            : isFoodBusiness
-            ? existingMeta.unit || "unidad"
-            : null,
-        track_stock:
-          !isFoodBusiness && productType === "product"
-            ? trackStock
-            : isFoodBusiness
-            ? Boolean(existingMeta.track_stock)
-            : false,
+        unit: unit.trim() || "unidad",
+        track_stock: productType === "product" ? trackStock : false,
         stock_quantity:
-          !isFoodBusiness && productType === "product" && trackStock
-            ? stockQuantity
-            : isFoodBusiness
-            ? existingMeta.stock_quantity ?? null
-            : null,
+          productType === "product" && trackStock ? stockQuantity : null,
+        min_stock:
+          productType === "product" && trackStock ? minStock : null,
         duration_minutes: productType === "service" ? durationMinutes : null,
         allergens: allergensArray,
         ingredients: ingredients.trim() || null,
@@ -989,21 +981,80 @@ export function ProductFormModal({
               </div>
             )}
 
-            {/* SECCIÓN ADAPTATIVA: DATOS COMERCIALES Y RETAIL (Solo para comercios minoristas y tiendas; oculta en restaurantes y comida rápida) */}
-            {!isFoodBusiness && productType === "product" && (
-              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3">
+            {/* SECCIÓN DE CONTROL DE EXISTENCIAS E INVENTARIO (APLICA A TODOS LOS PRODUCTOS) */}
+            {productType === "product" && (
+              <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-3 font-body">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Tag className="w-4 h-4 text-[#ED500A]" />
-                    <span>Datos de Comercio e Inventario</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-[#ED500A]" />
+                    <span>Control de Existencias e Inventario</span>
                   </span>
                 </div>
 
-                <div className="space-y-3 pt-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="pt-1 space-y-3">
+                  <div className="p-3 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] space-y-2">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={trackStock}
+                        onChange={(e) => setTrackStock(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 text-[#ED500A] rounded border-slate-300 focus:ring-[#ED500A] cursor-pointer"
+                      />
+                      <div className="space-y-0.5 select-none">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                          ¿Controlar existencias de este producto?
+                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                          {trackStock
+                            ? "Modalidad con control de inventario: Permite definir unidades disponibles y alerta de stock mínimo (ej. bebidas embotelladas, latas, snacks, paquetes)."
+                            : "Modalidad bajo demanda: Permite vender sin requerir unidades físicas registradas (ej. salchipapas, hamburguesas, platos preparados al instante)."}
+                        </p>
+                      </div>
+                    </label>
+
+                    {trackStock && (
+                      <div className="pt-3 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-200">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Stock actual disponible <span className="text-[#ED500A]">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={stockQuantity}
+                            onChange={(e) => setStockQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            placeholder="Ej. 24"
+                            className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Cantidad física disponible para venta</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Stock mínimo de alerta <span className="text-slate-400 font-normal">(Opcional)</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={minStock ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value.trim();
+                              setMinStock(val === "" ? null : Math.max(0, parseInt(val, 10) || 0));
+                            }}
+                            placeholder="Ej. 6"
+                            className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Umbral para alertar necesidad de reposición</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SKU, código de barras y unidad */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
                       <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                        Código / Referencia SKU
+                        Código / Referencia SKU (Opcional)
                       </label>
                       <input
                         type="text"
@@ -1016,7 +1067,7 @@ export function ProductFormModal({
 
                     <div>
                       <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                        Código de Barras
+                        Código de Barras (Opcional)
                       </label>
                       <div className="relative">
                         <Barcode className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1029,69 +1080,6 @@ export function ProductFormModal({
                         />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                        Marca
-                      </label>
-                      <input
-                        type="text"
-                        value={brand}
-                        onChange={(e) => setBrand(e.target.value)}
-                        placeholder="Ej. Propia, Nike, Genérico"
-                        className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                        Unidad de Medida
-                      </label>
-                      <select
-                        value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none"
-                      >
-                        <option value="unidad">Unidad (ud)</option>
-                        <option value="porción">Porción / Plato</option>
-                        <option value="kg">Kilogramo (kg)</option>
-                        <option value="g">Gramo (g)</option>
-                        <option value="litro">Litro (L)</option>
-                        <option value="metro">Metro (m)</option>
-                        <option value="paquete">Paquete</option>
-                        <option value="caja">Caja</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Control de existencias */}
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={trackStock}
-                        onChange={(e) => setTrackStock(e.target.checked)}
-                        className="w-4 h-4 text-[#ED500A] rounded border-slate-300 focus:ring-[#ED500A]"
-                      />
-                      <span>Seguimiento de existencias (Stock)</span>
-                    </label>
-
-                    {trackStock && (
-                      <div className="pt-1">
-                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                          Cantidad disponible en inventario
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={stockQuantity}
-                          onChange={(e) => setStockQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                          className="w-full sm:w-48 px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none"
-                        />
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
