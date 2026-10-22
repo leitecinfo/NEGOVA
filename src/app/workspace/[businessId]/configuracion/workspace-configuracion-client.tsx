@@ -57,6 +57,7 @@ import {
 } from "@/config/workspace-navigation";
 
 import { PaymentMethodsTab } from "@/components/configuracion/payment-methods-tab";
+import { formatNumberWithDots, parseNumberFromDots } from "@/lib/pos/types";
 
 type ConfigTabId = "general" | "branding" | "comprobantes" | "mi-negocio" | "regional" | "pagos";
 
@@ -225,10 +226,13 @@ export function WorkspaceConfiguracionClient({
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(
     initialDelivery.enabled !== false
   );
-  const [deliveryFee, setDeliveryFee] = useState<number>(
+  const initialDeliveryFeeNum =
     typeof initialDelivery.fee === "number" && !isNaN(initialDelivery.fee) && initialDelivery.fee >= 0
       ? initialDelivery.fee
-      : 0
+      : 0;
+  const [deliveryFee, setDeliveryFee] = useState<number>(initialDeliveryFeeNum);
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState<string>(
+    initialDeliveryFeeNum > 0 ? formatNumberWithDots(initialDeliveryFeeNum) : "0"
   );
   const [isSavingDelivery, startDeliveryTransition] = useTransition();
 
@@ -1189,17 +1193,31 @@ export function WorkspaceConfiguracionClient({
                       $
                     </span>
                     <input
-                      type="number"
-                      min="0"
-                      step="500"
-                      value={deliveryFee}
+                      type="text"
+                      inputMode="numeric"
+                      value={deliveryFeeInput}
                       onChange={(e) => {
                         if (!isOwner) return;
-                        const val = parseFloat(e.target.value);
-                        setDeliveryFee(isNaN(val) ? 0 : Math.max(0, val));
+                        const inputVal = e.target.value;
+                        if (!inputVal.trim()) {
+                          setDeliveryFeeInput("");
+                          setDeliveryFee(0);
+                          return;
+                        }
+                        const raw = parseNumberFromDots(inputVal);
+                        setDeliveryFee(raw);
+                        setDeliveryFeeInput(formatNumberWithDots(raw));
+                      }}
+                      onBlur={() => {
+                        if (!deliveryFeeInput.trim()) {
+                          setDeliveryFeeInput("0");
+                          setDeliveryFee(0);
+                        } else {
+                          setDeliveryFeeInput(formatNumberWithDots(deliveryFee));
+                        }
                       }}
                       disabled={!isOwner || isSavingDelivery || !deliveryEnabled}
-                      placeholder="Ej. 5000"
+                      placeholder="Ej. 5.000"
                       className="w-full pl-7 pr-3 py-2 rounded-xl text-sm font-mono border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
                     />
                   </div>
