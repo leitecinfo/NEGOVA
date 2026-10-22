@@ -124,6 +124,25 @@
   h6 {
     @apply font-title;
   }
+
+  /* Contraste garantizado para selects nativos y sus desplegables option */
+  select {
+    color-scheme: light;
+  }
+
+  option {
+    background-color: #ffffff;
+    color: #0f172a;
+  }
+
+  .dark select {
+    color-scheme: dark;
+  }
+
+  .dark option {
+    background-color: #0d0f16;
+    color: #f8f9fd;
+  }
 }
 
 @keyframes floatGentle {

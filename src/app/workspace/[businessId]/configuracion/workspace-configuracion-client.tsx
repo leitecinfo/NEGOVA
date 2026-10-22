@@ -1277,11 +1277,11 @@ export function WorkspaceConfiguracionClient({
                   value={posSettings.receiptCopies}
                   onChange={(e) => handlePosChange("receiptCopies", Number(e.target.value))}
                   disabled={!isOwner}
-                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
+                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50 dark:[color-scheme:dark] cursor-pointer"
                 >
-                  <option value={1}>1 copia</option>
-                  <option value={2}>2 copias</option>
-                  <option value={3}>3 copias</option>
+                  <option value={1} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">1 copia</option>
+                  <option value={2} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">2 copias</option>
+                  <option value={3} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">3 copias</option>
                 </select>
               </div>
 
@@ -1300,11 +1300,11 @@ export function WorkspaceConfiguracionClient({
                   value={posSettings.defaultPaymentMethod}
                   onChange={(e) => handlePosChange("defaultPaymentMethod", e.target.value)}
                   disabled={!isOwner}
-                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50"
+                  className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none disabled:opacity-50 dark:[color-scheme:dark] cursor-pointer"
                 >
-                  <option value="cash">Efectivo</option>
-                  <option value="transfer">Transferencia</option>
-                  <option value="card">Tarjeta / Datáfono</option>
+                  <option value="cash" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Efectivo</option>
+                  <option value="transfer" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Transferencia</option>
+                  <option value="card" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Tarjeta / Datáfono</option>
                 </select>
               </div>
 
