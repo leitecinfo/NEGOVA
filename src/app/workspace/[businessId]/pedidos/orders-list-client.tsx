@@ -644,218 +644,170 @@ export function OrdersListClient({
           setDragOverColumnId(null);
         }}
         onClick={() => setDetailModal({ isOpen: true, order })}
-        className={`bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between gap-2.5 relative cursor-pointer select-none group ${statusBadge.headerColor} border-t-4 ${
+        className={`bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between gap-3 relative cursor-pointer select-none group ${statusBadge.headerColor} border-t-4 ${
           isBeingDragged ? "opacity-40 scale-[0.98] ring-2 ring-[#ED500A] shadow-lg" : ""
         }`}
       >
-        {/* 1. ENCABEZADO DE TARJETA: IDENTIFICACIÓN, DESTINO Y ESTADOS */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {isDraggable && (
-                <span
-                  onClick={(e) => e.stopPropagation()}
-                  className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 p-0.5 rounded transition-colors"
-                  title="Arrastrar comanda"
-                >
-                  <GripVertical className="w-3.5 h-3.5 shrink-0" />
-                </span>
-              )}
-              <span className="font-mono font-black text-sm text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors shrink-0">
-                #{order.order_number}
+        {/* 1. ENCABEZADO: #Orden, Modalidad y Tiempo */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {isDraggable && (
+              <span
+                onClick={(e) => e.stopPropagation()}
+                className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 -ml-0.5 p-0.5 rounded transition-colors"
+                title="Arrastrar comanda"
+              >
+                <GripVertical className="w-3.5 h-3.5 shrink-0" />
               </span>
-
-              {/* Badge de Destino / Tipo de Pedido */}
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${typeBadge.color} truncate`}>
-                <TypeIcon className="w-3 h-3 shrink-0" />
-                <span className="truncate">{typeBadge.label}</span>
-              </span>
-
-              {/* Badge de Canal si es Menú Digital o WhatsApp */}
-              {order.channel_origin !== "in_person" && (
-                <span className={`hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium border border-slate-200/60 dark:border-white/[0.08] ${channelBadge.color} shrink-0`}>
-                  <ChannelIcon className="w-2.5 h-2.5 shrink-0" />
-                  <span>{channelBadge.label}</span>
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1 shrink-0">
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${payBadge.color}`}>
-                {payBadge.label}
-              </span>
-            </div>
-          </div>
-
-          {/* Subfila: Tiempo transcurrido y Cliente / Mesa resumido */}
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 gap-2">
-            <span
-              className={`inline-flex items-center gap-1 text-[10px] font-medium ${
-                waitInfo.isUrgent && !isFinished
-                  ? "text-amber-600 dark:text-amber-400 font-bold"
-                  : "text-slate-400 dark:text-slate-500"
-              }`}
-            >
-              <Clock className="w-2.5 h-2.5 shrink-0" />
-              <span>{waitInfo.label}</span>
+            )}
+            <span className="font-mono font-black text-base text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors shrink-0">
+              #{order.order_number}
             </span>
-
-            {order.order_type === "delivery" && (order.customer_name || order.delivery_address) && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[170px]" title={order.delivery_address || ""}>
-                <MapPin className="w-3 h-3 text-blue-500 shrink-0" />
-                <span className="truncate">
-                  {order.customer_name ? `${order.customer_name}${order.delivery_address ? ` · ${order.delivery_address}` : ""}` : order.delivery_address}
-                </span>
-              </span>
-            )}
-            {order.order_type === "takeout" && order.customer_name && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 truncate max-w-[170px]">
-                <User className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className="truncate">{order.customer_name}</span>
-              </span>
-            )}
-            {order.order_type === "dine_in" && order.tableName && (
-              <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 truncate">
-                <UtensilsCrossed className="w-3 h-3 text-emerald-500 shrink-0" />
-                <span className="truncate">{order.tableName}</span>
-              </span>
-            )}
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${typeBadge.color} shrink-0`}>
+              <TypeIcon className="w-3 h-3 shrink-0" />
+              <span>{typeBadge.label}</span>
+            </span>
           </div>
+
+          <span
+            className={`text-[11px] shrink-0 font-medium ${
+              waitInfo.isUrgent && !isFinished
+                ? "text-amber-600 dark:text-amber-400 font-bold"
+                : "text-slate-400 dark:text-slate-500"
+            }`}
+          >
+            {waitInfo.label}
+          </span>
         </div>
 
-        {/* 2. RESUMEN COMPACTO DE ARTÍCULOS */}
-        <div className="py-1.5 px-2 rounded-lg bg-slate-50/80 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 text-xs space-y-1">
+        {/* 2. CLIENTE O MESA (Línea limpia y legible) */}
+        {(order.customer_name || (order.order_type === "dine_in" && order.tableName)) && (
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+            {order.order_type === "dine_in" ? (
+              <>
+                <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="truncate">{order.tableName}</span>
+              </>
+            ) : (
+              <>
+                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{order.customer_name}</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 3. RESUMEN DE PLATOS (Sin tablas ni cajas oscuras sofocadas) */}
+        <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
           {order.items && order.items.length > 0 ? (
             <>
               {order.items.slice(0, 2).map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-[11px] gap-1.5">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="font-bold text-[#ED500A] shrink-0 text-[11px]">
-                      {item.quantity}×
-                    </span>
-                    <span className="text-slate-700 dark:text-slate-300 truncate" title={item.product_name}>
-                      {item.product_name}
-                    </span>
-                  </div>
-                  <span className="font-mono text-slate-400 text-[10px] shrink-0">
-                    {formatCOP(item.subtotal)}
+                <div key={idx} className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-black text-[#ED500A] text-xs shrink-0">
+                    {item.quantity}×
+                  </span>
+                  <span className="truncate font-medium text-slate-800 dark:text-slate-200" title={item.product_name}>
+                    {item.product_name}
                   </span>
                 </div>
               ))}
               {order.items.length > 2 && (
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pt-0.5">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium pt-0.5">
                   + {order.items.length - 2} producto{order.items.length - 2 > 1 ? "s" : ""} más
-                </div>
+                </p>
               )}
             </>
           ) : (
-            <div className="text-slate-400 text-[11px]">
+            <p className="text-slate-400 text-xs">
               {order.itemsCount || 0} productos
-            </div>
-          )}
-
-          {/* Indicador sutil de nota u observación */}
-          {order.notes && (
-            <div className="pt-1 mt-1 border-t border-slate-200/50 dark:border-white/5 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 truncate">
-              <FileText className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{order.notes}</span>
-            </div>
+            </p>
           )}
         </div>
 
-        {/* 3. PIE DE TARJETA: TOTAL Y ACCIONES OPERATIVAS */}
-        <div className="pt-1.5 border-t border-slate-100 dark:border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Total
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-mono font-black text-slate-900 dark:text-white">
-                {formatCOP(order.total)}
-              </span>
-              <span className="text-[10px] text-slate-400 group-hover:text-[#ED500A] transition-colors flex items-center gap-0.5">
-                <span>Detalle</span>
-                <ArrowRight className="w-2.5 h-2.5" />
-              </span>
-            </div>
-          </div>
+        {/* 4. TOTAL Y ESTADO DE PAGO */}
+        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+          <span className="text-base font-mono font-black text-slate-900 dark:text-white">
+            {formatCOP(order.total)}
+          </span>
 
-          {/* ACCIÓN PRINCIPAL (con stopPropagation para no abrir el modal al hacer clic en los botones) */}
-          {canUpdateOrder && order.status === "received" ? (
-            <div className="grid grid-cols-2 gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${payBadge.color} shrink-0`}>
+            {payBadge.label}
+          </span>
+        </div>
+
+        {/* 5. ACCIONES DIRECTAS */}
+        {canUpdateOrder && order.status === "received" ? (
+          <div className="grid grid-cols-2 gap-2 pt-0.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              disabled={isPending || isThisOrderUpdating}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuickStatusTransition(order, "in_preparation");
+              }}
+              className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              title="Confirmar comanda y pasar a cocina"
+            >
+              {isThisOrderUpdating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span>Confirmar</span>
+            </button>
+
+            {canCancelOrder && (
               <button
                 type="button"
                 disabled={isPending || isThisOrderUpdating}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleQuickStatusTransition(order, "in_preparation");
+                  setCancelModal({
+                    isOpen: true,
+                    order,
+                    reason: "",
+                  });
                 }}
-                className="h-8 inline-flex items-center justify-center gap-1 px-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-                title="Confirmar comanda y pasar a cocina"
+                className="h-9 inline-flex items-center justify-center gap-1 px-3 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                title="Rechazar comanda"
               >
-                {isThisOrderUpdating ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                )}
-                <span>Confirmar</span>
+                <X className="w-3.5 h-3.5 shrink-0" />
+                <span>Rechazar</span>
               </button>
-
-              {canCancelOrder && (
-                <button
-                  type="button"
-                  disabled={isPending || isThisOrderUpdating}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCancelModal({
-                      isOpen: true,
-                      order,
-                      reason: "",
-                    });
-                  }}
-                  className="h-8 inline-flex items-center justify-center gap-1 px-2 rounded-lg text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
-                  title="Rechazar comanda"
-                >
-                  <X className="w-3 h-3 shrink-0" />
-                  <span>Rechazar</span>
-                </button>
+            )}
+          </div>
+        ) : canUpdateOrder && nextAction && !isFinished ? (
+          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              disabled={isPending || isThisOrderUpdating}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleQuickStatusTransition(order, nextAction.targetStatus);
+              }}
+              className="w-full h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              title={`Pasar pedido a: ${nextAction.label}`}
+            >
+              {isThisOrderUpdating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
               )}
-            </div>
-          ) : (
-            canUpdateOrder && nextAction && !isFinished ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  disabled={isPending || isThisOrderUpdating}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleQuickStatusTransition(order, nextAction.targetStatus);
-                  }}
-                  className="w-full h-8 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-lg text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-                  title={`Pasar pedido a: ${nextAction.label}`}
-                >
-                  {isThisOrderUpdating ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    nextAction.icon && <nextAction.icon className="w-3 h-3" />
-                  )}
-                  <span>{nextAction.label}</span>
-                </button>
-              </div>
-            ) : isFinished ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  onClick={() => setDetailModal({ isOpen: true, order })}
-                  className="w-full h-7 inline-flex items-center justify-center gap-1 px-2 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                >
-                  <span>Ver comanda</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-            ) : null
-          )}
-        </div>
+              <span>{nextAction.label}</span>
+            </button>
+          </div>
+        ) : isFinished ? (
+          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setDetailModal({ isOpen: true, order })}
+              className="w-full h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            >
+              <span>Ver detalles</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   };
