@@ -35,12 +35,22 @@ export interface CreatePublicOrderInput {
   }>;
 }
 
+import {
+  getBusinessOrderWhatsAppConfig,
+  buildWhatsAppOrderLink,
+  formatOrderSummaryMessage,
+  OrderItemSummary,
+} from "@/lib/whatsapp/order-whatsapp-service";
+import { getRestaurantOrderById } from "@/lib/restaurant/restaurant-service";
+
 export interface CreatePublicOrderResponse {
   success: boolean;
   orderId?: string;
   orderNumber?: number;
   total?: number;
   orderType?: "dine_in" | "takeout" | "delivery";
+  whatsappUrl?: string | null;
+  hasBusinessWhatsapp?: boolean;
   error?: string;
 }
 
@@ -177,12 +187,88 @@ export async function createPublicMenuOrderAction(
       return { success: false, error: result.error };
     }
 
+    // 4. Resolver configuración de WhatsApp del negocio asegurando aislamiento multi-tenant
+    const bizWhatsApp = await getBusinessOrderWhatsAppConfig(input.businessId);
+
+    // REGLA: Los pedidos de mesa (dine_in) no se envían a WhatsApp del negocio; se gestionan internamente en NEGOVA.
+    if (validatedOrderType === "dine_in") {
+      return {
+        success: true,
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        total: result.total,
+        orderType: validatedOrderType,
+        whatsappUrl: null,
+        hasBusinessWhatsapp: bizWhatsApp.isConfigured,
+      };
+    }
+
+    // Modalidades Recogida (takeout) y Domicilio (delivery):
+    let whatsappUrl: string | null = null;
+
+    if (bizWhatsApp.isConfigured && bizWhatsApp.whatsappNumber) {
+      try {
+        const confirmedOrderId = result.orderId!;
+        const confirmedOrderNumber = result.orderNumber || 0;
+
+        // Consultar el pedido real persistido con sus items y totales validados del servidor
+        const savedOrder = await getRestaurantOrderById(input.businessId, confirmedOrderId);
+
+        const orderItems: OrderItemSummary[] =
+          savedOrder && Array.isArray((savedOrder as any).restaurant_order_items) && (savedOrder as any).restaurant_order_items.length > 0
+            ? (savedOrder as any).restaurant_order_items.map((it: any) => ({
+                name: it.product_name,
+                variantName: it.variant_name || null,
+                quantity: it.quantity,
+                unitPrice: Number(it.unit_price || 0),
+                subtotal: Number(it.subtotal || 0),
+                notes: it.notes || null,
+                selectedModifiers: it.selected_modifiers || undefined,
+              }))
+            : input.items.map((it) => ({
+                name: `Producto`,
+                variantName: it.variantName || null,
+                quantity: it.quantity,
+                unitPrice: 0,
+                subtotal: 0,
+                notes: it.notes || null,
+                selectedModifiers: it.selectedModifiers?.map((m) => ({
+                  optionName: m.optionName,
+                  price: m.price,
+                })),
+              }));
+
+        const summaryText = formatOrderSummaryMessage({
+          orderNumber: confirmedOrderNumber,
+          businessName: bizWhatsApp.businessName,
+          orderType: validatedOrderType,
+          customerName: input.customerName || null,
+          customerPhone: input.customerPhone || null,
+          deliveryAddress: input.deliveryAddress || null,
+          deliveryReference: input.deliveryReference || null,
+          paymentMethodLabel: paymentLabel,
+          notes: input.notes || null,
+          subtotal: savedOrder ? Number(savedOrder.subtotal || 0) : Number(result.total || 0),
+          deliveryFee: savedOrder ? Number((savedOrder as any).delivery_fee || 0) : 0,
+          total: Number(result.total || 0),
+          items: orderItems,
+        });
+
+        const waLink = buildWhatsAppOrderLink(bizWhatsApp.whatsappNumber, summaryText);
+        whatsappUrl = waLink.url;
+      } catch (waErr) {
+        console.warn("[createPublicMenuOrderAction] Advertencia no bloqueante al construir enlace de WhatsApp:", waErr);
+      }
+    }
+
     return {
       success: true,
       orderId: result.orderId,
       orderNumber: result.orderNumber,
       total: result.total,
       orderType: validatedOrderType,
+      whatsappUrl,
+      hasBusinessWhatsapp: bizWhatsApp.isConfigured,
     };
   } catch (err: any) {
     console.error("[createPublicMenuOrderAction] Error:", err);

@@ -53,6 +53,20 @@ export async function updateWorkspaceConfigAction(
       if (config.department !== undefined) bizUpdateData.department = config.department || null;
       if (config.logoUrl !== undefined) bizUpdateData.logo_url = config.logoUrl;
 
+      if (config.whatsapp !== undefined) {
+        const { data: curBiz } = await adminClient
+          .from("businesses")
+          .select("settings")
+          .eq("id", businessId)
+          .maybeSingle();
+
+        const currentSettings = (curBiz?.settings as any) || {};
+        const { normalizeWhatsAppNumber } = await import("@/lib/whatsapp/order-whatsapp-service");
+        const norm = normalizeWhatsAppNumber(config.whatsapp);
+        currentSettings.whatsapp = norm.isValid ? norm.normalized : (config.whatsapp?.trim() || null);
+        bizUpdateData.settings = currentSettings;
+      }
+
       if (Object.keys(bizUpdateData).length > 0) {
         bizUpdateData.updated_at = new Date().toISOString();
         await adminClient

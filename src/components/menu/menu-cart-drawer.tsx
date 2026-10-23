@@ -72,7 +72,8 @@ export function MenuCartDrawer({
     total: number;
     orderType: string;
     whatsappOpened?: boolean;
-    whatsappUrl?: string;
+    whatsappUrl?: string | null;
+    hasBusinessWhatsapp?: boolean;
   } | null>(null);
 
   // La modalidad "dine_in" (en mesa) SOLO es permitida si se verificó una mesa física con QR válido.
@@ -320,19 +321,24 @@ export function MenuCartDrawer({
       // REGLA: Notificación por WhatsApp solo para Recogida (takeout) y Domicilio (delivery).
       // En mesa (dine_in) no genera notificación por WhatsApp.
       let opened = false;
-      let waUrl: string | undefined = undefined;
+      const effectiveWaUrl =
+        finalOrderType !== "dine_in"
+          ? res.whatsappUrl || (cleanWhatsapp ? generateWhatsappUrl(finalOrderNumber) : null)
+          : null;
 
-      if (finalOrderType !== "dine_in" && cleanWhatsapp) {
-        waUrl = generateWhatsappUrl(finalOrderNumber);
-        if (waUrl !== "#") {
-          try {
-            const w = window.open(waUrl, "_blank");
-            if (w && !w.closed) {
-              opened = true;
-            }
-          } catch {
-            opened = false;
+      const hasConfiguredWhatsapp =
+        res.hasBusinessWhatsapp !== undefined
+          ? res.hasBusinessWhatsapp
+          : Boolean(cleanWhatsapp);
+
+      if (effectiveWaUrl && effectiveWaUrl !== "#") {
+        try {
+          const w = window.open(effectiveWaUrl, "_blank");
+          if (w && !w.closed) {
+            opened = true;
           }
+        } catch {
+          opened = false;
         }
       }
 
@@ -342,17 +348,18 @@ export function MenuCartDrawer({
         total: res.total || totalAmount,
         orderType: finalOrderType,
         whatsappOpened: opened,
-        whatsappUrl: waUrl,
+        whatsappUrl: effectiveWaUrl,
+        hasBusinessWhatsapp: hasConfiguredWhatsapp,
       });
 
       onClearCart();
 
       if (finalOrderType === "dine_in") {
-        toast.success(`¡Comanda #${finalOrderNumber} enviada! Pendiente de confirmación del personal.`);
-      } else if (cleanWhatsapp && opened) {
-        toast.success(`¡Pedido #${finalOrderNumber} registrado! Se abrió WhatsApp para notificar al negocio.`);
+        toast.success(`¡Comanda #${finalOrderNumber} enviada a cocina! Pendiente de confirmación del personal.`);
+      } else if (hasConfiguredWhatsapp && opened) {
+        toast.success(`¡Pedido #${finalOrderNumber} guardado! Se abrió WhatsApp para enviar el mensaje.`);
       } else {
-        toast.success(`¡Pedido #${finalOrderNumber} registrado exitosamente!`);
+        toast.success(`¡Pedido #${finalOrderNumber} registrado exitosamente en NEGOVA!`);
       }
     } catch (err: any) {
       console.error("[handleConfirmOrder] Error:", err);
@@ -505,26 +512,51 @@ export function MenuCartDrawer({
                     : `Tu pedido ha sido registrado en el sistema de ${businessName} y está pendiente de ser confirmado por el personal.`}
                 </p>
 
-                {confirmedOrder.orderType !== "dine_in" && cleanWhatsapp && (
+                {confirmedOrder.orderType !== "dine_in" && (
                   <div className="w-full space-y-2">
-                    {confirmedOrder.whatsappOpened ? (
-                      <div className="p-3 rounded-xl text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 leading-snug">
-                        Se abrió WhatsApp para notificar al negocio. Si no la ves, pulsa el botón a continuación:
-                      </div>
-                    ) : null}
+                    {confirmedOrder.hasBusinessWhatsapp && confirmedOrder.whatsappUrl ? (
+                      <>
+                        <div className="p-3 rounded-xl text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 leading-snug text-left">
+                          <p className="font-semibold mb-1">
+                            {confirmedOrder.whatsappOpened
+                              ? "✓ Mensaje preparado en WhatsApp"
+                              : "WhatsApp del comercio:"}
+                          </p>
+                          <p className="text-[11px] text-emerald-300/90">
+                            {confirmedOrder.whatsappOpened
+                              ? "Se abrió WhatsApp con el resumen de tu pedido. Recuerda pulsar 'Enviar' en la aplicación para que el negocio lo reciba."
+                              : "Tu pedido ya está guardado en NEGOVA. Pulsa el botón a continuación para enviar el resumen al comercio:"}
+                          </p>
+                        </div>
 
-                    <a
-                      href={confirmedOrder.whatsappUrl || generateWhatsappUrl(confirmedOrder.orderNumber)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#25D366] text-white text-xs font-bold shadow-lg hover:opacity-95 active:scale-98 transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4 fill-current" />
-                      <span>{confirmedOrder.whatsappOpened ? "Abrir WhatsApp de nuevo" : "Abrir WhatsApp del Negocio"}</span>
-                    </a>
-                    <p className="text-[11px] text-slate-400">
-                      El pedido ya quedó registrado en NEGOVA. El personal lo preparará según la modalidad elegida.
-                    </p>
+                        <a
+                          href={confirmedOrder.whatsappUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#25D366] text-white text-xs font-bold shadow-lg hover:opacity-95 active:scale-98 transition-all"
+                        >
+                          <MessageCircle className="w-4 h-4 fill-current" />
+                          <span>
+                            {confirmedOrder.whatsappOpened
+                              ? "Reabrir WhatsApp del Comercio"
+                              : "Abrir WhatsApp con mi Pedido"}
+                          </span>
+                        </a>
+
+                        <p className="text-[11px] text-slate-400 leading-tight">
+                          El pedido ya quedó registrado de forma segura en NEGOVA. El personal lo preparará según la modalidad elegida.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="p-3.5 rounded-xl text-xs bg-slate-500/10 border border-slate-500/20 text-slate-300 leading-snug text-left space-y-1">
+                        <p className="font-semibold text-slate-200">
+                          ✓ Pedido guardado en el sistema
+                        </p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Este comercio gestionará tu pedido directamente desde su panel de NEGOVA. No se requiere envío adicional por WhatsApp.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

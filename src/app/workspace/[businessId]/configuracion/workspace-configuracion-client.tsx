@@ -12,6 +12,7 @@ import {
   updateHeaderQuickAccessAction,
   updateDeliverySettingsAction,
 } from "./actions";
+import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-service";
 import { toast } from "sonner";
 import {
   Building2,
@@ -512,8 +513,44 @@ export function WorkspaceConfiguracionClient({
               <AdminInput name="phone" value={config.phone || ""} onChange={handleChange} placeholder="Ej. +57 300 123 4567" disabled={!isOwner} />
             </div>
             <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">WhatsApp de atención</label>
-              <AdminInput name="whatsapp" value={config.whatsapp || ""} onChange={handleChange} placeholder="Ej. +57 311 456 7890" disabled={!isOwner} />
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">
+                  WhatsApp de atención
+                </label>
+                {(() => {
+                  const val = config.whatsapp?.trim();
+                  if (!val) {
+                    return (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        Sin configurar
+                      </span>
+                    );
+                  }
+                  const norm = normalizeWhatsAppNumber(val);
+                  if (norm.isValid) {
+                    return (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        {norm.formattedDisplay}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                      Formato inválido
+                    </span>
+                  );
+                })()}
+              </div>
+              <AdminInput
+                name="whatsapp"
+                value={config.whatsapp || ""}
+                onChange={handleChange}
+                placeholder="Ej. +57 311 456 7890 o 3114567890"
+                disabled={!isOwner}
+              />
+              <p className="text-[11px] text-slate-400">
+                Número para recibir pedidos del Menú Digital. Si no se configura, los pedidos se registrarán en NEGOVA pero no se abrirá WhatsApp al cliente.
+              </p>
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 font-mono">Correo electrónico comercial</label>

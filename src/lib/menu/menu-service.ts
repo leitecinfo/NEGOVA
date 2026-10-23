@@ -347,7 +347,15 @@ export async function getPublicDigitalMenu(
     deliveryEnabled: effectiveDeliveryEnabled,
     deliveryFee: effectiveDeliveryFee,
   };
-  const whatsapp = settingsObj.whatsapp || business.phone;
+
+  // Consultar WhatsApp de atención configurado en business_document_configs
+  const { data: docConfig } = await supabase
+    .from("business_document_configs")
+    .select("whatsapp, phone")
+    .eq("business_id", business.id)
+    .maybeSingle();
+
+  const whatsapp = docConfig?.whatsapp || settingsObj.whatsapp || docConfig?.phone || business.phone || null;
   const instagram = settingsObj.instagram || null;
   const schedule = settingsObj.schedule || null;
 

@@ -20,6 +20,7 @@ import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
+import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-service";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
 interface Props {
@@ -89,7 +90,8 @@ export function ComercialMenuTemplate({
     }
   };
 
-  const cleanWhatsapp = (business.whatsapp || business.phone || "").replace(/[^0-9]/g, "");
+  const normWa = normalizeWhatsAppNumber(business.whatsapp || business.phone);
+  const cleanWhatsapp = normWa.isValid ? normWa.normalized : "";
 
   const addToCart = (product: Product, variant?: ProductVariant, quantity = 1) => {
     const cartKey = variant ? `${product.id}_${variant.id}` : product.id;
