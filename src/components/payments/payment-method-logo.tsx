@@ -70,6 +70,8 @@ export function PaymentMethodLogo({
 
   // Fallback visual neutro y accesible (ej. Davivienda o fallo de carga)
   const getFallbackIcon = () => {
+    if (code === "card") return <CreditCard className={iconSizes} />;
+    if (code === "other") return <Landmark className={iconSizes} />;
     switch (meta?.category) {
       case "bank":
         return <Landmark className={iconSizes} />;
@@ -85,6 +87,9 @@ export function PaymentMethodLogo({
   const getFallbackStyle = () => {
     if (code === "davivienda") {
       return "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400";
+    }
+    if (code === "card") {
+      return "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400";
     }
     return "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300";
   };

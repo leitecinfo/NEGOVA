@@ -6,6 +6,7 @@ import {
   getRestaurantOrdersList,
   getRestaurantOrdersSummary,
 } from "@/lib/restaurant/restaurant-service";
+import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
 import { OrdersListClient } from "./orders-list-client";
 
 export const metadata: Metadata = {
@@ -36,8 +37,8 @@ export default async function WorkspaceOrdersListPage({
   const endDate = typeof sParams.endDate === "string" ? sParams.endDate : undefined;
   const page = typeof sParams.page === "string" ? Math.max(1, parseInt(sParams.page, 10) || 1) : 1;
 
-  // 3. Consultar listado y resumen cuantitativo en paralelo
-  const [listResult, summaryResult] = await Promise.all([
+  // 3. Consultar listado, resumen y métodos de pago activos en paralelo
+  const [listResult, summaryResult, paymentMethods] = await Promise.all([
     getRestaurantOrdersList({
       businessId,
       search,
@@ -51,6 +52,7 @@ export default async function WorkspaceOrdersListPage({
       pageSize: 30,
     }),
     getRestaurantOrdersSummary(businessId),
+    getPublicBusinessPaymentMethods(businessId),
   ]);
 
   const canUpdateOrder =
@@ -68,6 +70,7 @@ export default async function WorkspaceOrdersListPage({
       businessTimezone={session.businessTimezone || "America/Bogota"}
       initialData={listResult}
       summary={summaryResult}
+      paymentMethods={paymentMethods}
       canUpdateOrder={canUpdateOrder}
       canCancelOrder={canCancelOrder}
       filters={{

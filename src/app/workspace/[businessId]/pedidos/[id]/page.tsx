@@ -5,6 +5,7 @@ import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { hasPlatformPermission } from "@/lib/auth/permissions";
 import { getRestaurantOrderWithDetails } from "@/lib/restaurant/restaurant-service";
 import { getBusinessDocumentConfig } from "@/lib/documents/document-service";
+import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
 import { OrderDetailClient } from "./order-detail-client";
 
 export async function generateMetadata({
@@ -29,10 +30,11 @@ export default async function WorkspaceOrderDetailPage({
   // 1. Validar autorización multi-tenant para consultar pedidos (orders.view)
   const session = await requireWorkspaceSession(businessId, "orders.view");
 
-  // 2. Obtener pedido y configuración comercial asegurando aislamiento multi-tenant
-  const [order, config] = await Promise.all([
+  // 2. Obtener pedido, configuración comercial y métodos de pago activos
+  const [order, config, paymentMethods] = await Promise.all([
     getRestaurantOrderWithDetails(businessId, id),
     getBusinessDocumentConfig(businessId),
+    getPublicBusinessPaymentMethods(businessId),
   ]);
 
   if (!order) {
@@ -61,6 +63,7 @@ export default async function WorkspaceOrderDetailPage({
       businessTimezone={session.businessTimezone || "America/Bogota"}
       initialOrder={order}
       config={config}
+      paymentMethods={paymentMethods}
       canUpdateOrder={canUpdateOrder}
       canCancelOrder={canCancelOrder}
       canRegisterPayment={canRegisterPayment}
