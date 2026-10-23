@@ -254,6 +254,29 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
     },
   },
   {
+    id: "proveedores",
+    label: "Proveedores",
+    shortDescription: "Directorio de proveedores, compras y cuentas por pagar.",
+    group: "gestion",
+    groupLabel: "Gestión del negocio",
+    icon: Truck,
+    href: "modulo/proveedores",
+    level: "core",
+    status: "under_construction",
+    showInMenu: true,
+    underConstructionDetails: {
+      category: "Gestión de Proveedores y Abastecimiento",
+      summary:
+        "Directorio unificado de proveedores para compras de insumos, materias primas, control de condiciones de pago y abastecimiento comercial.",
+      plannedFeatures: [
+        "Ficha técnica de proveedores con NIT / identificación tributaria y contactos comerciales.",
+        "Registro de facturas de compra y órdenes de reabastecimiento vinculadas al inventario.",
+        "Control de cuentas por pagar, fechas de vencimiento y programación de pagos.",
+        "Historial de compras y trazabilidad de precios de materias primas e insumos adquiridos.",
+      ],
+    },
+  },
+  {
     id: "gastos",
     label: "Gastos",
     shortDescription: "Registrar y consultar gastos operacionales.",
@@ -511,26 +534,7 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
       ],
     },
   },
-  {
-    id: "proveedores",
-    label: "Proveedores",
-    shortDescription: "Registro de proveedores y acuerdos de pago.",
-    group: "gestion",
-    groupLabel: "Gestión del negocio",
-    icon: Truck,
-    href: "modulo/proveedores",
-    level: "core",
-    status: "under_construction",
-    showInMenu: false,
-    underConstructionDetails: {
-      category: "Proveedores",
-      summary: "Administración de proveedores y condiciones de abastecimiento.",
-      plannedFeatures: [
-        "Ficha de proveedores con NIT y contacto.",
-        "Registro de acuerdos y plazos de pago.",
-      ],
-    },
-  },
+
   {
     id: "cuentas",
     label: "Cuentas por cobrar y pagar",

@@ -154,9 +154,10 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       // 2. Catálogo: Inventario y Presencia digital
       expect(sectionMap["catalogo"]).toEqual(["productos", "menu-digital"]);
 
-      // 3. Gestión del negocio: Clientes, Gastos, Finanzas, Documentos, Reportes
+      // 3. Gestión del negocio: Clientes, Proveedores, Gastos, Finanzas, Documentos, Reportes
       expect(sectionMap["gestion"]).toEqual([
         "clientes",
+        "proveedores",
         "gastos",
         "finanzas",
         "documentos",
