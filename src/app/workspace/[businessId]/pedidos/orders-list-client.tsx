@@ -33,6 +33,9 @@ import {
   Loader2,
   GripVertical,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ArrowRightLeft,
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -101,6 +104,67 @@ export function OrdersListClient({
 
   // Tab activo en la cola operativa para vista responsive / móvil
   const [activeQueueTab, setActiveQueueTab] = useState<string>("active");
+
+  // Ref para el carrusel de columnas Kanban en vista móvil y mapa de referencias por columna
+  const mobileCarouselRef = React.useRef<HTMLDivElement | null>(null);
+  const mobileColumnRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeMobileColumn, setActiveMobileColumn] = useState<string>("received");
+
+  // Desplazamiento fluido a una columna específica en móvil
+  const scrollToColumn = (columnId: string) => {
+    setActiveMobileColumn(columnId);
+    const target = mobileColumnRefs.current[columnId];
+    if (target && mobileCarouselRef.current) {
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  };
+
+  // Detector de desplazamiento horizontal para actualizar pestaña activa de fase
+  const handleMobileScroll = () => {
+    if (!mobileCarouselRef.current) return;
+    const container = mobileCarouselRef.current;
+    const scrollLeft = container.scrollLeft;
+    const containerCenter = scrollLeft + container.clientWidth / 2;
+
+    let closestColId = "received";
+    let closestDistance = Infinity;
+
+    for (const colId of ["received", "in_preparation", "ready", "delivered"]) {
+      const el = mobileColumnRefs.current[colId];
+      if (el) {
+        const elCenter = el.offsetLeft + el.offsetWidth / 2;
+        const distance = Math.abs(containerCenter - elCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestColId = colId;
+        }
+      }
+    }
+
+    if (closestColId !== activeMobileColumn) {
+      setActiveMobileColumn(closestColId);
+    }
+  };
+
+  const handlePrevColumn = () => {
+    const cols = ["received", "in_preparation", "ready", "delivered"];
+    const currentIndex = cols.indexOf(activeMobileColumn);
+    if (currentIndex > 0) {
+      scrollToColumn(cols[currentIndex - 1]);
+    }
+  };
+
+  const handleNextColumn = () => {
+    const cols = ["received", "in_preparation", "ready", "delivered"];
+    const currentIndex = cols.indexOf(activeMobileColumn);
+    if (currentIndex < cols.length - 1) {
+      scrollToColumn(cols[currentIndex + 1]);
+    }
+  };
 
   // Estado local sincronizado de pedidos para actualizaciones fluidas e instantáneas
   const [localOrders, setLocalOrders] = useState<RestaurantOrderWithDetails[]>(initialData.orders);
@@ -472,7 +536,12 @@ export function OrdersListClient({
     try {
       const res = await updateRestaurantOrderStatusAction(businessId, order.id, targetStatus);
       if (res.success) {
-        toast.success(`Pedido #${order.order_number} movido a ${statusLabels[targetStatus] || targetStatus}.`);
+        toast.success(`Pedido #${order.order_number} movido a ${statusLabels[targetStatus] || targetStatus}.`, {
+          action: {
+            label: "Ver columna",
+            onClick: () => scrollToColumn(targetStatus),
+          },
+        });
         startTransition(() => {
           router.refresh();
         });
@@ -738,79 +807,115 @@ export function OrdersListClient({
           </span>
         </div>
 
-        {/* 5. ACCIONES DIRECTAS */}
-        {canUpdateOrder && order.status === "received" ? (
-          <div className="grid grid-cols-2 gap-2 pt-0.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              disabled={isPending || isThisOrderUpdating}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickStatusTransition(order, "in_preparation");
-              }}
-              className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-              title="Confirmar comanda y pasar a cocina"
-            >
-              {isThisOrderUpdating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              )}
-              <span>Confirmar</span>
-            </button>
+        {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO */}
+        <div className="pt-0.5 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5">
+            {/* Si el cobro está pendiente, botón directo para registrar cobro con 1 tap */}
+            {order.payment_status === "pending" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPaymentModal({
+                    isOpen: true,
+                    order,
+                    isSubmitting: false,
+                  });
+                }}
+                className="h-9 px-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                title="Registrar Cobro rápido"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Cobrar</span>
+              </button>
+            )}
 
-            {canCancelOrder && (
+            {/* Selector rápido para mover a cualquier estado permitido */}
+            {canUpdateOrder && !isFinished && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoveModal({ isOpen: true, order });
+                }}
+                className="h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="Mover a otra columna..."
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Acción Primaria de Avance */}
+            {canUpdateOrder && order.status === "received" ? (
+              <div className="flex-1 grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  disabled={isPending || isThisOrderUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickStatusTransition(order, "in_preparation");
+                  }}
+                  className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  title="Confirmar comanda y pasar a cocina"
+                >
+                  {isThisOrderUpdating ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>Preparar</span>
+                </button>
+
+                {canCancelOrder && (
+                  <button
+                    type="button"
+                    disabled={isPending || isThisOrderUpdating}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCancelModal({
+                        isOpen: true,
+                        order,
+                        reason: "",
+                      });
+                    }}
+                    className="h-9 inline-flex items-center justify-center gap-1 px-2.5 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Rechazar comanda"
+                  >
+                    <X className="w-3.5 h-3.5 shrink-0" />
+                    <span>Rechazar</span>
+                  </button>
+                )}
+              </div>
+            ) : canUpdateOrder && nextAction && !isFinished ? (
               <button
                 type="button"
                 disabled={isPending || isThisOrderUpdating}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setCancelModal({
-                    isOpen: true,
-                    order,
-                    reason: "",
-                  });
+                  handleQuickStatusTransition(order, nextAction.targetStatus);
                 }}
-                className="h-9 inline-flex items-center justify-center gap-1 px-3 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
-                title="Rechazar comanda"
+                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                title={`Pasar pedido a: ${nextAction.label}`}
               >
-                <X className="w-3.5 h-3.5 shrink-0" />
-                <span>Rechazar</span>
+                {isThisOrderUpdating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
+                )}
+                <span>{nextAction.label}</span>
               </button>
-            )}
+            ) : isFinished ? (
+              <button
+                type="button"
+                onClick={() => setDetailModal({ isOpen: true, order })}
+                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+              >
+                <span>Ver detalles</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
           </div>
-        ) : canUpdateOrder && nextAction && !isFinished ? (
-          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              disabled={isPending || isThisOrderUpdating}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleQuickStatusTransition(order, nextAction.targetStatus);
-              }}
-              className="w-full h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-              title={`Pasar pedido a: ${nextAction.label}`}
-            >
-              {isThisOrderUpdating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
-              )}
-              <span>{nextAction.label}</span>
-            </button>
-          </div>
-        ) : isFinished ? (
-          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setDetailModal({ isOpen: true, order })}
-              className="w-full h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-            >
-              <span>Ver detalles</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : null}
+        </div>
       </div>
     );
   };
@@ -1068,72 +1173,113 @@ export function OrdersListClient({
         {/* 4. CONTENIDO PRINCIPAL SEGÚN MODO DE VISTA */}
         {viewMode === "queue" ? (
           <div className="space-y-4">
-            {/* PESTAÑAS RESPONSIVE PARA DISPOSITIVOS MÓVILES Y TABLETAS */}
-            <div className="lg:hidden flex overflow-x-auto gap-2 pb-2 no-scrollbar">
-              {[
-                { id: "active", label: "Activos", count: summary.received + summary.inPreparation + summary.ready },
-                { id: "received", label: "Recibidos", count: summary.received },
-                { id: "in_preparation", label: "En Preparación", count: summary.inPreparation },
-                { id: "ready", label: "Listos", count: summary.ready },
-                { id: "delivered", label: "Entregados", count: summary.delivered },
-                { id: "cancelled", label: "Cancelados", count: summary.cancelled },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveQueueTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors shrink-0 ${
-                    activeQueueTab === tab.id
-                      ? "bg-[#ED500A] text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                      activeQueueTab === tab.id
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
+            {/* ======================================================== */}
+            {/* NAVEGADOR DE FASES KANBAN PARA MÓVIL Y TABLETA */}
+            {/* ======================================================== */}
+            <div className="lg:hidden sticky top-2 z-20 bg-white/95 dark:bg-[#0D0F16]/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm flex items-center justify-between gap-1">
+              {/* Botón desplazar a columna anterior */}
+              <button
+                type="button"
+                onClick={handlePrevColumn}
+                disabled={["received", "in_preparation", "ready", "delivered"].indexOf(activeMobileColumn) === 0}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+                title="Columna anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Selector interactivo de columnas con desplazamiento automático */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth flex-1 justify-start sm:justify-center px-1">
+                {queueColumns.map((col) => {
+                  const isActive = activeMobileColumn === col.id;
+                  const Icon = col.icon;
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => scrollToColumn(col.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                        isActive
+                          ? "bg-[#ED500A] text-white shadow-xs scale-[1.02]"
+                          : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate max-w-[90px] sm:max-w-none">{col.title}</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                          isActive
+                            ? "bg-white/25 text-white"
+                            : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200"
+                        }`}
+                      >
+                        {col.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Botón desplazar a columna siguiente */}
+              <button
+                type="button"
+                onClick={handleNextColumn}
+                disabled={["received", "in_preparation", "ready", "delivered"].indexOf(activeMobileColumn) === 3}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
+                title="Columna siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* VISTA MÓVIL/TABLET FILTRADA POR PESTAÑA */}
-            <div className="lg:hidden space-y-3">
-              {(() => {
-                let displayedOrders = localOrders;
-                if (activeQueueTab === "active") {
-                  displayedOrders = localOrders.filter((o) =>
-                    ["received", "in_preparation", "ready"].includes(o.status)
-                  );
-                } else {
-                  displayedOrders = localOrders.filter((o) => o.status === activeQueueTab);
-                }
-
-                if (displayedOrders.length === 0) {
-                  return (
-                    <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] space-y-2">
-                      <UtensilsCrossed className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                        Sin pedidos en esta sección
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        Los nuevos pedidos registrados aparecerán aquí en tiempo real.
-                      </p>
-                    </div>
-                  );
-                }
-
+            {/* ======================================================== */}
+            {/* CARRUSEL SNAP-SCROLL DE COLUMNAS KANBAN PARA MÓVIL */}
+            {/* ======================================================== */}
+            <div
+              ref={mobileCarouselRef}
+              onScroll={handleMobileScroll}
+              className="lg:hidden flex overflow-x-auto snap-x snap-mandatory gap-3.5 pb-4 -mx-4 px-4 scroll-smooth no-scrollbar touch-pan-x"
+            >
+              {queueColumns.map((col) => {
+                const Icon = col.icon;
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[calc(100vh-290px)] min-h-[380px] overflow-y-auto pr-1">
-                    {displayedOrders.map(renderOrderCard)}
+                  <div
+                    key={col.id}
+                    ref={(el) => {
+                      mobileColumnRefs.current[col.id] = el;
+                    }}
+                    className={`w-[85vw] max-w-[340px] shrink-0 snap-center flex flex-col rounded-2xl bg-slate-50/90 dark:bg-[#0D0F16]/90 border border-slate-200/90 dark:border-white/[0.08] p-3.5 shadow-sm h-[calc(100vh-270px)] min-h-[500px] max-h-[750px] border-t-4 ${col.borderTop}`}
+                  >
+                    {/* CABECERA DE LA COLUMNA MÓVIL */}
+                    <div className="flex items-center justify-between pb-3 mb-2.5 border-b border-slate-200/80 dark:border-white/5 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                        <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                          {col.title}
+                        </h3>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${col.badgeColor}`}>
+                        {col.count}
+                      </span>
+                    </div>
+
+                    {/* LISTADO DE TARJETAS EN ESTA COLUMNA */}
+                    <div className="space-y-3 flex-1 overflow-y-auto pr-1 py-1 focus:outline-none">
+                      {col.orders.length === 0 ? (
+                        <div className="h-full min-h-[180px] flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-200 dark:border-white/[0.08] text-slate-400 text-xs">
+                          <UtensilsCrossed className="w-7 h-7 text-slate-300 dark:text-slate-600 mb-2 opacity-50" />
+                          <span className="font-semibold">Sin pedidos en {col.title.toLowerCase()}</span>
+                          <span className="text-[11px] text-slate-400 mt-0.5">
+                            Los pedidos aparecerán aquí según avancen en el flujo.
+                          </span>
+                        </div>
+                      ) : (
+                        col.orders.map(renderOrderCard)
+                      )}
+                    </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
 
             {/* VISTA TABLERO MULTICOLUMNA PARA ESCRITORIO (LG+) CON DRAG & DROP Y ALTURA UNIFORME */}
