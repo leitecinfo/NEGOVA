@@ -147,36 +147,41 @@
   /* ========================================================================== */
   /* PERSONALIZACIÓN GLOBAL DE BARRAS DE SCROLL (DESKTOP / POINTER FINE)        */
   /* ========================================================================== */
-  /* Ocultar barra nativa de html/body para dar paso al GlobalScrollbar compacto */
+  /* Ocultar barra nativa de la página y del viewport principal de la app       */
+  /* para dar paso exclusivamente al GlobalScrollbar compacto (~44px)           */
   html,
-  body {
+  body,
+  .app-main-viewport,
+  #app-main-viewport {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
   }
   html::-webkit-scrollbar,
-  body::-webkit-scrollbar {
+  body::-webkit-scrollbar,
+  .app-main-viewport::-webkit-scrollbar,
+  #app-main-viewport::-webkit-scrollbar {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    /* Barras de scroll delgadas, naranjas y sin fondo para todos los contenedores internos */
-    *:not(html):not(body) {
+    /* Barras de scroll delgadas, naranjas y sin fondo para todos los contenedores internos secundarios */
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport) {
       scrollbar-width: thin;
       scrollbar-color: #ED500A transparent;
     }
 
-    *:not(html):not(body)::-webkit-scrollbar {
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport)::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
 
-    *:not(html):not(body)::-webkit-scrollbar-track {
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport)::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    *:not(html):not(body)::-webkit-scrollbar-thumb {
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport)::-webkit-scrollbar-thumb {
       background-color: rgba(237, 80, 10, 0.75);
       border-radius: 9999px;
       border: 1px solid transparent;
@@ -184,11 +189,11 @@
       transition: background-color 0.2s ease;
     }
 
-    *:not(html):not(body)::-webkit-scrollbar-thumb:hover {
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport)::-webkit-scrollbar-thumb:hover {
       background-color: #ED500A;
     }
 
-    *:not(html):not(body)::-webkit-scrollbar-corner {
+    *:not(html):not(body):not(.app-main-viewport):not(#app-main-viewport)::-webkit-scrollbar-corner {
       background: transparent;
     }
   }

@@ -83,7 +83,10 @@ function AppLayoutInner({ children, userProfile, navSections, branding, rightAct
         />
 
         {/* Contenedor con Scroll de Páginas */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-[#0B0E14] transition-colors duration-200">
+        <main
+          id="app-main-viewport"
+          className="app-main-viewport flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-[#0B0E14] transition-colors duration-200"
+        >
           {children}
         </main>
       </div>
