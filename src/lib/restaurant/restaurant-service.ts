@@ -936,7 +936,10 @@ export async function createRestaurantOrder(
   // 6. Inserción verdaderamente transaccional vía PostgreSQL RPC
   // Garantiza atomicidad total sin requerir DELETE compensatorio, serializa ordenes por tenant
   // y detecta discrepancia de contenido ante reintentos de idempotencyKey.
-  const { data: rpcData, error: rpcError } = await supabase.rpc(
+  let rpcData: any;
+  let rpcError: any;
+
+  const rpcResult = await supabase.rpc(
     "create_restaurant_pos_order",
     {
       p_business_id: businessId,
@@ -967,6 +970,47 @@ export async function createRestaurantOrder(
       p_user_id: userId || null,
     }
   );
+  rpcData = rpcResult.data;
+  rpcError = rpcResult.error;
+
+  // Fallback defensivo: si la base de datos remota/local no tiene aún la migración con 'digital_menu',
+  // reintentar de forma transparente con 'whatsapp' (o 'in_person' para consumo en mesa).
+  if (rpcError && rpcError.message?.includes("INVALID_CHANNEL") && resolvedChannelOrigin === "digital_menu") {
+    const fallbackChannel = input.orderType === "dine_in" ? "in_person" : "whatsapp";
+    const retryResult = await supabase.rpc(
+      "create_restaurant_pos_order",
+      {
+        p_business_id: businessId,
+        p_order_type: input.orderType,
+        p_channel_origin: fallbackChannel,
+        p_subtotal: calculatedSubtotal,
+        p_delivery_fee: calculatedDeliveryFee,
+        p_total: calculatedTotal,
+        p_items: preparedItems.map((item) => ({
+          product_id: item.productId,
+          product_name: item.productName,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          subtotal: item.subtotal,
+          notes: item.notes || null,
+          modifiers: item.modifiers,
+        })),
+        p_table_id: input.orderType === "dine_in" ? input.tableId : null,
+        p_customer_name: ["delivery", "takeout"].includes(input.orderType)
+          ? input.customerName?.trim() || (input.orderType === "delivery" ? "Cliente Domicilio" : null)
+          : null,
+        p_customer_phone: ["delivery", "takeout"].includes(input.orderType) ? input.customerPhone?.trim() || null : null,
+        p_delivery_address: input.orderType === "delivery" ? input.deliveryAddress?.trim() : null,
+        p_delivery_reference: input.orderType === "delivery" ? input.deliveryReference?.trim() || null : null,
+        p_notes: finalNotes,
+        p_idempotency_key: input.idempotencyKey || null,
+        p_idempotency_hash: payloadHash,
+        p_user_id: userId || null,
+      }
+    );
+    rpcData = retryResult.data;
+    rpcError = retryResult.error;
+  }
 
   if (rpcError) {
     console.error("[createRestaurantOrder] Error RPC:", rpcError);
