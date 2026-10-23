@@ -586,7 +586,7 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
         "delivered",
         "cancelled",
       ]);
-      expect(VALID_ORDER_STATUS_TRANSITIONS.delivered).toEqual([]);
+      expect(VALID_ORDER_STATUS_TRANSITIONS.delivered).toEqual(["ready"]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.cancelled).toEqual([]);
     });
 
@@ -786,15 +786,20 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
       expect(check?.status).toBe("received");
     });
 
-    it("no permite que pedidos entregados vuelvan a la cocina o a recibidos", async () => {
-      expect(VALID_ORDER_STATUS_TRANSITIONS["delivered"]).toHaveLength(0);
+    it("permite que pedidos entregados vuelvan a listos pero no directamente a la cocina o recibidos", async () => {
+      expect(VALID_ORDER_STATUS_TRANSITIONS["delivered"]).toEqual(["ready"]);
 
       const resBack = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-004", "in_preparation");
       expect(resBack.success).toBe(false);
       expect(resBack.error).toContain("Transición no permitida");
 
+      // Transición válida: delivered -> ready
+      const resReady = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-004", "ready");
+      expect(resReady.success).toBe(true);
+      expect(resReady.order?.status).toBe("ready");
+
       const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-004");
-      expect(check?.status).toBe("delivered");
+      expect(check?.status).toBe("ready");
     });
 
     it("no permite que un pedido cancelado sea reactivado mediante arrastre", async () => {

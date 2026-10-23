@@ -1520,9 +1520,7 @@ export async function updateRestaurantOrderStatus(
   }
 
   // 4. Liberación / sincronización automática de mesas asociadas al pedido
-  if (newStatus === "delivered" || newStatus === "cancelled") {
-    await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
-  }
+  await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
 
   const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
   return {

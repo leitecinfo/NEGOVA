@@ -629,12 +629,12 @@ export function OrdersListClient({
     const payBadge = getPaymentStatusBadge(order.payment_status);
     const isThisOrderUpdating = updatingOrderId === order.id;
     const isBeingDragged = draggingOrderId === order.id;
-    const isDraggable = canUpdateOrder && order.status !== "delivered" && order.status !== "cancelled";
+    const isDraggable = canUpdateOrder && order.status !== "cancelled";
     const waitInfo = getWaitTimeInfo(order.created_at);
 
     // Próxima acción permitida según transiciones de estado
     const nextAction = statusBadge.nextAction;
-    const isFinished = order.status === "delivered" || order.status === "cancelled";
+    const isCancelled = order.status === "cancelled";
 
     return (
       <div
@@ -677,7 +677,7 @@ export function OrdersListClient({
 
           <span
             className={`text-[11px] shrink-0 font-medium ${
-              waitInfo.isUrgent && !isFinished
+              waitInfo.isUrgent && order.status !== "delivered" && !isCancelled
                 ? "text-amber-600 dark:text-amber-400 font-bold"
                 : "text-slate-400 dark:text-slate-500"
             }`}
@@ -766,7 +766,7 @@ export function OrdersListClient({
         <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1.5">
             {/* Selector rápido para mover a cualquier estado permitido */}
-            {canUpdateOrder && !isFinished && (
+            {canUpdateOrder && !isCancelled && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -876,7 +876,33 @@ export function OrdersListClient({
                   )}
                 </button>
               </div>
-            ) : isFinished ? (
+            ) : canUpdateOrder && order.status === "delivered" ? (
+              /* Acción en Columna: Entregados (Permite regresar a Listos o Ver Detalles) */
+              <div className="flex-1 grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  disabled={isPending || isThisOrderUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickStatusTransition(order, "ready");
+                  }}
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Devolver pedido a la izquierda: Listos para Entrega"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                  <span className="truncate">A Listos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDetailModal({ isOpen: true, order })}
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                >
+                  <span>Detalles</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={() => setDetailModal({ isOpen: true, order })}
@@ -885,7 +911,7 @@ export function OrdersListClient({
                 <span>Ver detalles</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

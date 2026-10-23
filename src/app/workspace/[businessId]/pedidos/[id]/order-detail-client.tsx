@@ -28,6 +28,7 @@ import {
   CreditCard,
   Loader2,
   X,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
@@ -330,19 +331,37 @@ export function OrderDetailClient({
             {/* BOTONES DE TRANSICIÓN */}
             {canUpdateOrder && allowedTransitions.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
+                {/* Devolver a Recibidos */}
+                {allowedTransitions.includes("received") && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusTransition("received")}
+                    disabled={isPending}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-slate-500" />
+                    <span>Devolver a Recibidos</span>
+                  </button>
+                )}
+
+                {/* Pasar o regresar a En Preparación */}
                 {allowedTransitions.includes("in_preparation") && (
                   <>
                     <button
                       type="button"
                       onClick={() => handleStatusTransition("in_preparation")}
                       disabled={isPending}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirmar Pedido (A Cocina)</span>
+                      {order.status === "ready" ? (
+                        <ChevronLeft className="w-4 h-4" />
+                      ) : (
+                        <ChefHat className="w-4 h-4" />
+                      )}
+                      <span>{order.status === "ready" ? "Regresar a Cocina" : "Confirmar Pedido (A Cocina)"}</span>
                     </button>
 
-                    {canCancelOrder && (
+                    {canCancelOrder && order.status === "received" && (
                       <button
                         type="button"
                         onClick={() => setIsCancelModalOpen(true)}
@@ -356,36 +375,43 @@ export function OrderDetailClient({
                   </>
                 )}
 
+                {/* Pasar o reabrir a Listo para Entrega */}
                 {allowedTransitions.includes("ready") && (
                   <button
                     type="button"
                     onClick={() => handleStatusTransition("ready")}
                     disabled={isPending}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Marcar como Listo</span>
+                    {order.status === "delivered" ? (
+                      <ChevronLeft className="w-4 h-4" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    <span>{order.status === "delivered" ? "Reabrir Pedido (A Listos)" : "Marcar como Listo"}</span>
                   </button>
                 )}
 
+                {/* Pasar a Entregado */}
                 {allowedTransitions.includes("delivered") && (
                   <button
                     type="button"
                     onClick={() => handleStatusTransition("delivered")}
                     disabled={isPending}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#D44405] text-white shadow-xs transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#D44405] text-white shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <PackageCheck className="w-4 h-4" />
                     <span>Marcar como Entregado</span>
                   </button>
                 )}
 
-                {canCancelOrder && allowedTransitions.includes("cancelled") && (
+                {/* Cancelar pedido si está permitido */}
+                {canCancelOrder && allowedTransitions.includes("cancelled") && order.status !== "received" && (
                   <button
                     type="button"
                     onClick={() => setIsCancelModalOpen(true)}
                     disabled={isPending}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <XCircle className="w-4 h-4" />
                     <span>Cancelar Pedido</span>
