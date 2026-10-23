@@ -105,67 +105,6 @@ export function OrdersListClient({
   // Tab activo en la cola operativa para vista responsive / móvil
   const [activeQueueTab, setActiveQueueTab] = useState<string>("active");
 
-  // Ref para el carrusel de columnas Kanban en vista móvil y mapa de referencias por columna
-  const mobileCarouselRef = React.useRef<HTMLDivElement | null>(null);
-  const mobileColumnRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
-  const [activeMobileColumn, setActiveMobileColumn] = useState<string>("received");
-
-  // Desplazamiento fluido a una columna específica en móvil
-  const scrollToColumn = (columnId: string) => {
-    setActiveMobileColumn(columnId);
-    const target = mobileColumnRefs.current[columnId];
-    if (target && mobileCarouselRef.current) {
-      target.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-    }
-  };
-
-  // Detector de desplazamiento horizontal para actualizar pestaña activa de fase
-  const handleMobileScroll = () => {
-    if (!mobileCarouselRef.current) return;
-    const container = mobileCarouselRef.current;
-    const scrollLeft = container.scrollLeft;
-    const containerCenter = scrollLeft + container.clientWidth / 2;
-
-    let closestColId = "received";
-    let closestDistance = Infinity;
-
-    for (const colId of ["received", "in_preparation", "ready", "delivered"]) {
-      const el = mobileColumnRefs.current[colId];
-      if (el) {
-        const elCenter = el.offsetLeft + el.offsetWidth / 2;
-        const distance = Math.abs(containerCenter - elCenter);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestColId = colId;
-        }
-      }
-    }
-
-    if (closestColId !== activeMobileColumn) {
-      setActiveMobileColumn(closestColId);
-    }
-  };
-
-  const handlePrevColumn = () => {
-    const cols = ["received", "in_preparation", "ready", "delivered"];
-    const currentIndex = cols.indexOf(activeMobileColumn);
-    if (currentIndex > 0) {
-      scrollToColumn(cols[currentIndex - 1]);
-    }
-  };
-
-  const handleNextColumn = () => {
-    const cols = ["received", "in_preparation", "ready", "delivered"];
-    const currentIndex = cols.indexOf(activeMobileColumn);
-    if (currentIndex < cols.length - 1) {
-      scrollToColumn(cols[currentIndex + 1]);
-    }
-  };
-
   // Estado local sincronizado de pedidos para actualizaciones fluidas e instantáneas
   const [localOrders, setLocalOrders] = useState<RestaurantOrderWithDetails[]>(initialData.orders);
 
@@ -536,12 +475,7 @@ export function OrdersListClient({
     try {
       const res = await updateRestaurantOrderStatusAction(businessId, order.id, targetStatus);
       if (res.success) {
-        toast.success(`Pedido #${order.order_number} movido a ${statusLabels[targetStatus] || targetStatus}.`, {
-          action: {
-            label: "Ver columna",
-            onClick: () => scrollToColumn(targetStatus),
-          },
-        });
+        toast.success(`Pedido #${order.order_number} movido a ${statusLabels[targetStatus] || targetStatus}.`);
         startTransition(() => {
           router.refresh();
         });
@@ -802,15 +736,7 @@ export function OrdersListClient({
             {formatCOP(order.total)}
           </span>
 
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${payBadge.color} shrink-0`}>
-            {payBadge.label}
-          </span>
-        </div>
-
-        {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO */}
-        <div className="pt-0.5 space-y-1.5" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-1.5">
-            {/* Si el cobro está pendiente, botón directo para registrar cobro con 1 tap */}
+          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             {order.payment_status === "pending" && (
               <button
                 type="button"
@@ -822,14 +748,23 @@ export function OrdersListClient({
                     isSubmitting: false,
                   });
                 }}
-                className="h-9 px-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                className="h-6 px-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer shrink-0"
                 title="Registrar Cobro rápido"
               >
-                <DollarSign className="w-3.5 h-3.5" />
-                <span className="text-[11px]">Cobrar</span>
+                <DollarSign className="w-3 h-3" />
+                <span>Cobrar</span>
               </button>
             )}
 
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${payBadge.color} shrink-0`}>
+              {payBadge.label}
+            </span>
+          </div>
+        </div>
+
+        {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO (IZQUIERDA / DERECHA) */}
+        <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5">
             {/* Selector rápido para mover a cualquier estado permitido */}
             {canUpdateOrder && !isFinished && (
               <button
@@ -845,7 +780,7 @@ export function OrdersListClient({
               </button>
             )}
 
-            {/* Acción Primaria de Avance */}
+            {/* Acciones en Columna: Recibidos */}
             {canUpdateOrder && order.status === "received" ? (
               <div className="flex-1 grid grid-cols-2 gap-1.5">
                 <button
@@ -855,15 +790,17 @@ export function OrdersListClient({
                     e.stopPropagation();
                     handleQuickStatusTransition(order, "in_preparation");
                   }}
-                  className="h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-                  title="Confirmar comanda y pasar a cocina"
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2.5 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  title="Mover comanda a En Preparación (Cocina)"
                 >
                   {isThisOrderUpdating ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <>
+                      <span>Preparar</span>
+                      <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                    </>
                   )}
-                  <span>Preparar</span>
                 </button>
 
                 {canCancelOrder && (
@@ -878,32 +815,67 @@ export function OrdersListClient({
                         reason: "",
                       });
                     }}
-                    className="h-9 inline-flex items-center justify-center gap-1 px-2.5 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
-                    title="Rechazar comanda"
+                    className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors disabled:opacity-50 cursor-pointer"
+                    title="Rechazar o cancelar comanda"
                   >
                     <X className="w-3.5 h-3.5 shrink-0" />
                     <span>Rechazar</span>
                   </button>
                 )}
               </div>
-            ) : canUpdateOrder && nextAction && !isFinished ? (
-              <button
-                type="button"
-                disabled={isPending || isThisOrderUpdating}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuickStatusTransition(order, nextAction.targetStatus);
-                }}
-                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-                title={`Pasar pedido a: ${nextAction.label}`}
-              >
-                {isThisOrderUpdating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  nextAction.icon && <nextAction.icon className="w-3.5 h-3.5" />
-                )}
-                <span>{nextAction.label}</span>
-              </button>
+            ) : canUpdateOrder && (order.status === "in_preparation" || order.status === "ready") ? (
+              /* Acciones Bidireccionales para En Preparación y Listos para Entrega */
+              <div className="flex-1 grid grid-cols-2 gap-1.5">
+                {/* Botón Mover a la Izquierda (Atrás) */}
+                <button
+                  type="button"
+                  disabled={isPending || isThisOrderUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const leftTarget = order.status === "in_preparation" ? "received" : "in_preparation";
+                    handleQuickStatusTransition(order, leftTarget);
+                  }}
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+                  title={
+                    order.status === "in_preparation"
+                      ? "Mover a la izquierda: Recibidos"
+                      : "Mover a la izquierda: En Preparación (Cocina)"
+                  }
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                  <span className="truncate">
+                    {order.status === "in_preparation" ? "Recibidos" : "Cocina"}
+                  </span>
+                </button>
+
+                {/* Botón Mover a la Derecha (Adelante) */}
+                <button
+                  type="button"
+                  disabled={isPending || isThisOrderUpdating}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rightTarget = order.status === "in_preparation" ? "ready" : "delivered";
+                    handleQuickStatusTransition(order, rightTarget);
+                  }}
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  title={
+                    order.status === "in_preparation"
+                      ? "Mover a la derecha: Listos para Entrega"
+                      : "Mover a la derecha: Entregar pedido"
+                  }
+                >
+                  {isThisOrderUpdating ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <>
+                      <span className="truncate">
+                        {order.status === "in_preparation" ? "Listo" : "Entregar"}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                    </>
+                  )}
+                </button>
+              </div>
             ) : isFinished ? (
               <button
                 type="button"
@@ -1174,70 +1146,9 @@ export function OrdersListClient({
         {viewMode === "queue" ? (
           <div className="space-y-4">
             {/* ======================================================== */}
-            {/* NAVEGADOR DE FASES KANBAN PARA MÓVIL Y TABLETA */}
-            {/* ======================================================== */}
-            <div className="lg:hidden sticky top-2 z-20 bg-white/95 dark:bg-[#0D0F16]/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-sm flex items-center justify-between gap-1">
-              {/* Botón desplazar a columna anterior */}
-              <button
-                type="button"
-                onClick={handlePrevColumn}
-                disabled={["received", "in_preparation", "ready", "delivered"].indexOf(activeMobileColumn) === 0}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
-                title="Columna anterior"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {/* Selector interactivo de columnas con desplazamiento automático */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth flex-1 justify-start sm:justify-center px-1">
-                {queueColumns.map((col) => {
-                  const isActive = activeMobileColumn === col.id;
-                  const Icon = col.icon;
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => scrollToColumn(col.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
-                        isActive
-                          ? "bg-[#ED500A] text-white shadow-xs scale-[1.02]"
-                          : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate max-w-[90px] sm:max-w-none">{col.title}</span>
-                      <span
-                        className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                          isActive
-                            ? "bg-white/25 text-white"
-                            : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200"
-                        }`}
-                      >
-                        {col.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Botón desplazar a columna siguiente */}
-              <button
-                type="button"
-                onClick={handleNextColumn}
-                disabled={["received", "in_preparation", "ready", "delivered"].indexOf(activeMobileColumn) === 3}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors shrink-0"
-                title="Columna siguiente"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* ======================================================== */}
             {/* CARRUSEL SNAP-SCROLL DE COLUMNAS KANBAN PARA MÓVIL */}
             {/* ======================================================== */}
             <div
-              ref={mobileCarouselRef}
-              onScroll={handleMobileScroll}
               className="lg:hidden flex overflow-x-auto snap-x snap-mandatory gap-3.5 pb-4 -mx-4 px-4 scroll-smooth no-scrollbar touch-pan-x"
             >
               {queueColumns.map((col) => {
@@ -1245,9 +1156,6 @@ export function OrdersListClient({
                 return (
                   <div
                     key={col.id}
-                    ref={(el) => {
-                      mobileColumnRefs.current[col.id] = el;
-                    }}
                     className={`w-[85vw] max-w-[340px] shrink-0 snap-center flex flex-col rounded-2xl bg-slate-50/90 dark:bg-[#0D0F16]/90 border border-slate-200/90 dark:border-white/[0.08] p-3.5 shadow-sm h-[calc(100vh-270px)] min-h-[500px] max-h-[750px] border-t-4 ${col.borderTop}`}
                   >
                     {/* CABECERA DE LA COLUMNA MÓVIL */}

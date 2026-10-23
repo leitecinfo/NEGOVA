@@ -576,8 +576,16 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
         "ready",
         "cancelled",
       ]);
-      expect(VALID_ORDER_STATUS_TRANSITIONS.in_preparation).toEqual(["ready", "cancelled"]);
-      expect(VALID_ORDER_STATUS_TRANSITIONS.ready).toEqual(["delivered", "cancelled"]);
+      expect(VALID_ORDER_STATUS_TRANSITIONS.in_preparation).toEqual([
+        "received",
+        "ready",
+        "cancelled",
+      ]);
+      expect(VALID_ORDER_STATUS_TRANSITIONS.ready).toEqual([
+        "in_preparation",
+        "delivered",
+        "cancelled",
+      ]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.delivered).toEqual([]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.cancelled).toEqual([]);
     });
