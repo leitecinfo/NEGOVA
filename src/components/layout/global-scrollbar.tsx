@@ -27,7 +27,7 @@ export function GlobalScrollbar() {
   const trackRef = useRef<HTMLDivElement>(null);
 
   const THUMB_HEIGHT = 44; // Altura pequeña, fija y compacta
-  const INSET_VERTICAL = 10; // Margen superior e inferior respecto al contenedor
+  const INSET_VERTICAL = 22; // Margen superior e inferior respecto al contenedor para los botones de flecha
 
   // Determinar el elemento scrollable principal activo (main de la app o ventana de la página)
   const getActiveScrollTarget = useCallback((): HTMLElement | null => {
@@ -248,6 +248,39 @@ export function GlobalScrollbar() {
     }
   };
 
+  // Desplazamiento por clic o presión continua en flechas arriba / abajo
+  const scrollByDelta = useCallback((delta: number) => {
+    const target = activeTargetRef.current;
+    if (!target) return;
+    const isWin = target === document.documentElement || target === document.body;
+    if (isWin) {
+      window.scrollBy({ top: delta, behavior: "smooth" });
+    } else {
+      target.scrollBy({ top: delta, behavior: "smooth" });
+    }
+  }, []);
+
+  const handleArrowMouseDown = (direction: "up" | "down", e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = direction === "up" ? -120 : 120;
+    scrollByDelta(delta);
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const timeoutId = setTimeout(() => {
+      intervalId = setInterval(() => {
+        scrollByDelta(delta);
+      }, 70);
+    }, 280);
+
+    const handleMouseUp = () => {
+      clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   if (!visible) return null;
 
   return (
@@ -261,9 +294,29 @@ export function GlobalScrollbar() {
         height: `${containerBounds.height}px`,
         right: `${containerBounds.right}px`,
       }}
-      className="hidden md:block fixed w-3 z-[9999] pointer-events-auto select-none bg-transparent"
+      className="hidden md:flex flex-col items-center fixed w-3.5 z-[9999] pointer-events-auto select-none bg-transparent"
       title="Desplazamiento vertical"
     >
+      {/* Botón Flecha Arriba */}
+      <button
+        type="button"
+        onMouseDown={(e) => handleArrowMouseDown("up", e)}
+        title="Desplazar hacia arriba"
+        className="absolute top-1 right-0 w-3.5 h-3.5 flex items-center justify-center rounded text-[#ED500A] opacity-75 hover:opacity-100 hover:bg-[#ED500A]/15 active:scale-90 transition-all cursor-pointer"
+      >
+        <svg
+          className="w-2.5 h-2.5"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M1.5 6.5L5 3l3.5 3.5" />
+        </svg>
+      </button>
+
       {/* Tirador compacto (Thumb) de altura pequeña controlada */}
       <div
         onMouseDown={handleMouseDown}
@@ -271,12 +324,32 @@ export function GlobalScrollbar() {
           transform: `translateY(${thumbTop - containerBounds.top}px)`,
           height: `${THUMB_HEIGHT}px`,
         }}
-        className={`absolute right-0 rounded-full transition-all duration-150 cursor-grab active:cursor-grabbing ${
+        className={`absolute right-1 rounded-full transition-all duration-150 cursor-grab active:cursor-grabbing ${
           isHovered || isDragging
             ? "w-2 bg-[#D44405] shadow-xs shadow-[#ED500A]/40 opacity-100"
             : "w-1.5 bg-[#ED500A] opacity-80 hover:opacity-100"
         }`}
       />
+
+      {/* Botón Flecha Abajo */}
+      <button
+        type="button"
+        onMouseDown={(e) => handleArrowMouseDown("down", e)}
+        title="Desplazar hacia abajo"
+        className="absolute bottom-1 right-0 w-3.5 h-3.5 flex items-center justify-center rounded text-[#ED500A] opacity-75 hover:opacity-100 hover:bg-[#ED500A]/15 active:scale-90 transition-all cursor-pointer"
+      >
+        <svg
+          className="w-2.5 h-2.5"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M1.5 3.5L5 7l3.5-3.5" />
+        </svg>
+      </button>
     </div>
   );
 }
