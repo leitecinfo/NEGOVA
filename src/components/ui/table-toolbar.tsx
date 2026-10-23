@@ -43,7 +43,7 @@ export function TableToolbar({
         {tabs && <div className="min-w-0">{tabs}</div>}
 
         {/* Fila 2: Buscador Principal y Acciones / Actualizar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
             <SearchInput
               value={searchQuery}
@@ -56,7 +56,7 @@ export function TableToolbar({
           </div>
 
           {(actions || onRefresh) && (
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <div className="flex items-center gap-2 shrink-0">
               {actions}
 
               {onRefresh && (
@@ -66,8 +66,9 @@ export function TableToolbar({
                   onClick={onRefresh}
                   disabled={isPending}
                   leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isPending ? "animate-spin" : ""}`} />}
+                  className="h-10 px-2.5 sm:px-3 text-xs"
                 >
-                  <span>Actualizar</span>
+                  <span className="hidden sm:inline">Actualizar</span>
                 </Button>
               )}
             </div>
@@ -76,7 +77,7 @@ export function TableToolbar({
 
         {/* Fila 3: Filtros Multicriterio Envolventes */}
         {filters && (
-          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex flex-wrap items-center gap-2">
+          <div className="pt-2.5 border-t border-slate-100 dark:border-white/[0.06] w-full">
             {filters}
           </div>
         )}

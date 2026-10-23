@@ -946,10 +946,12 @@ export function OrdersListClient({
           }}
           isPending={isPending}
           filters={
-            <>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 w-full items-center">
               {/* Filtro de Estado Operativo */}
               <AdminSelect
                 value={status}
+                containerClassName="w-full"
+                className="w-full"
                 onChange={(val) => {
                   setStatus(val);
                   applyFilters({ status: val });
@@ -967,6 +969,8 @@ export function OrdersListClient({
               {/* Filtro de Destino / Tipo de Orden */}
               <AdminSelect
                 value={orderType}
+                containerClassName="w-full"
+                className="w-full"
                 onChange={(val) => {
                   setOrderType(val);
                   applyFilters({ orderType: val });
@@ -982,6 +986,8 @@ export function OrdersListClient({
               {/* Filtro de Estado de Pago */}
               <AdminSelect
                 value={paymentStatus}
+                containerClassName="w-full"
+                className="w-full"
                 onChange={(val) => {
                   setPaymentStatus(val);
                   applyFilters({ paymentStatus: val });
@@ -997,6 +1003,8 @@ export function OrdersListClient({
               {/* Filtro de Canal de Origen */}
               <AdminSelect
                 value={channelOrigin}
+                containerClassName="w-full"
+                className="w-full"
                 onChange={(val) => {
                   setChannelOrigin(val);
                   applyFilters({ channelOrigin: val });
@@ -1009,9 +1017,10 @@ export function OrdersListClient({
                 ]}
               />
 
-              {/* Rango de Fechas Estandarizado (Tokens POS / h-10 / dark:bg-white/[0.03]) */}
-              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all shrink-0 [color-scheme:light] dark:[color-scheme:dark]">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+              {/* Filtro Fecha Desde */}
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5" />
+                <span className="text-[11px] text-slate-400 font-medium mr-1 shrink-0 hidden sm:inline">Desde:</span>
                 <input
                   type="date"
                   value={startDate}
@@ -1019,10 +1028,15 @@ export function OrdersListClient({
                     setStartDate(e.target.value);
                     applyFilters({ startDate: e.target.value });
                   }}
-                  className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer min-w-0"
                   title="Fecha inicial"
                 />
-                <span className="text-slate-400 text-xs mx-1.5 font-medium shrink-0">a</span>
+              </div>
+
+              {/* Filtro Fecha Hasta */}
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5" />
+                <span className="text-[11px] text-slate-400 font-medium mr-1 shrink-0 hidden sm:inline">Hasta:</span>
                 <input
                   type="date"
                   value={endDate}
@@ -1030,23 +1044,24 @@ export function OrdersListClient({
                     setEndDate(e.target.value);
                     applyFilters({ endDate: e.target.value });
                   }}
-                  className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  className="w-full bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer min-w-0"
                   title="Fecha final"
                 />
               </div>
 
+              {/* Botón Restablecer Filtros */}
               {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={handleClearFilters}
-                  className="h-10 inline-flex items-center gap-1.5 px-3 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/60 dark:bg-rose-500/10 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                  className="col-span-2 sm:col-span-2 md:col-span-3 lg:col-span-6 h-10 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/60 dark:bg-rose-500/10 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all cursor-pointer whitespace-nowrap w-full"
                   title="Restablecer todos los filtros"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Limpiar</span>
+                  <span>Limpiar filtros</span>
                 </button>
               )}
-            </>
+            </div>
           }
         />
 
