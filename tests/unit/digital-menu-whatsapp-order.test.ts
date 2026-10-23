@@ -88,20 +88,20 @@ describe("Digital Menu WhatsApp Integration & Business Order Flow", () => {
 
       const msg = formatOrderSummaryMessage(orderData);
 
-      expect(msg).toContain("*¡NUEVO PEDIDO #42 DESDE EL MENÚ DIGITAL!*");
-      expect(msg).toContain("*Comercio:* Burger Brava Gourmet");
-      expect(msg).toContain("*Modalidad:* Recogida en el local 🛍️");
-      expect(msg).toContain("*Cliente:* Carlos Gómez");
-      expect(msg).toContain("*Teléfono:* 3119876543");
+      expect(msg).toContain("*¡NUEVO PEDIDO #42 DESDE EL MENÚ DIGITAL!* ✨");
+      expect(msg).toContain("🏪 *Comercio:* Burger Brava Gourmet");
+      expect(msg).toContain("📦 *Modalidad:* Recogida en el local");
+      expect(msg).toContain("👤 *Cliente:* Carlos Gómez");
+      expect(msg).toContain("📱 *Teléfono:* 3119876543");
       expect(msg).toContain("• 1x Hamburguesa Brava (Doble Carne)");
-      expect(msg).toContain("└ *Complementos:* Tocineta Extra (+$4.000), Sin Cebolla");
+      expect(msg).toContain("└ ➕ *Complementos:* Tocineta Extra (+$4.000), Sin Cebolla");
       expect(msg).toContain("• 1x Papas Rústicas");
-      expect(msg).toContain("*Subtotal productos:* $35.000");
-      expect(msg).not.toContain("*Costo de domicilio:*");
-      expect(msg).toContain("*TOTAL:* $35.000");
-      expect(msg).toContain("*Método de pago propuesto:* Efectivo");
-      expect(msg).toContain("*Observaciones:* Por favor empacar para llevar en bolsa térmica.");
-      expect(msg).toContain("_Pedido registrado en NEGOVA. Por favor confirma la recepción de este mensaje._");
+      expect(msg).toContain("💵 *Subtotal productos:* $35.000");
+      expect(msg).not.toContain("🛵 *Costo de domicilio:*");
+      expect(msg).toContain("💰 *TOTAL:* $35.000");
+      expect(msg).toContain("💳 *Método de pago propuesto:* Efectivo");
+      expect(msg).toContain("📝 *Observaciones:* Por favor empacar para llevar en bolsa térmica.");
+      expect(msg).toContain("✅ _Pedido registrado en NEGOVA. Por favor confirma la recepción de este mensaje._");
     });
 
     it("debe generar un mensaje completo con dirección, referencia y costo de domicilio separado para Domicilios (delivery)", () => {
@@ -136,16 +136,16 @@ describe("Digital Menu WhatsApp Integration & Business Order Flow", () => {
 
       const msg = formatOrderSummaryMessage(orderData);
 
-      expect(msg).toContain("*¡NUEVO PEDIDO #105 DESDE EL MENÚ DIGITAL!*");
-      expect(msg).toContain("*Modalidad:* Domicilio 🛵");
-      expect(msg).toContain("*Cliente:* Laura Restrepo");
-      expect(msg).toContain("*Teléfono:* 3154443322");
-      expect(msg).toContain("*Dirección de entrega:* Carrera 43A # 1-50 Apto 402");
-      expect(msg).toContain("*Puntos de referencia:* Frente al parque principal, edificio blanco");
-      expect(msg).toContain("*Subtotal productos:* $54.000");
-      expect(msg).toContain("*Costo de domicilio:* $6.000");
-      expect(msg).toContain("*TOTAL:* $60.000");
-      expect(msg).toContain("*Método de pago propuesto:* Bancolombia (Transferencia)");
+      expect(msg).toContain("*¡NUEVO PEDIDO #105 DESDE EL MENÚ DIGITAL!* ✨");
+      expect(msg).toContain("🛵 *Modalidad:* Domicilio");
+      expect(msg).toContain("👤 *Cliente:* Laura Restrepo");
+      expect(msg).toContain("📱 *Teléfono:* 3154443322");
+      expect(msg).toContain("📍 *Dirección de entrega:* Carrera 43A # 1-50 Apto 402");
+      expect(msg).toContain("📌 *Puntos de referencia:* Frente al parque principal, edificio blanco");
+      expect(msg).toContain("💵 *Subtotal productos:* $54.000");
+      expect(msg).toContain("🛵 *Costo de domicilio:* $6.000");
+      expect(msg).toContain("💰 *TOTAL:* $60.000");
+      expect(msg).toContain("💳 *Método de pago propuesto:* Bancolombia (Transferencia)");
     });
   });
 

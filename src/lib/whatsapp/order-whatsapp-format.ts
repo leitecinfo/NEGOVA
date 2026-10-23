@@ -129,29 +129,29 @@ export function formatOrderSummaryMessage(data: WhatsAppOrderSummaryData): strin
   const lines: string[] = [];
 
   // 1. Encabezado
-  lines.push(`*¡NUEVO PEDIDO #${data.orderNumber} DESDE EL MENÚ DIGITAL!*`);
-  lines.push(`*Comercio:* ${data.businessName}`);
+  lines.push(`*¡NUEVO PEDIDO #${data.orderNumber} DESDE EL MENÚ DIGITAL!* ✨`);
+  lines.push(`🏪 *Comercio:* ${data.businessName}`);
   lines.push("");
 
   // 2. Modalidad y datos de contacto
   if (data.orderType === "delivery") {
-    lines.push(`*Modalidad:* Domicilio 🛵`);
-    if (data.customerName) lines.push(`*Cliente:* ${data.customerName}`);
-    if (data.customerPhone) lines.push(`*Teléfono:* ${data.customerPhone}`);
-    if (data.deliveryAddress) lines.push(`*Dirección de entrega:* ${data.deliveryAddress}`);
-    if (data.deliveryReference) lines.push(`*Puntos de referencia:* ${data.deliveryReference}`);
+    lines.push(`🛵 *Modalidad:* Domicilio`);
+    if (data.customerName) lines.push(`👤 *Cliente:* ${data.customerName}`);
+    if (data.customerPhone) lines.push(`📱 *Teléfono:* ${data.customerPhone}`);
+    if (data.deliveryAddress) lines.push(`📍 *Dirección de entrega:* ${data.deliveryAddress}`);
+    if (data.deliveryReference) lines.push(`📌 *Puntos de referencia:* ${data.deliveryReference}`);
   } else if (data.orderType === "takeout") {
-    lines.push(`*Modalidad:* Recogida en el local 🛍️`);
-    if (data.customerName) lines.push(`*Cliente:* ${data.customerName}`);
-    if (data.customerPhone) lines.push(`*Teléfono:* ${data.customerPhone}`);
+    lines.push(`📦 *Modalidad:* Recogida en el local`);
+    if (data.customerName) lines.push(`👤 *Cliente:* ${data.customerName}`);
+    if (data.customerPhone) lines.push(`📱 *Teléfono:* ${data.customerPhone}`);
   } else {
-    lines.push(`*Modalidad:* Consumo en mesa 🍽️`);
+    lines.push(`🍽️ *Modalidad:* Consumo en mesa`);
   }
 
   lines.push("");
 
   // 3. Detalle de productos
-  lines.push(`*DETALLE DE PRODUCTOS:*`);
+  lines.push(`🛒 *DETALLE DE PRODUCTOS:*`);
   data.items.forEach((item) => {
     const variantSuffix = item.variantName ? ` (${item.variantName})` : "";
     lines.push(
@@ -162,38 +162,38 @@ export function formatOrderSummaryMessage(data: WhatsAppOrderSummaryData): strin
       const modText = item.selectedModifiers
         .map((m) => (m.price && m.price > 0 ? `${m.optionName} (+${formatCurrency(m.price, curr)})` : m.optionName))
         .join(", ");
-      lines.push(`  └ *Complementos:* ${modText}`);
+      lines.push(`  └ ➕ *Complementos:* ${modText}`);
     }
 
     if (item.notes && item.notes.trim()) {
-      lines.push(`  └ *Nota:* ${item.notes.trim()}`);
+      lines.push(`  └ 💬 *Nota:* ${item.notes.trim()}`);
     }
   });
 
   lines.push("");
 
   // 4. Totales financieros
-  lines.push(`*RESUMEN DE CUENTA:*`);
-  lines.push(`*Subtotal productos:* ${formatCurrency(data.subtotal, curr)}`);
+  lines.push(`📊 *RESUMEN DE CUENTA:*`);
+  lines.push(`💵 *Subtotal productos:* ${formatCurrency(data.subtotal, curr)}`);
 
   if (data.orderType === "delivery" && typeof data.deliveryFee === "number" && data.deliveryFee > 0) {
-    lines.push(`*Costo de domicilio:* ${formatCurrency(data.deliveryFee, curr)}`);
+    lines.push(`🛵 *Costo de domicilio:* ${formatCurrency(data.deliveryFee, curr)}`);
   }
 
-  lines.push(`*TOTAL:* ${formatCurrency(data.total, curr)}`);
+  lines.push(`💰 *TOTAL:* ${formatCurrency(data.total, curr)}`);
 
   // 5. Método de pago
   if (data.paymentMethodLabel) {
-    lines.push(`*Método de pago propuesto:* ${data.paymentMethodLabel}`);
+    lines.push(`💳 *Método de pago propuesto:* ${data.paymentMethodLabel}`);
   }
 
   // 6. Observaciones generales del cliente
   if (data.notes && data.notes.trim()) {
-    lines.push(`*Observaciones:* ${data.notes.trim()}`);
+    lines.push(`📝 *Observaciones:* ${data.notes.trim()}`);
   }
 
   lines.push("");
-  lines.push(`_Pedido registrado en NEGOVA. Por favor confirma la recepción de este mensaje._`);
+  lines.push(`✅ _Pedido registrado en NEGOVA. Por favor confirma la recepción de este mensaje._`);
 
   return lines.join("\n");
 }
