@@ -12,7 +12,7 @@ import {
   updateHeaderQuickAccessAction,
   updateDeliverySettingsAction,
 } from "./actions";
-import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-service";
+import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-format";
 import { toast } from "sonner";
 import {
   Building2,

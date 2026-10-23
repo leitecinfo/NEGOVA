@@ -20,7 +20,7 @@ import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
 import { toast } from "sonner";
-import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-service";
+import { normalizeWhatsAppNumber } from "@/lib/whatsapp/order-whatsapp-format";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
 interface Props {

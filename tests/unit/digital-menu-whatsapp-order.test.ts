@@ -4,7 +4,7 @@ import {
   formatOrderSummaryMessage,
   buildWhatsAppOrderLink,
   WhatsAppOrderSummaryData,
-} from "@/lib/whatsapp/order-whatsapp-service";
+} from "@/lib/whatsapp/order-whatsapp-format";
 
 describe("Digital Menu WhatsApp Integration & Business Order Flow", () => {
   describe("1. Normalización y Validación de Números de WhatsApp", () => {
