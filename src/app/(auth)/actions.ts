@@ -219,8 +219,8 @@ export async function loginWithPassword(formData: FormData): Promise<ActionRespo
 
       console.log(`🔑 [NEGOVA MFA OTP] Código para ${sanitizedEmail}: ${otpCode}`);
 
-      // Desautenticar temporalmente para exigir la verificación del código
-      await supabase.auth.signOut();
+      // Desautenticar temporalmente de forma local para exigir el código MFA sin invalidar sesiones en otros dispositivos
+      await supabase.auth.signOut({ scope: "local" });
 
       return {
         success: true,

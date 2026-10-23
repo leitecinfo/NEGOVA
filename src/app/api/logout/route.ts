@@ -4,8 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
-  // Cerrar la sesión en Supabase (invalida la sesión actual en la base de datos y cookies)
-  const { error } = await supabase.auth.signOut();
+  // Cerrar la sesión en Supabase a nivel local (no destruye sesiones en otros dispositivos)
+  const { error } = await supabase.auth.signOut({ scope: "local" });
 
   if (error) {
     // Si hay un error, lo registramos de forma segura, pero procedemos a limpiar las cookies y redirigir
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 // También permitir GET por simplicidad si se llama desde enlaces, aunque POST es preferido por CSRF
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
 
   const requestUrl = new URL(request.url);
   const response = NextResponse.redirect(`${requestUrl.origin}/login`);
