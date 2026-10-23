@@ -75,11 +75,10 @@ export function WorkspaceHeaderQuickAccess({
       try {
         const res = await getRestaurantOrdersSummaryAction(businessId);
         if (res.success && res.data && isMounted) {
-          const activePending =
-            (res.data.received || 0) +
-            (res.data.inPreparation || 0) +
-            (res.data.ready || 0);
-          setPendingOrdersCount(activePending);
+          // El contador del header alerta exclusivamente de comandas nuevas sin confirmar (estado 'received').
+          // En cuanto el pedido es confirmado (pasa a cocina / en preparación o siguiente), se descuenta al instante.
+          const pendingToConfirm = res.data.received || 0;
+          setPendingOrdersCount(pendingToConfirm);
         }
       } catch {
         // En caso de error silencioso se omite el conteo
@@ -89,9 +88,16 @@ export function WorkspaceHeaderQuickAccess({
     fetchPendingOrders();
     const interval = setInterval(fetchPendingOrders, 15000);
 
+    // Escuchar eventos en vivo emitidos al cambiar de estado un pedido para refresco instantáneo sin recarga
+    const handleOrderUpdate = () => {
+      fetchPendingOrders();
+    };
+    window.addEventListener("negova:order-status-updated", handleOrderUpdate);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener("negova:order-status-updated", handleOrderUpdate);
     };
   }, [businessId, isPedidosModule, canViewOrders]);
 

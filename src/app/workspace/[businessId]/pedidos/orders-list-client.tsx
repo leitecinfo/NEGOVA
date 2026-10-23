@@ -115,6 +115,7 @@ export function OrdersListClient({
   // Estados para Drag & Drop
   const [draggingOrderId, setDraggingOrderId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const draggingOrderIdRef = React.useRef<string | null>(null);
 
   // Modal para cambio de estado accesible (alternativa accesible y táctil al drag & drop)
   const [moveModal, setMoveModal] = useState<{
@@ -476,6 +477,9 @@ export function OrdersListClient({
       const res = await updateRestaurantOrderStatusAction(businessId, order.id, targetStatus);
       if (res.success) {
         toast.success(`Pedido #${order.order_number} movido a ${statusLabels[targetStatus] || targetStatus}.`);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("negova:order-status-updated"));
+        }
         startTransition(() => {
           router.refresh();
         });
@@ -516,6 +520,9 @@ export function OrdersListClient({
       const res = await cancelRestaurantOrderAction(businessId, order.id, reason);
       if (res.success) {
         toast.success(`Pedido #${order.order_number} cancelado correctamente.`);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("negova:order-status-updated"));
+        }
         startTransition(() => {
           router.refresh();
         });
@@ -643,14 +650,18 @@ export function OrdersListClient({
         onDragStart={(e) => {
           e.dataTransfer.setData("text/plain", order.id);
           e.dataTransfer.effectAllowed = "move";
+          draggingOrderIdRef.current = order.id;
           setDraggingOrderId(order.id);
         }}
         onDragEnd={() => {
+          draggingOrderIdRef.current = null;
           setDraggingOrderId(null);
           setDragOverColumnId(null);
         }}
         onClick={() => setDetailModal({ isOpen: true, order })}
-        className={`bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between gap-3 relative cursor-pointer select-none group ${statusBadge.headerColor} border-t-4 ${
+        className={`bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between gap-3 relative select-none group ${statusBadge.headerColor} border-t-4 ${
+          isDraggable ? "lg:cursor-grab lg:active:cursor-grabbing cursor-pointer" : "cursor-pointer"
+        } ${
           isBeingDragged ? "opacity-40 scale-[0.98] ring-2 ring-[#ED500A] shadow-lg" : ""
         }`}
       >
@@ -762,8 +773,8 @@ export function OrdersListClient({
           </div>
         </div>
 
-        {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO (IZQUIERDA / DERECHA) */}
-        <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+        {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO (SOLO MÓVIL / TABLET; EN PC SE USA DRAG & DROP) */}
+        <div className="pt-0.5 lg:hidden" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1.5">
             {/* Selector rápido para mover a cualquier estado permitido */}
             {canUpdateOrder && !isCancelled && (
@@ -1221,7 +1232,8 @@ export function OrdersListClient({
               <div className="grid grid-cols-4 gap-4 items-stretch min-w-[1000px]">
               {queueColumns.map((col) => {
                 const isColOver = dragOverColumnId === col.id;
-                const draggingOrder = draggingOrderId ? localOrders.find((o) => o.id === draggingOrderId) : null;
+                const activeDragId = draggingOrderIdRef.current || draggingOrderId;
+                const draggingOrder = activeDragId ? localOrders.find((o) => o.id === activeDragId) : null;
                 const isSelf = draggingOrder?.status === col.id;
                 const isAllowedTarget = Boolean(
                   draggingOrder &&
@@ -1233,12 +1245,27 @@ export function OrdersListClient({
                   <div
                     key={col.id}
                     onDragOver={(e) => {
-                      if (!draggingOrderId) return;
                       e.preventDefault();
+                      e.stopPropagation();
+                      const currentDragId = draggingOrderIdRef.current || draggingOrderId;
+                      if (!currentDragId) return;
                       if (dragOverColumnId !== col.id) {
                         setDragOverColumnId(col.id);
                       }
-                      e.dataTransfer.dropEffect = isAllowedTarget ? "move" : "none";
+                      const currentOrder = localOrders.find((o) => o.id === currentDragId);
+                      const isAllowed = Boolean(
+                        currentOrder &&
+                        currentOrder.status !== col.id &&
+                        VALID_ORDER_STATUS_TRANSITIONS[currentOrder.status]?.includes(col.id as any)
+                      );
+                      e.dataTransfer.dropEffect = isAllowed ? "move" : "none";
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (dragOverColumnId !== col.id) {
+                        setDragOverColumnId(col.id);
+                      }
                     }}
                     onDragLeave={(e) => {
                       if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -1248,7 +1275,9 @@ export function OrdersListClient({
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      const orderId = e.dataTransfer.getData("text/plain") || draggingOrderId;
+                      e.stopPropagation();
+                      const orderId = e.dataTransfer.getData("text/plain") || draggingOrderIdRef.current || draggingOrderId;
+                      draggingOrderIdRef.current = null;
                       setDragOverColumnId(null);
                       setDraggingOrderId(null);
                       if (!orderId) return;
@@ -1301,7 +1330,13 @@ export function OrdersListClient({
                     )}
 
                     {/* LISTADO DE TARJETAS EN LA COLUMNA CON SCROLL INDEPENDIENTE */}
-                    <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1.5 focus:outline-none">
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1.5 focus:outline-none"
+                    >
                       {col.orders.length === 0 ? (
                         <div className="h-full min-h-[160px] flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-200 dark:border-white/[0.08] text-slate-400 text-xs">
                           <UtensilsCrossed className="w-6 h-6 text-slate-300 dark:text-slate-600 mb-2 opacity-60" />
