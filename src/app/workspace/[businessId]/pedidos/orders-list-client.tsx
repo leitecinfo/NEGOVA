@@ -1680,7 +1680,6 @@ export function OrdersListClient({
                                 <span className="text-[11px] text-slate-400 block">{opt.desc}</span>
                               </div>
                             </div>
-                            <ArrowRight className="w-4 h-4 text-slate-400" />
                           </button>
                         );
                       });
