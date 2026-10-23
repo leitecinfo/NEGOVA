@@ -3,6 +3,7 @@ import { Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { FloatingWrapper } from "@/components/floating/floating-wrapper";
+import { GlobalScrollbar } from "@/components/layout/global-scrollbar";
 
 const hankenGrotesk = Hanken_Grotesk({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen bg-background text-foreground">
         {children}
         <FloatingWrapper />
+        <GlobalScrollbar />
         <Toaster position="top-right" richColors />
       </body>
     </html>

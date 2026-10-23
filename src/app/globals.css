@@ -147,23 +147,36 @@
   /* ========================================================================== */
   /* PERSONALIZACIÓN GLOBAL DE BARRAS DE SCROLL (DESKTOP / POINTER FINE)        */
   /* ========================================================================== */
+  /* Ocultar barra nativa de html/body para dar paso al GlobalScrollbar compacto */
+  html,
+  body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    /* 1. Barras de scroll de todos los contenedores internos del sitio */
-    * {
+    /* Barras de scroll delgadas, naranjas y sin fondo para todos los contenedores internos */
+    *:not(html):not(body) {
       scrollbar-width: thin;
       scrollbar-color: #ED500A transparent;
     }
 
-    *::-webkit-scrollbar {
+    *:not(html):not(body)::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
 
-    *::-webkit-scrollbar-track {
+    *:not(html):not(body)::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    *::-webkit-scrollbar-thumb {
+    *:not(html):not(body)::-webkit-scrollbar-thumb {
       background-color: rgba(237, 80, 10, 0.75);
       border-radius: 9999px;
       border: 1px solid transparent;
@@ -171,40 +184,12 @@
       transition: background-color 0.2s ease;
     }
 
-    *::-webkit-scrollbar-thumb:hover {
+    *:not(html):not(body)::-webkit-scrollbar-thumb:hover {
       background-color: #ED500A;
     }
 
-    *::-webkit-scrollbar-corner {
+    *:not(html):not(body)::-webkit-scrollbar-corner {
       background: transparent;
-    }
-
-    /* 2. Barra de scroll principal del sitio (HTML / Ventana vertical) */
-    /* Más delgada (4px), sin fondo y más corta con pista recortada */
-    html {
-      scrollbar-width: thin;
-      scrollbar-color: #ED500A transparent;
-    }
-
-    html::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    html::-webkit-scrollbar-track {
-      background: transparent;
-      margin-top: 12vh;
-      margin-bottom: 12vh;
-    }
-
-    html::-webkit-scrollbar-thumb {
-      background-color: #ED500A;
-      border-radius: 9999px;
-      min-height: 36px;
-      max-height: 64px;
-    }
-
-    html::-webkit-scrollbar-thumb:hover {
-      background-color: #D44405;
     }
   }
 
