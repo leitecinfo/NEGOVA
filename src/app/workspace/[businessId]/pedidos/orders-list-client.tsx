@@ -1652,7 +1652,7 @@ export function OrdersListClient({
                           icon: XCircle,
                           color: "hover:border-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-500/10 text-rose-600 dark:text-rose-400",
                         },
-                      ].filter((opt) => allowed.includes(opt.id as any));
+                      ].filter((opt) => allowed.includes(opt.id as any) && opt.id !== order.status);
 
                       return options.map((opt) => {
                         const Icon = opt.icon;

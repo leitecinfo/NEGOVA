@@ -172,10 +172,10 @@ export interface CreateRestaurantOrderInput {
 // ==========================================
 
 export const VALID_ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
-  received: ["in_preparation", "ready", "cancelled"],
-  in_preparation: ["received", "ready", "cancelled"],
-  ready: ["in_preparation", "delivered", "cancelled"],
-  delivered: ["ready"],
+  received: ["in_preparation", "ready", "delivered", "cancelled"],
+  in_preparation: ["received", "ready", "delivered", "cancelled"],
+  ready: ["received", "in_preparation", "delivered", "cancelled"],
+  delivered: ["received", "in_preparation", "ready"],
   cancelled: [],
 };
 

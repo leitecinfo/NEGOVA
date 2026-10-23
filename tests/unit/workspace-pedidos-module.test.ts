@@ -574,19 +574,26 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
       expect(VALID_ORDER_STATUS_TRANSITIONS.received).toEqual([
         "in_preparation",
         "ready",
+        "delivered",
         "cancelled",
       ]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.in_preparation).toEqual([
         "received",
         "ready",
+        "delivered",
         "cancelled",
       ]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.ready).toEqual([
+        "received",
         "in_preparation",
         "delivered",
         "cancelled",
       ]);
-      expect(VALID_ORDER_STATUS_TRANSITIONS.delivered).toEqual(["ready"]);
+      expect(VALID_ORDER_STATUS_TRANSITIONS.delivered).toEqual([
+        "received",
+        "in_preparation",
+        "ready",
+      ]);
       expect(VALID_ORDER_STATUS_TRANSITIONS.cancelled).toEqual([]);
     });
 
@@ -611,14 +618,10 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
       expect(res.order?.status).toBe("delivered");
     });
 
-    it("rechaza transiciones inválidas: delivered no puede volver a in_preparation o received", async () => {
-      const res = await updateRestaurantOrderStatus(BUSINESS_A, "ord-004", "received");
-
-      expect(res.success).toBe(false);
-      expect(res.error).toContain("Transición no permitida");
-      // Confirmar que el estado sigue siendo delivered
-      const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-004");
-      expect(check?.status).toBe("delivered");
+    it("permite saltar directamente entre fases (ej. received -> delivered)", async () => {
+      const resDirect = await updateRestaurantOrderStatus(BUSINESS_A, "ord-001", "delivered");
+      expect(resDirect.success).toBe(true);
+      expect(resDirect.order?.status).toBe("delivered");
     });
 
     it("rechaza intentar reabrir un pedido cancelado", async () => {
@@ -774,32 +777,26 @@ describe("NEGOVA — Módulo Pedidos (Auditoría, Ciclo Operativo, Filtros y Seg
       expect(finalOrder?.status).toBe("delivered");
     });
 
-    it("bloquea saltos de etapa no permitidos (ej. de received directamente a delivered)", async () => {
-      expect(VALID_ORDER_STATUS_TRANSITIONS["received"]).not.toContain("delivered");
+    it("permite saltos directos de etapa entre cualquier columna operativa (ej. received -> delivered)", async () => {
+      expect(VALID_ORDER_STATUS_TRANSITIONS["received"]).toContain("delivered");
 
       const res = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-001", "delivered");
-      expect(res.success).toBe(false);
-      expect(res.error).toContain("Transición no permitida");
+      expect(res.success).toBe(true);
+      expect(res.order?.status).toBe("delivered");
 
-      // La orden permanece en su estado original (rollback asegurado)
       const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-001");
-      expect(check?.status).toBe("received");
+      expect(check?.status).toBe("delivered");
     });
 
-    it("permite que pedidos entregados vuelvan a listos pero no directamente a la cocina o recibidos", async () => {
-      expect(VALID_ORDER_STATUS_TRANSITIONS["delivered"]).toEqual(["ready"]);
+    it("permite que pedidos entregados vuelvan directamente a la cocina o recibidos", async () => {
+      expect(VALID_ORDER_STATUS_TRANSITIONS["delivered"]).toContain("in_preparation");
 
       const resBack = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-004", "in_preparation");
-      expect(resBack.success).toBe(false);
-      expect(resBack.error).toContain("Transición no permitida");
-
-      // Transición válida: delivered -> ready
-      const resReady = await updateRestaurantOrderStatusAction(BUSINESS_A, "ord-004", "ready");
-      expect(resReady.success).toBe(true);
-      expect(resReady.order?.status).toBe("ready");
+      expect(resBack.success).toBe(true);
+      expect(resBack.order?.status).toBe("in_preparation");
 
       const check = await getRestaurantOrderWithDetails(BUSINESS_A, "ord-004");
-      expect(check?.status).toBe("ready");
+      expect(check?.status).toBe("in_preparation");
     });
 
     it("no permite que un pedido cancelado sea reactivado mediante arrastre", async () => {
