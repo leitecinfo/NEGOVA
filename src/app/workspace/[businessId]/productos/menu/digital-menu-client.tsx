@@ -148,7 +148,7 @@ export function DigitalMenuClient({
       } else {
         setMenu(res.data!);
         toast.success(
-          nextState ? "Menú digital publicado con éxito" : "Menú digital pausado"
+          nextState ? "Presencia digital activada con éxito" : "Presencia digital pausada"
         );
       }
     });
@@ -346,7 +346,7 @@ export function DigitalMenuClient({
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                Presencia Digital — Menú Digital
+                Presencia Digital
               </h1>
               {isPublished ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400">
@@ -360,12 +360,12 @@ export function DigitalMenuClient({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Administra la exposición pública de tu oferta comercial, carta digital y compártela mediante enlace web o código QR.
+              Administra la exposición pública de tu oferta comercial y compártela mediante enlace web o código QR.
             </p>
           </div>
         </div>
 
-        {/* Acciones del Menú */}
+        {/* Acciones de Presencia Digital */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleCopyLink}
@@ -379,10 +379,10 @@ export function DigitalMenuClient({
           <button
             onClick={handleOpenPublicView}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
-            title="Ver menú público en una pestaña nueva"
+            title="Abrir vista pública en una pestaña nueva"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span>Abrir Menú</span>
+            <span>Abrir en Pestaña</span>
           </button>
 
           <button
@@ -401,7 +401,7 @@ export function DigitalMenuClient({
             ) : (
               <CheckCircle2 className="w-3.5 h-3.5" />
             )}
-            <span>{isPublished ? "Pausar Menú" : "Publicar Menú"}</span>
+            <span>{isPublished ? "Pausar Presencia" : "Publicar Presencia"}</span>
           </button>
         </div>
       </div>
