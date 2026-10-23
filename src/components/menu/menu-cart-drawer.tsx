@@ -434,7 +434,7 @@ export function MenuCartDrawer({
           }}
         >
           <div
-            className={`w-full max-w-md rounded-2xl p-4 sm:p-5 flex flex-col max-h-[90%] overflow-hidden ${modalContainerClasses}`}
+            className={`w-full max-w-lg sm:max-w-xl md:max-w-2xl rounded-2xl p-4 sm:p-6 flex flex-col max-h-[92vh] overflow-hidden ${modalContainerClasses}`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header del modal */}
@@ -547,7 +547,7 @@ export function MenuCartDrawer({
               </div>
             ) : (
               /* CONTENIDO NORMAL DEL PEDIDO Y CHECKOUT */
-              <div className="overflow-y-auto py-3 space-y-3 flex-1 [scrollbar-width:thin]">
+              <div className="overflow-y-auto py-3 pl-0.5 pr-3 sm:pr-4 space-y-3.5 flex-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-400/30 dark:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/50">
                 {/* 1. SELECCIÓN DE MODALIDAD */}
                 <div className="space-y-1.5">
                   <label className={`text-[11px] font-bold uppercase tracking-wider ${secondaryTextClass}`}>
