@@ -1043,103 +1043,129 @@ export function PosScreenClient({
                   </div>
                 ) : (
                   <>
-                    {cartItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-2.5 bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] rounded-xl space-y-1.5"
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                              {item.productName}
-                            </h4>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                              {formatCOP(item.unitPrice)} c/u
+                    {cartItems.map((item) => {
+                      const itemImage =
+                        item.productImage ||
+                        products.find((p) => p.id === item.productId)?.image_url;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-2.5 bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] rounded-xl space-y-2"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            {/* Miniatura de la imagen del producto */}
+                            <div className="w-11 h-11 rounded-lg bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center">
+                              {itemImage ? (
+                                <img
+                                  src={itemImage}
+                                  alt={item.productName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : item.isCustom ? (
+                                <FileText className="w-5 h-5 text-[#ED500A]" />
+                              ) : (
+                                <Layers className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-1">
+                                <h4
+                                  className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1"
+                                  title={item.productName}
+                                >
+                                  {item.productName}
+                                </h4>
+                                <span className="text-xs font-black text-slate-900 dark:text-white font-mono shrink-0">
+                                  {formatCOP(item.lineTotal)}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                                {formatCOP(item.unitPrice)} c/u
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Modificadores o notas */}
+                          {item.selectedModifiers.length > 0 && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5 pl-0.5">
+                              {item.selectedModifiers.map((m, idx) => (
+                                <div key={idx}>• {m.optionName}</div>
+                              ))}
+                            </div>
+                          )}
+                          {item.notes && (
+                            <p className="text-[10px] italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded">
+                              {item.notes}
                             </p>
-                          </div>
-                          <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
-                            {formatCOP(item.lineTotal)}
-                          </span>
-                        </div>
+                          )}
 
-                        {/* Modificadores o notas */}
-                        {item.selectedModifiers.length > 0 && (
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
-                            {item.selectedModifiers.map((m, idx) => (
-                              <div key={idx}>• {m.optionName}</div>
-                            ))}
-                          </div>
-                        )}
-                        {item.notes && (
-                          <p className="text-[10px] italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-1 py-0.5 rounded">
-                            {item.notes}
-                          </p>
-                        )}
+                          {/* Barra de herramientas y selector de cantidad */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.06]">
+                            {/* Herramientas: Descuento, Precio, Notas, Papelera */}
+                            <div className="flex items-center gap-1 text-slate-400">
+                              <button
+                                type="button"
+                                onClick={() => setDiscountItem(item)}
+                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                title="Aplicar descuento individual"
+                              >
+                                <Tag className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditPriceItem(item)}
+                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                title="Editar precio de la línea"
+                              >
+                                <DollarSign className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newNote = item.notes ? "" : "Especial";
+                                  setCartItems((prev) =>
+                                    prev.map((ci) => (ci.id === item.id ? { ...ci, notes: newNote || undefined } : ci))
+                                  );
+                                }}
+                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                title="Editar notas"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="p-1 hover:text-rose-500 rounded transition cursor-pointer"
+                                title="Eliminar ítem"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
 
-                        {/* Barra de herramientas y selector de cantidad */}
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.06]">
-                          {/* Herramientas: Descuento, Precio, Notas, Papelera */}
-                          <div className="flex items-center gap-1 text-slate-400">
-                            <button
-                              type="button"
-                              onClick={() => setDiscountItem(item)}
-                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
-                              title="Aplicar descuento individual"
-                            >
-                              <Tag className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditPriceItem(item)}
-                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
-                              title="Editar precio de la línea"
-                            >
-                              <DollarSign className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newNote = item.notes ? "" : "Especial";
-                                setCartItems((prev) =>
-                                  prev.map((ci) => (ci.id === item.id ? { ...ci, notes: newNote || undefined } : ci))
-                                );
-                              }}
-                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
-                              title="Editar notas"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(item.id)}
-                              className="p-1 hover:text-rose-500 rounded transition cursor-pointer"
-                              title="Eliminar ítem"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Control de Cantidad - qty + */}
-                          <div className="flex items-center bg-white dark:bg-white/[0.08] rounded-lg border border-slate-200 dark:border-white/[0.1] p-0.5">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQuantity(item.id, -1)}
-                              className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="w-5 text-center text-xs font-bold text-slate-900 dark:text-white">{item.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQuantity(item.id, 1)}
-                              className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
+                            {/* Control de Cantidad - qty + */}
+                            <div className="flex items-center bg-white dark:bg-white/[0.08] rounded-lg border border-slate-200 dark:border-white/[0.1] p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQuantity(item.id, -1)}
+                                className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-5 text-center text-xs font-bold text-slate-900 dark:text-white">{item.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQuantity(item.id, 1)}
+                                className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {/* Botón contextual para añadir ítem libre */}
                     <button
@@ -1756,31 +1782,61 @@ export function PosScreenClient({
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.02] flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{item.productName}</h4>
-                      <span className="text-[11px] text-[#ED500A] font-mono">{formatCOP(item.lineTotal)}</span>
+                {cartItems.map((item) => {
+                  const itemImage =
+                    item.productImage ||
+                    products.find((p) => p.id === item.productId)?.image_url;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.02] flex items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center">
+                          {itemImage ? (
+                            <img
+                              src={itemImage}
+                              alt={item.productName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : item.isCustom ? (
+                            <FileText className="w-4 h-4 text-[#ED500A]" />
+                          ) : (
+                            <Layers className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {item.productName}
+                          </h4>
+                          <span className="text-[11px] text-[#ED500A] font-mono">
+                            {formatCOP(item.lineTotal)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(item.id, -1)}
+                          className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-xs font-bold text-slate-900 dark:text-white">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(item.id, 1)}
+                          className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateQuantity(item.id, -1)}
-                        className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-6 text-center text-xs font-bold text-slate-900 dark:text-white">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateQuantity(item.id, 1)}
-                        className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-2 bg-slate-50/70 dark:bg-white/[0.02]">

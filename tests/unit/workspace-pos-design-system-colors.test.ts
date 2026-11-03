@@ -37,6 +37,13 @@ describe("[POS-DESIGN] Alineación de Colores y Superficies al Sistema de Diseñ
     expect(content).toContain("bg-[#ED500A] text-white font-semibold");
   });
 
+  it("pos-screen-client.tsx debe renderizar la miniatura de la imagen del producto en las líneas del pedido", () => {
+    const content = fs.readFileSync(posClientPath, "utf-8");
+    expect(content).toContain("itemImage ? (");
+    expect(content).toContain("alt={item.productName}");
+    expect(content).toContain("className=\"w-full h-full object-cover\"");
+  });
+
   it("ningún componente POS debe utilizar alertas nativas", () => {
     const posContent = fs.readFileSync(posClientPath, "utf-8");
     const drawerContent = fs.readFileSync(ticketsDrawerPath, "utf-8");

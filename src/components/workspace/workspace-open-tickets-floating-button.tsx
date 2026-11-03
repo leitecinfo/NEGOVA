@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Receipt,
@@ -43,6 +43,146 @@ export function WorkspaceOpenTicketsFloatingButton({
   const [summary, setSummary] = useState<OpenTicketsSummary | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  // Estado y referencias para posicionamiento arrastrable del botón
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const currentPosRef = useRef<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef<{
+    pointerX: number;
+    pointerY: number;
+    btnX: number;
+    btnY: number;
+    hasMoved: boolean;
+  } | null>(null);
+
+  // Cargar posición persistida de localStorage al montar
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("negova_open_tickets_btn_pos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed?.x === "number" && typeof parsed?.y === "number") {
+          const btnSize = 56;
+          const clampedX = Math.max(12, Math.min(parsed.x, window.innerWidth - btnSize - 12));
+          const clampedY = Math.max(12, Math.min(parsed.y, window.innerHeight - btnSize - 12));
+          const initialPos = { x: clampedX, y: clampedY };
+          currentPosRef.current = initialPos;
+          setPosition(initialPos);
+        }
+      }
+    } catch (err) {
+      console.warn("[WorkspaceOpenTicketsFloatingButton] Error al cargar posición guardada:", err);
+    }
+  }, []);
+
+  // Mantener el botón dentro de la ventana al cambiar tamaño de pantalla
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((prev) => {
+        if (!prev) return null;
+        const btnSize = 56;
+        const clampedX = Math.max(12, Math.min(prev.x, window.innerWidth - btnSize - 12));
+        const clampedY = Math.max(12, Math.min(prev.y, window.innerHeight - btnSize - 12));
+        const updated = { x: clampedX, y: clampedY };
+        currentPosRef.current = updated;
+        return updated;
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return; // Solo responder a click izquierdo o toque principal
+    const btn = e.currentTarget;
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch {}
+
+    const rect = btn.getBoundingClientRect();
+    dragStartRef.current = {
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      btnX: rect.left,
+      btnY: rect.top,
+      hasMoved: false,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragStartRef.current) return;
+
+    const deltaX = e.clientX - dragStartRef.current.pointerX;
+    const deltaY = e.clientY - dragStartRef.current.pointerY;
+    const distance = Math.hypot(deltaX, deltaY);
+
+    if (distance > 5) {
+      dragStartRef.current.hasMoved = true;
+      setIsDragging(true);
+    }
+
+    if (dragStartRef.current.hasMoved) {
+      const btnSize = 56;
+      const newX = Math.max(
+        12,
+        Math.min(dragStartRef.current.btnX + deltaX, window.innerWidth - btnSize - 12)
+      );
+      const newY = Math.max(
+        12,
+        Math.min(dragStartRef.current.btnY + deltaY, window.innerHeight - btnSize - 12)
+      );
+      const newPos = { x: newX, y: newY };
+      currentPosRef.current = newPos;
+      setPosition(newPos);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragStartRef.current) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    const hadMoved = dragStartRef.current.hasMoved;
+    dragStartRef.current = null;
+    setIsDragging(false);
+
+    if (hadMoved) {
+      // Se arrastró y soltó: guardar la posición final
+      if (currentPosRef.current) {
+        try {
+          localStorage.setItem(
+            "negova_open_tickets_btn_pos",
+            JSON.stringify(currentPosRef.current)
+          );
+        } catch {}
+      }
+    } else {
+      // Clic simple: abrir drawer
+      setIsOpen(true);
+      if (!hasLoadedOnce) fetchTickets(true);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    dragStartRef.current = null;
+    setIsDragging(false);
+  };
+
+  const handleDoubleClick = () => {
+    try {
+      localStorage.removeItem("negova_open_tickets_btn_pos");
+    } catch {}
+    currentPosRef.current = null;
+    setPosition(null);
+    toast.info("Posición de tickets restablecida a la esquina inferior.");
+  };
 
   // Filtros locales del drawer (idéntico a Image 2 y 3)
   const [searchQuery, setSearchQuery] = useState("");
@@ -173,23 +313,45 @@ export function WorkspaceOpenTicketsFloatingButton({
 
   return (
     <>
-      {/* BOTÓN FLOTANTE INFERIOR DERECHO */}
-      <div className="fixed bottom-5 right-5 z-40 flex items-center group font-body">
+      {/* BOTÓN FLOTANTE INFERIOR DERECHO (ARRASTRABLE) */}
+      <div
+        ref={containerRef}
+        style={
+          position
+            ? {
+                position: "fixed",
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                zIndex: 40,
+              }
+            : undefined
+        }
+        className={
+          position
+            ? "z-40 flex items-center group font-body touch-none select-none"
+            : "fixed bottom-5 right-5 z-40 flex items-center group font-body touch-none select-none"
+        }
+      >
         <button
           type="button"
-          onClick={() => {
-            setIsOpen(true);
-            if (!hasLoadedOnce) fetchTickets(true);
-          }}
-          aria-label="Abrir tickets en curso"
-          title="Tickets Abiertos"
-          className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#EF4444] hover:bg-[#DC2626] active:scale-95 text-white shadow-2xl flex items-center justify-center transition-all cursor-pointer border-2 border-white/30 dark:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onDoubleClick={handleDoubleClick}
+          aria-label="Abrir tickets en curso (arrastra para mover)"
+          title="Tickets Abiertos (Arrastra para mover • Doble clic para restablecer)"
+          className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#EF4444] hover:bg-[#DC2626] text-white shadow-2xl flex items-center justify-center border-2 border-white/30 dark:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-red-400 focus:ring-offset-2 select-none touch-none ${
+            isDragging
+              ? "cursor-grabbing scale-105 shadow-red-500/40 ring-4 ring-red-400/40 transition-none"
+              : "cursor-grab transition-transform hover:scale-105 active:scale-95"
+          }`}
         >
-          <Receipt className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2]" />
+          <Receipt className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] pointer-events-none" />
 
           {/* BADGE NUMÉRICO ROJO CON BORDE */}
           {openCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white font-black text-xs border-2 border-white dark:border-[#0D0F16] flex items-center justify-center shadow-md animate-in zoom-in duration-200">
+            <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white font-black text-xs border-2 border-white dark:border-[#0D0F16] flex items-center justify-center shadow-md animate-in zoom-in duration-200 pointer-events-none">
               {openCount}
             </span>
           )}
