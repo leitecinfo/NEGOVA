@@ -341,17 +341,17 @@ export function WorkspaceOpenTicketsFloatingButton({
           onDoubleClick={handleDoubleClick}
           aria-label="Abrir tickets en curso (arrastra para mover)"
           title="Tickets Abiertos (Arrastra para mover • Doble clic para restablecer)"
-          className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#EF4444] hover:bg-[#DC2626] text-white shadow-2xl flex items-center justify-center border-2 border-white/30 dark:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-red-400 focus:ring-offset-2 select-none touch-none ${
+          className={`relative w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#EF4444] hover:bg-[#DC2626] text-white flex items-center justify-center border-2 border-white/30 dark:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-red-400 focus:ring-offset-2 select-none touch-none ${
             isDragging
-              ? "cursor-grabbing scale-105 shadow-red-500/40 ring-4 ring-red-400/40 transition-none"
-              : "cursor-grab transition-transform hover:scale-105 active:scale-95"
+              ? "cursor-grabbing scale-105 shadow-[0_4px_20px_rgba(239,68,68,0.45)] ring-4 ring-red-400/30 transition-none"
+              : "cursor-grab shadow-[0_2px_12px_rgba(0,0,0,0.2),0_0_1px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_14px_rgba(0,0,0,0.6)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition-all hover:scale-105 active:scale-95"
           }`}
         >
           <Receipt className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] pointer-events-none" />
 
           {/* BADGE NUMÉRICO ROJO CON BORDE */}
           {openCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white font-black text-xs border-2 border-white dark:border-[#0D0F16] flex items-center justify-center shadow-md animate-in zoom-in duration-200 pointer-events-none">
+            <span className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white font-black text-xs border-2 border-white dark:border-[#0D0F16] flex items-center justify-center shadow-[0_1px_4px_rgba(0,0,0,0.3)] animate-in zoom-in duration-200 pointer-events-none">
               {openCount}
             </span>
           )}
