@@ -1219,16 +1219,28 @@ export async function createRestaurantOrder(
   }
 
   // 4. Obtener todos los productos involucrados desde la base de datos (Snapshot real)
-  const productIds = Array.from(new Set(input.items.map((it) => it.productId)));
-  const { data: dbProducts, error: prodError } = await supabase
-    .from("products")
-    .select("id, name, price, is_available, status, metadata, business_id")
-    .eq("business_id", businessId)
-    .in("id", productIds);
+  const isUuid = (id?: string | null) => Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+  const regularProductIds = Array.from(
+    new Set(
+      input.items
+        .filter((it) => it.productId && isUuid(it.productId) && !(it as any).isCustom)
+        .map((it) => it.productId)
+    )
+  );
 
-  if (prodError || !dbProducts) {
-    console.error("[createRestaurantOrder] Error al consultar productos:", prodError);
-    return { success: false, error: "Error al validar los productos del catálogo." };
+  let dbProducts: any[] = [];
+  if (regularProductIds.length > 0) {
+    const { data: fetchedProducts, error: prodError } = await supabase
+      .from("products")
+      .select("id, name, price, is_available, status, metadata, business_id")
+      .eq("business_id", businessId)
+      .in("id", regularProductIds);
+
+    if (prodError || !fetchedProducts) {
+      console.error("[createRestaurantOrder] Error al consultar productos:", prodError);
+      return { success: false, error: "Error al validar los productos del catálogo." };
+    }
+    dbProducts = fetchedProducts;
   }
 
   const productMap = new Map<string, Product>();
@@ -1257,7 +1269,31 @@ export async function createRestaurantOrder(
 
   for (let idx = 0; idx < input.items.length; idx++) {
     const it = input.items[idx];
-    const product = productMap.get(it.productId);
+    const isCustom = !it.productId || !isUuid(it.productId) || (it as any).isCustom;
+    const product = isCustom ? null : productMap.get(it.productId);
+
+    if (isCustom) {
+      const safeQty = Math.max(1, Math.floor(it.quantity || 1));
+      const customUnitPrice = Number((it as any).unitPrice || (it as any).price || 0);
+      const customSubtotal = customUnitPrice * safeQty;
+      calculatedSubtotal += customSubtotal;
+
+      preparedItems.push({
+        productId: it.productId || "custom-item",
+        productName: (it as any).productName || (it as any).name || "Ítem libre",
+        quantity: safeQty,
+        unitPrice: customUnitPrice,
+        subtotal: customSubtotal,
+        notes: it.notes || undefined,
+        modifiers: [],
+        variantId: null,
+        variantName: null,
+        taxPercentage: 0,
+        taxIncludedInPrice: true,
+        taxAmount: 0,
+      });
+      continue;
+    }
 
     if (!product) {
       return {

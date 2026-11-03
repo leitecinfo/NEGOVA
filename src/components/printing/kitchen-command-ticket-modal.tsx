@@ -79,14 +79,68 @@ export function KitchenCommandTicketModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* ESTILOS DE IMPRESIÓN DIRECTA DE COMANDA TÉRMICA 80MM */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          @media print {
+            @page {
+              margin: 0 !important;
+              size: 80mm auto !important;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+              width: 80mm !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            body > * {
+              display: none !important;
+            }
+            .pos-no-print {
+              display: none !important;
+              visibility: hidden !important;
+            }
+            #kitchen-command-print-area {
+              display: block !important;
+              visibility: visible !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 76mm !important;
+              max-width: 76mm !important;
+              margin: 0 auto !important;
+              padding: 2.5mm !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+              font-family: 'Courier New', Courier, monospace !important;
+              box-shadow: none !important;
+              border: none !important;
+              z-index: 2147483647 !important;
+            }
+            #kitchen-command-print-area * {
+              visibility: visible !important;
+              color: #000000 !important;
+              background: transparent !important;
+              text-shadow: none !important;
+              box-shadow: none !important;
+            }
+          }
+        `,
+        }}
+      />
+
+      <div className="fixed inset-0 m-0 p-3 sm:p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xs animate-in fade-in duration-150 pos-no-print">
         <div
           role="dialog"
           aria-modal="true"
-          className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+          className="relative w-full max-w-md sm:max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         >
           {/* HEADER DEL MODAL */}
-          <div className="px-5 py-3.5 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-white/[0.02]">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-white/[0.02] pos-no-print">
             <div className="flex items-center gap-2">
               <ChefHat className="w-5 h-5 text-[#ED500A]" />
               <span className="font-bold text-sm text-slate-900 dark:text-white">
@@ -97,20 +151,20 @@ export function KitchenCommandTicketModal({
               type="button"
               onClick={onClose}
               aria-label="Cerrar modal"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* CUERPO: TICKET TÉRMICO DE COMANDA */}
-          <div className="p-4 sm:p-5 overflow-y-auto flex-1 flex justify-center bg-slate-100 dark:bg-black/30">
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex justify-center bg-slate-100/70 dark:bg-black/40">
             <div
               id="kitchen-command-print-area"
-              className="w-full max-w-[280px] bg-white text-black p-5 rounded-lg shadow-sm border border-slate-300 font-mono text-center select-none"
+              className="w-full max-w-[340px] sm:max-w-[360px] bg-white text-black p-5 sm:p-6 rounded-xl shadow-md border border-slate-300 font-mono text-center select-none"
             >
-              {/* CÍRCULO CON NÚMERO DE ORDEN */}
-              <div className="w-14 h-14 rounded-full border-2 border-black mx-auto flex items-center justify-center font-black text-2xl tracking-tighter">
+              {/* BADGE CON NÚMERO DE ORDEN */}
+              <div className="inline-flex items-center justify-center min-w-[56px] h-9 px-3.5 rounded-full border-2 border-black mx-auto font-black text-base tracking-wide">
                 #{order.orderNumber}
               </div>
 
@@ -172,7 +226,7 @@ export function KitchenCommandTicketModal({
           </div>
 
           {/* ACCIONES DEL MODAL */}
-          <div className="p-4 border-t border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shrink-0 space-y-2">
+          <div className="p-4 border-t border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shrink-0 space-y-2 pos-no-print">
             {/* Fila 1: Imprimir comanda y opción de cobrar si aplica */}
             <div className={`grid gap-2 ${onPayOrder ? "grid-cols-2" : "grid-cols-1"}`}>
               <button
@@ -220,32 +274,6 @@ export function KitchenCommandTicketModal({
           </div>
         </div>
       </div>
-
-      {/* ESTILOS DE IMPRESIÓN DIRECTA DE COMANDA TÉRMICA */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #kitchen-command-print-area,
-          #kitchen-command-print-area * {
-            visibility: visible !important;
-          }
-          #kitchen-command-print-area {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 80mm !important;
-            max-width: 80mm !important;
-            margin: 0 !important;
-            padding: 8px !important;
-            border: none !important;
-            box-shadow: none !important;
-            background: white !important;
-            color: black !important;
-          }
-        }
-      `}</style>
     </ModalPortal>
   );
 }

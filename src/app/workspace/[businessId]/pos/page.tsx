@@ -53,6 +53,7 @@ export default async function WorkspacePosPage({
       businessName={session.businessName}
       cashierName={session.userEmail ? session.userEmail.split("@")[0] : session.businessName}
       tradeName={config.tradeName}
+      logoUrl={config.logoUrl}
       primaryColor={config.primaryColor}
       initialProducts={products}
       initialCategories={categories}

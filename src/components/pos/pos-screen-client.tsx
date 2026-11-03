@@ -42,6 +42,7 @@ import {
   Check,
   CreditCard,
   Wallet,
+  Loader2,
 } from "lucide-react";
 import { Product, Category, ProductVariant, isProductAvailableInPos } from "@/lib/products/types";
 import { findProductByBarcode } from "@/lib/products/barcode-service";
@@ -88,6 +89,10 @@ import { PosSelectCustomerModal, PosCustomerItem } from "./pos-select-customer-m
 import { PosKitchenTicketModal, KitchenTicketData } from "./pos-kitchen-ticket-modal";
 import { PosInvoiceModal, InvoiceData } from "./pos-invoice-modal";
 import { PosOpenTicketsDrawer, OpenTicket } from "./pos-open-tickets-drawer";
+import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
+import { registerRestaurantOrderPaymentAction } from "@/app/workspace/[businessId]/pedidos/actions";
+import { playOrderSoundAlert, initOrderAudioUnlock } from "@/lib/audio/order-sound-player";
+import type { CreateRestaurantOrderInput, ProcessOrderPaymentInput } from "@/lib/restaurant/types";
 
 // Componentes de Ayuda [HELP-002]
 import { ModuleVideoButton } from "@/components/help/module-video-button";
@@ -99,6 +104,7 @@ interface PosScreenClientProps {
   businessName: string;
   cashierName?: string;
   tradeName?: string;
+  logoUrl?: string | null;
   primaryColor?: string;
   initialProducts: Product[];
   initialCategories: Category[];
@@ -118,6 +124,7 @@ export function PosScreenClient({
   businessName,
   cashierName,
   tradeName,
+  logoUrl,
   primaryColor = "#ED500A",
   initialProducts,
   initialCategories,
@@ -256,6 +263,12 @@ export function PosScreenClient({
 
   // Mobile drawer toggle
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isSubmittingSale, setIsSubmittingSale] = useState(false);
+
+  // Inicializar desbloqueo acústico para alertas de venta
+  useEffect(() => {
+    initOrderAudioUnlock();
+  }, []);
 
   // Carga inicial si viene con cotización seleccionada por URL [POS-004]
   useEffect(() => {
@@ -603,7 +616,7 @@ export function PosScreenClient({
   });
 
   // Confirmar y cobrar la venta en el Checkout Lateral [POS-006]
-  const handleConfirmAndPay = () => {
+  const handleConfirmAndPay = async () => {
     if (cartItems.length === 0) {
       toast.error("El carrito está vacío.");
       return;
@@ -616,57 +629,155 @@ export function PosScreenClient({
       }
     }
 
-    const orderNum = Math.floor(100 + Math.random() * 900);
-    const tableName = serviceType === "DINE_IN" ? tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa 1" : undefined;
-    const finalCustomerName = serviceType === "DELIVERY" ? deliveryDetails.name : selectedCustomer.name;
+    setIsSubmittingSale(true);
 
-    // Generar comanda de cocina térmica
-    const kTicket: KitchenTicketData = {
-      orderNumber: orderNum,
-      referenceName: `REF-${Date.now().toString().slice(-6)}`,
-      serviceType: serviceType === "DINE_IN" ? "COMER AQUÍ" : serviceType === "TAKEOUT" ? "PARA LLEVAR" : serviceType === "DELIVERY" ? "DOMICILIO" : "PARA RECOGER",
-      tableName: tableName,
-      cashierName: cashierName || businessName || "Cajero",
-      createdAt: new Date().toISOString(),
-      items: cartItems.map((ci) => ({
-        quantity: ci.quantity,
-        name: ci.productName,
-        modifiers: (ci.selectedModifiers || []).map((m) => `${m.groupName}: ${m.optionName}`),
-        notes: ci.notes,
-      })),
-    };
+    try {
+      const tableName = serviceType === "DINE_IN" ? tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa 1" : undefined;
+      const finalCustomerName = serviceType === "DELIVERY" ? deliveryDetails.name : selectedCustomer.name;
 
-    // Generar factura de venta térmica
-    const iTicket: InvoiceData = {
-      orderNumber: orderNum,
-      invoiceFolio: `V${Date.now().toString().slice(-8)}`,
-      businessName: tradeName || businessName || "NEGOVA POS",
-      taxRegime: "No responsable de IVA",
-      createdAt: new Date().toLocaleString("es-CO"),
-      customerName: finalCustomerName,
-      customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : selectedCustomer.phone,
-      customerAddress: serviceType === "DELIVERY" ? deliveryDetails.address : selectedCustomer.address,
-      serviceType: serviceType === "DINE_IN" ? "Comer Aquí" : serviceType === "TAKEOUT" ? "Para llevar" : serviceType === "DELIVERY" ? "Domicilio" : "Para recoger",
-      saleType: isCredit ? "Crédito" : "Contado",
-      paymentMethodName: isCredit ? "Crédito" : paymentMethod === "cash" ? "Efectivo" : paymentMethod === "card" ? "Tarjeta" : "Digital",
-      items: cartItems.map((ci) => ({
-        name: ci.productName,
-        quantity: ci.quantity,
-        unitPrice: ci.unitPrice,
-        subtotal: ci.lineTotal,
-      })),
-      subtotal: summary.subtotal,
-      deliveryFee: serviceType === "DELIVERY" ? deliveryDetails.deliveryFee : 0,
-      tipAmount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
-      discountAmount: generalDiscount,
-      total: summary.total,
-    };
+      // 1. Construir y persistir pedido con consecutivo secuencial en base de datos
+      const orderTypeKey = serviceType === "DINE_IN" ? "dine_in" : serviceType === "DELIVERY" ? "delivery" : "takeout";
+      const payload: CreateRestaurantOrderInput = {
+        orderType: orderTypeKey,
+        channelOrigin: "in_person",
+        tableId: serviceType === "DINE_IN" ? selectedTableId || null : null,
+        customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
+        customerName: finalCustomerName || (serviceType === "DELIVERY" ? "Cliente Domicilio" : "Cliente General"),
+        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : (selectedCustomer.phone || null),
+        deliveryAddress: serviceType === "DELIVERY" ? deliveryDetails.address : null,
+        deliveryFee: serviceType === "DELIVERY" ? (deliveryDetails.deliveryFee || 0) : 0,
+        notes: orderNotes.trim() || (generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null),
+        taxTotal: summary.tax,
+        items: cartItems.map((ci) => ({
+          productId: ci.productId,
+          variantId: ci.variantId || null,
+          variantName: ci.variantName || null,
+          quantity: ci.quantity,
+          notes: ci.notes,
+          taxPercentage: ci.taxPercentage,
+          taxIncludedInPrice: ci.taxIncludedInPrice,
+          selectedModifiers: (ci.selectedModifiers || []).map((m) => ({
+            groupId: m.groupId,
+            groupName: m.groupName,
+            optionId: m.optionId,
+            optionName: m.optionName,
+            price: m.price,
+          })),
+        })),
+      };
 
-    setKitchenTicketData(kTicket);
-    setInvoiceTicketData(iTicket);
-    setCartItems([]);
-    setIsCheckoutStepActive(false);
-    toast.success(`¡Venta #${orderNum} registrada y cobrada con éxito!`);
+      const res = await createRestaurantOrderAction(businessId, payload);
+      if (!res.success || !res.orderId || !res.orderNumber) {
+        toast.error(res.error || "Ocurrió un error al registrar el pedido.");
+        setIsSubmittingSale(false);
+        return;
+      }
+
+      const orderId = res.orderId;
+      const orderNum = res.orderNumber;
+      let finalDocNumber = `V-${String(orderNum).padStart(4, "0")}`;
+
+      // 2. Registrar cobro y movimiento en caja
+      const paymentMethodKey = isCredit ? "credit" : paymentMethod === "cash" ? "cash" : paymentMethod === "card" ? "card" : "transfer";
+      const paymentData: ProcessOrderPaymentInput = {
+        paymentMethod: paymentMethodKey,
+        cashChange: changeAmount > 0 ? changeAmount : 0,
+        customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
+        tip: (customTip > 0 || tipPercentage > 0) ? {
+          percentage: tipPercentage,
+          amount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
+        } : undefined,
+        discount: generalDiscount > 0 ? {
+          type: "fixed",
+          value: generalDiscount,
+          reason: "Descuento general POS",
+        } : undefined,
+      };
+
+      try {
+        const payRes = await registerRestaurantOrderPaymentAction(businessId, orderId, paymentData);
+        if (payRes.success && payRes.documentNumber) {
+          finalDocNumber = payRes.documentNumber;
+        }
+      } catch (payErr) {
+        console.warn("[handleConfirmAndPay] Advertencia al registrar cobro:", payErr);
+      }
+
+      // 3. Feedback auditivo con Web Audio API
+      try {
+        playOrderSoundAlert(orderId);
+      } catch {}
+
+      // 4. Disparar evento para actualizar instantáneamente Tickets Abiertos, Campana de Notificaciones y Badges
+      try {
+        window.dispatchEvent(
+          new CustomEvent("negova:new_order", {
+            detail: {
+              id: orderId,
+              businessId,
+              orderNumber: orderNum,
+              orderType: payload.orderType,
+              customerName: payload.customerName,
+              total: summary.total,
+              createdAt: new Date().toISOString(),
+            },
+          })
+        );
+      } catch {}
+
+      // 5. Generar comanda de cocina térmica
+      const kTicket: KitchenTicketData = {
+        orderNumber: orderNum,
+        referenceName: `REF-${orderNum}`,
+        serviceType: serviceType === "DINE_IN" ? "COMER AQUÍ" : serviceType === "TAKEOUT" ? "PARA LLEVAR" : serviceType === "DELIVERY" ? "DOMICILIO" : "PARA RECOGER",
+        tableName: tableName,
+        cashierName: cashierName || businessName || "Cajero",
+        createdAt: new Date().toISOString(),
+        items: cartItems.map((ci) => ({
+          quantity: ci.quantity,
+          name: ci.productName,
+          modifiers: (ci.selectedModifiers || []).map((m) => `${m.groupName}: ${m.optionName}`),
+          notes: ci.notes,
+        })),
+      };
+
+      // 6. Generar factura de venta térmica con logo e identidad de marca
+      const iTicket: InvoiceData = {
+        orderNumber: orderNum,
+        invoiceFolio: finalDocNumber,
+        businessName: tradeName || businessName || "NEGOVA POS",
+        logoUrl: logoUrl || null,
+        taxRegime: "No responsable de IVA",
+        createdAt: new Date().toLocaleString("es-CO"),
+        customerName: finalCustomerName,
+        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : selectedCustomer.phone,
+        customerAddress: serviceType === "DELIVERY" ? deliveryDetails.address : selectedCustomer.address,
+        serviceType: serviceType === "DINE_IN" ? "Comer Aquí" : serviceType === "TAKEOUT" ? "Para llevar" : serviceType === "DELIVERY" ? "Domicilio" : "Para recoger",
+        saleType: isCredit ? "Crédito" : "Contado",
+        paymentMethodName: isCredit ? "Crédito" : paymentMethod === "cash" ? "Efectivo" : paymentMethod === "card" ? "Tarjeta" : "Digital",
+        items: cartItems.map((ci) => ({
+          name: ci.productName,
+          quantity: ci.quantity,
+          unitPrice: ci.unitPrice,
+          subtotal: ci.lineTotal,
+        })),
+        subtotal: summary.subtotal,
+        deliveryFee: serviceType === "DELIVERY" ? deliveryDetails.deliveryFee : 0,
+        tipAmount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
+        discountAmount: generalDiscount,
+        total: summary.total,
+      };
+
+      setKitchenTicketData(kTicket);
+      setInvoiceTicketData(iTicket);
+      setCartItems([]);
+      setIsCheckoutStepActive(false);
+      toast.success(`¡Venta #${orderNum} registrada y cobrada con éxito!`);
+    } catch (err: any) {
+      toast.error(err?.message || "Error al procesar la venta.");
+    } finally {
+      setIsSubmittingSale(false);
+    }
   };
 
   // Copiar nombre del cliente
@@ -879,7 +990,14 @@ export function PosScreenClient({
                   ? Math.min(...rawVariants.map((v) => v.price || 0))
                   : null;
                 const isAvailable = prod.is_available;
-                const stock = (prod as any).stock ?? 10000;
+                const trackStock = Boolean(
+                  (prod.metadata as any)?.track_stock ||
+                  (prod as any).track_stock ||
+                  (prod as any).track_inventory
+                );
+                const rawStock = (prod as any).stock_quantity ?? (prod as any).stock;
+                const hasTrackedStock = trackStock && rawStock !== undefined && rawStock !== null;
+                const stockCount = hasTrackedStock ? Number(rawStock) : null;
                 const catName =
                   prod.categories?.name ||
                   categories.find((c) => c.id === prod.category_id)?.name ||
@@ -926,7 +1044,7 @@ export function PosScreenClient({
                     onClick={() => handleProductClick(prod)}
                     className="group relative flex flex-col justify-between bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-[#ED500A]/50 hover:shadow-lg hover:shadow-[#ED500A]/5 transition cursor-pointer"
                   >
-                    {/* Imagen / Badge de Stock */}
+                    {/* Imagen / Badge de Stock condicional (solo si se gestiona inventario) */}
                     <div className="relative w-full aspect-[4/3] bg-slate-100 dark:bg-white/[0.03] overflow-hidden flex items-center justify-center">
                       {prod.image_url ? (
                         <img
@@ -938,10 +1056,20 @@ export function PosScreenClient({
                         <Layers className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                       )}
 
-                      {/* Badge de Stock en esquina */}
-                      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white backdrop-blur-xs">
-                        {stock > 999 ? "∞" : stock}
-                      </span>
+                      {/* Badge de Stock: solo visible si el producto controla inventario */}
+                      {hasTrackedStock && stockCount !== null && (
+                        <span
+                          className={`absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs backdrop-blur-xs ${
+                            stockCount <= 0
+                              ? "bg-rose-600 text-white"
+                              : stockCount <= 5
+                              ? "bg-amber-500 text-white"
+                              : "bg-black/75 text-white border border-white/10"
+                          }`}
+                        >
+                          {stockCount <= 0 ? "Agotado" : `${stockCount} disp.`}
+                        </span>
+                      )}
                     </div>
 
                     {/* Cuerpo */}
@@ -1051,11 +1179,11 @@ export function PosScreenClient({
                       return (
                         <div
                           key={item.id}
-                          className="p-2.5 bg-slate-50/70 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] rounded-xl space-y-2"
+                          className="p-3 bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-2.5 transition-all"
                         >
                           <div className="flex items-start gap-2.5">
                             {/* Miniatura de la imagen del producto */}
-                            <div className="w-11 h-11 rounded-lg bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
                               {itemImage ? (
                                 <img
                                   src={itemImage}
@@ -1072,16 +1200,16 @@ export function PosScreenClient({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-1">
                                 <h4
-                                  className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1"
+                                  className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-1"
                                   title={item.productName}
                                 >
                                   {item.productName}
                                 </h4>
-                                <span className="text-xs font-black text-slate-900 dark:text-white font-mono shrink-0">
+                                <span className="text-sm font-black text-[#ED500A] font-mono shrink-0">
                                   {formatCOP(item.lineTotal)}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
                                 {formatCOP(item.unitPrice)} c/u
                               </p>
                             </div>
@@ -1096,19 +1224,19 @@ export function PosScreenClient({
                             </div>
                           )}
                           {item.notes && (
-                            <p className="text-[10px] italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-1.5 py-0.5 rounded">
+                            <p className="text-[10px] italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40">
                               {item.notes}
                             </p>
                           )}
 
                           {/* Barra de herramientas y selector de cantidad */}
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.06]">
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/[0.06]">
                             {/* Herramientas: Descuento, Precio, Notas, Papelera */}
-                            <div className="flex items-center gap-1 text-slate-400">
+                            <div className="flex items-center gap-0.5 text-slate-400">
                               <button
                                 type="button"
                                 onClick={() => setDiscountItem(item)}
-                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                className="p-1.5 hover:text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
                                 title="Aplicar descuento individual"
                               >
                                 <Tag className="w-3.5 h-3.5" />
@@ -1116,7 +1244,7 @@ export function PosScreenClient({
                               <button
                                 type="button"
                                 onClick={() => setEditPriceItem(item)}
-                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                className="p-1.5 hover:text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
                                 title="Editar precio de la línea"
                               >
                                 <DollarSign className="w-3.5 h-3.5" />
@@ -1129,7 +1257,7 @@ export function PosScreenClient({
                                     prev.map((ci) => (ci.id === item.id ? { ...ci, notes: newNote || undefined } : ci))
                                   );
                                 }}
-                                className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
+                                className="p-1.5 hover:text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
                                 title="Editar notas"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -1137,7 +1265,7 @@ export function PosScreenClient({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(item.id)}
-                                className="p-1 hover:text-rose-500 rounded transition cursor-pointer"
+                                className="p-1.5 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                                 title="Eliminar ítem"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1145,19 +1273,23 @@ export function PosScreenClient({
                             </div>
 
                             {/* Control de Cantidad - qty + */}
-                            <div className="flex items-center bg-white dark:bg-white/[0.08] rounded-lg border border-slate-200 dark:border-white/[0.1] p-0.5">
+                            <div className="flex items-center bg-slate-100 dark:bg-white/[0.05] rounded-xl border border-slate-200/80 dark:border-white/[0.08] p-0.5">
                               <button
                                 type="button"
                                 onClick={() => handleUpdateQuantity(item.id, -1)}
-                                className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                                className="w-6 h-6 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/[0.1] hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center cursor-pointer"
+                                title="Disminuir cantidad"
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
-                              <span className="w-5 text-center text-xs font-bold text-slate-900 dark:text-white">{item.quantity}</span>
+                              <span className="w-6 text-center text-xs font-black text-slate-900 dark:text-white font-mono">
+                                {item.quantity}
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => handleUpdateQuantity(item.id, 1)}
-                                className="p-0.5 text-slate-500 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+                                className="w-6 h-6 rounded-lg bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition shadow-xs flex items-center justify-center cursor-pointer"
+                                title="Aumentar cantidad"
                               >
                                 <Plus className="w-3 h-3" />
                               </button>
@@ -1171,10 +1303,10 @@ export function PosScreenClient({
                     <button
                       type="button"
                       onClick={() => setIsItemLibreModalOpen(true)}
-                      className="w-full py-2 border border-dashed border-slate-300 dark:border-white/[0.1] hover:border-[#ED500A] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-[#ED500A] transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-2.5 border border-dashed border-slate-300 dark:border-white/[0.1] hover:border-[#ED500A] hover:bg-[#ED500A]/[0.02] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-[#ED500A] transition flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>+ Ítem de texto libre</span>
+                      <span>Ítem de texto libre</span>
                     </button>
                   </>
                 )}
@@ -1266,57 +1398,69 @@ export function PosScreenClient({
 
                 {/* BLOQUE B: SERVICIO (PASO 1) */}
                 <div>
-                  <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-1.5">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-2">
                     1. Tipo de Servicio
                   </span>
-                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => setServiceType("TAKEOUT")}
-                      className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
+                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
                         serviceType === "TAKEOUT"
-                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
+                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Para llevar</span>
+                      <ShoppingBag className="w-5 h-5 shrink-0" />
+                      <div>
+                        <span className="block font-bold text-xs leading-none">Para llevar</span>
+                        <span className="text-[10px] opacity-70 leading-tight">Empacado</span>
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("DINE_IN")}
-                      className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
+                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
                         serviceType === "DINE_IN"
-                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
+                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <UtensilsCrossed className="w-4 h-4" />
-                      <span>Comer aquí</span>
+                      <UtensilsCrossed className="w-5 h-5 shrink-0" />
+                      <div>
+                        <span className="block font-bold text-xs leading-none">Comer aquí</span>
+                        <span className="text-[10px] opacity-70 leading-tight">En mesa</span>
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("PICKUP")}
-                      className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
+                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
                         serviceType === "PICKUP"
-                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
+                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <Receipt className="w-4 h-4" />
-                      <span>Para recoger</span>
+                      <Receipt className="w-5 h-5 shrink-0" />
+                      <div>
+                        <span className="block font-bold text-xs leading-none">Para recoger</span>
+                        <span className="text-[10px] opacity-70 leading-tight">Retiro en caja</span>
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("DELIVERY")}
-                      className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
+                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
                         serviceType === "DELIVERY"
-                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
+                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <Bike className="w-4 h-4" />
-                      <span>Domicilio</span>
+                      <Bike className="w-5 h-5 shrink-0" />
+                      <div>
+                        <span className="block font-bold text-xs leading-none">Domicilio</span>
+                        <span className="text-[10px] opacity-70 leading-tight">Envío con flete</span>
+                      </div>
                     </button>
                   </div>
 
@@ -1465,22 +1609,40 @@ export function PosScreenClient({
                       </div>
 
                       {paymentMethod === "cash" && (
-                        <div className="p-2.5 bg-slate-50 dark:bg-white/[0.03] rounded-xl border border-slate-200 dark:border-white/[0.08] text-xs space-y-1.5">
-                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                            Monto recibido:
-                          </label>
-                          <input
-                            type="number"
-                            placeholder={summary.total.toString()}
-                            value={receivedAmount}
-                            onChange={(e) => setReceivedAmount(e.target.value)}
-                            className="w-full h-9 px-2.5 text-sm font-bold font-mono rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
-                          />
+                        <div className="p-3 bg-slate-50/70 dark:bg-[#12161F]/60 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                              Monto recibido:
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setReceivedAmount(summary.total.toString())}
+                              className="text-[10px] font-bold text-[#ED500A] hover:underline cursor-pointer"
+                            >
+                              Pagar exacto ({formatCOP(summary.total)})
+                            </button>
+                          </div>
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-slate-400 font-bold font-mono text-sm">$</span>
+                            <input
+                              type="number"
+                              placeholder={summary.total.toString()}
+                              value={receivedAmount}
+                              onChange={(e) => setReceivedAmount(e.target.value)}
+                              className="w-full h-10 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0E121A] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/40 focus:border-[#ED500A]"
+                            />
+                          </div>
                           {receivedNum > 0 && (
-                            <div className="flex justify-between items-center text-xs font-bold pt-1">
-                              <span className="text-slate-500 dark:text-slate-400">Cambio / Devuelta:</span>
-                              <span className={changeAmount >= 0 ? "text-emerald-600 font-mono text-sm" : "text-rose-500"}>
-                                {formatCOP(changeAmount)}
+                            <div className="flex justify-between items-center p-2 rounded-xl bg-white dark:bg-[#0E121A] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
+                              </span>
+                              <span
+                                className={`font-mono text-sm ${
+                                  changeAmount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
+                                }`}
+                              >
+                                {formatCOP(Math.abs(changeAmount))}
                               </span>
                             </div>
                           )}
@@ -1559,10 +1721,20 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={handleConfirmAndPay}
-                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
+                  disabled={isSubmittingSale || cartItems.length === 0}
+                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>Confirmar y cobrar</span>
+                  {isSubmittingSale ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Procesando venta...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Confirmar y cobrar</span>
+                    </>
+                  )}
                 </button>
 
                 <div className="text-center">
@@ -1790,10 +1962,10 @@ export function PosScreenClient({
                   return (
                     <div
                       key={item.id}
-                      className="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.02] flex items-center justify-between gap-2.5"
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] flex items-center justify-between gap-2.5"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center">
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden shrink-0 flex items-center justify-center">
                           {itemImage ? (
                             <img
                               src={itemImage}
@@ -1810,26 +1982,28 @@ export function PosScreenClient({
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {item.productName}
                           </h4>
-                          <span className="text-[11px] text-[#ED500A] font-mono">
+                          <span className="text-xs font-black text-[#ED500A] font-mono">
                             {formatCOP(item.lineTotal)}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center bg-slate-100 dark:bg-white/[0.05] rounded-xl border border-slate-200/80 dark:border-white/[0.08] p-0.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(item.id, -1)}
-                          className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                          className="w-7 h-7 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-white/[0.1] hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center cursor-pointer"
+                          title="Disminuir cantidad"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="w-6 text-center text-xs font-bold text-slate-900 dark:text-white">
+                        <span className="w-6 text-center text-xs font-black text-slate-900 dark:text-white font-mono">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleUpdateQuantity(item.id, 1)}
-                          className="p-1 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                          className="w-7 h-7 rounded-lg bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition shadow-xs flex items-center justify-center cursor-pointer"
+                          title="Aumentar cantidad"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>

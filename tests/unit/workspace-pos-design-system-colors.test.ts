@@ -44,6 +44,14 @@ describe("[POS-DESIGN] Alineación de Colores y Superficies al Sistema de Diseñ
     expect(content).toContain("className=\"w-full h-full object-cover\"");
   });
 
+  it("pos-screen-client.tsx debe utilizar el mismo color que la tarjeta de producto en el ítem del carrito y no mostrar el símbolo de infinito (∞)", () => {
+    const content = fs.readFileSync(posClientPath, "utf-8");
+    // Mismo fondo que la tarjeta del catálogo:
+    expect(content).toContain("className=\"p-3 bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-2.5 transition-all\"");
+    // No debe tener el símbolo de infinito '∞' en el badge de stock
+    expect(content).not.toContain('"∞"');
+  });
+
   it("ningún componente POS debe utilizar alertas nativas", () => {
     const posContent = fs.readFileSync(posClientPath, "utf-8");
     const drawerContent = fs.readFileSync(ticketsDrawerPath, "utf-8");
