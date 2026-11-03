@@ -5,7 +5,9 @@ import { KeyRound, Eye, EyeOff, ShieldCheck, X, Loader2 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { isValidPinFormat } from "@/lib/security/pin-service";
+function isValidPinFormat(pin: string): boolean {
+  return /^\d{4,6}$/.test(pin?.trim() || "");
+}
 
 interface PinAssignModalProps {
   isOpen: boolean;

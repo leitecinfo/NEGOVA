@@ -145,7 +145,7 @@ export function PosOpenTicketsDrawer({
         {/* Cabecera */}
         <div className="p-4 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between bg-slate-50 dark:bg-white/[0.02]">
           <div>
-            <span className="text-xs uppercase font-bold tracking-wider text-primary">Tu operación</span>
+            <span className="text-xs uppercase font-bold tracking-wider text-[#ED500A]">Tu operación</span>
             <h2 id="tickets-drawer-title" className="text-lg font-bold text-slate-900 dark:text-white">
               Tickets Abiertos
             </h2>
@@ -161,17 +161,17 @@ export function PosOpenTicketsDrawer({
 
         {/* Métricas 2x2 */}
         <div className="p-4 grid grid-cols-2 gap-2 border-b border-slate-200 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.02]">
-          <div className="bg-white dark:bg-[#111420] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08]">
+          <div className="bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08]">
             <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tickets abiertos</span>
             <p className="text-lg font-bold text-slate-900 dark:text-white">{totalTickets}</p>
           </div>
-          <div className="bg-white dark:bg-[#111420] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08]">
+          <div className="bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08]">
             <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Valor de tickets</span>
             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
               ${totalValue.toLocaleString('es-CO')}
             </p>
           </div>
-          <div className="bg-white dark:bg-[#111420] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] flex items-center justify-between">
+          <div className="bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] flex items-center justify-between">
             <div>
               <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" /> Demorados (≥5m)
@@ -179,7 +179,7 @@ export function PosOpenTicketsDrawer({
               <p className="text-base font-bold text-slate-900 dark:text-white">{delayedTickets}</p>
             </div>
           </div>
-          <div className="bg-white dark:bg-[#111420] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] flex items-center justify-between">
+          <div className="bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] flex items-center justify-between">
             <div>
               <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1">
                 <Flame className="w-3 h-3" /> Críticos (≥15m)
@@ -196,7 +196,7 @@ export function PosOpenTicketsDrawer({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#111420] text-slate-800 dark:text-white"
+              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-800 dark:text-white"
             >
               <option value="TODOS">Todos los estados</option>
               <option value="PENDING">Pendientes</option>
@@ -209,7 +209,7 @@ export function PosOpenTicketsDrawer({
             <select
               value={filterService}
               onChange={(e) => setFilterService(e.target.value)}
-              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#111420] text-slate-800 dark:text-white"
+              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-800 dark:text-white"
             >
               <option value="TODOS">Todos</option>
               <option value="DINE_IN">Mesa</option>
@@ -225,7 +225,7 @@ export function PosOpenTicketsDrawer({
                 onClick={() => setSortBy('time')}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                   sortBy === 'time'
-                    ? 'bg-primary text-primary-foreground font-semibold'
+                    ? 'bg-[#ED500A] text-white font-semibold shadow-xs'
                     : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]'
                 }`}
               >
@@ -236,7 +236,7 @@ export function PosOpenTicketsDrawer({
                 onClick={() => setSortBy('total')}
                 className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
                   sortBy === 'total'
-                    ? 'bg-primary text-primary-foreground font-semibold'
+                    ? 'bg-[#ED500A] text-white font-semibold shadow-xs'
                     : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]'
                 }`}
               >
@@ -268,7 +268,7 @@ export function PosOpenTicketsDrawer({
                       ? 'border-rose-300 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20'
                       : isDelayed
                       ? 'border-amber-300 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20'
-                      : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#111420] hover:border-primary/50'
+                      : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] hover:border-[#ED500A]/50'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">

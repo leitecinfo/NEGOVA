@@ -9,7 +9,7 @@ import { AdminBreadcrumbs } from "./admin-breadcrumbs";
 import { AdminNotificationDropdown } from "./admin-notification-dropdown";
 import { AdminUserMenu } from "./admin-user-menu";
 import { AdminLiveClock } from "./admin-live-clock";
-import { AdminUserContext } from "@/lib/auth/admin-context";
+import type { AdminUserContext } from "@/lib/auth/admin-context";
 
 interface AdminTopbarProps {
   onOpenMobileSidebar: () => void;

@@ -22,7 +22,7 @@ import {
 import {
   getSampleTicketMock,
   getSampleKitchenCommandMock,
-} from "@/lib/printing/printing-service";
+} from "@/lib/printing/mock-templates";
 
 interface TicketLivePreviewProps {
   businessMaster: {

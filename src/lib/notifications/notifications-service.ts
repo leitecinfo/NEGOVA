@@ -10,7 +10,7 @@
  * 2. audience = "user" -> Visible únicamente para el usuario específico (`recipientUserId`).
  */
 
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside getAdminSupabaseClient to avoid next/headers leakage
 import {
   AppNotification,
   PlatformNotification,
@@ -41,6 +41,7 @@ async function getAdminSupabaseClient() {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
   }
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 

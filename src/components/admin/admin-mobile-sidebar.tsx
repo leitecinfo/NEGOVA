@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { X, ChevronDown } from "lucide-react";
 import { ADMIN_NAV_SECTIONS } from "@/config/admin-navigation";
-import { AdminUserContext } from "@/lib/auth/admin-context";
+import type { AdminUserContext } from "@/lib/auth/admin-context";
 
 interface AdminMobileSidebarProps {
   isOpen: boolean;

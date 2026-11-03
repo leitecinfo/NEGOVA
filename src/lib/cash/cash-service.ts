@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import { assertPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 import {
   CashRegister,
@@ -45,6 +44,7 @@ async function getDbClient() {
     });
   }
 
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 

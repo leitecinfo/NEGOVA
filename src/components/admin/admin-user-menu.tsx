@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { User, Settings, LogOut, ChevronDown, Shield, Sun, Moon } from "lucide-react";
-import { AdminUserContext } from "@/lib/auth/admin-context";
+import type { AdminUserContext } from "@/lib/auth/admin-context";
 import { useAppTheme } from "@/components/layout/app-theme-context";
 import { UserAvatar } from "@/components/ui/user-avatar";
 

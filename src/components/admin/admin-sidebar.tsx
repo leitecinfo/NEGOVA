@@ -10,7 +10,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { ADMIN_NAV_SECTIONS } from "@/config/admin-navigation";
-import { AdminUserContext } from "@/lib/auth/admin-context";
+import type { AdminUserContext } from "@/lib/auth/admin-context";
 
 interface AdminSidebarProps {
   isCollapsed: boolean;

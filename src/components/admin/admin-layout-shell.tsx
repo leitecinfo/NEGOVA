@@ -7,7 +7,7 @@ import { AdminLogoutModal } from "./admin-logout-modal";
 import { AdminNotificationDropdown } from "./admin-notification-dropdown";
 import { Search } from "lucide-react";
 import { ADMIN_NAV_SECTIONS } from "@/config/admin-navigation";
-import { AdminUserContext } from "@/lib/auth/admin-context";
+import type { AdminUserContext } from "@/lib/auth/admin-context";
 import { AppNavSection } from "@/components/layout/navigation-types";
 
 interface AdminLayoutShellProps {

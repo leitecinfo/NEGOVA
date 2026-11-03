@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside requireAdminSession to avoid next/headers leakage
 
 export interface AdminUserContext {
   id: string;
@@ -17,6 +17,7 @@ export interface AdminUserContext {
  * redirige automáticamente a la pantalla de login.
  */
 export async function requireAdminSession(): Promise<AdminUserContext> {
+  const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
 
   const {

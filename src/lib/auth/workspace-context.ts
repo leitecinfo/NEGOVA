@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside requireWorkspaceSession to avoid next/headers leakage
 import { hasPermission } from "./authorization";
 import { PlanId, PlanLimits, NEGOVA_PLANS } from "@/config/plans";
 import {
@@ -179,6 +179,7 @@ export interface BaseWorkspaceSession {
  */
 export const resolveWorkspaceSessionBase = cache(
   async (businessId: string): Promise<BaseWorkspaceSession> => {
+    const { createClient } = await import("@/lib/supabase/server");
     const supabase = await createClient();
     const {
       data: { user },
@@ -412,6 +413,7 @@ export async function verifyWorkspaceAction(
   try {
     let user;
     try {
+      const { createClient } = await import("@/lib/supabase/server");
       const supabase = await createClient();
       const {
         data: { user: authUser },

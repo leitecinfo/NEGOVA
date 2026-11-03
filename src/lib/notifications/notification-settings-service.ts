@@ -8,12 +8,15 @@
  * - Interpolación dinámica de variables y previsualización en tiempo real.
  */
 
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside server methods to avoid pulling next/headers into client bundles
 import {
   NotificationSettings,
   NotificationEventConfig,
   NotificationEventId,
 } from "./types";
+import { renderTemplatePreview } from "./template-preview";
+
+export { renderTemplatePreview };
 
 export const DEFAULT_NOTIFICATION_EVENTS: Record<NotificationEventId, NotificationEventConfig> = {
   qr_order_created: {
@@ -197,21 +200,6 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   updatedAt: new Date().toISOString(),
 };
 
-/**
- * Reemplaza variables en una plantilla usando un mapa de valores simulados o reales.
- */
-export function renderTemplatePreview(
-  template: string,
-  variables: Record<string, string>
-): string {
-  if (!template) return "";
-  let rendered = template;
-  for (const [key, val] of Object.entries(variables)) {
-    const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-    rendered = rendered.replace(regex, val);
-  }
-  return rendered;
-}
 
 /**
  * Obtiene el cliente Supabase para operaciones administrativas o de contexto.
@@ -226,6 +214,7 @@ async function getSupabaseClient() {
       auth: { autoRefreshToken: false, persistSession: false },
     });
   }
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 

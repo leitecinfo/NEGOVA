@@ -7,7 +7,7 @@
  * 3. Protección especial e inquebrantable para el rol `super_admin`.
  */
 
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside getAuthDbClient to avoid next/headers leakage
 import {
   DEFAULT_ROLE_PERMISSIONS_MAP,
   RoleScope,
@@ -41,6 +41,7 @@ async function getAuthDbClient() {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
   }
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 
@@ -48,6 +49,7 @@ async function getAuthDbClient() {
  * Obtener perfil de autorización completo del usuario autenticado
  */
 export async function getCurrentUserAuthorization(): Promise<UserAuthorizationProfile | null> {
+  const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   const {
     data: { user },

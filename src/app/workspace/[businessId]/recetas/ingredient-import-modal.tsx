@@ -34,7 +34,7 @@ import {
   ValidatedIngredientRow,
   ParsedIngredientResult,
   RawIngredientImportRow,
-} from "@/lib/recipes/ingredient-import-service";
+} from "@/lib/recipes/ingredient-import-parser";
 import {
   validateIngredientsImportAction,
   importIngredientsBatchAction,

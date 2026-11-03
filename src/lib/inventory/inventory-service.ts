@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside getDbClient to avoid next/headers leakage
 import {
   Location,
   InventoryStock,
@@ -40,6 +40,7 @@ export async function getDbClient() {
     });
   }
 
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 

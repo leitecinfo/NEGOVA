@@ -47,7 +47,7 @@ import { BusinessDocumentConfig } from "@/lib/documents/types";
 import {
   OperationalDeliveryDriver,
   calculateDeliverySettlements,
-} from "@/lib/delivery/delivery-service";
+} from "@/lib/delivery/settlement-calculator";
 import {
   DeliveryBusinessConfig,
   DeliverySettlementSummary,

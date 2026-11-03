@@ -1,5 +1,5 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside getSupabase to avoid next/headers leakage
 
 export type LimitedResource =
   | "products"
@@ -137,6 +137,7 @@ async function getSupabase() {
     });
   }
 
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 

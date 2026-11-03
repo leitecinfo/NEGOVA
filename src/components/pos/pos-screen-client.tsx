@@ -705,7 +705,7 @@ export function PosScreenClient({
                 placeholder="Buscar producto, SKU o código..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               {search && (
                 <button
@@ -750,7 +750,7 @@ export function PosScreenClient({
                 className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.1] border border-slate-200/60 dark:border-white/[0.06] transition cursor-pointer"
                 title="Ver tickets abiertos en operación"
               >
-                <Receipt className="w-3.5 h-3.5 text-primary" />
+                <Receipt className="w-3.5 h-3.5 text-[#ED500A]" />
                 <span className="hidden sm:inline">Tickets</span>
               </button>
 
@@ -758,7 +758,7 @@ export function PosScreenClient({
               <button
                 type="button"
                 onClick={() => setIsBarcodeModalOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold rounded-xl bg-orange-50 text-primary dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800/40 hover:bg-orange-100 transition cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold rounded-xl bg-orange-50 text-[#ED500A] dark:bg-[#ED500A]/10 border border-orange-200 dark:border-[#ED500A]/20 hover:bg-orange-100 dark:hover:bg-[#ED500A]/20 transition cursor-pointer"
                 title="Escanear código de barras"
               >
                 <Barcode className="w-4 h-4" />
@@ -770,7 +770,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("large")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "large" ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "large" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Cuadrícula Grande"
                 >
                   <LayoutGrid className="w-4 h-4" />
@@ -778,7 +778,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("medium")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "medium" ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "medium" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Cuadrícula Mediana"
                 >
                   <Grid className="w-4 h-4" />
@@ -786,7 +786,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("compact")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "compact" ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "compact" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Compacta"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
@@ -794,7 +794,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("list")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "list" ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "list" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Lista"
                 >
                   <Rows className="w-4 h-4" />
@@ -810,7 +810,7 @@ export function PosScreenClient({
               onClick={() => setSelectedCategory("all")}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 selectedCategory === "all"
-                  ? "bg-primary text-white shadow-xs"
+                  ? "bg-[#ED500A] text-white shadow-xs shadow-[#ED500A]/20"
                   : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/[0.06]"
               }`}
             >
@@ -827,7 +827,7 @@ export function PosScreenClient({
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                     isSelected
-                      ? "bg-primary text-white shadow-xs"
+                      ? "bg-[#ED500A] text-white shadow-xs shadow-[#ED500A]/20"
                       : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/[0.06]"
                   }`}
                 >
@@ -843,10 +843,10 @@ export function PosScreenClient({
               {/* TARJETA DE ÍTEM LIBRE / PERSONALIZADO [POS-006] */}
               <div
                 onClick={() => setIsItemLibreModalOpen(true)}
-                className="group relative flex flex-col justify-between p-3.5 bg-slate-50/60 dark:bg-white/[0.02] hover:bg-primary/[0.04] dark:hover:bg-primary/[0.08] border-2 border-dashed border-slate-300 dark:border-white/[0.1] hover:border-primary rounded-2xl transition-all cursor-pointer text-center min-h-[170px]"
+                className="group relative flex flex-col justify-between p-3.5 bg-slate-50/60 dark:bg-white/[0.02] hover:bg-[#ED500A]/[0.04] dark:hover:bg-[#ED500A]/[0.08] border-2 border-dashed border-slate-300 dark:border-white/[0.1] hover:border-[#ED500A] rounded-2xl transition-all cursor-pointer text-center min-h-[170px]"
               >
                 <div className="flex flex-col items-center justify-center pt-2">
-                  <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <div className="w-11 h-11 rounded-full bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                     <FileText className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -855,14 +855,14 @@ export function PosScreenClient({
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                     Texto libre
                   </h4>
-                  <span className="text-xs text-primary font-bold">Precio libre</span>
+                  <span className="text-xs text-[#ED500A] font-bold">Precio libre</span>
                 </div>
 
                 <div className="flex justify-center pt-2">
                   <button
                     type="button"
                     aria-label="Añadir ítem libre"
-                    className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform"
+                    className="w-8 h-8 rounded-full bg-[#ED500A] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -890,7 +890,7 @@ export function PosScreenClient({
                     <div
                       key={prod.id}
                       onClick={() => handleProductClick(prod)}
-                      className="flex items-center justify-between p-2.5 bg-white dark:bg-[#111420] border border-slate-200/80 dark:border-white/[0.08] rounded-xl hover:border-primary/50 transition cursor-pointer"
+                      className="flex items-center justify-between p-2.5 bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl hover:border-[#ED500A]/50 hover:bg-slate-50/50 dark:hover:bg-white/[0.05] transition cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-white/[0.03] overflow-hidden shrink-0 flex items-center justify-center">
@@ -902,16 +902,16 @@ export function PosScreenClient({
                         </div>
                         <div>
                           <span className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500 block">{catName}</span>
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">{prod.name}</h4>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">{prod.name}</h4>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-primary font-mono">
+                        <span className="text-xs font-bold text-[#ED500A] font-mono">
                           {hasVariants && minVariantPrice !== null ? formatCOP(minVariantPrice) : formatCOP(prod.price)}
                         </span>
                         <button
                           type="button"
-                          className="w-7 h-7 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white flex items-center justify-center transition"
+                          className="w-7 h-7 rounded-full bg-[#ED500A]/10 text-[#ED500A] hover:bg-[#ED500A] hover:text-white flex items-center justify-center transition cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -924,7 +924,7 @@ export function PosScreenClient({
                   <div
                     key={prod.id}
                     onClick={() => handleProductClick(prod)}
-                    className="group relative flex flex-col justify-between bg-white dark:bg-[#111420] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-primary/50 hover:shadow-md transition cursor-pointer"
+                    className="group relative flex flex-col justify-between bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-[#ED500A]/50 hover:shadow-lg hover:shadow-[#ED500A]/5 transition cursor-pointer"
                   >
                     {/* Imagen / Badge de Stock */}
                     <div className="relative w-full aspect-[4/3] bg-slate-100 dark:bg-white/[0.03] overflow-hidden flex items-center justify-center">
@@ -950,19 +950,19 @@ export function PosScreenClient({
                         <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider block truncate">
                           {catName}
                         </span>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-[#ED500A] transition-colors">
                           {prod.name}
                         </h4>
                       </div>
 
                       <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-100 dark:border-white/[0.06]">
-                        <span className="text-xs sm:text-sm font-black text-primary font-mono">
+                        <span className="text-xs sm:text-sm font-black text-[#ED500A] font-mono">
                           {hasVariants && minVariantPrice !== null ? formatCOP(minVariantPrice) : formatCOP(prod.price)}
                         </span>
                         <button
                           type="button"
                           aria-label={`Añadir ${prod.name}`}
-                          className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white flex items-center justify-center transition shadow-xs"
+                          className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl bg-[#ED500A]/10 text-[#ED500A] group-hover:bg-[#ED500A] group-hover:text-white flex items-center justify-center transition shadow-xs cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -1035,7 +1035,7 @@ export function PosScreenClient({
                     <button
                       type="button"
                       onClick={() => setIsItemLibreModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-primary text-primary text-xs font-bold hover:bg-primary/5 transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#ED500A] text-[#ED500A] text-xs font-bold hover:bg-[#ED500A]/5 transition cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Ítem de texto libre</span>
@@ -1083,7 +1083,7 @@ export function PosScreenClient({
                             <button
                               type="button"
                               onClick={() => setDiscountItem(item)}
-                              className="p-1 hover:text-primary rounded transition"
+                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
                               title="Aplicar descuento individual"
                             >
                               <Tag className="w-3.5 h-3.5" />
@@ -1091,7 +1091,7 @@ export function PosScreenClient({
                             <button
                               type="button"
                               onClick={() => setEditPriceItem(item)}
-                              className="p-1 hover:text-primary rounded transition"
+                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
                               title="Editar precio de la línea"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
@@ -1104,7 +1104,7 @@ export function PosScreenClient({
                                   prev.map((ci) => (ci.id === item.id ? { ...ci, notes: newNote || undefined } : ci))
                                 );
                               }}
-                              className="p-1 hover:text-primary rounded transition"
+                              className="p-1 hover:text-[#ED500A] rounded transition cursor-pointer"
                               title="Editar notas"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -1145,7 +1145,7 @@ export function PosScreenClient({
                     <button
                       type="button"
                       onClick={() => setIsItemLibreModalOpen(true)}
-                      className="w-full py-2 border border-dashed border-slate-300 dark:border-white/[0.1] hover:border-primary rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-primary transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-2 border border-dashed border-slate-300 dark:border-white/[0.1] hover:border-[#ED500A] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-[#ED500A] transition flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Ítem de texto libre</span>
@@ -1167,7 +1167,7 @@ export function PosScreenClient({
                   type="button"
                   disabled={cartItems.length === 0}
                   onClick={() => setIsCheckoutStepActive(true)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-md shadow-primary/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
                   <span>Completar compra</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1182,12 +1182,12 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setIsCheckoutStepActive(false)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#ED500A] transition cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Volver al pedido</span>
                 </button>
-                <span className="text-xs font-bold text-primary">Flujo de Cobro</span>
+                <span className="text-xs font-bold text-[#ED500A]">Flujo de Cobro</span>
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-3.5">
@@ -1232,7 +1232,7 @@ export function PosScreenClient({
                       )}
                       <div className="flex justify-between font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200/80 dark:border-white/[0.08]">
                         <span>Total neto</span>
-                        <span className="font-mono text-primary font-black">{formatCOP(summary.total)}</span>
+                        <span className="font-mono text-[#ED500A] font-black">{formatCOP(summary.total)}</span>
                       </div>
                     </div>
                   )}
@@ -1249,8 +1249,8 @@ export function PosScreenClient({
                       onClick={() => setServiceType("TAKEOUT")}
                       className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
                         serviceType === "TAKEOUT"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
+                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <ShoppingBag className="w-4 h-4" />
@@ -1261,8 +1261,8 @@ export function PosScreenClient({
                       onClick={() => setServiceType("DINE_IN")}
                       className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
                         serviceType === "DINE_IN"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
+                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <UtensilsCrossed className="w-4 h-4" />
@@ -1273,8 +1273,8 @@ export function PosScreenClient({
                       onClick={() => setServiceType("PICKUP")}
                       className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
                         serviceType === "PICKUP"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
+                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <Receipt className="w-4 h-4" />
@@ -1285,8 +1285,8 @@ export function PosScreenClient({
                       onClick={() => setServiceType("DELIVERY")}
                       className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold transition cursor-pointer ${
                         serviceType === "DELIVERY"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A]"
+                          : "border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <Bike className="w-4 h-4" />
@@ -1380,7 +1380,7 @@ export function PosScreenClient({
                         type="button"
                         onClick={() => setIsCredit(false)}
                         className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                          !isCredit ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-500 dark:text-slate-400"
+                          !isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         Contado
@@ -1389,7 +1389,7 @@ export function PosScreenClient({
                         type="button"
                         onClick={() => setIsCredit(true)}
                         className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                          isCredit ? "bg-white dark:bg-white/[0.1] text-primary shadow-xs" : "text-slate-500 dark:text-slate-400"
+                          isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         Crédito
@@ -1484,7 +1484,7 @@ export function PosScreenClient({
                         }}
                         className={`py-1.5 rounded-lg border font-bold transition cursor-pointer ${
                           tipPercentage === pct && customTip === 0
-                            ? "bg-primary text-white border-primary"
+                            ? "bg-[#ED500A] text-white border-[#ED500A]"
                             : "bg-white dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
                         }`}
                       >
@@ -1527,13 +1527,13 @@ export function PosScreenClient({
               <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/80 dark:bg-white/[0.02] space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total a cobrar:</span>
-                  <span className="text-lg font-black text-primary font-mono">{formatCOP(summary.total)}</span>
+                  <span className="text-lg font-black text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleConfirmAndPay}
-                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
                 >
                   <Check className="w-4 h-4" />
                   <span>Confirmar y cobrar</span>
@@ -1709,9 +1709,9 @@ export function PosScreenClient({
               onClick={() => setIsMobileCartOpen(true)}
               className="flex items-center gap-2.5 text-left min-w-0 flex-1 hover:opacity-90 active:scale-[0.99] transition-transform min-h-[48px]"
             >
-              <div className="relative w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div className="relative w-11 h-11 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">
                 <ShoppingBag className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-black flex items-center justify-center shadow-xs">
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#ED500A] text-white text-[11px] font-black flex items-center justify-center shadow-xs">
                   {summary.itemsCount}
                 </span>
               </div>
@@ -1728,7 +1728,7 @@ export function PosScreenClient({
             <button
               type="button"
               onClick={() => setIsMobileCartOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/25 shrink-0 active:scale-[0.98] transition-transform min-h-[44px]"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-xs bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-lg shadow-[#ED500A]/25 shrink-0 active:scale-[0.98] transition-transform min-h-[44px] cursor-pointer"
             >
               <span>Ver Venta</span>
               <ArrowRight className="w-4 h-4" />
@@ -1760,7 +1760,7 @@ export function PosScreenClient({
                   <div key={item.id} className="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.02] flex items-center justify-between">
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white">{item.productName}</h4>
-                      <span className="text-[11px] text-primary font-mono">{formatCOP(item.lineTotal)}</span>
+                      <span className="text-[11px] text-[#ED500A] font-mono">{formatCOP(item.lineTotal)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -1786,7 +1786,7 @@ export function PosScreenClient({
               <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] space-y-2 bg-slate-50/70 dark:bg-white/[0.02]">
                 <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white">
                   <span>Total:</span>
-                  <span className="text-primary font-mono">{formatCOP(summary.total)}</span>
+                  <span className="text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
                 <button
                   type="button"
@@ -1794,7 +1794,7 @@ export function PosScreenClient({
                     setIsMobileCartOpen(false);
                     setIsCheckoutStepActive(true);
                   }}
-                  className="w-full py-3 rounded-xl bg-primary text-white font-bold text-xs min-h-[48px] cursor-pointer shadow-xs"
+                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-xs min-h-[48px] cursor-pointer shadow-lg shadow-[#ED500A]/25 transition active:scale-[0.99]"
                 >
                   Continuar Cobro
                 </button>

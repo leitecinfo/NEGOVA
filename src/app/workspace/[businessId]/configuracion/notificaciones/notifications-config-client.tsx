@@ -39,7 +39,7 @@ import {
   NotificationEventCategory,
   NOTIFICATION_AVAILABLE_ROLES,
 } from "@/lib/notifications/types";
-import { renderTemplatePreview } from "@/lib/notifications/notification-settings-service";
+import { renderTemplatePreview } from "@/lib/notifications/template-preview";
 import {
   updateNotificationEventAction,
   saveAllNotificationSettingsAction,

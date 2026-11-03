@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient } from "../supabase/server";
+// Dynamic import of createClient inside getDbClient to avoid next/headers leakage
 import { logAuditAction } from "@/lib/audit/audit-service";
 import {
   RestaurantRoom,
@@ -82,6 +82,7 @@ export async function getDbClient() {
     });
   }
 
+  const { createClient } = await import("../supabase/server");
   return await createClient();
 }
 

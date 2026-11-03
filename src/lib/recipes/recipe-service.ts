@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+// Dynamic import of createClient inside getDbClient to avoid next/headers leakage
 import { assertPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 import {
   Ingredient,
@@ -39,6 +39,7 @@ export async function getDbClient() {
     });
   }
 
+  const { createClient } = await import("@/lib/supabase/server");
   return await createClient();
 }
 
