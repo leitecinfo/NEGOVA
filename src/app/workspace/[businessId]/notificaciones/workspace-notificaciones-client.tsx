@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,10 @@ import {
   Tag,
   Sparkles,
   X,
+  UtensilsCrossed,
+  Trash2,
+  ChefHat,
+  ShoppingBag,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { toast } from "sonner";
@@ -31,6 +35,7 @@ import {
   getWorkspaceNotificationsAction,
   markWorkspaceNotificationAsReadAction,
   markAllWorkspaceNotificationsAsReadAction,
+  deleteWorkspaceNotificationAction,
 } from "./actions";
 
 interface WorkspaceNotificacionesClientProps {
@@ -40,7 +45,7 @@ interface WorkspaceNotificacionesClientProps {
   initialError?: string | null;
 }
 
-type FilterTab = "all" | "unread" | "documents" | "support" | "system";
+type FilterTab = "all" | "unread" | "orders" | "documents" | "support" | "system";
 
 function formatFullDate(isoString: string): string {
   try {
@@ -86,6 +91,23 @@ export function WorkspaceNotificacionesClient({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [selectedNotif, setSelectedNotif] = useState<AppNotification | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Escuchar nuevos pedidos en tiempo real para refrescar la lista instantáneamente
+  useEffect(() => {
+    const handleNewOrder = () => {
+      getWorkspaceNotificationsAction(businessId, { limit: 50 }).then((res) => {
+        if (res.success && res.data) {
+          setNotifications(res.data);
+        }
+      });
+    };
+    window.addEventListener("negova:new_order", handleNewOrder);
+    return () => {
+      window.removeEventListener("negova:new_order", handleNewOrder);
+    };
+  }, [businessId]);
 
   // Recargar datos
   const handleRefresh = async () => {
@@ -139,11 +161,35 @@ export function WorkspaceNotificacionesClient({
     }
   };
 
+  // Eliminar notificación
+  const handleDeleteNotification = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsDeleting(true);
+    try {
+      const res = await deleteWorkspaceNotificationAction(businessId, id);
+      if (res.success) {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+        if (selectedNotif?.id === id) {
+          setSelectedNotif(null);
+        }
+        setDeleteConfirmId(null);
+        toast.success("Notificación eliminada correctamente");
+      } else {
+        toast.error(res.error || "No se pudo eliminar la notificación.");
+      }
+    } catch {
+      toast.error("Error al procesar la eliminación.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Contadores
   const counts = useMemo(() => {
     return {
       all: notifications.length,
       unread: notifications.filter((n) => !n.isRead && !n.read).length,
+      orders: notifications.filter((n) => n.type === "restaurant_order").length,
       documents: notifications.filter((n) => n.type === "document_generated").length,
       support: notifications.filter((n) =>
         [
@@ -165,6 +211,7 @@ export function WorkspaceNotificacionesClient({
     return notifications.filter((notif) => {
       const isUnread = !notif.isRead && !notif.read;
       if (activeTab === "unread" && !isUnread) return false;
+      if (activeTab === "orders" && notif.type !== "restaurant_order") return false;
       if (activeTab === "documents" && notif.type !== "document_generated") return false;
       if (
         activeTab === "support" &&
@@ -201,7 +248,7 @@ export function WorkspaceNotificacionesClient({
   return (
     <div className="space-y-6">
       {/* 1. Tarjetas de Resumen Rápido */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-orange-500/10 text-[#ED500A]">
             <Bell className="w-5 h-5" />
@@ -212,6 +259,20 @@ export function WorkspaceNotificacionesClient({
             </p>
             <p className="text-lg sm:text-xl font-bold font-title text-slate-900 dark:text-white">
               {counts.unread}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-orange-500/10 text-[#ED500A]">
+            <UtensilsCrossed className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              Pedidos
+            </p>
+            <p className="text-lg sm:text-xl font-bold font-title text-slate-900 dark:text-white">
+              {counts.orders}
             </p>
           </div>
         </div>
@@ -244,7 +305,7 @@ export function WorkspaceNotificacionesClient({
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex items-center gap-3">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex items-center gap-3 col-span-2 sm:col-span-1">
           <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500">
             <Sparkles className="w-5 h-5" />
           </div>
@@ -296,6 +357,18 @@ export function WorkspaceNotificacionesClient({
                 {counts.unread}
               </span>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("orders")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+              activeTab === "orders"
+                ? "bg-[#ED500A] text-white shadow-xs"
+                : "bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+            }`}
+          >
+            Pedidos ({counts.orders})
           </button>
 
           <button
@@ -379,6 +452,7 @@ export function WorkspaceNotificacionesClient({
         {filteredNotifications.length > 0 ? (
           filteredNotifications.map((notif) => {
             const isUnread = !notif.isRead && !notif.read;
+            const isOrder = notif.type === "restaurant_order";
             const isSupport = [
               "support_interaction",
               "support_ticket",
@@ -405,7 +479,9 @@ export function WorkspaceNotificacionesClient({
                     {/* Icono distintivo */}
                     <div
                       className={`p-2.5 rounded-xl shrink-0 mt-0.5 ${
-                        isSupport
+                        isOrder
+                          ? "bg-orange-500/10 text-[#ED500A]"
+                          : isSupport
                           ? "bg-orange-500/10 text-[#ED500A]"
                           : isDoc
                           ? "bg-emerald-500/10 text-emerald-500 dark:text-emerald-400"
@@ -416,11 +492,12 @@ export function WorkspaceNotificacionesClient({
                           : "bg-indigo-500/10 text-indigo-500 dark:text-indigo-400"
                       }`}
                     >
-                      {isSupport && <Headphones className="w-5 h-5" />}
-                      {isDoc && <Receipt className="w-5 h-5" />}
-                      {isSecurity && <ShieldAlert className="w-5 h-5" />}
-                      {isBilling && <CreditCard className="w-5 h-5" />}
-                      {!isSupport && !isDoc && !isSecurity && !isBilling && (
+                      {isOrder && <UtensilsCrossed className="w-5 h-5" />}
+                      {!isOrder && isSupport && <Headphones className="w-5 h-5" />}
+                      {!isOrder && isDoc && <Receipt className="w-5 h-5" />}
+                      {!isOrder && isSecurity && <ShieldAlert className="w-5 h-5" />}
+                      {!isOrder && isBilling && <CreditCard className="w-5 h-5" />}
+                      {!isOrder && !isSupport && !isDoc && !isSecurity && !isBilling && (
                         <Info className="w-5 h-5" />
                       )}
                     </div>
@@ -430,7 +507,9 @@ export function WorkspaceNotificacionesClient({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                            isSupport
+                            isOrder
+                              ? "bg-orange-50 dark:bg-orange-500/10 text-[#ED500A]"
+                              : isSupport
                               ? "bg-orange-50 dark:bg-orange-500/10 text-[#ED500A]"
                               : isDoc
                               ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
@@ -441,7 +520,9 @@ export function WorkspaceNotificacionesClient({
                               : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400"
                           }`}
                         >
-                          {isSupport
+                          {isOrder
+                            ? "Pedido"
+                            : isSupport
                             ? "Soporte"
                             : isDoc
                             ? "Comprobante"
@@ -470,6 +551,23 @@ export function WorkspaceNotificacionesClient({
                       {/* Metadatos y Badges dinámicos */}
                       {notif.metadata && Object.keys(notif.metadata).length > 0 && (
                         <div className="flex items-center gap-2 pt-1 flex-wrap text-xs">
+                          {notif.metadata.orderType && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-50 dark:bg-orange-500/10 text-[#ED500A] text-[11px] font-semibold">
+                              <UtensilsCrossed className="w-3 h-3" />
+                              {notif.metadata.orderType === "dine_in"
+                                ? "Mesa"
+                                : notif.metadata.orderType === "takeout"
+                                ? "Para llevar"
+                                : "A domicilio"}
+                            </span>
+                          )}
+
+                          {notif.metadata.customerName && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 text-[11px]">
+                              {notif.metadata.customerName}
+                            </span>
+                          )}
+
                           {notif.metadata.documentNumber && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 text-[11px] font-mono">
                               <Receipt className="w-3 h-3 text-[#ED500A]" />
@@ -483,7 +581,7 @@ export function WorkspaceNotificacionesClient({
                             </span>
                           )}
 
-                          {notif.entityNumber && !notif.metadata.documentNumber && (
+                          {notif.entityNumber && !notif.metadata.documentNumber && !notif.metadata.orderType && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 text-[11px] font-mono">
                               <Tag className="w-3 h-3 text-[#ED500A]" />
                               {notif.entityNumber}
@@ -515,16 +613,31 @@ export function WorkspaceNotificacionesClient({
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
 
-                    {isUnread && (
+                    <div className="flex items-center gap-1">
+                      {isUnread && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleMarkAsRead(notif.id, e)}
+                          className="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Marcar leída</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        onClick={(e) => handleMarkAsRead(notif.id, e)}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors flex items-center gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(notif.id);
+                        }}
+                        aria-label="Eliminar notificación"
+                        title="Eliminar notificación"
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                       >
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Marcar leída</span>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -638,33 +751,107 @@ export function WorkspaceNotificacionesClient({
                   )}
               </div>
 
-              <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
                 <button
                   type="button"
-                  onClick={() => setSelectedNotif(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
+                  onClick={() => {
+                    const idToDelete = selectedNotif.id;
+                    setSelectedNotif(null);
+                    setDeleteConfirmId(idToDelete);
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors flex items-center gap-1"
                 >
-                  Cerrar
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar</span>
                 </button>
 
-                {(() => {
-                  const sanitizedLink = sanitizeWorkspaceNotificationLink(
-                    selectedNotif.href || selectedNotif.link,
-                    businessId
-                  );
-                  if (!sanitizedLink) return null;
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNotif(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
+                  >
+                    Cerrar
+                  </button>
 
-                  return (
+                  {/* Si es pedido, botón directo a Cocina / KDS */}
+                  {selectedNotif.type === "restaurant_order" && (
                     <Link
-                      href={sanitizedLink}
+                      href={`/workspace/${businessId}/pedidos`}
                       onClick={() => setSelectedNotif(null)}
-                      className="px-4 py-2 rounded-xl bg-[#ED500A] text-white text-xs font-semibold hover:bg-[#ab3500] transition-colors shadow-xs flex items-center gap-1.5"
+                      className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.1] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-colors flex items-center gap-1.5"
                     >
-                      <span>Ir a la página</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
+                      <ChefHat className="w-3.5 h-3.5 text-[#ED500A]" />
+                      <span>Ver en Cocina (KDS)</span>
                     </Link>
-                  );
-                })()}
+                  )}
+
+                  {(() => {
+                    const sanitizedLink = sanitizeWorkspaceNotificationLink(
+                      selectedNotif.href || selectedNotif.link,
+                      businessId
+                    );
+                    if (!sanitizedLink) return null;
+
+                    return (
+                      <Link
+                        href={sanitizedLink}
+                        onClick={() => setSelectedNotif(null)}
+                        className="px-4 py-2 rounded-xl bg-[#ED500A] text-white text-xs font-semibold hover:bg-[#ab3500] transition-colors shadow-xs flex items-center gap-1.5"
+                      >
+                        <span>{selectedNotif.type === "restaurant_order" ? "Abrir Pedido" : "Ir a la página"}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Link>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* DIÁLOGO DE CONFIRMACIÓN DE ELIMINACIÓN CON MODAL PORTAL (CUMPLE REGLA SIN ALERTS NATIVAS) */}
+      {deleteConfirmId && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-sm bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white font-title">
+                    Eliminar Notificación
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Esta acción es irreversible
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6 font-body">
+                ¿Estás seguro de que deseas eliminar esta notificación del historial de tu negocio?
+              </p>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmId(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteNotification(deleteConfirmId)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5"
+                >
+                  {isDeleting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isDeleting ? "Eliminando..." : "Eliminar"}</span>
+                </button>
               </div>
             </div>
           </div>

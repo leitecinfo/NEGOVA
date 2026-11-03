@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { AdminButton } from "@/components/admin/ui/admin-button";
+import { Button } from "./button";
 import {
   ZoomIn,
   ZoomOut,
@@ -465,22 +465,22 @@ export function ImageCropperModal({
 
           {/* Footer de Acciones */}
           <div className="p-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5 bg-white dark:bg-[#0D0F16]">
-            <AdminButton
+            <Button
               variant="outline"
               size="sm"
               onClick={onClose}
               disabled={isProcessing}
             >
               Cancelar
-            </AdminButton>
-            <AdminButton
+            </Button>
+            <Button
               size="sm"
               leftIcon={<Check className="w-4 h-4" />}
               onClick={handleCrop}
               isLoading={isProcessing}
             >
               Aplicar y guardar
-            </AdminButton>
+            </Button>
           </div>
         </div>
       </div>

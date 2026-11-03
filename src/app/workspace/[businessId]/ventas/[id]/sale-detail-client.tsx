@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Receipt,
   Download,
-  Mail,
+  MessageCircle,
   Ban,
   ChevronRight,
   ArrowLeft,
@@ -21,7 +21,12 @@ import {
   X,
   Info,
   Printer,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ExternalLink,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { BusinessSaleDocument, BusinessDocumentConfig } from "@/lib/documents/types";
 import { downloadSalePdfAction, cancelSaleAction } from "../actions";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -33,6 +38,7 @@ interface SaleDetailClientProps {
   tradeName: string;
   businessTimezone: string;
   canCancelSale: boolean;
+  requiresPin?: boolean;
   initialDocument: BusinessSaleDocument;
   config: BusinessDocumentConfig;
 }
@@ -43,6 +49,7 @@ export function SaleDetailClient({
   tradeName,
   businessTimezone,
   canCancelSale,
+  requiresPin = true,
   initialDocument,
   config,
 }: SaleDetailClientProps) {
@@ -50,13 +57,92 @@ export function SaleDetailClient({
 
   // Estados de acciones
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [whatsappPhone, setWhatsappPhone] = useState(initialDocument.customerPhone || "");
+  const [consultationUrl, setConsultationUrl] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelPin, setCancelPin] = useState("");
+  const [showCancelPin, setShowCancelPin] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setConsultationUrl(`${window.location.origin}/workspace/${businessId}/ventas/${doc.id}`);
+    }
+  }, [businessId, doc.id]);
+
+  const handleOpenWhatsappModal = () => {
+    setWhatsappPhone(doc.customerPhone || "");
+    setShowWhatsappModal(true);
+  };
+
+  const buildStructuredWhatsappMessage = (
+    businessTradeName: string,
+    targetDoc: BusinessSaleDocument,
+    linkUrl: string
+  ) => {
+    const paymentLabel = getPaymentBadge(targetDoc.paymentMethod).label;
+    const itemsLines = targetDoc.items && targetDoc.items.length > 0
+      ? targetDoc.items.map((it) => `• ${it.quantity}x ${it.description} (${formatCOP(it.total)})`).join("\n")
+      : "";
+
+    return [
+      `¡Hola! Te compartimos el comprobante de tu compra en *${businessTradeName}*:`,
+      ``,
+      `📄 *Comprobante:* ${targetDoc.documentNumber}`,
+      `📅 *Fecha:* ${formatDate(targetDoc.issuedAt)}`,
+      `👤 *Cliente:* ${targetDoc.customerName || "Consumidor Final"}`,
+      itemsLines ? `\n🛍️ *Detalle de compra:*\n${itemsLines}\n` : "",
+      `💳 *Método de pago:* ${paymentLabel}`,
+      `💰 *Total:* ${formatCOP(targetDoc.total)}`,
+      linkUrl ? `🔗 *Enlace de consulta:* ${linkUrl}` : "",
+      ``,
+      `¡Muchas gracias por tu compra!`,
+    ].filter((line) => line !== undefined && line !== null).join("\n");
+  };
+
+  const handleSendWhatsapp = () => {
+    const cleanDigits = whatsappPhone.replace(/\D/g, "");
+
+    if (whatsappPhone.trim().length > 0 && cleanDigits.length < 7) {
+      toast.error("Por favor ingresa un número de teléfono válido (mínimo 7 dígitos).");
+      return;
+    }
+
+    let targetNumber = cleanDigits;
+    if (targetNumber.length === 10 && targetNumber.startsWith("3")) {
+      targetNumber = `57${targetNumber}`;
+    }
+
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const activeConsultationLink =
+      consultationUrl || (currentOrigin ? `${currentOrigin}/workspace/${businessId}/ventas/${doc.id}` : "");
+
+    const msg = buildStructuredWhatsappMessage(
+      tradeName || businessName,
+      doc,
+      activeConsultationLink
+    );
+
+    const encodedMsg = encodeURIComponent(msg);
+    const waUrl = targetNumber
+      ? `https://wa.me/${targetNumber}?text=${encodedMsg}`
+      : `https://wa.me/?text=${encodedMsg}`;
+
+    if (typeof window !== "undefined") {
+      const waWin = window.open(waUrl, "_blank", "noopener,noreferrer");
+      if (waWin) {
+        waWin.opener = null;
+      }
+    }
+
+    setShowWhatsappModal(false);
+    toast.success("Abriendo WhatsApp con el comprobante...");
+  };
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -96,7 +182,7 @@ export function SaleDetailClient({
         };
       case "cancelled":
         return {
-          label: "Cancelado",
+          label: "Cancelada",
           color: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
         };
       case "refunded":
@@ -170,10 +256,20 @@ export function SaleDetailClient({
     }
   };
 
-  // Confirmar cancelación comercial
+  // Confirmar cancelación comercial con PIN de autorización [EMP-002 / POS-005]
   const handleConfirmCancel = async () => {
     if (!cancelReason.trim() || cancelReason.trim().length < 3) {
       setActionError("Debe ingresar un motivo de anulación válido (mínimo 3 caracteres).");
+      return;
+    }
+
+    if (requiresPin && (!cancelPin.trim() || cancelPin.trim().length < 4 || cancelPin.trim().length > 6)) {
+      setActionError("Debe ingresar el PIN de autorización numérico (4 a 6 dígitos).");
+      return;
+    }
+
+    if (!requiresPin && cancelPin.trim().length > 0 && (cancelPin.trim().length < 4 || cancelPin.trim().length > 6)) {
+      setActionError("El PIN de autorización debe tener entre 4 y 6 dígitos numéricos.");
       return;
     }
 
@@ -181,9 +277,15 @@ export function SaleDetailClient({
     setIsCancelling(true);
 
     try {
-      const res = await cancelSaleAction(businessId, doc.id, cancelReason.trim());
+      const res = await cancelSaleAction(
+        businessId,
+        doc.id,
+        cancelReason.trim(),
+        cancelPin.trim()
+      );
       if (!res.success) {
         setActionError(res.error || "No se pudo anular el documento.");
+        toast.error(res.error || "Error al anular la venta.");
         setIsCancelling(false);
         return;
       }
@@ -199,10 +301,16 @@ export function SaleDetailClient({
 
       setShowCancelModal(false);
       setCancelReason("");
-      setActionSuccess("Documento comercial anulado con éxito. El estado se ha actualizado a Cancelado.");
+      setCancelPin("");
+      const successMsg = res.authorizerName
+        ? `Venta anulada con éxito. Autorizado por: ${res.authorizerName}.`
+        : "Documento comercial anulado con éxito.";
+      toast.success(successMsg);
+      setActionSuccess(successMsg);
       setTimeout(() => setActionSuccess(null), 5000);
     } catch (err: any) {
       setActionError(err?.message || "Error al cancelar el comprobante.");
+      toast.error(err?.message || "Error al anular la venta.");
     } finally {
       setIsCancelling(false);
     }
@@ -272,14 +380,16 @@ export function SaleDetailClient({
             <span>Imprimir Tiquete</span>
           </button>
 
-          {/* Botón Enviar por Correo */}
+          {/* Botón Enviar por WhatsApp */}
           <button
             type="button"
-            onClick={() => setShowEmailModal(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-xs cursor-pointer whitespace-nowrap"
+            onClick={handleOpenWhatsappModal}
+            aria-label="Enviar comprobante por WhatsApp"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap focus:outline-hidden focus:ring-2 focus:ring-emerald-500/40"
+            title="Enviar comprobante por WhatsApp"
           >
-            <Mail className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Enviar por correo</span>
+            <MessageCircle className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+            <span>Enviar por WhatsApp</span>
           </button>
 
           {/* Botón Cancelar Comprobante */}
@@ -333,6 +443,38 @@ export function SaleDetailClient({
 
       {/* COMPROBANTE VISUAL TIPO RECIBO */}
       <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-sm overflow-hidden">
+        {/* Banner de Facturación Electrónica DIAN si aplica */}
+        {doc.notes && doc.notes.includes("CUFE") && (
+          <div className="p-3.5 bg-blue-50/90 dark:bg-blue-500/10 border-b border-blue-200/60 dark:border-blue-500/20 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-600 text-white shadow-xs">
+                <FileText className="w-3.5 h-3.5" />
+                Factura Electrónica DIAN
+              </span>
+              <span className="font-mono text-slate-700 dark:text-slate-300 text-[11px] truncate max-w-sm sm:max-w-lg">
+                {doc.notes}
+              </span>
+            </div>
+            {(() => {
+              const cufeMatch = doc.notes.match(/CUFE:\s*([a-f0-9]+)/i);
+              if (cufeMatch && cufeMatch[1]) {
+                return (
+                  <Link
+                    href={`https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${cufeMatch[1]}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    <span>Verificar en DIAN</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
+
         {/* Encabezado del comprobante */}
         <div className="p-6 lg:p-8 bg-slate-50/70 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.08] flex flex-col sm:flex-row justify-between gap-6">
           <div className="space-y-1">
@@ -512,13 +654,53 @@ export function SaleDetailClient({
                   Motivo de anulación <span className="text-rose-500">*</span>
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   placeholder="Ej. Devolución de producto / Error de digitación en punto de venta / Comanda cancelada..."
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-slate-900 dark:text-white resize-none"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-slate-900 dark:text-white resize-none"
                 />
+              </div>
+
+              {/* PIN de Autorización [EMP-002] */}
+              <div className="space-y-1.5 p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                    PIN de Autorización (Supervisor) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {cancelPin.length}/6 dígitos
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showCancelPin ? "text" : "password"}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    required
+                    placeholder="PIN de 4 a 6 dígitos"
+                    value={cancelPin}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      setCancelPin(val);
+                    }}
+                    className="w-full h-10 px-3.5 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white font-mono text-center tracking-widest text-base focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowCancelPin(!showCancelPin)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {showCancelPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Operación sensible auditada: se validará que el colaborador posea permisos de anulación y se registrará en el historial de seguridad.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -533,7 +715,11 @@ export function SaleDetailClient({
 
                 <button
                   type="button"
-                  disabled={isCancelling || cancelReason.trim().length < 3}
+                  disabled={
+                    isCancelling ||
+                    cancelReason.trim().length < 3 ||
+                    (requiresPin && cancelPin.trim().length < 4)
+                  }
                   onClick={handleConfirmCancel}
                   className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 cursor-pointer"
                 >
@@ -552,45 +738,94 @@ export function SaleDetailClient({
         </ModalPortal>
       )}
 
-      {/* MODAL PERSONALIZADO: ENVIAR POR CORREO (Información transparente) */}
-      {showEmailModal && (
+      {/* MODAL PERSONALIZADO: ENVIAR POR WHATSAPP */}
+      {showWhatsappModal && (
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.06]">
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-base">
-                  <Mail className="w-5 h-5" />
-                  <span>Envío de Comprobante por Correo</span>
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-base">
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Enviar Comprobante por WhatsApp</span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowEmailModal(false)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                  onClick={() => setShowWhatsappModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+                  aria-label="Cerrar modal de WhatsApp"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 flex items-start gap-3 text-blue-900 dark:text-blue-300 text-xs leading-relaxed">
-                <Info className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" />
-                <div>
-                  <strong>Módulo de Notificación en Preparación:</strong>
-                  <p className="mt-1">
-                    La integración de despacho automatizado de comprobantes por correo para clientes finales está programada para la siguiente etapa de conectores.
-                  </p>
-                  <p className="mt-1 font-medium">
-                    Actualmente puedes usar el botón <strong>Descargar PDF</strong> para enviar o imprimir el comprobante al cliente.
-                  </p>
+              <div className="space-y-3">
+                {/* Indicador de Teléfono Registrado vs No Registrado */}
+                {doc.customerPhone ? (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span className="truncate">
+                      Teléfono registrado del cliente: <strong className="font-mono">{doc.customerPhone}</strong>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                    <Info className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>
+                      El cliente no tiene teléfono registrado. Ingresa el número de WhatsApp destinatario:
+                    </span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label htmlFor="whatsapp-recipient-phone" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Número de WhatsApp destinatario
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="whatsapp-recipient-phone"
+                      type="tel"
+                      value={whatsappPhone}
+                      onChange={(e) => setWhatsappPhone(e.target.value)}
+                      placeholder="Ej. 300 123 4567 o +57 300 123 4567"
+                      className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-white font-mono placeholder:text-slate-400"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">
+                    {whatsappPhone.trim()
+                      ? "Se abrirá el chat con el número indicado."
+                      : "Si no ingresas número, se abrirá WhatsApp para que elijas el chat manualmente."}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06] space-y-1.5 text-xs">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400 block text-[11px] uppercase tracking-wider">
+                    Vista previa del mensaje:
+                  </span>
+                  <div className="text-slate-700 dark:text-slate-300 text-[11px] font-mono whitespace-pre-line bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-slate-100 dark:border-white/5 max-h-48 overflow-y-auto">
+                    {buildStructuredWhatsappMessage(
+                      tradeName || businessName,
+                      doc,
+                      consultationUrl || (typeof window !== "undefined" ? `${window.location.origin}/workspace/${businessId}/ventas/${doc.id}` : "")
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
                 <button
                   type="button"
-                  onClick={() => setShowEmailModal(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 transition-opacity"
+                  onClick={() => setShowWhatsappModal(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
                 >
-                  Entendido
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendWhatsapp}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500/40"
+                >
+                  <MessageCircle className="w-4 h-4 text-white" />
+                  <span>Enviar por WhatsApp</span>
                 </button>
               </div>
             </div>

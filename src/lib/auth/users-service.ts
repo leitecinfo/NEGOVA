@@ -18,6 +18,7 @@ import {
   PlatformRoleCode,
 } from "./permissions";
 import { NEGOVA_PLANS, PlanId } from "@/config/plans";
+import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 
 export type UserType = "platform" | "business";
 export type UserStatus = "active" | "invited" | "disabled" | "blocked" | "inactive" | "suspended";
@@ -83,6 +84,8 @@ export interface UserModel {
     badgeColor: string;
   };
   effectivePermissions?: string[];
+  hasSecurityPin?: boolean;
+  securityPinUpdatedAt?: string | null;
 }
 
 export interface UserListFilters {
@@ -379,6 +382,8 @@ export async function getUserDetail(userId: string): Promise<{
       business_id,
       role_id,
       status,
+      security_pin_hash,
+      security_pin_updated_at,
       invited_at,
       joined_at,
       businesses(id, name, slug, status, logo_url),
@@ -491,6 +496,10 @@ export async function getUserDetail(userId: string): Promise<{
       badgeColor: roleMeta.badgeColor,
     },
     effectivePermissions,
+    hasSecurityPin: (businessUsers || []).some((bu: any) => Boolean(bu.security_pin_hash)),
+    securityPinUpdatedAt:
+      (businessUsers || []).find((bu: any) => bu.security_pin_updated_at)?.security_pin_updated_at ||
+      null,
   };
 
   return {
@@ -1270,13 +1279,13 @@ export async function assignUserToBusiness(
       .eq("user_id", userId)
       .maybeSingle();
 
-    // 5. Validar capacidad del plan (si no es propietario o si es nuevo miembro)
+    // 5. Validar capacidad del plan en servidor [SUB-001]
     if (!existingBu && roleCode !== "owner") {
-      const capacity = await checkBusinessPlanUserCapacity(businessId);
-      if (!capacity.canAddUser) {
+      const planLimit = await checkPlanLimit(businessId, "employees");
+      if (!planLimit.allowed) {
         return {
           success: false,
-          error: `Límite de usuarios alcanzado para ${business.name}. El plan '${capacity.planName}' permite hasta ${capacity.maxUsers} usuario(s) (${capacity.currentUsers} en uso).`,
+          error: planLimit.error,
         };
       }
     }

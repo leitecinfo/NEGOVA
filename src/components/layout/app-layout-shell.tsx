@@ -5,7 +5,8 @@ import { AppSidebar } from "./app-sidebar";
 import { AppMobileSidebar } from "./app-mobile-sidebar";
 import { AppTopbar } from "./app-topbar";
 import { AppThemeProvider } from "./app-theme-context";
-import { NavigationProgressProvider } from "./navigation-progress-bar";
+import { NavigationProgressProvider, useNavigationProgress } from "./navigation-progress-bar";
+import { ModuleLoadingOverlay } from "./module-loading-overlay";
 import { AppNavSection, AppBranding, AppUserProfile } from "./navigation-types";
 
 interface AppLayoutShellProps {
@@ -14,11 +15,22 @@ interface AppLayoutShellProps {
   navSections: AppNavSection[];
   branding: AppBranding;
   rightActions?: React.ReactNode;
+  sidebarFooterWidget?: React.ReactNode;
   modals?: React.ReactNode;
   onOpenLogoutModal?: () => void;
 }
 
-function AppLayoutInner({ children, userProfile, navSections, branding, rightActions, modals, onOpenLogoutModal }: AppLayoutShellProps) {
+function AppLayoutInner({
+  children,
+  userProfile,
+  navSections,
+  branding,
+  rightActions,
+  sidebarFooterWidget,
+  modals,
+  onOpenLogoutModal,
+}: AppLayoutShellProps) {
+  const { isNavigating, navigatingHref } = useNavigationProgress();
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -59,6 +71,7 @@ function AppLayoutInner({ children, userProfile, navSections, branding, rightAct
         onToggleCollapse={handleToggleDesktopSidebar}
         navSections={navSections}
         branding={branding}
+        sidebarFooterWidget={sidebarFooterWidget}
       />
 
       {/* 2. Sidebar Móvil (Drawer) */}
@@ -68,6 +81,7 @@ function AppLayoutInner({ children, userProfile, navSections, branding, rightAct
         navSections={navSections}
         branding={branding}
         userProfile={userProfile}
+        sidebarFooterWidget={sidebarFooterWidget}
       />
 
       {/* 3. Área Principal (Topbar + Contenido Scrollable) */}
@@ -85,9 +99,17 @@ function AppLayoutInner({ children, userProfile, navSections, branding, rightAct
         {/* Contenedor con Scroll de Páginas */}
         <main
           id="app-main-viewport"
-          className="app-main-viewport flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-[#0B0E14] transition-colors duration-200"
+          className="app-main-viewport relative flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-[#0B0E14] transition-colors duration-200"
         >
           {children}
+
+          {/* Pantalla / Overlay de Carga durante Transición de Módulos */}
+          <ModuleLoadingOverlay
+            isActive={isNavigating}
+            navigatingHref={navigatingHref}
+            navSections={navSections}
+            branding={branding}
+          />
         </main>
       </div>
 

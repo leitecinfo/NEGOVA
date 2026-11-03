@@ -3,6 +3,7 @@
 import React from "react";
 import { EmptyState, EmptyStateProps } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
+import { ErrorState, ErrorStateProps } from "@/components/ui/error-state";
 import { Pagination, PaginationProps } from "@/components/ui/pagination";
 
 export interface DataTableColumn<T> {
@@ -20,6 +21,7 @@ export interface DataTableProps<T> {
   keyExtractor: (item: T, index: number) => string;
   isLoading?: boolean;
   emptyState?: EmptyStateProps;
+  errorState?: ErrorStateProps;
   renderMobileCard?: (item: T, index: number) => React.ReactNode;
   className?: string;
   onRowClick?: (item: T, index: number) => void;
@@ -46,6 +48,7 @@ export function DataTable<T>({
   keyExtractor,
   isLoading = false,
   emptyState,
+  errorState,
   renderMobileCard,
   className = "",
   onRowClick,
@@ -54,12 +57,24 @@ export function DataTable<T>({
   minWidth,
   pagination,
 }: DataTableProps<T>) {
+  if (errorState) {
+    return <ErrorState {...errorState} />;
+  }
+
   if (isLoading) {
     return <TableSkeleton rows={5} cols={columns.length} />;
   }
 
-  if (data.length === 0 && emptyState) {
-    return <EmptyState {...emptyState} />;
+  if (data.length === 0) {
+    if (emptyState) {
+      return <EmptyState {...emptyState} />;
+    }
+    return (
+      <EmptyState
+        title="No se encontraron registros"
+        description="No hay información disponible para mostrar en esta vista."
+      />
+    );
   }
 
   const hasMobileCards = Boolean(renderMobileCard);

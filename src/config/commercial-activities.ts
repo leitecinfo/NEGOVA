@@ -396,5 +396,5 @@ export function getCatalogModuleLabel(
   }
 
   // Solo productos / inventario
-  return "Inventario";
+  return "Productos";
 }

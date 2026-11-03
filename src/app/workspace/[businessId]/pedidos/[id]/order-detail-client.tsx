@@ -32,10 +32,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
-import { AdminConfirmDialog } from "@/components/admin/ui";
+import { ConfirmDialog } from "@/components/ui";
 import {
   RestaurantOrderWithDetails,
   VALID_ORDER_STATUS_TRANSITIONS,
+  ProcessOrderPaymentInput,
 } from "@/lib/restaurant/types";
 import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
@@ -82,10 +83,10 @@ export function OrderDetailClient({
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
 
-  const handleConfirmPayment = async (method: string) => {
+  const handleConfirmPayment = async (data: string | ProcessOrderPaymentInput) => {
     setIsPaymentSubmitting(true);
     try {
-      const res = await registerRestaurantOrderPaymentAction(businessId, order.id, method);
+      const res = await registerRestaurantOrderPaymentAction(businessId, order.id, data);
       if (res.success) {
         toast.success(`Pago registrado correctamente para el pedido #${order.order_number}`);
         setOrder((prev) => ({ ...prev, payment_status: "paid" }));
@@ -687,7 +688,7 @@ export function OrderDetailClient({
         />
 
         {/* MODAL DE CONFIRMACIÓN DE CANCELACIÓN */}
-        <AdminConfirmDialog
+        <ConfirmDialog
           isOpen={isCancelModalOpen}
           onClose={() => setIsCancelModalOpen(false)}
           onConfirm={handleConfirmCancel}

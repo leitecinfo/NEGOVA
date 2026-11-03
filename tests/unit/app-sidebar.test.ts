@@ -58,7 +58,6 @@ describe("AppSidebar — Comportamiento en Modo Colapsado y Expandido", () => {
       const itemIds = operacionSection?.items.map((i) => i.id);
       expect(itemIds).toContain("dashboard");
       expect(itemIds).toContain("pos");
-      expect(itemIds).toContain("ventas");
       expect(itemIds).toContain("pedidos");
       expect(itemIds).toContain("mesas");
     });
@@ -68,6 +67,7 @@ describe("AppSidebar — Comportamiento en Modo Colapsado y Expandido", () => {
       const hiddenSectionIds = hiddenSections.map((s) => s.id);
 
       // Grupos que deben ir al menú flotante de Módulos
+      expect(hiddenSectionIds).toContain("ventas");
       expect(hiddenSectionIds).toContain("catalogo");
       expect(hiddenSectionIds).toContain("gestion");
       expect(hiddenSectionIds).toContain("administracion");
@@ -152,8 +152,8 @@ describe("AppSidebar — Comportamiento en Modo Colapsado y Expandido", () => {
       expect(isAnyHiddenActive).toBe(true);
     });
 
-    it("no debe iluminar Módulos si la ruta activa es de Operación (ej: Ventas)", () => {
-      const activePath = `/workspace/${businessId}/ventas`;
+    it("no debe iluminar Módulos si la ruta activa es de Operación (ej: POS)", () => {
+      const activePath = `/workspace/${businessId}/pos`;
       const searchParams = new URLSearchParams();
 
       const isOperacionesSection = (id: string, label: string) =>
@@ -165,7 +165,7 @@ describe("AppSidebar — Comportamiento en Modo Colapsado y Expandido", () => {
         sec.items.some((item) => isRouteActive(item.href, activePath, searchParams, item.exactMatch))
       );
 
-      // Como 'ventas' está en 'operacion', no es un módulo oculto
+      // Como 'pos' está en 'operacion', no es un módulo oculto
       expect(isAnyHiddenActive).toBe(false);
     });
   });

@@ -62,6 +62,8 @@ export interface EmployeeModel {
   accountNumber?: string | null;
   accountNumberMasked?: string;
   notes?: string | null;
+  hasSecurityPin?: boolean;
+  securityPinUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -140,6 +142,13 @@ const memoryEmployees = new Map<string, EmployeeModel>();
 const memoryNovelties = new Map<string, EmployeeNoveltyModel>();
 const memoryPeriods = new Map<string, PayrollPeriodModel>();
 const memoryReceipts = new Map<string, PayrollReceiptModel>();
+export const memoryPayrollExpenses = new Map<string, any>();
+
+export function getMemoryPayrollExpenses(businessId?: string) {
+  const all = Array.from(memoryPayrollExpenses.values());
+  if (!businessId) return all;
+  return all.filter((e) => e.businessId === businessId);
+}
 
 async function getAdminClient() {
   const { createClient: createAdminClient } = await import("@supabase/supabase-js");
@@ -258,6 +267,8 @@ export async function getEmployeesList(
           accountNumber: filters.hideSensitiveData ? undefined : row.account_number,
           accountNumberMasked: maskAccountNumber(row.account_number),
           notes: row.notes,
+          hasSecurityPin: Boolean(row.security_pin_hash),
+          securityPinUpdatedAt: row.security_pin_updated_at || null,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }));
@@ -367,6 +378,8 @@ export async function getEmployeeById(
           accountNumber: options.hideSensitiveData ? undefined : data.account_number,
           accountNumberMasked: maskAccountNumber(data.account_number),
           notes: data.notes,
+          hasSecurityPin: Boolean(data.security_pin_hash),
+          securityPinUpdatedAt: data.security_pin_updated_at || null,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
@@ -1079,6 +1092,70 @@ export async function createPayrollPeriod(
   return { success: true, period };
 }
 
+/**
+ * APROBAR PERÍODO DE NÓMINA (TRANSICIÓN A "approved")
+ * Valida que el período esté calculado y lo autoriza formalmente para su pago/desembolso.
+ */
+export async function approvePayrollPeriod(
+  periodId: string,
+  actorUserId: string,
+  context: { businessId?: string | null; isPlatform?: boolean }
+): Promise<{ success: boolean; period?: PayrollPeriodModel; error?: string }> {
+  let period: PayrollPeriodModel | null = null;
+  const adminClient = await getAdminClient();
+
+  if (!isTestEnvironment(context)) {
+    try {
+      const { data, error } = await adminClient
+        .from("payroll_periods")
+        .select("*")
+        .eq("id", periodId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { success: false, error: "Período de nómina no encontrado." };
+      }
+
+      if (data.status === "paid") {
+        return { success: false, error: "Este período ya fue liquidado y pagado en su totalidad." };
+      }
+
+      const now = new Date().toISOString();
+      await adminClient
+        .from("payroll_periods")
+        .update({ status: "approved", updated_at: now })
+        .eq("id", periodId);
+
+      period = await getPayrollPeriodDetail(periodId, context);
+    } catch (err: any) {
+      return { success: false, error: err.message || "Error al aprobar período de nómina." };
+    }
+  } else {
+    period = memoryPeriods.get(periodId) || null;
+    if (!period) {
+      return { success: false, error: "Período de nómina no encontrado." };
+    }
+    if (period.status === "paid") {
+      return { success: false, error: "Este período ya fue liquidado y pagado en su totalidad." };
+    }
+    period.status = "approved";
+    memoryPeriods.set(periodId, period);
+  }
+
+  if (period) {
+    await logAuditAction({
+      businessId: period.businessId || undefined,
+      userId: actorUserId,
+      action: "payroll_period_approved",
+      entityType: "payroll_periods",
+      entityId: periodId,
+      newData: { status: "approved", totalNet: period.totalNet, receiptsCount: period.receiptsCount },
+    });
+  }
+
+  return { success: true, period: period || undefined };
+}
+
 // =====================================================================
 // 4. INTEGRACIÓN FINANCIERA: PAGO EFECTIVO DE NÓMINA (EXPENSES)
 // =====================================================================
@@ -1161,10 +1238,13 @@ export async function registerPayrollReceiptPayment(
           business_id: targetReceipt.businessId,
           concept: conceptText,
           amount: targetReceipt.netAmount,
-          category: "payroll",
+          category: "Nómina y Honorarios",
+          expense_type: "operational",
           description: `Liquidación de nómina individual. Método: ${params.paymentMethod}. Ref: ${paymentRef}`,
           expense_date: now.split("T")[0],
-          status: "active",
+          payment_method: params.paymentMethod,
+          receipt_number: paymentRef,
+          status: "completed",
           created_by: actorUserId,
           created_at: now,
           updated_at: now,
@@ -1198,9 +1278,25 @@ export async function registerPayrollReceiptPayment(
       }
     }
   } else {
-    // En entorno de prueba simular IDs de egreso
+    // En entorno de prueba registrar egreso en memoria
     if (context.businessId && targetReceipt.businessId) {
       createdExpenseId = crypto.randomUUID();
+      memoryPayrollExpenses.set(createdExpenseId, {
+        id: createdExpenseId,
+        businessId: targetReceipt.businessId,
+        concept: `Pago Nómina: ${targetReceipt.employeeName} (${paymentRef})`,
+        amount: targetReceipt.netAmount,
+        category: "Nómina y Honorarios",
+        expenseType: "operational",
+        description: `Liquidación de nómina individual. Método: ${params.paymentMethod}. Ref: ${paymentRef}`,
+        expenseDate: now.split("T")[0],
+        paymentMethod: params.paymentMethod,
+        receiptNumber: paymentRef,
+        receiptId: targetReceipt.id,
+        status: "completed",
+        createdBy: actorUserId,
+        createdAt: now,
+      });
     } else if (context.isPlatform) {
       createdPlatformExpenseId = crypto.randomUUID();
     }
@@ -1254,6 +1350,25 @@ export async function registerPayrollReceiptPayment(
         // Fallback
       }
     }
+  } else if (!isTestEnvironment(context)) {
+    try {
+      const { data: dbReceipts } = await adminClient
+        .from("payroll_receipts")
+        .select("status")
+        .eq("period_id", targetReceipt.periodId);
+
+      if (dbReceipts && dbReceipts.length > 0) {
+        const allPaid = dbReceipts.every((r: any) => r.status === "paid");
+        if (allPaid) {
+          await adminClient
+            .from("payroll_periods")
+            .update({ status: "paid", payment_date: now.split("T")[0], updated_at: now })
+            .eq("id", targetReceipt.periodId);
+        }
+      }
+    } catch {
+      // Fallback
+    }
   }
 
   await logAuditAction({
@@ -1303,6 +1418,11 @@ export async function cancelPayrollReceipt(
   }
 
   // 1. Si tenía egreso asociado, cancelarlo para evitar inconsistencias
+  if (targetReceipt.expenseId && memoryPayrollExpenses.has(targetReceipt.expenseId)) {
+    const memExp = memoryPayrollExpenses.get(targetReceipt.expenseId);
+    memExp.status = "cancelled";
+  }
+
   if (!isTestEnvironment(context)) {
     if (targetReceipt.expenseId) {
       try {
@@ -1349,6 +1469,43 @@ export async function cancelPayrollReceipt(
     action: "payroll_receipt_cancelled",
     entityType: "payroll_receipts",
     entityId: receiptId,
+  });
+
+  return { success: true };
+}
+
+export async function deleteEmployee(
+  id: string,
+  actorUserId: string,
+  context: { businessId?: string; isPlatform?: boolean } = {}
+): Promise<{ success: boolean; error?: string }> {
+  const existing = await getEmployeeById(id, context);
+  if (!existing) {
+    return { success: false, error: "Trabajador no encontrado o no pertenece a este negocio." };
+  }
+
+  if (!isTestEnvironment(context)) {
+    try {
+      const adminClient = await getAdminClient();
+      let query = adminClient.from("business_employees").delete().eq("id", id);
+      if (context.businessId) {
+        query = query.eq("business_id", context.businessId);
+      }
+      await query;
+    } catch {
+      // Fallback
+    }
+  }
+
+  memoryEmployees.delete(id);
+
+  await logAuditAction({
+    businessId: existing.businessId || undefined,
+    userId: actorUserId,
+    action: "delete",
+    entityType: "business_employees",
+    entityId: id,
+    oldData: { fullName: existing.fullName, status: existing.status },
   });
 
   return { success: true };

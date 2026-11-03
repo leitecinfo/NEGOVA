@@ -1,5 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
-import { Product, Category, CreateProductDTO, CreateCategoryDTO } from "./types";
+import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
+import {
+  Product,
+  Category,
+  CreateProductDTO,
+  CreateCategoryDTO,
+  SalesChannel,
+  isProductAvailableInPos,
+  isProductAvailableInQr,
+  isProductAvailableOnline,
+  resolveProductChannels,
+} from "./types";
 
 /**
  * Servicio central para la gestión del catálogo de productos y categorías (Core).
@@ -17,7 +28,7 @@ export const PLAN_PRODUCT_LIMITS: Record<string, number> = {
  * Obtener cliente Supabase para operaciones del servidor autorizadas.
  * Utiliza credenciales privilegiadas únicamente en el servidor tras la debida autorización RBAC.
  */
-async function getDbClient() {
+export async function getDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -59,61 +70,16 @@ export async function checkProductPlanLimit(businessId: string): Promise<{
   currentCount: number;
   error?: string;
 }> {
-  const supabase = await getDbClient();
-
-  // 1. Conteo de productos activos (los archivados no suman a la capacidad comercial)
-  const currentCount = await getBusinessProductCount(businessId);
-
-  // 2. Resolver suscripción y plan activo del comercio
-  let planId = "inicio";
-  let planName = "Inicio";
-
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("plan_id, status, plans(code, name)")
-    .eq("business_id", businessId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (sub) {
-    const rawPlans = sub.plans as any;
-    const planData = Array.isArray(rawPlans) ? rawPlans[0] : rawPlans;
-    const code = (planData?.code || sub.plan_id || "").toLowerCase();
-    const name = (planData?.name || "").toLowerCase();
-
-    if (code.includes("pro") || name.includes("pro") || code.includes("negocio") || name.includes("negocio")) {
-      planId = "pro";
-      planName = "Pro";
-    } else if (code.includes("crece") || name.includes("crece")) {
-      planId = "crece";
-      planName = "Crece";
-    } else {
-      planId = "inicio";
-      planName = "Inicio";
-    }
-  }
-
-  const maxProducts = PLAN_PRODUCT_LIMITS[planId] ?? 50;
-  const isAllowed = maxProducts === Infinity || currentCount < maxProducts;
-
-  if (!isAllowed) {
-    return {
-      allowed: false,
-      planId,
-      planName,
-      maxProducts,
-      currentCount,
-      error: `Has alcanzado el límite máximo de ${maxProducts} productos para el Plan ${planName}. Actualiza tu plan para agregar más productos o archiva los que no uses.`,
-    };
-  }
+  const result = await checkPlanLimit(businessId, "products");
+  const maxProducts = result.maxLimit === -1 ? Infinity : result.maxLimit;
 
   return {
-    allowed: true,
-    planId,
-    planName,
+    allowed: result.allowed,
+    planId: result.planCode,
+    planName: result.planName,
     maxProducts,
-    currentCount,
+    currentCount: result.currentCount,
+    error: result.error,
   };
 }
 
@@ -243,6 +209,21 @@ export async function seedDefaultCategoriesForBusiness(
 // CATEGORÍAS
 // ==========================================
 
+function attachCategoryParents(cats: Category[]): Category[] {
+  const catMap = new Map<string, Category>(cats.map((c) => [c.id, c]));
+  return cats.map((cat) => {
+    let parent = null;
+    if (cat.parent_category_id && catMap.has(cat.parent_category_id)) {
+      const p = catMap.get(cat.parent_category_id)!;
+      parent = { id: p.id, name: p.name };
+    }
+    return {
+      ...cat,
+      parent,
+    };
+  });
+}
+
 export async function getCategories(businessId: string, businessType?: string): Promise<Category[]> {
   const supabase = await getDbClient();
   const { data, error } = await supabase
@@ -268,10 +249,10 @@ export async function getCategories(businessId: string, businessType?: string): 
       .neq("status", "archived")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
-    return (reload.data || []) as Category[];
+    return attachCategoryParents((reload.data || []) as Category[]);
   }
 
-  return (data || []) as Category[];
+  return attachCategoryParents((data || []) as Category[]);
 }
 
 export async function getCategoryProductCount(businessId: string, categoryId: string): Promise<number> {
@@ -293,8 +274,27 @@ export async function getCategoryProductCount(businessId: string, categoryId: st
 export async function createCategory(businessId: string, payload: Omit<CreateCategoryDTO, "business_id">): Promise<Category> {
   const supabase = await getDbClient();
   const trimmedName = payload.name.trim();
+  const parentId = payload.parent_category_id ? payload.parent_category_id.trim() : null;
 
-  // Verificar si ya existe una categoría activa con el mismo nombre para evitar duplicados
+  // Validaciones jerárquicas: Máximo 2 niveles (no recursivo)
+  if (parentId) {
+    const { data: parentCat, error: parentErr } = await supabase
+      .from("categories")
+      .select("id, business_id, parent_category_id, status")
+      .eq("id", parentId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (parentErr || !parentCat) {
+      throw new Error("La categoría padre seleccionada no existe o no pertenece a este comercio.");
+    }
+
+    if (parentCat.parent_category_id) {
+      throw new Error("Una subcategoría no puede ser categoría padre. Solo se permiten hasta 2 niveles de jerarquía.");
+    }
+  }
+
+  // Verificar si ya existe una categoría activa con el mismo nombre y padre para evitar duplicados
   const { data: existingList } = await supabase
     .from("categories")
     .select("*")
@@ -302,37 +302,87 @@ export async function createCategory(businessId: string, payload: Omit<CreateCat
     .neq("status", "archived");
 
   const existing = (existingList || []).find(
-    (c) => c.name.toLowerCase().trim() === trimmedName.toLowerCase()
+    (c) =>
+      c.name.toLowerCase().trim() === trimmedName.toLowerCase() &&
+      (c.parent_category_id || null) === parentId
   );
 
   if (existing) {
     return existing as Category;
   }
 
+  const insertPayload: Record<string, any> = {
+    business_id: businessId,
+    name: trimmedName,
+    description: payload.description || null,
+    sort_order: payload.sort_order || 0,
+    status: payload.status || "active",
+    default_tax_rate: payload.default_tax_rate !== undefined ? payload.default_tax_rate : null,
+  };
+  if (parentId) {
+    insertPayload.parent_category_id = parentId;
+  }
+
   const { data, error } = await supabase
     .from("categories")
-    .insert({
-      business_id: businessId,
-      name: trimmedName,
-      description: payload.description,
-      sort_order: payload.sort_order || 0,
-      status: payload.status || "active",
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) {
     console.error("[createCategory] Error:", error);
-    throw new Error("No se pudo crear la categoría.");
+    throw new Error(error.message || "No se pudo crear la categoría.");
   }
   return data as Category;
 }
 
 export async function updateCategory(businessId: string, categoryId: string, payload: Partial<CreateCategoryDTO>): Promise<Category> {
   const supabase = await getDbClient();
+
+  // Validaciones jerárquicas en actualización
+  if (payload.parent_category_id !== undefined && payload.parent_category_id !== null && payload.parent_category_id !== "") {
+    const parentId = payload.parent_category_id.trim();
+    if (parentId === categoryId) {
+      throw new Error("Una categoría no puede ser su propio padre.");
+    }
+
+    const { data: parentCat, error: parentErr } = await supabase
+      .from("categories")
+      .select("id, business_id, parent_category_id, status")
+      .eq("id", parentId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (parentErr || !parentCat) {
+      throw new Error("La categoría padre seleccionada no existe o no pertenece a este comercio.");
+    }
+
+    if (parentCat.parent_category_id) {
+      throw new Error("Una subcategoría no puede ser categoría padre. Solo se permiten hasta 2 niveles de jerarquía.");
+    }
+
+    // Regla: si esta categoría ya tiene hijos, no puede convertirse en subcategoría (máximo 2 niveles)
+    const { data: children } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("parent_category_id", categoryId)
+      .neq("status", "archived")
+      .limit(1);
+
+    if (children && children.length > 0) {
+      throw new Error("Esta categoría ya tiene subcategorías asociadas y no puede ser convertida en subcategoría.");
+    }
+  }
+
+  const updatePayload: Record<string, any> = { ...payload };
+  if (payload.parent_category_id === "") {
+    updatePayload.parent_category_id = null;
+  }
+
   const { data, error } = await supabase
     .from("categories")
-    .update(payload)
+    .update(updatePayload)
     .eq("id", categoryId)
     .eq("business_id", businessId)
     .select()
@@ -340,7 +390,7 @@ export async function updateCategory(businessId: string, categoryId: string, pay
 
   if (error) {
     console.error("[updateCategory] Error:", error);
-    throw new Error("No se pudo actualizar la categoría.");
+    throw new Error(error.message || "No se pudo actualizar la categoría.");
   }
   return data as Category;
 }
@@ -389,10 +439,44 @@ export async function archiveCategory(businessId: string, categoryId: string): P
 }
 
 // ==========================================
+// ==========================================
 // PRODUCTOS
 // ==========================================
 
-export async function getProducts(businessId: string, filters?: { category_id?: string; is_available?: boolean; status?: string }): Promise<Product[]> {
+/**
+ * Normaliza los campos de disponibilidad por canal de venta (`available_in_pos`,
+ * `available_in_qr`, `available_online`) para que estén sincronizados tanto en
+ * nivel superior del registro como dentro de `metadata`.
+ */
+export function normalizeProductChannels(raw: any): Product {
+  if (!raw) return raw;
+  const channels = resolveProductChannels(raw);
+  const rawMeta = typeof raw.metadata === "object" && raw.metadata !== null ? raw.metadata : {};
+
+  return {
+    ...raw,
+    available_in_pos: channels.available_in_pos,
+    available_in_qr: channels.available_in_qr,
+    available_online: channels.available_online,
+    metadata: {
+      ...rawMeta,
+      available_in_pos: channels.available_in_pos,
+      available_in_qr: channels.available_in_qr,
+      available_online: channels.available_online,
+      show_in_qr_menu: channels.available_in_qr,
+    },
+  } as Product;
+}
+
+export async function getProducts(
+  businessId: string,
+  filters?: {
+    category_id?: string;
+    is_available?: boolean;
+    status?: string;
+    channel?: SalesChannel;
+  }
+): Promise<Product[]> {
   const supabase = await getDbClient();
   let query = supabase
     .from("products")
@@ -419,7 +503,31 @@ export async function getProducts(businessId: string, filters?: { category_id?: 
     console.error("[getProducts] Error:", error.message || error);
     throw new Error(`No se pudieron cargar los productos: ${error.message || "Error de base de datos"}`);
   }
-  return data as Product[];
+
+  let normalized = ((data || []) as any[]).map(normalizeProductChannels);
+
+  if (filters?.channel === "pos") {
+    normalized = normalized.filter((p) => isProductAvailableInPos(p));
+  } else if (filters?.channel === "qr") {
+    normalized = normalized.filter((p) => isProductAvailableInQr(p));
+  } else if (filters?.channel === "online") {
+    normalized = normalized.filter((p) => isProductAvailableOnline(p));
+  }
+
+  // [REC-004] Enriquecer con cálculo de porciones y disponibilidad de recetas
+  // Si el cuello de botella de la receta tiene 0 porciones, se marca como 'is_available = false' (Agotado)
+  try {
+    const { enrichProductsWithRecipeAvailability } = await import("@/lib/recipes/recipe-service");
+    normalized = await enrichProductsWithRecipeAvailability(businessId, normalized);
+  } catch {
+    // Continuar con normalized si las recetas no están disponibles en el contexto
+  }
+
+  if (filters?.is_available !== undefined) {
+    normalized = normalized.filter((p) => p.is_available === filters.is_available);
+  }
+
+  return normalized;
 }
 
 export async function getProductById(businessId: string, productId: string): Promise<Product | null> {
@@ -431,14 +539,81 @@ export async function getProductById(businessId: string, productId: string): Pro
     .eq("business_id", businessId)
     .maybeSingle();
 
-  if (error) {
-    console.error("[getProductById] Error:", error);
-    return null;
+  if (error || !data) return null;
+
+  let normalized = normalizeProductChannels(data);
+  try {
+    const { enrichProductsWithRecipeAvailability } = await import("@/lib/recipes/recipe-service");
+    const [enriched] = await enrichProductsWithRecipeAvailability(businessId, [normalized]);
+    return enriched || normalized;
+  } catch {
+    return normalized;
   }
-  return data as Product | null;
 }
 
-export async function createProduct(businessId: string, payload: Omit<CreateProductDTO, "business_id">): Promise<Product> {
+function buildSyncedProductPayload(
+  payload: Partial<CreateProductDTO>,
+  existingProduct?: Partial<Product> | null
+): Record<string, any> {
+  const existingMeta =
+    existingProduct && typeof existingProduct.metadata === "object" && existingProduct.metadata !== null
+      ? (existingProduct.metadata as Record<string, any>)
+      : {};
+  const incomingMeta =
+    payload.metadata && typeof payload.metadata === "object"
+      ? (payload.metadata as Record<string, any>)
+      : {};
+
+  const mergedMeta: Record<string, any> = {
+    ...existingMeta,
+    ...incomingMeta,
+  };
+
+  const posVal =
+    typeof payload.available_in_pos === "boolean"
+      ? payload.available_in_pos
+      : typeof incomingMeta.available_in_pos === "boolean"
+      ? incomingMeta.available_in_pos
+      : existingProduct
+      ? isProductAvailableInPos(existingProduct)
+      : true;
+
+  const qrVal =
+    typeof payload.available_in_qr === "boolean"
+      ? payload.available_in_qr
+      : typeof incomingMeta.available_in_qr === "boolean"
+      ? incomingMeta.available_in_qr
+      : existingProduct
+      ? isProductAvailableInQr(existingProduct)
+      : true;
+
+  const onlineVal =
+    typeof payload.available_online === "boolean"
+      ? payload.available_online
+      : typeof incomingMeta.available_online === "boolean"
+      ? incomingMeta.available_online
+      : existingProduct
+      ? isProductAvailableOnline(existingProduct)
+      : true;
+
+  mergedMeta.available_in_pos = posVal;
+  mergedMeta.available_in_qr = qrVal;
+  mergedMeta.available_online = onlineVal;
+  mergedMeta.show_in_qr_menu = qrVal;
+
+  return {
+    ...payload,
+    available_in_pos: posVal,
+    available_in_qr: qrVal,
+    available_online: onlineVal,
+    metadata: mergedMeta,
+  };
+}
+
+export async function createProduct(
+  businessId: string,
+  payload: Omit<CreateProductDTO, "business_id">
+): Promise<Product> {
   // Validación estricta de capacidad del plan en el servidor
   const limitCheck = await checkProductPlanLimit(businessId);
   if (!limitCheck.allowed) {
@@ -446,37 +621,117 @@ export async function createProduct(businessId: string, payload: Omit<CreateProd
   }
 
   const supabase = await getDbClient();
-  const { data, error } = await supabase
+  const syncedPayload = buildSyncedProductPayload(payload, null);
+
+  let { data, error } = await supabase
     .from("products")
     .insert({
       business_id: businessId,
-      ...payload,
+      ...syncedPayload,
     })
     .select()
     .single();
+
+  // Resiliencia ante caché de esquema si las columnas aún no han sido recargadas en PostgREST
+  if (
+    error &&
+    (error.code === "PGRST204" ||
+      String(error.message || "").includes("available_in_") ||
+      String(error.message || "").includes("available_online"))
+  ) {
+    const {
+      available_in_pos: _pos,
+      available_in_qr: _qr,
+      available_online: _online,
+      ...fallbackPayload
+    } = syncedPayload;
+
+    const retry = await supabase
+      .from("products")
+      .insert({
+        business_id: businessId,
+        ...fallbackPayload,
+      })
+      .select()
+      .single();
+
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error("[createProduct] Error:", error);
     throw new Error("No se pudo crear el producto.");
   }
-  return data as Product;
+  return normalizeProductChannels(data);
 }
 
-export async function updateProduct(businessId: string, productId: string, payload: Partial<CreateProductDTO>): Promise<Product> {
+export async function updateProduct(
+  businessId: string,
+  productId: string,
+  payload: Partial<CreateProductDTO>
+): Promise<Product> {
   const supabase = await getDbClient();
-  const { data, error } = await supabase
+
+  let existing: Product | null = null;
+  try {
+    existing = await getProductById(businessId, productId);
+  } catch {
+    existing = null;
+  }
+
+  const syncedPayload = buildSyncedProductPayload(payload, existing);
+
+  let { data, error } = await supabase
     .from("products")
-    .update(payload)
+    .update(syncedPayload)
     .eq("id", productId)
     .eq("business_id", businessId)
     .select()
     .single();
 
+  if (
+    error &&
+    (error.code === "PGRST204" ||
+      String(error.message || "").includes("available_in_") ||
+      String(error.message || "").includes("available_online"))
+  ) {
+    const {
+      available_in_pos: _pos,
+      available_in_qr: _qr,
+      available_online: _online,
+      ...fallbackPayload
+    } = syncedPayload;
+
+    const retry = await supabase
+      .from("products")
+      .update(fallbackPayload)
+      .eq("id", productId)
+      .eq("business_id", businessId)
+      .select()
+      .single();
+
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error) {
     console.error("[updateProduct] Error:", error);
     throw new Error("No se pudo actualizar el producto.");
   }
-  return data as Product;
+  return normalizeProductChannels(data);
+}
+
+export async function updateProductChannelAvailability(
+  businessId: string,
+  productId: string,
+  channels: {
+    available_in_pos?: boolean;
+    available_in_qr?: boolean;
+    available_online?: boolean;
+  }
+): Promise<Product> {
+  return updateProduct(businessId, productId, channels);
 }
 
 export async function toggleProductAvailability(businessId: string, productId: string, isAvailable: boolean): Promise<void> {

@@ -87,7 +87,7 @@ describe("Acceso Rápido Configurable en el Header (NEGOVA)", () => {
 
       expect(resolved).toBeDefined();
       expect(resolved?.id).toBe("ventas");
-      expect(resolved?.label).toBe("Ventas");
+      expect(resolved?.label).toBe("Historial");
       expect(resolved?.href).toBe(`/workspace/${businessId}/ventas`);
     });
 

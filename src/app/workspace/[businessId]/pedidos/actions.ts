@@ -120,15 +120,18 @@ export async function cancelRestaurantOrderAction(
   return result;
 }
 
+import type { ProcessOrderPaymentInput } from "@/lib/restaurant/types";
+
 /**
  * Server Action: Registrar el pago de un pedido operativo.
+ * Soporta pago único y pagos divididos con descuentos y propinas [POS-002].
  * Requiere permiso `sales.create`, `orders.update` o permisos de owner.
  */
 export async function registerRestaurantOrderPaymentAction(
   businessId: string,
   orderId: string,
-  paymentMethod?: string
-): Promise<{ success: boolean; error?: string }> {
+  paymentData?: string | ProcessOrderPaymentInput
+): Promise<{ success: boolean; error?: string; documentId?: string; documentNumber?: string }> {
   let auth = await verifyWorkspaceAction(businessId, "orders.update");
   if (!auth.success) {
     auth = await verifyWorkspaceAction(businessId, "sales.create");
@@ -139,15 +142,122 @@ export async function registerRestaurantOrderPaymentAction(
   }
 
   const { registerRestaurantOrderPayment } = await import("@/lib/restaurant/restaurant-service");
-  const result = await registerRestaurantOrderPayment(businessId, orderId, paymentMethod, auth.context.userId);
+  const result = await registerRestaurantOrderPayment(businessId, orderId, paymentData, auth.context.userId);
 
   if (result.success) {
     revalidatePath(`/workspace/${businessId}/pedidos`);
     revalidatePath(`/workspace/${businessId}/pedidos/${orderId}`);
     revalidatePath(`/workspace/${businessId}/ventas`);
     revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/workspace/${businessId}/clientes`);
+    revalidatePath(`/workspace/${businessId}/cajas`);
   }
 
-  return { success: result.success, error: result.error };
+  return {
+    success: result.success,
+    error: result.error,
+    documentId: result.document?.id,
+    documentNumber: result.document?.documentNumber || result.document?.document_number,
+  };
 }
+
+/**
+ * Server Action: Obtiene el detalle de un pedido específico por ID.
+ */
+export async function getRestaurantOrderAction(
+  businessId: string,
+  orderId: string
+) {
+  let auth = await verifyWorkspaceAction(businessId, "orders.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.view");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para ver este pedido." };
+  }
+
+  const { getRestaurantOrderWithDetails } = await import("@/lib/restaurant/restaurant-service");
+  const order = await getRestaurantOrderWithDetails(businessId, orderId);
+
+  if (!order) {
+    return { success: false, error: "Pedido no encontrado." };
+  }
+
+  return { success: true, order };
+}
+
+/**
+ * Server Action: Generar y descargar el comprobante en PDF de un pedido.
+ */
+export async function downloadOrderPdfAction(
+  businessId: string,
+  orderId: string
+): Promise<{
+  success: boolean;
+  base64?: string;
+  filename?: string;
+  error?: string;
+}> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.view");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para descargar este comprobante." };
+  }
+
+  try {
+    const { getRestaurantOrderWithDetails } = await import("@/lib/restaurant/restaurant-service");
+    const { getBusinessDocumentConfig } = await import("@/lib/documents/document-service");
+    const { generateBusinessSalePdf } = await import("@/lib/pdf/pdf-engine");
+
+    const order = await getRestaurantOrderWithDetails(businessId, orderId);
+    if (!order) {
+      return { success: false, error: "Pedido no encontrado." };
+    }
+
+    const config = await getBusinessDocumentConfig(businessId).catch(() => ({} as any));
+
+    const pdfResult = generateBusinessSalePdf({
+      documentNumber: `ORD-${order.order_number}`,
+      documentTitle: "ORDEN DE PEDIDO / COMANDA",
+      businessId,
+      tradeName: config.tradeName,
+      legalName: config.legalName,
+      taxId: config.taxId,
+      phone: config.phone,
+      whatsapp: config.whatsapp,
+      email: config.email,
+      address: config.address,
+      city: config.city,
+      customerName: order.customer_name || "Público General",
+      customerPhone: order.customer_phone || undefined,
+      customerAddress: order.delivery_address || undefined,
+      issuedAt: order.created_at,
+      items: (order.items || []).map((it) => ({
+        description: it.product_name,
+        quantity: it.quantity,
+        unitPrice: it.unit_price,
+        total: it.subtotal,
+      })),
+      subtotal: order.subtotal,
+      total: order.total,
+      currency: "COP",
+      notes: order.notes || undefined,
+      thankYouNote: config.thankYouNote,
+      footerText: config.footerText,
+    });
+
+    return {
+      success: true,
+      base64: pdfResult.base64,
+      filename: pdfResult.filename,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al generar PDF del pedido." };
+  }
+}
+
 

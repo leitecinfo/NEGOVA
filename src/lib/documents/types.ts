@@ -57,6 +57,7 @@ export interface BusinessDocumentItem {
 export interface BusinessSaleDocument {
   id: string;
   businessId: string;
+  restaurantOrderId?: string | null;
   documentNumber: string; // Formato: DOC-2026-0001
   documentType: BusinessDocumentType;
   

@@ -6,6 +6,7 @@ import {
   getBusinessDocumentConfig,
 } from "@/lib/documents/document-service";
 import { hasPlatformPermission } from "@/lib/auth/permissions";
+import { doesBusinessRequirePinForCancellation } from "@/lib/security/pin-service";
 import { SaleDetailClient } from "./sale-detail-client";
 
 export default async function WorkspaceSaleDetailPage({
@@ -24,8 +25,11 @@ export default async function WorkspaceSaleDetailPage({
     notFound();
   }
 
-  // 3. Obtener configuración comercial para encabezados de marca
-  const config = await getBusinessDocumentConfig(businessId);
+  // 3. Obtener configuración comercial para encabezados de marca y requisito de PIN
+  const [config, requiresPin] = await Promise.all([
+    getBusinessDocumentConfig(businessId),
+    doesBusinessRequirePinForCancellation(businessId),
+  ]);
 
   return (
     <SaleDetailClient
@@ -34,6 +38,7 @@ export default async function WorkspaceSaleDetailPage({
       tradeName={config.tradeName || session.businessName}
       businessTimezone={session.businessTimezone || "America/Bogota"}
       canCancelSale={session.isOwner || hasPlatformPermission(session.roleCode, "sales.cancel")}
+      requiresPin={requiresPin}
       initialDocument={document}
       config={config}
     />

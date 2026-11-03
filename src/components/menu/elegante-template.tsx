@@ -15,6 +15,11 @@ import {
 } from "lucide-react";
 import { Product, Category, ProductVariant } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
+import {
+  filterMenuProducts,
+  groupMenuProducts,
+  getMenuCategoryPills,
+} from "@/lib/menu/category-grouping";
 import { ProductDetailModal } from "./product-detail-modal";
 import { MenuCartDrawer } from "./menu-cart-drawer";
 import { CartItem } from "./menu-cart-types";
@@ -110,6 +115,8 @@ export function EleganteMenuTemplate({
           unitPrice,
           quantity: newQty,
           image_url: product.image_url,
+          taxPercentage: Number((product.metadata as any)?.tax_percentage ?? (product as any).tax_percentage ?? 0),
+          taxIncludedInPrice: (product.metadata as any)?.tax_included_in_price ?? (product as any).tax_included_in_price ?? true,
         },
       };
     });
@@ -136,66 +143,17 @@ export function EleganteMenuTemplate({
   const clearCart = () => setCart({});
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
-      const matchesCat = selectedCat === "all" || p.category_id === selectedCat;
-      return matchesSearch && matchesCat;
-    });
-  }, [products, search, selectedCat]);
+    return filterMenuProducts(products, categories, search, selectedCat);
+  }, [products, categories, search, selectedCat]);
 
   // Agrupación ordenada por categoría
   const groupedProducts = useMemo(() => {
-    if (filteredProducts.length === 0) return [];
+    return groupMenuProducts(filteredProducts, categories, selectedCat, search);
+  }, [filteredProducts, categories, selectedCat, search]);
 
-    if (selectedCat !== "all") {
-      const cat = categories.find((c) => c.id === selectedCat);
-      return [
-        {
-          categoryId: selectedCat,
-          categoryName: cat?.name || "Categoría",
-          products: filteredProducts,
-        },
-      ];
-    }
-
-    if (search.trim() !== "") {
-      return [
-        {
-          categoryId: "search-results",
-          categoryName: "Resultados de búsqueda",
-          products: filteredProducts,
-        },
-      ];
-    }
-
-    const groups: { categoryId: string; categoryName: string; products: Product[] }[] = [];
-
-    categories.forEach((cat) => {
-      const catProducts = products.filter((p) => p.category_id === cat.id);
-      if (catProducts.length > 0) {
-        groups.push({
-          categoryId: cat.id,
-          categoryName: cat.name,
-          products: catProducts,
-        });
-      }
-    });
-
-    const uncategorized = products.filter(
-      (p) => !p.category_id || !categories.some((c) => c.id === p.category_id)
-    );
-    if (uncategorized.length > 0) {
-      groups.push({
-        categoryId: "uncategorized",
-        categoryName: "Otros",
-        products: uncategorized,
-      });
-    }
-
-    return groups;
-  }, [products, categories, selectedCat, search, filteredProducts]);
+  const categoryPills = useMemo(() => {
+    return getMenuCategoryPills(categories, products);
+  }, [categories, products]);
 
   return (
     <div
@@ -294,14 +252,21 @@ export function EleganteMenuTemplate({
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar en la carta..."
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (selectedCat !== "all" && e.target.value.trim() !== "") {
+                  setSelectedCat("all");
+                }
+              }}
+              placeholder="Buscar en la carta por nombre..."
+              aria-label="Buscar productos por nombre"
               className="w-full bg-white/[0.03] border border-[#C5A059]/20 focus:border-[#C5A059]/50 rounded-xl pl-9 pr-8 py-1.5 text-xs text-stone-200 placeholder-stone-500 outline-none transition-colors"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-stone-500"
+                aria-label="Limpiar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-stone-500 hover:text-stone-300"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -324,15 +289,13 @@ export function EleganteMenuTemplate({
               Toda la Carta ({products.length})
             </button>
 
-            {categories.map((cat) => {
-              const count = products.filter((p) => p.category_id === cat.id).length;
-              if (count === 0) return null;
-              const isSelected = selectedCat === cat.id;
+            {categoryPills.map((pill) => {
+              const isSelected = selectedCat === pill.id;
 
               return (
                 <button
-                  key={cat.id}
-                  onClick={() => setSelectedCat(cat.id)}
+                  key={pill.id}
+                  onClick={() => setSelectedCat(pill.id)}
                   className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs transition-all ${
                     isSelected
                       ? "font-semibold shadow-xs text-stone-900"
@@ -342,7 +305,7 @@ export function EleganteMenuTemplate({
                     backgroundColor: isSelected ? gold : undefined,
                   }}
                 >
-                  {cat.name} ({count})
+                  {pill.displayName} ({pill.count})
                 </button>
               );
             })}
@@ -363,11 +326,21 @@ export function EleganteMenuTemplate({
               className="text-base text-stone-300 tracking-wider uppercase"
               style={{ fontFamily: "'Cinzel', serif" }}
             >
-              Carta en preparación
+              {search.trim() ? "No encontramos productos con ese nombre" : "Carta en preparación"}
             </h3>
             <p className="text-xs text-stone-500 mt-1">
-              Las creaciones estarán disponibles en breve.
+              {search.trim()
+                ? "No encontramos productos con ese nombre. Intente con otro término o consulte nuestras categorías."
+                : "Las creaciones estarán disponibles en breve."}
             </p>
+            {search.trim() && (
+              <button
+                onClick={() => setSearch("")}
+                className="mt-4 px-4 py-2 rounded-xl border border-[#C5A059]/40 bg-[#C5A059]/10 text-xs font-medium text-[#C5A059] hover:bg-[#C5A059]/20 transition-colors"
+              >
+                Limpiar búsqueda
+              </button>
+            )}
           </div>
         ) : (
           groupedProducts.map((group) => (

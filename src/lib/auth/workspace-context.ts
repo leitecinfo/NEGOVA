@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "./authorization";
@@ -30,6 +31,7 @@ export interface WorkspaceUserContext {
   isOwner: boolean;
   isSuperAdmin: boolean;
   isPlatformAdmin?: boolean;
+  businessUserId?: string | null;
 }
 
 /**
@@ -130,6 +132,146 @@ export async function getUserActiveBusinessId(userId: string): Promise<string | 
   }
 }
 
+export interface BaseWorkspaceSession {
+  user: {
+    id: string;
+    email: string;
+  };
+  business: {
+    id: string;
+    name: string;
+    status: string;
+    slug?: string;
+    currency?: string;
+    timezone?: string;
+    business_type?: string;
+    commercial_activities?: any;
+    settings?: Record<string, unknown>;
+  };
+  planInfo: {
+    planId: PlanId;
+    limits: PlanLimits;
+  };
+  dbUser: {
+    id: string;
+    platform_role: string;
+    status: string;
+  } | null;
+  membership: {
+    id: string;
+    status: string;
+    role_id: string;
+    roles: any;
+  } | null;
+  isSuperAdmin: boolean;
+  roleCode: string;
+  roleName: string;
+  isOwner: boolean;
+  enabledFeatures: PlanFeatureKey[];
+  commercialActivities: CommercialActivity[];
+  businessType: string;
+}
+
+/**
+ * Resuelve la sesión base de Workspace memorizándola por petición (React cache).
+ * Ejecuta en paralelo las 4 consultas esenciales (businesses, plan, users, business_users)
+ * eliminando el cuello de botella en cascada y evitando consultas duplicadas entre Layout y Page.
+ */
+export const resolveWorkspaceSessionBase = cache(
+  async (businessId: string): Promise<BaseWorkspaceSession> => {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      redirect("/login?error=session_required");
+    }
+
+    // Validar formato UUID para evitar inyecciones o identificadores corruptos
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId);
+    if (!isUuid) {
+      redirect("/login?error=invalid_business");
+    }
+
+    const { createClient: createAdminClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // 1. Ejecutar las 4 consultas base concurrentemente con Promise.all
+    const [bizResult, planInfo, userResult, membershipResult] = await Promise.all([
+      supabaseAdmin
+        .from("businesses")
+        .select("id, name, status, slug, currency, timezone, business_type, commercial_activities, settings")
+        .eq("id", businessId)
+        .maybeSingle(),
+      resolveBusinessPlan(supabaseAdmin, businessId),
+      supabaseAdmin
+        .from("users")
+        .select("id, platform_role, status")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("business_users")
+        .select("id, status, role_id, roles(id, code, name)")
+        .eq("business_id", businessId)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
+
+    const business = bizResult.data;
+    if (bizResult.error || !business) {
+      redirect("/login?error=business_not_found");
+    }
+
+    if (business.status === "inactive" || business.status === "suspended") {
+      redirect("/login?error=business_inactive");
+    }
+
+    const businessType = business.business_type || "fast_food";
+    const commercialActivities = normalizeCommercialActivities(
+      business.commercial_activities || getDefaultActivitiesForBusinessType(businessType)
+    );
+    const enabledFeatures = getEnabledFeaturesForBusiness({
+      businessType,
+      commercialActivities,
+      planId: planInfo.planId,
+    });
+
+    const dbUser = userResult.data;
+    const isSuperAdmin = dbUser?.platform_role === "super_admin";
+
+    const membership = membershipResult.data;
+    const rawRoleData = membership?.roles as any;
+    const roleData = Array.isArray(rawRoleData) ? rawRoleData[0] : rawRoleData;
+    const roleCode = roleData?.code || "";
+    const roleName = roleData?.name || (isSuperAdmin ? "Super Administrador" : "Sin Rol");
+    const isOwner = roleCode === "owner";
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email || "",
+      },
+      business,
+      planInfo,
+      dbUser,
+      membership,
+      isSuperAdmin,
+      roleCode,
+      roleName,
+      isOwner,
+      enabledFeatures,
+      commercialActivities,
+      businessType,
+    };
+  }
+);
+
 /**
  * Validar y obtener el contexto de Workspace para Server Components (Páginas).
  * Si no está autenticado, no existe el negocio, no es miembro o no tiene permisos,
@@ -139,86 +281,16 @@ export async function requireWorkspaceSession(
   businessId: string,
   requiredPermission: string = "business_settings.view"
 ): Promise<WorkspaceUserContext> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    redirect("/login?error=session_required");
-  }
-
-  // Validar formato UUID para evitar inyecciones o identificadores corruptos
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId);
-  if (!isUuid) {
-    redirect("/login?error=invalid_business");
-  }
-
-  const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-  // 1. Validar existencia y estado operacional del negocio
-  const { data: business, error: bizError } = await supabaseAdmin
-    .from("businesses")
-    .select("id, name, status, slug, currency, timezone, business_type, commercial_activities, settings")
-    .eq("id", businessId)
-    .maybeSingle();
-
-  if (bizError || !business) {
-    redirect("/login?error=business_not_found");
-  }
-
-  if (business.status === "inactive" || business.status === "suspended") {
-    redirect("/login?error=business_inactive");
-  }
-
-  const businessType = business.business_type || "fast_food";
-  const commercialActivities = normalizeCommercialActivities(
-    business.commercial_activities || getDefaultActivitiesForBusinessType(businessType)
-  );
-  const planInfo = await resolveBusinessPlan(supabaseAdmin, businessId);
-  const enabledFeatures = getEnabledFeaturesForBusiness({
-    businessType,
-    commercialActivities,
-    planId: planInfo.planId,
-  });
-
-  // 2. Verificar rol en plataforma (Super Administrador de NEGOVA tiene acceso administrativo)
-  const { data: dbUser } = await supabaseAdmin
-    .from("users")
-    .select("id, platform_role, status")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const isSuperAdmin = dbUser?.platform_role === "super_admin";
-
-  // 3. Verificar membresía directa del usuario en business_users
-  const { data: membership } = await supabaseAdmin
-    .from("business_users")
-    .select("id, status, role_id, roles(id, code, name)")
-    .eq("business_id", businessId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const rawRoleData = membership?.roles as any;
-  const roleData = Array.isArray(rawRoleData) ? rawRoleData[0] : rawRoleData;
-  const roleCode = roleData?.code || "";
-  const roleName = roleData?.name || (isSuperAdmin ? "Super Administrador" : "Sin Rol");
-  const isOwner = roleCode === "owner";
+  const base = await resolveWorkspaceSessionBase(businessId);
 
   let isDelegatedSupport = false;
 
   // Si no es miembro activo del negocio:
-  if (!membership || membership.status !== "active") {
-    if (isSuperAdmin) {
+  if (!base.membership || base.membership.status !== "active") {
+    if (base.isSuperAdmin) {
       // El Super Administrador de plataforma cuenta con acceso administrativo general
       isDelegatedSupport = true;
-    } else if (["admin", "soporte"].includes(dbUser?.platform_role)) {
+    } else if (["admin", "soporte"].includes(base.dbUser?.platform_role || "")) {
       let isGrantValid = false;
       try {
         let requiredScope: "orders_read" | "sales_read" | "inventory_read" | "finance_read" | "settings_read" = "settings_read";
@@ -230,7 +302,7 @@ export async function requireWorkspaceSession(
         const { validateActiveGrant } = await import("@/lib/support/delegated-access-service");
         const grantCheck = await validateActiveGrant({
           businessId,
-          adminUserId: user.id,
+          adminUserId: base.user.id,
           requiredScope,
         });
         isGrantValid = Boolean(grantCheck?.valid);
@@ -253,30 +325,31 @@ export async function requireWorkspaceSession(
   if (requiredPermission && requiredPermission !== "none") {
     // 4.1 Validar actividad comercial requerida
     if (requiredPermission.startsWith("products.") || requiredPermission.startsWith("inventory.")) {
-      if (!commercialActivities.includes("sell_products")) {
+      if (!base.commercialActivities.includes("sell_products")) {
         redirect(`/login?error=workspace_forbidden_activity`);
       }
     } else if (requiredPermission.startsWith("services.")) {
-      if (!commercialActivities.includes("provide_services")) {
+      if (!base.commercialActivities.includes("provide_services")) {
         redirect(`/login?error=workspace_forbidden_activity`);
       }
     } else if (requiredPermission.startsWith("appointments.")) {
-      if (!commercialActivities.includes("manage_appointments") || !commercialActivities.includes("provide_services")) {
+      if (!base.commercialActivities.includes("manage_appointments") || !base.commercialActivities.includes("provide_services")) {
         redirect(`/login?error=workspace_forbidden_activity`);
       }
     } else if (requiredPermission.startsWith("sales.")) {
-      if (!planInfo.limits.canUsePos) {
+      if (!base.planInfo.limits.canUsePos) {
         redirect(`/login?error=workspace_plan_upgrade_pos`);
       }
     }
 
     const { isPermissionCompatibleWithBusinessType } = await import("./permissions");
-    if (!isPermissionCompatibleWithBusinessType(requiredPermission, businessType)) {
+    if (!isPermissionCompatibleWithBusinessType(requiredPermission, base.businessType)) {
       redirect(`/login?error=workspace_forbidden_vertical`);
     }
 
-    if (!isOwner && !isSuperAdmin) {
-      const allowed = await hasPermission(user.id, requiredPermission, {
+    if (!base.isOwner && !base.isSuperAdmin) {
+      const effectivePermission = requiredPermission === "reports:read" ? "reports.view" : requiredPermission;
+      const allowed = await hasPermission(base.user.id, effectivePermission, {
         scope: "business",
         businessId,
       });
@@ -288,25 +361,26 @@ export async function requireWorkspaceSession(
   }
 
   return {
-    userId: user.id,
-    userEmail: user.email || "",
-    businessId: business.id,
-    businessName: business.name,
-    businessStatus: business.status,
-    businessSlug: business.slug || "",
-    businessCurrency: business.currency || "COP",
-    businessTimezone: business.timezone || "America/Bogota",
-    businessType,
-    commercialActivities,
-    planId: planInfo.planId,
-    enabledFeatures,
-    planLimits: planInfo.limits,
-    businessSettings: (business.settings as Record<string, unknown>) || {},
-    roleCode,
-    roleName,
-    isOwner,
-    isSuperAdmin,
-    isPlatformAdmin: dbUser?.platform_role === "super_admin" || dbUser?.platform_role === "admin",
+    userId: base.user.id,
+    userEmail: base.user.email,
+    businessId: base.business.id,
+    businessName: base.business.name,
+    businessStatus: base.business.status,
+    businessSlug: base.business.slug || "",
+    businessCurrency: base.business.currency || "COP",
+    businessTimezone: base.business.timezone || "America/Bogota",
+    businessType: base.businessType,
+    commercialActivities: base.commercialActivities,
+    planId: base.planInfo.planId,
+    enabledFeatures: base.enabledFeatures,
+    planLimits: base.planInfo.limits,
+    businessSettings: (base.business.settings as Record<string, unknown>) || {},
+    roleCode: base.roleCode,
+    roleName: base.roleName,
+    isOwner: base.isOwner,
+    isSuperAdmin: base.isSuperAdmin,
+    isPlatformAdmin: base.dbUser?.platform_role === "super_admin" || base.dbUser?.platform_role === "admin",
+    businessUserId: base.membership?.id || null,
   };
 }
 
@@ -321,11 +395,18 @@ export async function verifyWorkspaceAction(
   success: boolean;
   error?: string;
   context?: WorkspaceUserContext;
+  statusCode?: number;
+  status?: number;
 }> {
   // 1. Validar formato UUID antes de cualquier operación
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId);
   if (!isUuid) {
-    return { success: false, error: "Identificador de negocio inválido." };
+    return {
+      success: false,
+      error: "Identificador de negocio inválido.",
+      statusCode: 400,
+      status: 400,
+    };
   }
 
   try {
@@ -338,11 +419,21 @@ export async function verifyWorkspaceAction(
       } = await supabase.auth.getUser();
 
       if (authError || !authUser) {
-        return { success: false, error: "No autenticado. Por favor inicie sesión." };
+        return {
+          success: false,
+          error: "No autenticado. Por favor inicie sesión.",
+          statusCode: 401,
+          status: 401,
+        };
       }
       user = authUser;
     } catch {
-      return { success: false, error: "Sesión no autenticada o fuera de contexto." };
+      return {
+        success: false,
+        error: "Sesión no autenticada o fuera de contexto.",
+        statusCode: 401,
+        status: 401,
+      };
     }
 
     const { createClient: createAdminClient } = await import("@supabase/supabase-js");
@@ -352,45 +443,61 @@ export async function verifyWorkspaceAction(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: business, error: bizError } = await supabaseAdmin
-      .from("businesses")
-      .select("id, name, status, business_type, commercial_activities, settings")
-      .eq("id", businessId)
-      .maybeSingle();
+    // Ejecutar consultas en paralelo para acelerar Server Actions
+    const [bizResult, planInfo, userResult, membershipResult] = await Promise.all([
+      supabaseAdmin
+        .from("businesses")
+        .select("id, name, status, business_type, commercial_activities, settings")
+        .eq("id", businessId)
+        .maybeSingle(),
+      resolveBusinessPlan(supabaseAdmin, businessId),
+      supabaseAdmin
+        .from("users")
+        .select("platform_role")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("business_users")
+        .select("id, status, role_id, roles(id, code, name)")
+        .eq("business_id", businessId)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
+
+    const business = bizResult.data;
+    const bizError = bizResult.error;
 
     if (bizError || !business) {
-      return { success: false, error: "El comercio especificado no existe." };
+      return {
+        success: false,
+        error: "El comercio especificado no existe.",
+        statusCode: 404,
+        status: 404,
+      };
     }
 
     if (business.status === "inactive" || business.status === "suspended") {
-      return { success: false, error: "El comercio se encuentra inactivo o suspendido." };
+      return {
+        success: false,
+        error: "El comercio se encuentra inactivo o suspendido.",
+        statusCode: 403,
+        status: 403,
+      };
     }
 
     const businessType = business.business_type || "fast_food";
     const commercialActivities = normalizeCommercialActivities(
       business.commercial_activities || getDefaultActivitiesForBusinessType(businessType)
     );
-    const planInfo = await resolveBusinessPlan(supabaseAdmin, businessId);
     const enabledFeatures = getEnabledFeaturesForBusiness({
       businessType,
       commercialActivities,
       planId: planInfo.planId,
     });
 
-    const { data: dbUser } = await supabaseAdmin
-      .from("users")
-      .select("platform_role")
-      .eq("id", user.id)
-      .maybeSingle();
-
+    const dbUser = userResult.data;
     const isSuperAdmin = dbUser?.platform_role === "super_admin";
-
-    const { data: membership } = await supabaseAdmin
-      .from("business_users")
-      .select("id, status, role_id, roles(id, code, name)")
-      .eq("business_id", businessId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const membership = membershipResult.data;
 
     const rawRoleData = membership?.roles as any;
     const roleData = Array.isArray(rawRoleData) ? rawRoleData[0] : rawRoleData;
@@ -402,16 +509,24 @@ export async function verifyWorkspaceAction(
       return {
         success: false,
         error: "Acceso denegado: no tienes una membresía activa en este comercio.",
+        statusCode: 403,
+        status: 403,
       };
     }
 
     // 2. Validación de actividades comerciales, vertical y permisos RBAC
     if (requiredPermission && requiredPermission !== "none") {
-      if (requiredPermission.startsWith("products.") || requiredPermission.startsWith("inventory.")) {
+      if (
+        requiredPermission.startsWith("products.") ||
+        requiredPermission.startsWith("inventory.") ||
+        requiredPermission.startsWith("recipes.")
+      ) {
         if (!commercialActivities.includes("sell_products")) {
           return {
             success: false,
-            error: "La venta de productos no está habilitada en la configuración de este comercio.",
+            error: "La venta o catálogo de productos no está habilitada en la configuración de este comercio.",
+            statusCode: 403,
+            status: 403,
           };
         }
       } else if (requiredPermission.startsWith("services.")) {
@@ -419,6 +534,8 @@ export async function verifyWorkspaceAction(
           return {
             success: false,
             error: "La prestación de servicios no está habilitada en la configuración de este comercio.",
+            statusCode: 403,
+            status: 403,
           };
         }
       } else if (requiredPermission.startsWith("appointments.")) {
@@ -426,6 +543,8 @@ export async function verifyWorkspaceAction(
           return {
             success: false,
             error: "La gestión de citas no está habilitada en la configuración de este comercio.",
+            statusCode: 403,
+            status: 403,
           };
         }
       } else if (requiredPermission.startsWith("sales.")) {
@@ -433,6 +552,8 @@ export async function verifyWorkspaceAction(
           return {
             success: false,
             error: "El punto de venta (POS) no está habilitado en el plan de este comercio.",
+            statusCode: 403,
+            status: 403,
           };
         }
       }
@@ -442,11 +563,14 @@ export async function verifyWorkspaceAction(
         return {
           success: false,
           error: "Operación no disponible o incompatible con el tipo de negocio del comercio.",
+          statusCode: 403,
+          status: 403,
         };
       }
 
+      const effectivePermission = requiredPermission === "reports:read" ? "reports.view" : requiredPermission;
       if (!isOwner) {
-        const allowed = await hasPermission(user.id, requiredPermission, {
+        const allowed = await hasPermission(user.id, effectivePermission, {
           scope: "business",
           businessId,
         });
@@ -455,6 +579,8 @@ export async function verifyWorkspaceAction(
           return {
             success: false,
             error: "Permisos insuficientes para realizar esta operación en el comercio.",
+            statusCode: 403,
+            status: 403,
           };
         }
       }
@@ -462,6 +588,8 @@ export async function verifyWorkspaceAction(
 
     return {
       success: true,
+      statusCode: 200,
+      status: 200,
       context: {
         userId: user.id,
         userEmail: user.email || "",
@@ -478,12 +606,15 @@ export async function verifyWorkspaceAction(
         roleName,
         isOwner,
         isSuperAdmin,
+        businessUserId: membership?.id || null,
       },
     };
   } catch (err: any) {
     return {
       success: false,
       error: err?.message || "Error al verificar autorización de workspace.",
+      statusCode: 500,
+      status: 500,
     };
   }
 }

@@ -31,14 +31,14 @@ import {
   isGastronomyBusinessType,
 } from "@/lib/auth/permissions";
 import {
-  AdminKpiCard,
-  AdminKpiGrid,
-  AdminTableToolbar,
-  AdminTabs,
-  AdminSearchInput,
-  AdminBadge,
-  AdminEmptyState,
-} from "@/components/admin/ui";
+  KpiCard,
+  KpiGrid,
+  TableToolbar,
+  Tabs,
+  SearchInput,
+  Badge,
+  EmptyState,
+} from "@/components/ui";
 
 interface WorkspaceRolesClientProps {
   initialRoles: RoleModel[];
@@ -120,8 +120,8 @@ export function WorkspaceRolesClient({
   return (
     <div className="space-y-6 font-body">
       {/* 1. TARJETAS DE MÉTRICAS (KPIS) */}
-      <AdminKpiGrid cols={4}>
-        <AdminKpiCard
+      <KpiGrid cols={4}>
+        <KpiCard
           title="Roles de Negocio"
           value={roles.length}
           subtext={isGastronomy ? "Vertical Gastronómico / Restaurante" : `Vertical: ${businessType}`}
@@ -131,7 +131,7 @@ export function WorkspaceRolesClient({
           onClick={() => setSelectedRoleFilter("all")}
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Dueño / Propietario"
           value={ownerRole?.userCount || 0}
           subtext="Máxima Autoridad Comercial"
@@ -141,7 +141,7 @@ export function WorkspaceRolesClient({
           onClick={() => setSelectedRoleFilter("owner")}
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Auxiliar / Ayudante"
           value={auxiliarRole?.userCount || 0}
           subtext="Operación y Punto de Venta"
@@ -151,22 +151,22 @@ export function WorkspaceRolesClient({
           onClick={() => setSelectedRoleFilter("auxiliar")}
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Aislamiento Seguro"
           value="100%"
           subtext="Validación de Vertical Activa"
           icon={<Lock className="w-4 h-4" />}
           variant="emerald"
         />
-      </AdminKpiGrid>
+      </KpiGrid>
 
       {/* 2. BARRA DE HERRAMIENTAS: TABS Y BÚSQUEDA */}
-      <AdminTableToolbar
+      <TableToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar permiso o capacidad operativa..."
         tabs={
-          <AdminTabs
+          <Tabs
             activeTab={selectedRoleFilter}
             onChange={(val) => setSelectedRoleFilter(val as "all" | "owner" | "auxiliar")}
             tabs={[
@@ -180,7 +180,7 @@ export function WorkspaceRolesClient({
 
       {/* 3. LISTADO DE ROLES Y MATRIZ DE CAPACIDADES */}
       {filteredRoles.length === 0 ? (
-        <AdminEmptyState
+        <EmptyState
           title="No se encontraron roles"
           description="No hay roles disponibles que coincidan con los filtros seleccionados."
           icon={Shield}
@@ -214,13 +214,13 @@ export function WorkspaceRolesClient({
                           <h3 className="text-lg font-bold font-title text-slate-900 dark:text-white">
                             {role.name}
                           </h3>
-                          <AdminBadge variant={isOwner ? "orange" : "blue"}>
+                          <Badge variant={isOwner ? "orange" : "blue"}>
                             {role.code}
-                          </AdminBadge>
-                          <AdminBadge variant="slate">Rol del Sistema</AdminBadge>
-                          <AdminBadge variant="emerald">
+                          </Badge>
+                          <Badge variant="slate">Rol del Sistema</Badge>
+                          <Badge variant="emerald">
                             {role.userCount} {role.userCount === 1 ? "usuario asignado" : "usuarios asignados"}
-                          </AdminBadge>
+                          </Badge>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                           {role.description}

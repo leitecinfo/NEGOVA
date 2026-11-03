@@ -23,6 +23,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { CartItem } from "./menu-cart-types";
+import { calculateItemTax } from "@/lib/pos/types";
 import { createPublicMenuOrderAction } from "@/app/menu/[slugOrId]/actions";
 import { toast } from "sonner";
 import { PublicPaymentMethodDTO, PaymentMethodCode } from "@/lib/payments/types";
@@ -148,7 +149,31 @@ export function MenuCartDrawer({
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const applicableDeliveryFee = orderType === "delivery" && isDeliveryAllowed ? Math.max(0, Number(deliveryFee) || 0) : 0;
-  const totalAmount = subtotalAmount + applicableDeliveryFee;
+
+  // Resumen de impuestos para menú QR
+  let includedTaxAmount = 0;
+  let additionalTaxAmount = 0;
+  let netSubtotalAmount = 0;
+
+  for (const item of items) {
+    const lineTotal = item.unitPrice * item.quantity;
+    const rate = Math.max(0, item.taxPercentage || 0);
+    const included = item.taxIncludedInPrice !== false;
+    const { netSubtotal, taxAmount } = calculateItemTax(lineTotal, rate, included);
+    if (rate > 0) {
+      if (included) {
+        includedTaxAmount += taxAmount;
+        netSubtotalAmount += netSubtotal;
+      } else {
+        additionalTaxAmount += taxAmount;
+        netSubtotalAmount += netSubtotal;
+      }
+    } else {
+      netSubtotalAmount += lineTotal;
+    }
+  }
+
+  const totalAmount = subtotalAmount + applicableDeliveryFee + additionalTaxAmount;
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -201,6 +226,11 @@ export function MenuCartDrawer({
     );
 
     const subtotalText = `*Subtotal de productos:* ${formatPrice(subtotalAmount)}`;
+    const taxText = includedTaxAmount > 0
+      ? `\n*IVA incluido (desagregado):* ${formatPrice(includedTaxAmount)}`
+      : additionalTaxAmount > 0
+      ? `\n*IVA adicional:* ${formatPrice(additionalTaxAmount)}`
+      : "";
     const deliveryText = orderType === "delivery" && applicableDeliveryFee > 0
       ? `\n*Domicilio:* ${formatPrice(applicableDeliveryFee)}`
       : "";
@@ -238,7 +268,7 @@ export function MenuCartDrawer({
       modalityInfo += `\n*Notas:* ${orderNotes.trim()}`;
     }
 
-    const message = `${header}${lines.join("\n")}\n\n${subtotalText}${deliveryText}${totalText}${paymentText}${modalityInfo}\n\nQuedo atento a la confirmación del pedido.`;
+    const message = `${header}${lines.join("\n")}\n\n${subtotalText}${taxText}${deliveryText}${totalText}${paymentText}${modalityInfo}\n\nQuedo atento a la confirmación del pedido.`;
     return `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(message)}`;
   };
 
@@ -297,6 +327,8 @@ export function MenuCartDrawer({
           variantName: it.variantName || null,
           quantity: it.quantity,
           notes: it.notes,
+          taxPercentage: it.taxPercentage,
+          taxIncludedInPrice: it.taxIncludedInPrice,
           selectedModifiers: it.selectedModifiers && it.selectedModifiers.length > 0
             ? it.selectedModifiers.map((m) => ({
                 groupId: m.groupId || "",
@@ -1036,6 +1068,28 @@ export function MenuCartDrawer({
                     <span>Subtotal de productos:</span>
                     <span className="font-semibold">{formatPrice(subtotalAmount)}</span>
                   </div>
+
+                  {includedTaxAmount > 0 && (
+                    <div className={`flex items-center justify-between text-[11px] opacity-75 ${secondaryTextClass}`}>
+                      <span>Base gravable (IVA incluido):</span>
+                      <span>{formatPrice(netSubtotalAmount)}</span>
+                    </div>
+                  )}
+
+                  {includedTaxAmount > 0 && (
+                    <div className={`flex items-center justify-between text-[11px] opacity-90 ${secondaryTextClass}`}>
+                      <span>IVA incluido (desagregado):</span>
+                      <span className="font-medium">{formatPrice(includedTaxAmount)}</span>
+                    </div>
+                  )}
+
+                  {additionalTaxAmount > 0 && (
+                    <div className={`flex items-center justify-between font-medium ${secondaryTextClass}`}>
+                      <span>+ IVA adicional:</span>
+                      <span className="font-semibold">{formatPrice(additionalTaxAmount)}</span>
+                    </div>
+                  )}
+
                   {orderType === "delivery" && (
                     <div className={`flex items-center justify-between ${secondaryTextClass}`}>
                       <span>Costo del domicilio:</span>

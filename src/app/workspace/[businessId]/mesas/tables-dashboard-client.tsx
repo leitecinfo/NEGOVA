@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useEffect } from "react";
+import React, { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -31,33 +31,43 @@ import {
   QrCode,
   Copy,
   Download,
+  Calendar,
+  ArrowRight,
+  TrendingUp,
+  MapPin,
+  HelpCircle,
+  Smartphone,
+  EyeOff,
+  Flame,
+  ArrowLeftRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
-import {
-  AdminButton,
-  AdminConfirmDialog,
-  AdminEmptyState,
-  AdminKpiCard,
-  AdminKpiGrid,
-  AdminSelect,
-  AdminTableToolbar,
-} from "@/components/admin/ui";
+import { Button, IconButton } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { CreateRoomModal } from "@/components/mesas/create-room-modal";
+import { CloseTableOrderModal } from "@/components/mesas/close-table-order-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   createRestaurantTableAction,
   updateRestaurantTableAction,
   deleteRestaurantTableAction,
   releaseRestaurantTableAction,
+  transferRestaurantTableAction,
   getTableQrDataAction,
   regenerateTableQrAction,
   toggleTableQrActiveAction,
+  updateRestaurantRoomAction,
+  deleteRestaurantRoomAction,
+  getRestaurantTableTransfersHistoryAction,
 } from "./actions";
 import type {
   RestaurantTableWithOrder,
   RestaurantTablesSummary,
   CreateTableInput,
   UpdateTableInput,
+  RestaurantRoom,
+  RestaurantRoomWithTables,
 } from "@/lib/restaurant/types";
 
 interface TablesDashboardClientProps {
@@ -65,6 +75,8 @@ interface TablesDashboardClientProps {
   businessName: string;
   initialTables: RestaurantTableWithOrder[];
   initialSummary: RestaurantTablesSummary;
+  initialRooms?: RestaurantRoomWithTables[];
+  locations?: any[];
   canManageTables: boolean;
 }
 
@@ -73,32 +85,122 @@ export function TablesDashboardClient({
   businessName,
   initialTables,
   initialSummary,
+  initialRooms = [],
+  locations = [],
   canManageTables,
 }: TablesDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Sincronización automática periódica y al recuperar foco de ventana
-  useEffect(() => {
-    const handleFocus = () => {
-      router.refresh();
-    };
+  // Pestaña principal activa: Mesas | Salas | Traslados | Rendimiento
+  const [activeMainTab, setActiveMainTab] = useState<"mesas" | "salas" | "traslados" | "rendimiento">("mesas");
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        router.refresh();
+  // Filtros de mesas
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "available" | "occupied">("all");
+
+  // Modales superiores
+  const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
+  const [isCloseOrdersModalOpen, setIsCloseOrdersModalOpen] = useState(false);
+  const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
+
+  // Modales de mesas
+  const [isCreateTableModalOpen, setIsCreateTableModalOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState<RestaurantTableWithOrder | null>(null);
+  const [tableToDelete, setTableToDelete] = useState<RestaurantTableWithOrder | null>(null);
+  const [tableToRelease, setTableToRelease] = useState<RestaurantTableWithOrder | null>(null);
+  const [activeDropdownTableId, setActiveDropdownTableId] = useState<string | null>(null);
+
+  // Modal QR
+  const [qrModalTable, setQrModalTable] = useState<RestaurantTableWithOrder | null>(null);
+  const [qrTokenData, setQrTokenData] = useState<{ token: string; version: number; isActive: boolean } | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
+
+  // Modal y estado de Traslados
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferSourceTableId, setTransferSourceTableId] = useState<string>("");
+  const [transferTargetTableId, setTransferTargetTableId] = useState<string>("");
+  const [transferNotes, setTransferNotes] = useState<string>("");
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transfersHistory, setTransfersHistory] = useState<Array<{
+    id: string;
+    sourceTableName: string;
+    targetTableName: string;
+    orderNumber?: number;
+    userName?: string;
+    transferredAt: string;
+    notes?: string;
+  }>>([]);
+  const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
+
+  // Modal y estado de Edición/Eliminación de Salas
+  const [roomToEdit, setRoomToEdit] = useState<RestaurantRoom | null>(null);
+  const [editRoomName, setEditRoomName] = useState("");
+  const [roomToDelete, setRoomToDelete] = useState<RestaurantRoom | null>(null);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
+
+  // Estados de Rendimiento / Mapa de Calor
+  const [heatMapPeriod, setHeatMapPeriod] = useState<"today" | "week" | "month">("today");
+  const [heatMapMetric, setHeatMapMetric] = useState<"revenue" | "orders">("revenue");
+
+  // Formulario creación de mesa
+  const [createTableForm, setCreateTableForm] = useState<CreateTableInput>({
+    name_or_number: "",
+    capacity: 4,
+    sort_order: 0,
+    room_id: undefined,
+  });
+
+  // Formulario edición de mesa
+  const [editTableForm, setEditTableForm] = useState<UpdateTableInput>({
+    name_or_number: "",
+    capacity: 4,
+    sort_order: 0,
+    room_id: undefined,
+  });
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Cerrar menús al hacer click afuera
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setActiveDropdownTableId(null);
       }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Cargar historial de traslados al cambiar a la pestaña de Traslados
+  useEffect(() => {
+    if (activeMainTab === "traslados") {
+      setIsLoadingTransfers(true);
+      getRestaurantTableTransfersHistoryAction(businessId)
+        .then((res) => {
+          if (res.success && res.data) {
+            setTransfersHistory(res.data);
+          }
+        })
+        .finally(() => setIsLoadingTransfers(false));
+    }
+  }, [activeMainTab, businessId]);
+
+  // Sincronización automática periódica
+  useEffect(() => {
+    const handleFocus = () => router.refresh();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") router.refresh();
     };
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // Sondeo suave cada 12 segundos para reflejar liberaciones automáticas en tiempo real
     const interval = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        router.refresh();
-      }
-    }, 12000);
+      if (document.visibilityState === "visible") router.refresh();
+    }, 15000);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
@@ -107,121 +209,154 @@ export function TablesDashboardClient({
     };
   }, [router]);
 
-  // Estados locales de filtrado, búsqueda y modo de vista
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "available" | "occupied">("all");
-  const [viewMode, setViewMode] = useState<"floor" | "compact">("floor");
-
-  // Estados de modales
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingTable, setEditingTable] = useState<RestaurantTableWithOrder | null>(null);
-  const [tableToDelete, setTableToDelete] = useState<RestaurantTableWithOrder | null>(null);
-  const [tableToRelease, setTableToRelease] = useState<RestaurantTableWithOrder | null>(null);
-  const [activeMenuTableId, setActiveMenuTableId] = useState<string | null>(null);
-  const [qrModalTable, setQrModalTable] = useState<RestaurantTableWithOrder | null>(null);
-  const [qrTokenData, setQrTokenData] = useState<{ token: string; version: number; isActive: boolean } | null>(null);
-  const [isLoadingQr, setIsLoadingQr] = useState(false);
-
-  // Formulario de creación
-  const [createForm, setCreateForm] = useState<CreateTableInput>({
-    name_or_number: "",
-    capacity: 4,
-    sort_order: 0,
-  });
-
-  // Formulario de edición
-  const [editForm, setEditForm] = useState<UpdateTableInput>({
-    name_or_number: "",
-    capacity: 4,
-    sort_order: 0,
-  });
-
-  const [formError, setFormError] = useState<string | null>(null);
-
-  // Formato de moneda COP
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
       maximumFractionDigits: 0,
-    }).format(val);
+    }).format(val || 0);
   };
 
-  // Cálculo del tiempo transcurrido de ocupación
-  const calculateOccupiedDuration = (isoString?: string) => {
-    if (!isoString) return null;
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return "-";
     try {
-      const orderDate = new Date(isoString);
-      const diffMs = Math.max(0, Date.now() - orderDate.getTime());
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-      if (diffMinutes < 1) return "Recién abierta";
-      if (diffMinutes < 60) return `${diffMinutes} min`;
-      const hours = Math.floor(diffMinutes / 60);
-      const remainingMins = diffMinutes % 60;
-      return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+      const d = new Date(isoString);
+      return new Intl.DateTimeFormat("es-CO", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(d);
     } catch {
-      return null;
+      return isoString;
     }
   };
 
-  // Filtrado reactivo de mesas
+  // Minutos transcurridos
+  const getElapsedMinutes = (isoString?: string) => {
+    if (!isoString) return 0;
+    try {
+      const diffMs = Math.max(0, Date.now() - new Date(isoString).getTime());
+      return Math.floor(diffMs / (1000 * 60));
+    } catch {
+      return 0;
+    }
+  };
+
+  const formatElapsedTime = (minutes: number) => {
+    if (minutes < 1) return "Recién abierta";
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const rem = minutes % 60;
+    return rem > 0 ? `${hours}h ${rem}m` : `${hours}h`;
+  };
+
+  // Mesas filtradas por sala, estado y búsqueda
   const filteredTables = useMemo(() => {
     return initialTables.filter((tbl) => {
-      // 1. Filtro de estado
+      if (selectedRoomId !== "all") {
+        if (tbl.room_id !== selectedRoomId) return false;
+      }
       if (statusFilter !== "all" && tbl.status !== statusFilter) {
         return false;
       }
-      // 2. Búsqueda por nombre de mesa o cliente de comanda activa
       if (search.trim()) {
         const q = search.trim().toLowerCase();
         const matchesName = tbl.name_or_number.toLowerCase().includes(q);
-        const matchesCustomer =
-          tbl.activeOrder?.customer_name?.toLowerCase().includes(q) || false;
-        const matchesOrderNumber =
-          tbl.activeOrder?.order_number?.toString() === q.replace(/^#/, "");
-        if (!matchesName && !matchesCustomer && !matchesOrderNumber) {
-          return false;
-        }
+        const matchesCust = tbl.activeOrder?.customer_name?.toLowerCase().includes(q) || false;
+        const matchesNum = String(tbl.activeOrder?.order_number || "") === q.replace(/^#/, "");
+        if (!matchesName && !matchesCust && !matchesNum) return false;
       }
       return true;
     });
-  }, [initialTables, search, statusFilter]);
+  }, [initialTables, selectedRoomId, statusFilter, search]);
 
-  // Manejadores de acciones
-  const handleOpenCreateModal = () => {
-    setCreateForm({
-      name_or_number: "",
-      capacity: 4,
-      sort_order: initialTables.length + 1,
+  const occupiedTables = useMemo(
+    () => initialTables.filter((t) => t.status === "occupied"),
+    [initialTables]
+  );
+  const availableTables = useMemo(
+    () => initialTables.filter((t) => t.status === "available"),
+    [initialTables]
+  );
+
+  // Salas enriquecidas con conteo de mesas
+  const roomsList = useMemo(() => {
+    return initialRooms.map((r) => {
+      const count = initialTables.filter((t) => t.room_id === r.id).length;
+      return { ...r, tablesCount: count };
     });
-    setFormError(null);
-    setIsCreateModalOpen(true);
+  }, [initialRooms, initialTables]);
+
+  // Manejador apertura traslado
+  const handleOpenTransferModal = () => {
+    if (occupiedTables.length < 1 || initialTables.length < 2) {
+      toast.warning("Mesas insuficientes: Necesitas al menos 2 mesas (y al menos 1 ocupada) para realizar traslados.");
+      return;
+    }
+    setTransferSourceTableId(occupiedTables[0]?.id || "");
+    setTransferTargetTableId(availableTables[0]?.id || "");
+    setTransferNotes("");
+    setIsTransferModalOpen(true);
   };
 
-  const handleOpenEditModal = (table: RestaurantTableWithOrder) => {
-    setEditingTable(table);
-    setEditForm({
-      name_or_number: table.name_or_number,
-      capacity: table.capacity || 4,
-      sort_order: table.sort_order || 0,
+  const handleExecuteTransfer = async () => {
+    if (!transferSourceTableId || !transferTargetTableId) {
+      toast.error("Debes seleccionar una mesa de origen y una mesa de destino.");
+      return;
+    }
+    if (transferSourceTableId === transferTargetTableId) {
+      toast.error("La mesa de origen y destino deben ser diferentes.");
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      const res = await transferRestaurantTableAction(
+        businessId,
+        transferSourceTableId,
+        transferTargetTableId,
+        transferNotes.trim() || undefined
+      );
+
+      if (res.success) {
+        toast.success("Mesa trasladada exitosamente.");
+        setIsTransferModalOpen(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo realizar el traslado de la mesa.");
+      }
+    } catch {
+      toast.error("Ocurrió un error al procesar el traslado.");
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  // Manejo de crear mesa rápida
+  const handleOpenCreateTableModal = (roomIdToAssign?: string) => {
+    setCreateTableForm({
+      name_or_number: `Mesa ${initialTables.length + 1}`,
+      capacity: 4,
+      sort_order: initialTables.length + 1,
+      room_id: roomIdToAssign || (selectedRoomId !== "all" ? selectedRoomId : undefined),
     });
     setFormError(null);
-    setActiveMenuTableId(null);
+    setIsCreateTableModalOpen(true);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.name_or_number.trim()) {
+    if (!createTableForm.name_or_number.trim()) {
       setFormError("El nombre o número de la mesa es requerido.");
       return;
     }
 
     startTransition(async () => {
-      const res = await createRestaurantTableAction(businessId, createForm);
+      const res = await createRestaurantTableAction(businessId, createTableForm);
       if (res.success) {
-        toast.success(`Mesa «${createForm.name_or_number}» creada con éxito.`);
-        setIsCreateModalOpen(false);
+        toast.success(`Mesa «${createTableForm.name_or_number}» creada con éxito.`);
+        setIsCreateTableModalOpen(false);
         router.refresh();
       } else {
         setFormError(res.error || "No se pudo registrar la mesa.");
@@ -233,15 +368,15 @@ export function TablesDashboardClient({
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTable) return;
-    if (!editForm.name_or_number?.trim()) {
-      setFormError("El nombre o número de mesa es requerido.");
+    if (!editTableForm.name_or_number?.trim()) {
+      setFormError("El nombre de mesa es requerido.");
       return;
     }
 
     startTransition(async () => {
-      const res = await updateRestaurantTableAction(businessId, editingTable.id, editForm);
+      const res = await updateRestaurantTableAction(businessId, editingTable.id, editTableForm);
       if (res.success) {
-        toast.success(`Mesa «${editForm.name_or_number}» actualizada exitosamente.`);
+        toast.success(`Mesa «${editTableForm.name_or_number}» actualizada exitosamente.`);
         setEditingTable(null);
         router.refresh();
       } else {
@@ -249,68 +384,6 @@ export function TablesDashboardClient({
         toast.error(res.error || "Error al actualizar la mesa.");
       }
     });
-  };
-
-  const handleOpenQrModal = async (tbl: RestaurantTableWithOrder) => {
-    setQrModalTable(tbl);
-    setIsLoadingQr(true);
-    setQrTokenData(null);
-    try {
-      const res = await getTableQrDataAction(businessId, tbl.id);
-      if (res.success && res.token) {
-        setQrTokenData({
-          token: res.token,
-          version: res.qrVersion || 1,
-          isActive: res.qrIsActive !== false,
-        });
-      } else {
-        toast.error(res.error || "No se pudo obtener el código QR de la mesa.");
-      }
-    } catch {
-      toast.error("Error al cargar datos del código QR.");
-    } finally {
-      setIsLoadingQr(false);
-    }
-  };
-
-  const handleRegenerateQr = async () => {
-    if (!qrModalTable) return;
-    setIsLoadingQr(true);
-    try {
-      const res = await regenerateTableQrAction(businessId, qrModalTable.id);
-      if (res.success) {
-        toast.success("Código QR regenerado. El código anterior ha quedado revocado.");
-        // Recargar datos actualizados del QR
-        const refreshed = await getTableQrDataAction(businessId, qrModalTable.id);
-        if (refreshed.success && refreshed.token) {
-          setQrTokenData({
-            token: refreshed.token,
-            version: refreshed.qrVersion || 1,
-            isActive: refreshed.qrIsActive !== false,
-          });
-        }
-      } else {
-        toast.error(res.error || "No se pudo regenerar el código QR.");
-      }
-    } finally {
-      setIsLoadingQr(false);
-    }
-  };
-
-  const handleToggleQrActive = async (isActive: boolean) => {
-    if (!qrModalTable) return;
-    setIsLoadingQr(true);
-    try {
-      const res = await toggleTableQrActiveAction(businessId, qrModalTable.id, isActive);
-      if (res.success) {
-        toast.success(isActive ? "Código QR habilitado." : "Código QR deshabilitado.");
-        setQrTokenData((prev) => (prev ? { ...prev, isActive } : null));
-      } else {
-        toast.error(res.error || "No se pudo modificar el estado del QR.");
-      }
-    } finally {
-      setIsLoadingQr(false);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -321,7 +394,7 @@ export function TablesDashboardClient({
     startTransition(async () => {
       const res = await deleteRestaurantTableAction(businessId, target.id);
       if (res.success) {
-        toast.success(`Mesa «${target.name_or_number}» eliminada correctamente.`);
+        toast.success(`Mesa «${target.name_or_number}» eliminada.`);
         router.refresh();
       } else {
         toast.error(res.error || "No se pudo eliminar la mesa.");
@@ -337,7 +410,7 @@ export function TablesDashboardClient({
     startTransition(async () => {
       const res = await releaseRestaurantTableAction(businessId, target.id);
       if (res.success) {
-        toast.success(`Mesa «${target.name_or_number}» liberada y lista para recibir nuevos comensales.`);
+        toast.success(`Mesa «${target.name_or_number}» liberada exitosamente.`);
         router.refresh();
       } else {
         toast.error(res.error || "No fue posible liberar la mesa.");
@@ -345,734 +418,1079 @@ export function TablesDashboardClient({
     });
   };
 
-  // Helper para calcular la distribución física de sillas según capacidad
-  const getChairLayout = (capacity: number) => {
-    const cap = Math.max(1, capacity || 4);
-    if (cap <= 2) {
-      return { top: 1, bottom: 1, left: 0, right: 0 };
-    }
-    if (cap <= 4) {
-      return { top: 1, bottom: 1, left: 1, right: 1 };
-    }
-    if (cap <= 6) {
-      return { top: 2, bottom: 2, left: 1, right: 1 };
-    }
-    return { top: 3, bottom: 3, left: 1, right: 1 };
+  // Manejo de edición / eliminación de salas
+  const handleUpdateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomToEdit || !editRoomName.trim()) return;
+
+    startTransition(async () => {
+      const res = await updateRestaurantRoomAction(businessId, roomToEdit.id, {
+        name: editRoomName.trim(),
+      });
+      if (res.success) {
+        toast.success("Sala actualizada exitosamente.");
+        setRoomToEdit(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo actualizar la sala.");
+      }
+    });
   };
+
+  const handleToggleRoomVisibility = async (room: RestaurantRoom) => {
+    const nextStatus = room.status === "active" ? "inactive" : "active";
+    startTransition(async () => {
+      const res = await updateRestaurantRoomAction(businessId, room.id, {
+        status: nextStatus,
+      });
+      if (res.success) {
+        toast.success(nextStatus === "active" ? "Sala visible." : "Sala oculta.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo cambiar la visibilidad.");
+      }
+    });
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setIsDeletingRoom(true);
+    try {
+      const res = await deleteRestaurantRoomAction(businessId, roomToDelete.id);
+      if (res.success) {
+        toast.success(`Sala «${roomToDelete.name}» eliminada.`);
+        setRoomToDelete(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo eliminar la sala.");
+      }
+    } finally {
+      setIsDeletingRoom(false);
+    }
+  };
+
+  // Métricas de Rendimiento calculadas
+  const performanceKpis = useMemo(() => {
+    const totalRevenue = occupiedTables.reduce((acc, t) => acc + (t.activeOrder?.total || 0), 0);
+    const totalOrdersCount = occupiedTables.length;
+    const totalDiners = occupiedTables.reduce((acc, t) => acc + (t.capacity || 4), 0);
+    const totalOccupiedMinutes = occupiedTables.reduce(
+      (acc, t) => acc + getElapsedMinutes(t.activeOrder?.created_at),
+      0
+    );
+
+    return {
+      revenue: totalRevenue,
+      orders: totalOrdersCount,
+      diners: totalDiners,
+      totalMinutes: totalOccupiedMinutes,
+    };
+  }, [occupiedTables]);
 
   return (
     <AppPageContainer
-      title="Plano de Mesas y Salón"
-      description={`Supervisión gráfica en vivo, asignación de comensales y cuentas activas en ${businessName}.`}
-      badge={
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
-          <Armchair className="w-3.5 h-3.5" />
-          Servicio de Salón
-        </span>
-      }
+      title="Gestión de Mesas"
+      description="Salas, mesas y rendimiento."
       actions={
         <div className="flex items-center gap-2">
-          {/* Switcher de Vista: Salón Gráfico vs Lista */}
-          <div className="hidden sm:inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] text-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("floor")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "floor"
-                  ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs font-semibold"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-              title="Vista de plano de salón gráfico con mesas y sillas"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Plano Salón</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("compact")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "compact"
-                  ? "bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white shadow-xs font-semibold"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-              title="Vista compacta de mesas para alta densidad"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Lista Rápida</span>
-            </button>
-          </div>
+          {/* Botón Instalar app */}
+          <Button
+            variant="outline"
+            size="md"
+            leftIcon={<Smartphone className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+            onClick={() => setIsPwaModalOpen(true)}
+            title="Instalar la aplicación de comandas para meseros y sala"
+          >
+            Instalar app
+          </Button>
 
+          {/* Botón Cerrar órdenes */}
+          <Button
+            variant="outline"
+            size="md"
+            leftIcon={<Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+            onClick={() => {
+              if (occupiedTables.length === 0) {
+                toast.info("No hay mesas ocupadas con órdenes activas para cerrar.");
+                return;
+              }
+              setIsCloseOrdersModalOpen(true);
+            }}
+          >
+            Cerrar órdenes
+          </Button>
+
+          {/* Botón + Nueva sala */}
           {canManageTables && (
-            <AdminButton
+            <Button
               variant="primary"
-              size="sm"
-              onClick={handleOpenCreateModal}
+              size="md"
               leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setIsCreateRoomModalOpen(true)}
             >
-              <span>Nueva Mesa</span>
-            </AdminButton>
+              + Nueva sala
+            </Button>
           )}
         </div>
       }
-      maxWidth="7xl"
     >
-      <div className="space-y-6 font-body">
+      <div className="space-y-6">
         {/* ========================================================================= */}
-        {/* 1. INDICADORES RESUMIDOS DE SALÓN (KPIs) */}
+        {/* PESTAÑAS DE NAVEGACIÓN DEL MÓDULO (4 TABS)                                */}
         {/* ========================================================================= */}
-        <AdminKpiGrid cols={4}>
-          <AdminKpiCard
-            title="Total Mesas"
-            value={initialSummary.total}
-            subtext="Mesas en el salón"
-            icon={<Armchair className="w-4 h-4" />}
-            variant="blue"
-            isSelected={statusFilter === "all"}
-            onClick={() => setStatusFilter("all")}
-          />
-
-          <AdminKpiCard
-            title="Disponibles"
-            value={initialSummary.available}
-            subtext="Listas para comensales"
-            icon={<CheckCircle2 className="w-4 h-4" />}
-            variant="emerald"
-            isSelected={statusFilter === "available"}
-            onClick={() => setStatusFilter("available")}
-          />
-
-          <AdminKpiCard
-            title="Ocupadas"
-            value={initialSummary.occupied}
-            subtext="Con comanda activa"
-            icon={<UtensilsCrossed className="w-4 h-4" />}
-            variant="amber"
-            isSelected={statusFilter === "occupied"}
-            onClick={() => setStatusFilter("occupied")}
-          />
-
-          <AdminKpiCard
-            title="Tasa de Ocupación"
-            value={`${initialSummary.occupancyRate}%`}
-            subtext={`${initialSummary.occupied} de ${initialSummary.total} mesas activas`}
-            icon={<Clock className="w-4 h-4" />}
-            variant="purple"
-          />
-        </AdminKpiGrid>
-
-        {/* ========================================================================= */}
-        {/* 2. BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS RÁPIDOS */}
-        {/* ========================================================================= */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
-          {/* Segmented Quick Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            <button
-              type="button"
-              onClick={() => setStatusFilter("all")}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                statusFilter === "all"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
-                  : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-white/10"
-              }`}
-            >
-              <span>Todas</span>
-              <span
-                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  statusFilter === "all"
-                    ? "bg-white/20 text-white dark:bg-slate-900/10 dark:text-slate-900"
-                    : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300"
+        <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] w-fit">
+          {[
+            { id: "mesas", label: "Mesas", icon: LayoutGrid, count: initialTables.length },
+            { id: "salas", label: "Salas", icon: Layers, count: roomsList.length },
+            { id: "traslados", label: "Traslados", icon: ArrowLeftRight },
+            { id: "rendimiento", label: "Rendimiento", icon: Flame },
+          ].map((tab) => {
+            const isActive = activeMainTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveMainTab(tab.id as any)}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                {initialSummary.total}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusFilter("available")}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                statusFilter === "available"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200/60 dark:border-emerald-500/20"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Libres</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-current">
-                {initialSummary.available}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusFilter("occupied")}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                statusFilter === "occupied"
-                  ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200/60 dark:border-amber-500/20"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span>Ocupadas</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-current">
-                {initialSummary.occupied}
-              </span>
-            </button>
-          </div>
-
-          {/* Search Bar & Refresh */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar mesa o cliente..."
-                className="w-full h-9 pl-9 pr-8 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.refresh()}
-              disabled={isPending}
-              className="p-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shrink-0"
-              title="Refrescar estado de mesas"
-            >
-              <RefreshCw className={`w-4 h-4 ${isPending ? "animate-spin text-[#ED500A]" : ""}`} />
-            </button>
-          </div>
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+                {typeof tab.count === "number" && (
+                  <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-slate-200/60 dark:bg-white/[0.08]">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. PLANO GRÁFICO DE SALÓN / CUADRÍCULA VISUAL INTUITIVA */}
+        {/* TAB 1: MESAS                                                              */}
         {/* ========================================================================= */}
-        {filteredTables.length === 0 ? (
-          <AdminEmptyState
-            icon={Armchair}
-            title={
-              initialTables.length === 0
-                ? "No hay mesas registradas en el salón"
-                : "Sin resultados para estos filtros"
-            }
-            description={
-              initialTables.length === 0
-                ? "Crea las mesas de tu salón para asignarlas a las comandas registradas desde el POS."
-                : "Intenta cambiar los términos de búsqueda o el filtro de disponibilidad."
-            }
-            actionLabel={initialTables.length === 0 && canManageTables ? "Crear la primera mesa" : undefined}
-            onAction={initialTables.length === 0 && canManageTables ? handleOpenCreateModal : undefined}
-          />
-        ) : viewMode === "floor" ? (
-          /* ===================================================================== */
-          /* MODO PLANO DE SALÓN: MESAS REALISTAS CON SILLAS PERIMETRALES */
-          /* ===================================================================== */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-2">
-            {filteredTables.map((tbl) => {
-              const isOccupied = tbl.status === "occupied";
-              const activeOrder = tbl.activeOrder;
-              const durationText = calculateOccupiedDuration(activeOrder?.created_at || tbl.updated_at);
-              const chairLayout = getChairLayout(tbl.capacity || 4);
+        {activeMainTab === "mesas" && (
+          <div className="space-y-4">
+            {/* Selector de salas y leyenda de estados */}
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                {/* Selector de Salas */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRoomId("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                      selectedRoomId === "all"
+                        ? "bg-[#ED500A] text-white shadow-xs"
+                        : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200/60"
+                    }`}
+                  >
+                    Todas las salas ({initialTables.length})
+                  </button>
 
-              return (
-                <div
-                  key={tbl.id}
-                  className="relative group flex flex-col items-center justify-between transition-all duration-300"
-                >
-                  {/* SILLAS SUPERIORES */}
-                  <div className="flex items-center justify-center gap-3 w-full -mb-3 z-10 pointer-events-none">
-                    {Array.from({ length: chairLayout.top }).map((_, i) => (
-                      <div
-                        key={`top-chair-${i}`}
-                        className={`w-11 h-4 rounded-t-xl rounded-b-xs border transition-all duration-300 shadow-xs ${
-                          isOccupied
-                            ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                            : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
+                  {roomsList.map((room) => {
+                    const isSelected = selectedRoomId === room.id;
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => setSelectedRoomId(room.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                          isSelected
+                            ? "bg-[#ED500A] text-white shadow-xs"
+                            : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200/60"
                         }`}
-                      />
-                    ))}
-                  </div>
+                      >
+                        <span>{room.name}</span>
+                        <span className="text-3xs font-mono px-1.5 py-0.2 rounded-md bg-black/10 dark:bg-white/10">
+                          {room.tablesCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  {/* CUERPO CENTRAL DE LA MESA (SUPERFICIE REALISTA DE SALÓN) */}
-                  <div className="flex items-center justify-between w-full relative">
-                    {/* SILLA IZQUIERDA */}
-                    {chairLayout.left > 0 ? (
-                      <div className="flex flex-col justify-center gap-2 -mr-3 z-10 pointer-events-none">
-                        {Array.from({ length: chairLayout.left }).map((_, i) => (
-                          <div
-                            key={`left-chair-${i}`}
-                            className={`w-4 h-11 rounded-l-xl rounded-r-xs border transition-all duration-300 shadow-xs ${
-                              isOccupied
-                                ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                                : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="w-1" />
-                    )}
+                {/* Contador rápido */}
+                <div className="flex items-center gap-2 text-xs font-mono font-semibold shrink-0">
+                  <span className="px-2.5 py-1 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                    {occupiedTables.length} ocupadas
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
+                    {availableTables.length} libres
+                  </span>
+                </div>
+              </div>
 
-                    {/* SUPERFICIE DE LA MESA */}
-                    <div
-                      className={`relative flex-1 rounded-3xl p-4 sm:p-5 border-2 transition-all duration-300 overflow-hidden shadow-md group-hover:-translate-y-1 group-hover:shadow-xl ${
-                        isOccupied
-                          ? "bg-gradient-to-b from-amber-50/90 via-white to-amber-50/50 dark:from-[#1E1913] dark:via-[#16130F] dark:to-[#120F0C] border-amber-400/80 dark:border-amber-500/40 shadow-amber-500/5 group-hover:border-amber-500"
-                          : "bg-gradient-to-b from-white via-slate-50/70 to-slate-100/50 dark:from-[#171A23] dark:via-[#13161C] dark:to-[#0E1015] border-slate-200 dark:border-white/[0.08] group-hover:border-emerald-500/50 group-hover:shadow-emerald-500/5"
-                      }`}
+              {/* Leyenda de estados de mesa */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                  <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider mr-1">
+                    Estados:
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    Libre
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    Ocupado
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    +30 min
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    +60 min
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Impreso
+                  </span>
+                </div>
+
+                {/* Buscador */}
+                <div className="relative w-full sm:w-60">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar mesa..."
+                    className="w-full h-8 pl-8 pr-7 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {/* Ambient Accent Watermark */}
-                      <div className="absolute -right-4 -bottom-4 w-24 h-24 pointer-events-none opacity-[0.04] dark:opacity-[0.06] text-current">
-                        <UtensilsCrossed className="w-full h-full" />
-                      </div>
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                      {/* CABECERA DE LA MESA: NOMBRE, CAPACIDAD Y ESTADO */}
-                      <div className={`space-y-2 relative ${activeMenuTableId === tbl.id ? "z-30" : "z-10"}`}>
-                        {/* Fila 1: Nombre de la mesa y Estado */}
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight whitespace-nowrap min-w-0 truncate">
-                            {tbl.name_or_number}
-                          </h3>
+            {/* Grid de Mesas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredTables.map((table) => {
+                const isOccupied = table.status === "occupied";
+                const activeOrder = table.activeOrder;
+                const elapsedMins = getElapsedMinutes(activeOrder?.created_at);
+                const isDropdownOpen = activeDropdownTableId === table.id;
 
-                          {/* ESTADO VIBRANTE DE LA MESA */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border shadow-xs ${
-                                isOccupied
-                                  ? "bg-amber-500 text-white border-amber-600 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30"
-                                  : "bg-emerald-500 text-white border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30"
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isOccupied ? "bg-white dark:bg-amber-400 animate-ping" : "bg-white dark:bg-emerald-400"
-                                }`}
-                              />
-                              <span>{isOccupied ? "OCUPADA" : "LIBRE"}</span>
+                if (isOccupied) {
+                  return (
+                    <div
+                      key={table.id}
+                      className="bg-white dark:bg-[#0D0F16] border border-red-200/80 dark:border-red-900/40 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all relative flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Cabecera tarjeta ocupada */}
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            {/* Indicador numérico en fondo rojo */}
+                            <div className="w-9 h-9 rounded-xl bg-red-600 text-white font-mono font-bold text-sm flex items-center justify-center shadow-xs">
+                              {table.name_or_number.replace(/[^0-9]/g, "") || table.name_or_number.slice(0, 3)}
+                            </div>
+                            <div>
+                              <span className="font-bold text-slate-900 dark:text-white text-xs block">
+                                {table.name_or_number}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {(activeOrder as any)?.order_type === "dine_in" ? "Comensales:" : "Cap:"} 1 / {table.capacity || 4}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {/* Badge de comanda */}
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              {activeOrder?.status === "ready" ? "Listo" : "Ocupado"}
                             </span>
 
-                            {/* Menú Administrativo Flotante */}
-                            {canManageTables && (
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuTableId(activeMenuTableId === tbl.id ? null : tbl.id);
-                                  }}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-                                  title="Opciones administrativas"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
+                            {/* Menú contextual ... */}
+                            <div className="relative" ref={isDropdownOpen ? dropdownRef : undefined}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveDropdownTableId(isDropdownOpen ? null : table.id)
+                                }
+                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-400 hover:text-slate-600 transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
 
-                                {activeMenuTableId === tbl.id && (
-                                  <>
-                                    {/* Backdrop transparente para cerrar al hacer clic afuera */}
-                                    <div
-                                      className="fixed inset-0 z-40 cursor-default"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveMenuTableId(null);
+                              {isDropdownOpen && (
+                                <div className="absolute right-0 top-7 z-30 w-44 rounded-xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/[0.1] shadow-xl py-1 text-xs divide-y divide-slate-100 dark:divide-white/[0.06]">
+                                  <div className="py-1">
+                                    <Link
+                                      href={`/workspace/${businessId}/pos?tableId=${table.id}`}
+                                      className="flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06]"
+                                    >
+                                      <ShoppingBag className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Ver comanda en POS</span>
+                                    </Link>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDropdownTableId(null);
+                                        setTransferSourceTableId(table.id);
+                                        setTransferTargetTableId(availableTables[0]?.id || "");
+                                        setIsTransferModalOpen(true);
                                       }}
-                                    />
-
-                                    {/* Dropdown completamente opaco con sombra y z-index superior */}
-                                    <div className="absolute right-0 top-full mt-1.5 w-44 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/15 rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveMenuTableId(null);
-                                          handleOpenQrModal(tbl);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors text-left"
-                                      >
-                                        <QrCode className="w-3.5 h-3.5 text-emerald-500" />
-                                        <span>Código QR de Mesa</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveMenuTableId(null);
-                                          handleOpenEditModal(tbl);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
-                                      >
-                                        <Edit2 className="w-3.5 h-3.5 text-slate-400" />
-                                        <span>Editar Mesa</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveMenuTableId(null);
-                                          setTableToDelete(tbl);
-                                        }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                        <span>Eliminar Mesa</span>
-                                      </button>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            )}
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] text-left cursor-pointer"
+                                    >
+                                      <ArrowLeftRight className="w-3.5 h-3.5 text-blue-500" />
+                                      <span>Trasladar mesa</span>
+                                    </button>
+                                  </div>
+                                  <div className="py-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDropdownTableId(null);
+                                        setTableToRelease(table);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left cursor-pointer font-medium"
+                                    >
+                                      <Unlock className="w-3.5 h-3.5" />
+                                      <span>Liberar mesa</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Fila 2: Capacidad y Duración / Estado operativo */}
-                        <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
-                          {/* Chip de comensales / capacidad */}
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08] shrink-0">
-                            <Users className="w-3 h-3 text-slate-400" />
-                            <span>{tbl.capacity || 4} pax</span>
+                        {/* Cronómetro y responsable */}
+                        <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400 mb-3 font-mono">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="flex items-center gap-1 text-slate-400">
+                              <Clock className="w-3 h-3" />
+                              Ocupación:
+                            </span>
+                            <span
+                              className={`font-bold ${
+                                elapsedMins > 60
+                                  ? "text-red-600 dark:text-red-400"
+                                  : elapsedMins > 30
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-slate-700 dark:text-slate-300"
+                              }`}
+                            >
+                              {formatElapsedTime(elapsedMins)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              Atendido por:
+                            </span>
+                            <span className="truncate max-w-[130px] font-medium text-slate-700 dark:text-slate-200">
+                              {(() => {
+                                const waiterMatch = (activeOrder?.notes as string | undefined)?.match(/\[CAMARERO:([^\]]+)\]/);
+                                return waiterMatch ? waiterMatch[1] : ((activeOrder as any)?.driver_name || activeOrder?.customer_name || "Mesero");
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Monto acumulado y botón cobrar */}
+                      <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium">Total comanda</span>
+                          <span className="font-bold font-mono text-sm text-slate-900 dark:text-white">
+                            {formatCOP(activeOrder?.total || 0)}
+                          </span>
+                        </div>
+
+                        <Link href={`/workspace/${businessId}/pos?tableId=${table.id}`}>
+                          <Button variant="outline" size="sm">
+                            Comanda →
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Tarjeta de mesa Libre
+                return (
+                  <div
+                    key={table.id}
+                    className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs hover:border-slate-300 dark:hover:border-white/[0.15] transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Cabecera mesa libre */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          {/* Indicador numérico gris neutro */}
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 font-mono font-bold text-sm flex items-center justify-center">
+                            {table.name_or_number.replace(/[^0-9]/g, "") || table.name_or_number.slice(0, 3)}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-white text-xs block">
+                              {table.name_or_number}
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              Cap. {table.capacity || 4} personas
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-white/[0.06] text-slate-500">
+                            Libre
                           </span>
 
-                          <div className="truncate text-right">
-                            {isOccupied ? (
-                              <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-end gap-1 text-[11px] truncate">
-                                <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                                <span className="truncate">{durationText || "En servicio"}</span>
-                              </span>
-                            ) : (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-end gap-1 text-[11px]">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                                <span>Lista para comanda</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CENTRO DE LA MESA: COMANDA ACTIVA O INVITACIÓN POS */}
-                      <div className="mt-4 relative z-0">
-                        {isOccupied && activeOrder ? (
-                          <div className="p-3 rounded-2xl bg-amber-500/[0.08] dark:bg-amber-500/[0.06] border border-amber-300/60 dark:border-amber-500/20 space-y-2">
-                            {/* Comanda # y Monto Grande */}
-                            <div className="flex items-center justify-between">
-                              <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200 bg-amber-500/15 text-amber-900 dark:text-amber-300 px-2 py-0.5 rounded-md">
-                                Comanda #{activeOrder.order_number}
-                              </span>
-                              <span className="font-mono text-sm font-black text-[#ED500A] tracking-tight">
-                                {formatCOP(activeOrder.total)}
-                              </span>
-                            </div>
-
-                            {/* Cliente o detalle */}
-                            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
-                              <div className="flex items-center gap-1.5 truncate pr-2">
-                                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                <span className="truncate font-medium">
-                                  {activeOrder.customer_name || "Comensal de mesa"}
-                                </span>
-                              </div>
-                              <span className="text-[11px] text-slate-400 shrink-0 font-medium">
-                                {activeOrder.items_count} {activeOrder.items_count === 1 ? "artículo" : "artículos"}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="py-4 px-3 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                              Mesa libre para nuevo pedido
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* BOTONERA OPERATIVA DE LA MESA */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2 relative z-0">
-                        {isOccupied && activeOrder ? (
-                          <>
-                            <Link
-                              href={`/workspace/${businessId}/pedidos/${activeOrder.id}`}
-                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 transition-all active:scale-[0.98]"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-[#ED500A]" />
-                              <span>Ver Comanda</span>
-                            </Link>
-
+                          <div className="relative" ref={isDropdownOpen ? dropdownRef : undefined}>
                             <button
                               type="button"
-                              onClick={() => setTableToRelease(tbl)}
-                              disabled={isPending}
-                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-500/15 hover:bg-amber-200 dark:hover:bg-amber-500/25 border border-amber-300/80 dark:border-amber-500/25 transition-all active:scale-[0.98]"
-                              title="Liberar mesa al finalizar el servicio"
+                              onClick={() =>
+                                setActiveDropdownTableId(isDropdownOpen ? null : table.id)
+                              }
+                              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-400 hover:text-slate-600 transition-colors"
                             >
-                              <Unlock className="w-3.5 h-3.5" />
-                              <span>Liberar</span>
+                              <MoreVertical className="w-4 h-4" />
                             </button>
-                          </>
-                        ) : (
-                          <Link
-                            href={`/workspace/${businessId}/pos?tableId=${tbl.id}`}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-[#ED500A] hover:bg-[#ED500A]/90 shadow-md shadow-[#ED500A]/20 transition-all active:scale-[0.98]"
-                          >
-                            <UtensilsCrossed className="w-3.5 h-3.5" />
-                            <span>Tomar Pedido (POS)</span>
-                          </Link>
-                        )}
+
+                            {isDropdownOpen && (
+                              <div className="absolute right-0 top-7 z-30 w-44 rounded-xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/[0.1] shadow-xl py-1 text-xs divide-y divide-slate-100 dark:divide-white/[0.06]">
+                                <div className="py-1">
+                                  <Link
+                                    href={`/workspace/${businessId}/pos?tableId=${table.id}`}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06]"
+                                  >
+                                    <ShoppingBag className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Abrir comanda</span>
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveDropdownTableId(null);
+                                      setEditingTable(table);
+                                      setEditTableForm({
+                                        name_or_number: table.name_or_number,
+                                        capacity: table.capacity || 4,
+                                        sort_order: table.sort_order || 0,
+                                        room_id: table.room_id || undefined,
+                                      });
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] text-left cursor-pointer"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Editar mesa</span>
+                                  </button>
+                                </div>
+                                <div className="py-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveDropdownTableId(null);
+                                      setTableToDelete(table);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left cursor-pointer font-medium"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Eliminar</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* SILLA DERECHA */}
-                    {chairLayout.right > 0 ? (
-                      <div className="flex flex-col justify-center gap-2 -ml-3 z-10 pointer-events-none">
-                        {Array.from({ length: chairLayout.right }).map((_, i) => (
-                          <div
-                            key={`right-chair-${i}`}
-                            className={`w-4 h-11 rounded-r-xl rounded-l-xs border transition-all duration-300 shadow-xs ${
-                              isOccupied
-                                ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                                : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="w-1" />
-                    )}
+                    <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                      <Link href={`/workspace/${businessId}/pos?tableId=${table.id}`}>
+                        <Button variant="outline" size="sm" className="w-full justify-center">
+                          Abrir comanda
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
+                );
+              })}
 
-                  {/* SILLAS INFERIORES */}
-                  <div className="flex items-center justify-center gap-3 w-full -mt-3 z-10 pointer-events-none">
-                    {Array.from({ length: chairLayout.bottom }).map((_, i) => (
-                      <div
-                        key={`bottom-chair-${i}`}
-                        className={`w-11 h-4 rounded-b-xl rounded-t-xs border transition-all duration-300 shadow-xs ${
-                          isOccupied
-                            ? "bg-amber-400 dark:bg-amber-500/90 border-amber-500 dark:border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
-                            : "bg-slate-100 dark:bg-white/[0.08] border-slate-300 dark:border-white/[0.08] group-hover:border-emerald-500/40"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* ===================================================================== */
-          /* MODO LISTA RÁPIDA: DENSO, EFICIENTE PARA HORAS PICO */
-          /* ===================================================================== */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredTables.map((tbl) => {
-              const isOccupied = tbl.status === "occupied";
-              const activeOrder = tbl.activeOrder;
-              const durationText = calculateOccupiedDuration(activeOrder?.created_at || tbl.updated_at);
-
-              return (
-                <div
-                  key={tbl.id}
-                  className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
-                    isOccupied
-                      ? "bg-amber-50/40 dark:bg-amber-500/10 border-amber-300/80 dark:border-amber-500/30 shadow-xs"
-                      : "bg-white dark:bg-[#0D0F16] border-slate-200 dark:border-white/[0.08] hover:border-emerald-500/40"
-                  }`}
+              {/* Tarjeta de acción rápida: + Añadir mesa */}
+              {canManageTables && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateTableModal()}
+                  className="min-h-[160px] rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/[0.1] hover:border-[#ED500A] dark:hover:border-[#ED500A] bg-slate-50/50 dark:bg-white/[0.01] hover:bg-orange-500/5 transition-all flex flex-col items-center justify-center gap-2 p-6 cursor-pointer group"
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 dark:text-white text-base truncate">
-                        {tbl.name_or_number}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          isOccupied
-                            ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400"
-                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400"
-                        }`}
-                      >
-                        {isOccupied ? "Ocupada" : "Libre"}
-                      </span>
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-[#ED500A]">
+                    + Añadir mesa
+                  </span>
+                  <span className="text-[10px] text-slate-400">En la sala activa</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: SALAS                                                              */}
+        {/* ========================================================================= */}
+        {activeMainTab === "salas" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Gestión de Salas
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Administra las salas y su configuración.
+                </p>
+              </div>
+
+              {canManageTables && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => setIsCreateRoomModalOpen(true)}
+                >
+                  + Nueva sala
+                </Button>
+              )}
+            </div>
+
+            {roomsList.length === 0 ? (
+              <div className="text-center p-8 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-3">
+                <Layers className="w-10 h-10 text-slate-400 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No hay salas registradas
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Crea salas como Terraza, Salón VIP o Primer Piso para ordenar las mesas.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsCreateRoomModalOpen(true)}
+                >
+                  Crear primera sala
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {roomsList.map((room) => (
+                  <div
+                    key={room.id}
+                    className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs space-y-3"
+                  >
+                    {/* Cabecera sala */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                          {room.name}
+                        </h4>
+                        <span className="text-xs text-slate-500 font-mono block">
+                          {room.tablesCount} {room.tablesCount === 1 ? "mesa asignada" : "mesas asignadas"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <IconButton
+                          icon={<Edit2 className="w-3.5 h-3.5" />}
+                          title="Editar sala"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setRoomToEdit(room);
+                            setEditRoomName(room.name);
+                          }}
+                        />
+                        <IconButton
+                          icon={room.status === "inactive" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          title={room.status === "inactive" ? "Mostrar sala" : "Ocultar sala"}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleRoomVisibility(room)}
+                        />
+                        <IconButton
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          title="Eliminar sala"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setRoomToDelete(room)}
+                        />
+                      </div>
                     </div>
 
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
-                      <span>Cap: {tbl.capacity || 4}p</span>
-                      {isOccupied && activeOrder ? (
-                        <>
-                          <span>•</span>
-                          <span className="font-semibold text-slate-900 dark:text-white">
-                            {formatCOP(activeOrder.total)}
-                          </span>
-                          <span>•</span>
-                          <span>{durationText || "En curso"}</span>
-                        </>
-                      ) : (
-                        <span>• Lista para clientes</span>
-                      )}
-                    </p>
-                  </div>
+                    {/* Área de plano físico */}
+                    <div className="h-28 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] flex flex-col items-center justify-center text-slate-400 gap-1.5 text-xs">
+                      <LayoutGrid className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                      <span className="font-semibold text-[11px]">Sin plano</span>
+                      <span className="text-[10px] text-slate-400">Diseño gráfico en desarrollo</span>
+                    </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenQrModal(tbl)}
-                        className="p-2 rounded-xl text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
-                        title="Ver Código QR de la mesa"
-                      >
-                        <QrCode className="w-4 h-4" />
-                      </button>
-                      {isOccupied && activeOrder ? (
-                        <>
-                          <Link
-                            href={`/workspace/${businessId}/pedidos/${activeOrder.id}`}
-                            className="p-2 rounded-xl text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
-                            title="Ver comanda"
-                          >
-                            <FileText className="w-4 h-4 text-[#ED500A]" />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setTableToRelease(tbl)}
-                            disabled={isPending}
-                            className="p-2 rounded-xl text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
-                            title="Liberar mesa"
-                          >
-                            <Unlock className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <Link
-                          href={`/workspace/${businessId}/pos?tableId=${tbl.id}`}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#ED500A] hover:bg-[#ED500A]/90 transition-colors"
-                        >
-                          <UtensilsCrossed className="w-3.5 h-3.5" />
-                          <span>POS</span>
-                        </Link>
-                      )}
+                    {/* Pie de tarjeta */}
+                    <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+                      <span>Creada: {formatDate(room.created_at)}</span>
+                      <span className={room.status === "active" ? "text-emerald-600 font-bold" : "text-slate-400"}>
+                        {room.status === "active" ? "Activa" : "Oculta"}
+                      </span>
                     </div>
                   </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: TRASLADOS ENTRE MESAS                                              */}
+        {/* ========================================================================= */}
+        {activeMainTab === "traslados" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Traslados entre Mesas
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Historial de traslados de productos entre mesas y paso de mesas de una sala a otra.
+                </p>
+              </div>
+
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={handleOpenTransferModal}
+              >
+                + Nuevo Traslado
+              </Button>
+            </div>
+
+            {/* Alerta informativa de validación si no hay mesas suficientes */}
+            {(occupiedTables.length === 0 || initialTables.length < 2) && (
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-400">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold">Mesas insuficientes:</strong> Necesitas al menos 2 mesas registradas y al menos 1 mesa ocupada con comanda activa para realizar traslados.
+                </div>
+              </div>
+            )}
+
+            {/* Historial de traslados */}
+            {isLoadingTransfers ? (
+              <div className="p-8 text-center text-xs text-slate-400">Cargando traslados...</div>
+            ) : transfersHistory.length === 0 ? (
+              <div className="text-center p-10 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-2">
+                <ArrowLeftRight className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Sin movimientos de traslado
+                </h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Cuando traslades una comanda de una mesa a otra, el historial auditado aparecerá registrado aquí.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.08] text-slate-500 font-mono text-[11px] uppercase">
+                      <tr>
+                        <th className="px-4 py-3">Fecha y Hora</th>
+                        <th className="px-4 py-3">Mesa Origen</th>
+                        <th className="px-4 py-3">Mesa Destino</th>
+                        <th className="px-4 py-3">Comanda #</th>
+                        <th className="px-4 py-3">Motivo / Notas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04] font-mono text-xs">
+                      {transfersHistory.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                            {formatDate(t.transferredAt)}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-red-600">
+                            {t.sourceTableName}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-emerald-600">
+                            {t.targetTableName}
+                          </td>
+                          <td className="px-4 py-3 text-slate-800 dark:text-slate-200">
+                            {t.orderNumber ? `#${t.orderNumber}` : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">
+                            {t.notes || "Traslado operativo"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 4: RENDIMIENTO / MAPA DE CALOR                                        */}
+        {/* ========================================================================= */}
+        {activeMainTab === "rendimiento" && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Mapa de Calor
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Visualiza el rendimiento de las mesas por período.
+                </p>
+              </div>
+
+              {/* Filtros de rendimiento */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={heatMapPeriod}
+                  onChange={(e) => setHeatMapPeriod(e.target.value as any)}
+                  className="h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-semibold"
+                >
+                  <option value="today">Hoy</option>
+                  <option value="week">Esta semana</option>
+                  <option value="month">Este mes</option>
+                </select>
+
+                <select
+                  value={heatMapMetric}
+                  onChange={(e) => setHeatMapMetric(e.target.value as any)}
+                  className="h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-semibold"
+                >
+                  <option value="revenue">Métrica: Ingresos</option>
+                  <option value="orders">Métrica: Pedidos</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 4 Tarjetas de KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+                <span className="text-xs text-slate-500 block font-medium">Ingresos Totales</span>
+                <span className="text-xl font-bold font-mono text-slate-900 dark:text-white block mt-1">
+                  {formatCOP(performanceKpis.revenue)}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block font-mono">Facturación acumulada</span>
+              </div>
+
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+                <span className="text-xs text-slate-500 block font-medium">Pedidos Totales</span>
+                <span className="text-xl font-bold font-mono text-emerald-600 block mt-1">
+                  {performanceKpis.orders}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block font-mono">Comandas atendidas</span>
+              </div>
+
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+                <span className="text-xs text-slate-500 block font-medium">Comensales</span>
+                <span className="text-xl font-bold font-mono text-blue-600 block mt-1">
+                  {performanceKpis.diners}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block font-mono">Capacidad ocupada</span>
+              </div>
+
+              <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+                <span className="text-xs text-slate-500 block font-medium">Tiempo Total</span>
+                <span className="text-xl font-bold font-mono text-[#ED500A] block mt-1">
+                  {formatElapsedTime(performanceKpis.totalMinutes)}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-1 block font-mono">Permanencia acumulada</span>
+              </div>
+            </div>
+
+            {/* Matriz gráfica con escala cromática */}
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Matriz de Actividad por Mesa
+                </h4>
+                <div className="flex items-center gap-3 text-xs font-mono">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-white/10" />
+                    Sin actividad
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    Actividad media
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    Actividad alta
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {initialTables.map((t) => {
+                  const isOcc = t.status === "occupied";
+                  const rev = t.activeOrder?.total || 0;
+                  const isHigh = rev > 80000;
+                  const isMid = isOcc && !isHigh;
+
+                  return (
+                    <div
+                      key={t.id}
+                      className={`p-3 rounded-xl border text-center transition-all ${
+                        isHigh
+                          ? "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400 font-bold"
+                          : isMid
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 font-semibold"
+                          : "bg-slate-50 dark:bg-white/[0.02] border-slate-100 dark:border-white/[0.04] text-slate-400"
+                      }`}
+                    >
+                      <span className="text-xs font-bold block">{t.name_or_number}</span>
+                      <span className="text-[10px] font-mono block mt-1">
+                        {isOcc ? formatCOP(rev) : "Sin consumo"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
       {/* ========================================================================= */}
-      {/* 4. MODAL PARA CREAR MESA */}
+      {/* MODAL 1: NUEVA SALA (CreateRoomModal Oficial)                              */}
       {/* ========================================================================= */}
-      {isCreateModalOpen && (
+      <CreateRoomModal
+        isOpen={isCreateRoomModalOpen}
+        businessId={businessId}
+        locations={locations}
+        onClose={() => setIsCreateRoomModalOpen(false)}
+        onSuccess={() => {
+          setIsCreateRoomModalOpen(false);
+          router.refresh();
+        }}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: CERRAR ÓRDENES (CloseTableOrderModal Oficial)                     */}
+      {/* ========================================================================= */}
+      <CloseTableOrderModal
+        isOpen={isCloseOrdersModalOpen}
+        businessId={businessId}
+        occupiedTables={occupiedTables}
+        onClose={() => setIsCloseOrdersModalOpen(false)}
+        onSuccess={() => {
+          setIsCloseOrdersModalOpen(false);
+          router.refresh();
+        }}
+      />
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: TRASLADO ENTRE MESAS                                             */}
+      {/* ========================================================================= */}
+      {isTransferModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body">
-            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold">
-                    <Armchair className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Registrar Nueva Mesa
-                    </h3>
-                    <p className="text-xs text-slate-500">Agrega una mesa física para el salón</p>
-                  </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="w-4 h-4 text-[#ED500A]" />
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Trasladar Mesa
+                  </h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+                  onClick={() => setIsTransferModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleCreateSubmit} className="p-5 space-y-4">
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Mesa de Origen (Ocupada)
+                  </label>
+                  <select
+                    value={transferSourceTableId}
+                    onChange={(e) => setTransferSourceTableId(e.target.value)}
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  >
+                    {occupiedTables.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name_or_number} ({formatCOP(t.activeOrder?.total || 0)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Mesa de Destino
+                  </label>
+                  <select
+                    value={transferTargetTableId}
+                    onChange={(e) => setTransferTargetTableId(e.target.value)}
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  >
+                    {initialTables
+                      .filter((t) => t.id !== transferSourceTableId)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name_or_number} {t.status === "available" ? "(Libre)" : "(Ocupada - Unir)"}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Motivo del traslado (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={transferNotes}
+                    onChange={(e) => setTransferNotes(e.target.value)}
+                    placeholder="Ej. Solicitud del cliente por lluvia, mesa más grande..."
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTransferModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={isTransferring}
+                  onClick={handleExecuteTransfer}
+                >
+                  Confirmar Traslado
+                </Button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: CREAR / EDITAR MESA                                              */}
+      {/* ========================================================================= */}
+      {isCreateTableModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Nueva Mesa
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateTableModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
                 {formError && (
-                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{formError}</span>
+                  <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600">
+                    {formError}
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Nombre o Número de Mesa *
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Nombre o número de mesa (*)
                   </label>
                   <input
                     type="text"
                     required
-                    value={createForm.name_or_number}
+                    value={createTableForm.name_or_number}
                     onChange={(e) =>
-                      setCreateForm((prev) => ({ ...prev, name_or_number: e.target.value }))
+                      setCreateTableForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
-                    placeholder="Ej. Mesa 5, Barra 2, Terraza 3..."
-                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                    placeholder="Ej. Mesa 5, Terraza 2"
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Capacidad (Personas)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={createForm.capacity || 4}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          capacity: Number(e.target.value) || 4,
-                        }))
-                      }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Orden Visual
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={createForm.sort_order || 0}
-                      onChange={(e) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          sort_order: Number(e.target.value) || 0,
-                        }))
-                      }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Capacidad (comensales)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={createTableForm.capacity}
+                    onChange={(e) =>
+                      setCreateTableForm((prev) => ({
+                        ...prev,
+                        capacity: parseInt(e.target.value, 10) || 4,
+                      }))
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  />
                 </div>
 
-                {/* Footer Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
-                  <AdminButton
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sala o Ambiente
+                  </label>
+                  <select
+                    value={createTableForm.room_id || ""}
+                    onChange={(e) =>
+                      setCreateTableForm((prev) => ({
+                        ...prev,
+                        room_id: e.target.value || undefined,
+                      }))
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">Sin sala asignada</option>
+                    {roomsList.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                  <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setIsCreateModalOpen(false)}
-                    disabled={isPending}
+                    onClick={() => setIsCreateTableModalOpen(false)}
                   >
                     Cancelar
-                  </AdminButton>
-                  <AdminButton
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={isPending}
-                  >
-                    {isPending ? "Guardando..." : "Guardar Mesa"}
-                  </AdminButton>
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" isLoading={isPending}>
+                    Crear Mesa
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1080,117 +1498,94 @@ export function TablesDashboardClient({
         </ModalPortal>
       )}
 
-      {/* ========================================================================= */}
-      {/* 5. MODAL PARA EDITAR MESA */}
-      {/* ========================================================================= */}
+      {/* Modal Editar Mesa */}
       {editingTable && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body">
-            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold">
-                    <Edit2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Editar Mesa «{editingTable.name_or_number}»
-                    </h3>
-                    <p className="text-xs text-slate-500">Actualiza los datos de la mesa</p>
-                  </div>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Editar Mesa
+                </h3>
                 <button
                   type="button"
                   onClick={() => setEditingTable(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleEditSubmit} className="p-5 space-y-4">
-                {formError && (
-                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{formError}</span>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Nombre o Número de Mesa *
+              <form onSubmit={handleEditSubmit} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Nombre o número de mesa
                   </label>
                   <input
                     type="text"
                     required
-                    value={editForm.name_or_number}
+                    value={editTableForm.name_or_number}
                     onChange={(e) =>
-                      setEditForm((prev) => ({ ...prev, name_or_number: e.target.value }))
+                      setEditTableForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
-                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Capacidad (Personas)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={editForm.capacity || 4}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          capacity: Number(e.target.value) || 4,
-                        }))
-                      }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Orden Visual
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={editForm.sort_order || 0}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          sort_order: Number(e.target.value) || 0,
-                        }))
-                      }
-                      className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Capacidad (comensales)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={editTableForm.capacity}
+                    onChange={(e) =>
+                      setEditTableForm((prev) => ({
+                        ...prev,
+                        capacity: parseInt(e.target.value, 10) || 4,
+                      }))
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  />
                 </div>
 
-                {/* Footer Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5">
-                  <AdminButton
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Sala
+                  </label>
+                  <select
+                    value={editTableForm.room_id || ""}
+                    onChange={(e) =>
+                      setEditTableForm((prev) => ({
+                        ...prev,
+                        room_id: e.target.value || undefined,
+                      }))
+                    }
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="">Sin sala asignada</option>
+                    {roomsList.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                  <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setEditingTable(null)}
-                    disabled={isPending}
                   >
                     Cancelar
-                  </AdminButton>
-                  <AdminButton
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={isPending}
-                  >
-                    {isPending ? "Actualizando..." : "Guardar Cambios"}
-                  </AdminButton>
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" isLoading={isPending}>
+                    Guardar Cambios
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1198,144 +1593,134 @@ export function TablesDashboardClient({
         </ModalPortal>
       )}
 
-      {/* ========================================================================= */}
-      {/* 6. DIÁLOGO DE CONFIRMACIÓN: LIBERAR MESA */}
-      {/* ========================================================================= */}
-      <AdminConfirmDialog
-        isOpen={Boolean(tableToRelease)}
-        onClose={() => setTableToRelease(null)}
-        onConfirm={handleConfirmRelease}
-        isLoading={isPending}
-        title={`¿Liberar «${tableToRelease?.name_or_number}»?`}
-        description={`La mesa volverá a estar disponible para recibir una nueva cuenta. Recuerda que la comanda activa (#${
-          tableToRelease?.activeOrder?.order_number || ""
-        }) debe haber concluido su servicio o estar cancelada.`}
-        confirmLabel="Liberar Mesa"
-        variant="primary"
-      />
-
-      {/* ========================================================================= */}
-      {/* 7. DIÁLOGO DE CONFIRMACIÓN: ELIMINAR MESA */}
-      {/* ========================================================================= */}
-      <AdminConfirmDialog
-        isOpen={Boolean(tableToDelete)}
-        onClose={() => setTableToDelete(null)}
-        onConfirm={handleConfirmDelete}
-        isLoading={isPending}
-        title={`¿Eliminar «${tableToDelete?.name_or_number}»?`}
-        description="Esta acción eliminará la mesa físicamente del sistema si no posee pedidos históricos asociados. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar Mesa"
-        variant="destructive"
-      />
-
-      {/* ========================================================================= */}
-      {/* 8. MODAL DE CÓDIGO QR Y ADMINISTRACIÓN DE ACCESO DE MESA */}
-      {/* ========================================================================= */}
-      {qrModalTable && (
+      {/* Modal Editar Sala */}
+      {roomToEdit && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs font-body">
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <QrCode className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                      {qrModalTable.name_or_number}
-                    </h3>
-                    <p className="text-[11px] text-slate-400">Menú digital para mesa</p>
-                  </div>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Editar Sala
+                </h3>
                 <button
                   type="button"
-                  onClick={() => {
-                    setQrModalTable(null);
-                    setQrTokenData(null);
-                  }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                  onClick={() => setRoomToEdit(null)}
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Contenedor del Código QR */}
-              {isLoadingQr ? (
-                <div className="py-12 flex flex-col items-center justify-center space-y-3">
-                  <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-                  <p className="text-xs text-slate-400">Generando enlace seguro...</p>
+              <form onSubmit={handleUpdateRoom} className="space-y-3 text-xs">
+                <div>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Nombre de la sala (*)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editRoomName}
+                    onChange={(e) => setEditRoomName(e.target.value)}
+                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
+                  />
                 </div>
-              ) : qrTokenData ? (
-                <>
-                  {/* Imagen del QR */}
-                  <div className="bg-white p-4 rounded-2xl shadow-inner border border-slate-100 mx-auto inline-block">
-                    {/* Generador SVG de QR vía QuickChart / API estandar segura */}
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                        typeof window !== "undefined"
-                          ? `${window.location.origin}/menu/${businessId}?table=${qrModalTable.id}&token=${qrTokenData.token}`
-                          : `/menu/${businessId}?table=${qrModalTable.id}&token=${qrTokenData.token}`
-                      )}`}
-                      alt={`QR ${qrModalTable.name_or_number}`}
-                      className="w-48 h-48 rounded-lg object-contain"
-                    />
-                  </div>
 
-                  {/* Estado del QR */}
-                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs">
-                    <span className="text-slate-500 dark:text-slate-400">
-                      Versión: <strong>v{qrTokenData.version}</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleQrActive(!qrTokenData.isActive)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors ${
-                        qrTokenData.isActive
-                          ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                          : "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                      }`}
-                    >
-                      {qrTokenData.isActive ? "Activo" : "Deshabilitado"}
-                    </button>
-                  </div>
-
-                  {/* Botones de Acción */}
-                  <div className="space-y-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const url = `${window.location.origin}/menu/${businessId}?table=${qrModalTable.id}&token=${qrTokenData.token}`;
-                        navigator.clipboard.writeText(url);
-                        toast.success("Enlace del QR copiado al portapapeles.");
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 text-xs font-bold transition-all"
-                    >
-                      <Copy className="w-4 h-4" />
-                      <span>Copiar Enlace de Mesa</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleRegenerateQr}
-                      disabled={isLoadingQr}
-                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs font-semibold transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Regenerar QR (Revocar anterior)</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="py-8 text-center text-xs text-red-500 space-y-2">
-                  <AlertCircle className="w-8 h-8 mx-auto" />
-                  <p>No se pudo generar el código QR.</p>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRoomToEdit(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" variant="primary" size="sm" isLoading={isPending}>
+                    Actualizar
+                  </Button>
                 </div>
-              )}
+              </form>
             </div>
           </div>
         </ModalPortal>
       )}
+
+      {/* Modal Instalar App (PWA) */}
+      {isPwaModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  App de Comandas y Meseros
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Para instalar NEGOVA en tu celular o tablet, abre el menú de opciones de tu navegador (Chrome o Safari) y selecciona <strong>«Agregar a la pantalla principal»</strong>.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full justify-center"
+                onClick={() => setIsPwaModalOpen(false)}
+              >
+                Entendido
+              </Button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ConfirmModal para Eliminar Mesa */}
+      <ConfirmModal
+        isOpen={Boolean(tableToDelete)}
+        onClose={() => setTableToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="¿Eliminar mesa?"
+        description={
+          tableToDelete
+            ? `Se eliminará la mesa «${tableToDelete.name_or_number}». Esta acción no se puede deshacer.`
+            : ""
+        }
+        confirmText="Sí, eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
+
+      {/* ConfirmModal para Liberar Mesa */}
+      <ConfirmModal
+        isOpen={Boolean(tableToRelease)}
+        onClose={() => setTableToRelease(null)}
+        onConfirm={handleConfirmRelease}
+        title="¿Liberar mesa ocupada?"
+        description={
+          tableToRelease
+            ? `Se marcará la comanda de «${tableToRelease.name_or_number}» como finalizada y la mesa volverá a estar libre.`
+            : ""
+        }
+        confirmText="Sí, liberar"
+        cancelText="Cancelar"
+        variant="warning"
+      />
+
+      {/* ConfirmModal para Eliminar Sala */}
+      <ConfirmModal
+        isOpen={Boolean(roomToDelete)}
+        onClose={() => setRoomToDelete(null)}
+        onConfirm={handleDeleteRoom}
+        title="¿Eliminar sala?"
+        description={
+          roomToDelete
+            ? `Se eliminará la sala «${roomToDelete.name}». Solo puedes eliminarla si no tiene mesas asignadas.`
+            : ""
+        }
+        confirmText="Sí, eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeletingRoom}
+      />
     </AppPageContainer>
   );
 }

@@ -37,6 +37,9 @@ export interface WhatsAppOrderSummaryData {
   deliveryReference?: string | null;
   paymentMethodLabel?: string | null;
   notes?: string | null;
+  deliveryPin?: string | null;
+  trackingCode?: string | null;
+  trackingUrl?: string | null;
   subtotal: number;
   deliveryFee?: number;
   total: number;
@@ -190,6 +193,22 @@ export function formatOrderSummaryMessage(data: WhatsAppOrderSummaryData): strin
   // 6. Observaciones generales del cliente
   if (data.notes && data.notes.trim()) {
     lines.push(`📝 *Observaciones:* ${data.notes.trim()}`);
+  }
+
+  // 7. PIN de verificación de entrega para domicilios
+  if (data.orderType === "delivery" && data.deliveryPin) {
+    lines.push("");
+    lines.push(`🔐 *CÓDIGO DE ENTREGA:* *${data.deliveryPin}*`);
+    lines.push(`_¡Tu pedido ha sido confirmado! Tu código de entrega es: *${data.deliveryPin}*. Cuando recibas tu pedido, comparte este código de 4 dígitos con el domiciliario para confirmar la entrega. No compartas el código antes de recibir tu pedido._`);
+  }
+
+  // 8. Enlace de seguimiento en tiempo real para domicilios [DOM-004]
+  if (data.orderType === "delivery" && data.trackingCode) {
+    const trackingLink = data.trackingUrl || `https://negova.com/seguimiento/${data.trackingCode}`;
+    lines.push("");
+    lines.push(`🛵 *SEGUIMIENTO EN VIVO:*`);
+    lines.push(`Sigue el estado de tu domicilio en tiempo real aquí:`);
+    lines.push(`${trackingLink}`);
   }
 
   lines.push("");

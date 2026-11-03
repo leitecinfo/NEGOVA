@@ -6,11 +6,13 @@ import {
   getEmployeeById,
   createEmployee,
   updateEmployee,
+  deleteEmployee,
   createEmployeeNovelty,
   getEmployeeNovelties,
   getPayrollPeriodsList,
   getPayrollPeriodDetail,
   createPayrollPeriod,
+  approvePayrollPeriod,
   registerPayrollReceiptPayment,
   cancelPayrollReceipt,
   UpsertEmployeeInput,
@@ -124,6 +126,28 @@ export async function updateWorkspaceEmployeeAction(
 }
 
 /**
+ * SERVER ACTION: ELIMINAR TRABAJADOR / PERSONAL DE SERVICIO
+ */
+export async function deleteWorkspaceEmployeeAction(businessId: string, employeeId: string) {
+  try {
+    const actor = await verifyUserPermission("staff.delete" as any, { businessId }).catch(async () => {
+      // Fallback a staff.update si staff.delete no está registrado estrictamente
+      return await verifyUserPermission("staff.update", { businessId });
+    });
+    const result = await deleteEmployee(employeeId, actor.userId, { businessId });
+
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/personal`);
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error("[deleteWorkspaceEmployeeAction Error]:", err);
+    return { success: false, error: err.message || "Error al eliminar trabajador." };
+  }
+}
+
+/**
  * SERVER ACTION: REGISTRAR NOVEDAD LABORAL (HORAS EXTRA, BONOS, ANTICIPOS, DESCUENTOS)
  */
 export async function createWorkspaceEmployeeNoveltyAction(
@@ -226,6 +250,25 @@ export async function createWorkspacePayrollPeriodAction(
 }
 
 /**
+ * SERVER ACTION: APROBAR PERÍODO DE NÓMINA LIQUIDADO
+ */
+export async function approveWorkspacePayrollPeriodAction(businessId: string, periodId: string) {
+  try {
+    const actor = await verifyUserPermission("payroll.calculate", { businessId });
+    const result = await approvePayrollPeriod(periodId, actor.userId, { businessId });
+
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/nomina`);
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error("[approveWorkspacePayrollPeriodAction Error]:", err);
+    return { success: false, error: err.message || "Error al aprobar período de nómina." };
+  }
+}
+
+/**
  * SERVER ACTION: REGISTRAR PAGO EFECTIVO DE UN COMPROBANTE DE NÓMINA
  */
 export async function registerWorkspacePayrollPaymentAction(
@@ -270,5 +313,28 @@ export async function cancelWorkspacePayrollReceiptAction(businessId: string, re
   } catch (err: any) {
     console.error("[cancelWorkspacePayrollReceiptAction Error]:", err);
     return { success: false, error: err.message || "Error al anular comprobante de nómina." };
+  }
+}
+
+/**
+ * SERVER ACTION: ASIGNAR O ACTUALIZAR PIN DE SEGURIDAD DE UN COLABORADOR EN PERSONAL
+ */
+export async function assignEmployeePinAction(
+  businessId: string,
+  employeeId: string,
+  pin: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const actor = await verifyUserPermission("staff.create", { businessId });
+    const { assignEmployeeSecurityPin } = await import("@/lib/security/pin-service");
+
+    const result = await assignEmployeeSecurityPin(businessId, employeeId, pin, actor.userId);
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/personal`);
+    }
+    return result;
+  } catch (err: any) {
+    console.error("[assignEmployeePinAction Error]:", err);
+    return { success: false, error: err.message || "Error al asignar PIN al colaborador." };
   }
 }

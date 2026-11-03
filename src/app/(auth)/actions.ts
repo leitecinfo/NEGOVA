@@ -22,6 +22,7 @@ export type ActionResponse = {
   redirectUrl?: string;
   requiresMfa?: boolean;
   mfaEmail?: string;
+  mfaType?: "totp" | "email";
 };
 
 // Esquema de validación específico para recuperación de contraseña
@@ -99,7 +100,7 @@ export async function loginWithPassword(formData: FormData): Promise<ActionRespo
 
     const { data: profile } = await supabaseAdmin
       .from("users")
-      .select("platform_role, status")
+      .select("platform_role, status, is_2fa_enabled, two_factor_factor_id")
       .eq("id", authData.user.id)
       .maybeSingle();
 
@@ -146,48 +147,96 @@ export async function loginWithPassword(formData: FormData): Promise<ActionRespo
       }
     }
 
-    // F. Verificar si la política de MFA aplica para el usuario (Staff/Admin o Dueño de Negocio)
+    // F. Verificar si la política de MFA aplica para el usuario (Staff/Admin, Dueño, 2FA TOTP o Requerido por Negocio)
     let requireMfa = false;
+    let mfaType: "totp" | "email" = "email";
 
-    if (isStaffOrAdmin) {
-      requireMfa = true; // Por defecto activo para administradores
+    // 1. Verificación en dos pasos (TOTP / Google Authenticator) activa por el propio usuario [CONF-004]
+    if (Boolean(profile?.is_2fa_enabled)) {
+      requireMfa = true;
+      mfaType = "totp";
+    }
+
+    // 2. Obligatoriedad de 2FA configurada por el comercio para administradores [CONF-004]
+    if (!requireMfa) {
       try {
-        const { data: configRow } = await supabaseAdmin
-          .from("platform_settings")
-          .select("value")
-          .eq("key", "core_config")
-          .maybeSingle();
+        const { isTwoFactorEnforcedForUser } = await import("@/lib/auth/two-factor-service");
+        const { data: userMemberships } = await supabaseAdmin
+          .from("business_users")
+          .select("business_id, roles(code)")
+          .eq("user_id", authData.user.id)
+          .neq("status", "inactive");
 
-        if (configRow?.value && typeof configRow.value === "object") {
-          const val = configRow.value as any;
-          if (val.seguridad && typeof val.seguridad.requireMfaForStaff === "boolean") {
-            requireMfa = val.seguridad.requireMfaForStaff;
+        if (userMemberships && userMemberships.length > 0) {
+          for (const m of userMemberships) {
+            const roleData = m.roles as any;
+            const code = Array.isArray(roleData) ? roleData[0]?.code : roleData?.code;
+            if (["owner", "business_owner", "admin", "administrador", "gerente"].includes(code)) {
+              const checkResult = await isTwoFactorEnforcedForUser(authData.user.id, m.business_id);
+              if (checkResult.requires2fa) {
+                requireMfa = true;
+                mfaType = "totp";
+                break;
+              }
+            }
           }
         }
-      } catch {
-        requireMfa = true;
+      } catch (checkErr) {
+        console.warn("Aviso al verificar obligatoriedad de 2FA:", checkErr);
       }
-    } else if (isBusinessOwner) {
-      requireMfa = true; // Obligatorio para DUEÑOS DE NEGOCIO (OWNER)
-      try {
-        const { data: configRow } = await supabaseAdmin
-          .from("platform_settings")
-          .select("value")
-          .eq("key", "core_config")
-          .maybeSingle();
+    }
 
-        if (configRow?.value && typeof configRow.value === "object") {
-          const val = configRow.value as any;
-          if (val.seguridad && typeof val.seguridad.requireMfaForOwners === "boolean") {
-            requireMfa = val.seguridad.requireMfaForOwners;
+    if (!requireMfa) {
+      if (isStaffOrAdmin) {
+        requireMfa = true; // Por defecto activo para administradores
+        try {
+          const { data: configRow } = await supabaseAdmin
+            .from("platform_settings")
+            .select("value")
+            .eq("key", "core_config")
+            .maybeSingle();
+
+          if (configRow?.value && typeof configRow.value === "object") {
+            const val = configRow.value as any;
+            if (val.seguridad && typeof val.seguridad.requireMfaForStaff === "boolean") {
+              requireMfa = val.seguridad.requireMfaForStaff;
+            }
           }
+        } catch {
+          requireMfa = true;
         }
-      } catch {
-        requireMfa = true;
+      } else if (isBusinessOwner) {
+        requireMfa = true; // Obligatorio para DUEÑOS DE NEGOCIO (OWNER)
+        try {
+          const { data: configRow } = await supabaseAdmin
+            .from("platform_settings")
+            .select("value")
+            .eq("key", "core_config")
+            .maybeSingle();
+
+          if (configRow?.value && typeof configRow.value === "object") {
+            const val = configRow.value as any;
+            if (val.seguridad && typeof val.seguridad.requireMfaForOwners === "boolean") {
+              requireMfa = val.seguridad.requireMfaForOwners;
+            }
+          }
+        } catch {
+          requireMfa = true;
+        }
       }
     }
 
     if (requireMfa) {
+      if (mfaType === "totp") {
+        await supabase.auth.signOut({ scope: "local" });
+        return {
+          success: true,
+          requiresMfa: true,
+          mfaEmail: sanitizedEmail,
+          mfaType: "totp",
+          message: "Ingresa el código de 6 dígitos de tu aplicación de autenticación o un código de respaldo.",
+        };
+      }
       // Generar código OTP criptográficamente seguro de 6 dígitos
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -275,10 +324,14 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
   const password = (formData.get("password") as string) || "";
   const sanitizedEmail = rawEmail.trim().toLowerCase();
 
-  if (!sanitizedEmail || !otpCode || otpCode.length !== 6) {
+  const cleanRecovery = otpCode.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const isRecoveryCode = cleanRecovery.length === 8;
+  const isSixDigitCode = otpCode.trim().length === 6 && /^\d{6}$/.test(otpCode.trim());
+
+  if (!sanitizedEmail || (!isRecoveryCode && !isSixDigitCode)) {
     return {
       success: false,
-      error: "Código de verificación inválido. Debe contener 6 dígitos.",
+      error: "Código de verificación inválido. Debe contener 6 dígitos o un código de respaldo de 8 caracteres.",
     };
   }
 
@@ -297,6 +350,115 @@ export async function verifyLoginMfaOtp(formData: FormData): Promise<ActionRespo
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
+
+  // 1. Manejo de Código de Respaldo (Recovery Code) [CONF-004]
+  if (isRecoveryCode) {
+    const { data: userProfile } = await supabaseAdmin
+      .from("users")
+      .select("id, is_2fa_enabled")
+      .eq("email", sanitizedEmail)
+      .maybeSingle();
+
+    if (userProfile?.id) {
+      const { verifyAndConsumeRecoveryCode } = await import("@/lib/auth/two-factor-service");
+      const recoveryRes = await verifyAndConsumeRecoveryCode(userProfile.id, otpCode);
+
+      if (recoveryRes.success) {
+        const supabase = await createClient();
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: sanitizedEmail,
+          password,
+        });
+
+        if (authError || !authData.user) {
+          return {
+            success: false,
+            error: "Error al autenticar sesión con código de respaldo. Por favor verifica tus credenciales.",
+          };
+        }
+
+        clearLoginSecurity(sanitizedEmail, ip).catch(() => {});
+
+        const rawRedirect = (formData.get("redirectTo") as string) || "";
+        const userBizId = await getUserActiveBusinessId(authData.user.id);
+        const safeRedirect = rawRedirect.startsWith("/") && rawRedirect !== "/dashboard"
+          ? rawRedirect
+          : userBizId ? `/workspace/${userBizId}` : "/admin";
+
+        return {
+          success: true,
+          redirectUrl: safeRedirect,
+          message: `¡Sesión iniciada con código de respaldo! Te quedan ${recoveryRes.remainingCount} códigos disponibles.`,
+        };
+      } else {
+        return {
+          success: false,
+          error: recoveryRes.error || "Código de respaldo inválido o ya utilizado.",
+        };
+      }
+    }
+  }
+
+  // 2. Comprobar si el usuario tiene factor TOTP activo [CONF-004]
+  const { data: userProfile } = await supabaseAdmin
+    .from("users")
+    .select("id, is_2fa_enabled, two_factor_factor_id")
+    .eq("email", sanitizedEmail)
+    .maybeSingle();
+
+  if (userProfile?.is_2fa_enabled) {
+    let totpSuccess = false;
+    try {
+      const supabase = await createClient();
+      if (userProfile.two_factor_factor_id && (supabase.auth as any).mfa) {
+        const challengeRes = await (supabase.auth as any).mfa.challengeAndVerify({
+          factorId: userProfile.two_factor_factor_id,
+          code: otpCode.trim(),
+        });
+        if (!challengeRes.error) {
+          totpSuccess = true;
+        }
+      }
+    } catch {
+      // Continuar con verificación alternativa
+    }
+
+    if (!totpSuccess) {
+      const { data: otpRecord } = await supabaseAdmin
+        .from("password_reset_otps")
+        .select("*")
+        .eq("email", sanitizedEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (otpRecord && otpRecord.code === otpCode.trim() && new Date() <= new Date(otpRecord.expires_at)) {
+        totpSuccess = true;
+        await supabaseAdmin.from("password_reset_otps").delete().eq("id", otpRecord.id);
+      }
+    }
+
+    if (totpSuccess) {
+      const supabase = await createClient();
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: sanitizedEmail,
+        password,
+      });
+
+      if (!authError && authData?.user) {
+        clearLoginSecurity(sanitizedEmail, ip).catch(() => {});
+        const userBizId = await getUserActiveBusinessId(authData.user.id);
+        const rawRedirect = (formData.get("redirectTo") as string) || "";
+        const safeRedirect = rawRedirect.startsWith("/") && rawRedirect !== "/dashboard"
+          ? rawRedirect
+          : userBizId ? `/workspace/${userBizId}` : "/admin";
+        return {
+          success: true,
+          redirectUrl: safeRedirect,
+        };
+      }
+    }
+  }
 
   // Buscar el OTP en la base de datos
   const { data: otpRecord, error: dbError } = await supabaseAdmin

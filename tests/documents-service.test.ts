@@ -182,4 +182,15 @@ describe("Documentos Comerciales y Persistencia en PostgreSQL", () => {
     expect(nonExistentCancel.success).toBe(false);
     expect(nonExistentCancel.error).toBe("Documento no encontrado o no pertenece a este negocio.");
   });
+
+  it("debe obtener métricas del dashboard sin lanzar errores incluso si la base de datos no tiene restaurant_order_id", async () => {
+    const { getWorkspaceDashboardData } = await import("@/lib/documents/document-service");
+    const data = await getWorkspaceDashboardData(REAL_BUSINESS_ID, "America/Bogota");
+    expect(data).toBeDefined();
+    expect(typeof data.todaySalesTotal).toBe("number");
+    expect(typeof data.todaySalesCount).toBe("number");
+    expect(typeof data.totalSalesCount).toBe("number");
+    expect(typeof data.allTimeSalesTotal).toBe("number");
+    expect(Array.isArray(data.recentDocuments)).toBe(true);
+  });
 });

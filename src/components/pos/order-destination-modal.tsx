@@ -16,11 +16,20 @@ import {
   Receipt,
   Layers,
   Sparkles,
+  Search,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { PosCartItem, PosOrderSummary, formatCOP } from "@/lib/pos/types";
 import { RestaurantTable, CreateRestaurantOrderInput } from "@/lib/restaurant/types";
-import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
+import { DeliveryZone, DeliveryBusinessConfig, calculateDeliveryFeeForOrder } from "@/lib/delivery/types";
+import { createRestaurantOrderAction, getActiveWaitersAction, type ActiveWaiterItem } from "@/app/workspace/[businessId]/ventas/order-actions";
+import { searchCustomersForPosAction } from "@/app/workspace/[businessId]/clientes/actions";
+import {
+  getDeliveryZonesAction,
+  getDeliveryConfigAction,
+  getOperationalDriversAction,
+} from "@/app/workspace/[businessId]/pedidos/domicilios/actions";
+import { type OperationalDeliveryDriver } from "@/lib/delivery/delivery-service";
 import { toast } from "sonner";
 
 interface OrderDestinationModalProps {
@@ -33,7 +42,16 @@ interface OrderDestinationModalProps {
   tables: RestaurantTable[];
   initialTableId?: string;
   onClose: () => void;
-  onOrderSuccess: (orderNumber: number, orderId: string) => void;
+  onOrderSuccess: (
+    orderNumber: number,
+    orderId: string,
+    details?: {
+      orderType: string;
+      tableName?: string | null;
+      customerName?: string | null;
+      diners?: number;
+    }
+  ) => void;
 }
 
 export function OrderDestinationModal({
@@ -54,6 +72,11 @@ export function OrderDestinationModal({
 
   // Mesa (Dine-in)
   const [selectedTableId, setSelectedTableId] = useState<string>(initialTableId || "");
+  const [waiters, setWaiters] = useState<ActiveWaiterItem[]>([]);
+  const [selectedWaiterId, setSelectedWaiterId] = useState<string>("");
+  const [selectedWaiterName, setSelectedWaiterName] = useState<string>("");
+  const [isCustomWaiter, setIsCustomWaiter] = useState<boolean>(false);
+  const [customWaiterName, setCustomWaiterName] = useState<string>("");
 
   useEffect(() => {
     if (initialTableId) {
@@ -62,10 +85,36 @@ export function OrderDestinationModal({
   }, [initialTableId]);
 
   // Domicilio (Delivery)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryReference, setDeliveryReference] = useState<string>("");
+  const [drivers, setDrivers] = useState<OperationalDeliveryDriver[]>([]);
+  const [selectedDriverName, setSelectedDriverName] = useState<string>("");
+  const [isCustomDriver, setIsCustomDriver] = useState<boolean>(false);
+  const [customDriverName, setCustomDriverName] = useState<string>("");
+
+  // Zonas y Configuración de entrega [DOM-001, DOM-002]
+  const [deliveryConfig, setDeliveryConfig] = useState<DeliveryBusinessConfig | null>(null);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [selectedZoneId, setSelectedZoneId] = useState<string>("");
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [isOutsideZones, setIsOutsideZones] = useState<boolean>(false);
+
+  // Búsqueda de cliente frecuente (opcional)
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
+  const [customerSearchResults, setCustomerSearchResults] = useState<
+    Array<{
+      id: string;
+      fullName: string;
+      phone: string | null;
+      addresses: string[];
+      notes: string | null;
+    }>
+  >([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+  const [customerAlertNote, setCustomerAlertNote] = useState<string | null>(null);
 
   // Notas generales
   const [generalNotes, setGeneralNotes] = useState<string>("");
@@ -112,8 +161,123 @@ export function OrderDestinationModal({
       setIsSubmitting(false);
       setErrorMessage(null);
       setIdempotencyKey("");
+      setCustomerSearchQuery("");
+      setCustomerSearchResults([]);
+      setCustomerAlertNote(null);
+      setSelectedCustomerId(null);
     }
   }, [isOpen]);
+
+  // Cargar zonas, repartidores, camareros y configuración completa de entrega [DOM-001, DOM-002, PED-006]
+  useEffect(() => {
+    if (!isOpen || !businessId) return;
+    let isSubscribed = true;
+
+    Promise.all([
+      getDeliveryZonesAction(businessId),
+      getDeliveryConfigAction(businessId),
+      getActiveWaitersAction(businessId),
+      getOperationalDriversAction(businessId),
+    ]).then(([zonesRes, configRes, waitersRes, driversRes]) => {
+      if (!isSubscribed) return;
+
+      if (waitersRes?.success && waitersRes.data) {
+        setWaiters(waitersRes.data);
+      }
+      if (driversRes?.success && driversRes.drivers) {
+        setDrivers(driversRes.drivers);
+      }
+
+      const loadedConfig = configRes.success && configRes.config ? configRes.config : null;
+      setDeliveryConfig(loadedConfig);
+
+      const active = zonesRes.success && zonesRes.data ? zonesRes.data.filter((z: any) => z.status === "active") : [];
+      setDeliveryZones(active);
+
+      // Si la tarifa configurada es fija:
+      if (loadedConfig && loadedConfig.tariffMode === "fixed") {
+        const feeResult = calculateDeliveryFeeForOrder(loadedConfig, summary.subtotal);
+        setDeliveryFee(feeResult.customerDeliveryFee);
+        setSelectedZoneId("");
+        setIsOutsideZones(false);
+      } else if (active.length > 0) {
+        // Modo por zonas
+        setSelectedZoneId(active[0].id);
+        const feeResult = loadedConfig
+          ? calculateDeliveryFeeForOrder(loadedConfig, summary.subtotal, { zoneTariff: active[0].tariff })
+          : { customerDeliveryFee: Number(active[0].tariff || 0) };
+        setDeliveryFee(feeResult.customerDeliveryFee);
+        setIsOutsideZones(false);
+      } else {
+        setSelectedZoneId("outside");
+        setIsOutsideZones(true);
+        const fallback = loadedConfig ? loadedConfig.fallbackZoneFee : 0;
+        setDeliveryFee(fallback);
+      }
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isOpen, businessId, summary.subtotal]);
+
+  const handleZoneChange = (zoneId: string) => {
+    setSelectedZoneId(zoneId);
+    if (zoneId === "outside") {
+      setIsOutsideZones(true);
+      const fallback = deliveryConfig ? deliveryConfig.fallbackZoneFee : 0;
+      setDeliveryFee(fallback);
+    } else {
+      setIsOutsideZones(false);
+      const found = deliveryZones.find((z) => z.id === zoneId);
+      if (found) {
+        const feeResult = deliveryConfig
+          ? calculateDeliveryFeeForOrder(deliveryConfig, summary.subtotal, { zoneTariff: found.tariff })
+          : { customerDeliveryFee: Number(found.tariff || 0) };
+        setDeliveryFee(feeResult.customerDeliveryFee);
+      }
+    }
+  };
+
+  const handleCustomerSearchChange = async (val: string) => {
+    setCustomerSearchQuery(val);
+    if (val.trim().length >= 2) {
+      setIsSearchingCustomers(true);
+      try {
+        const results = await searchCustomersForPosAction(businessId, val.trim());
+        setCustomerSearchResults(results);
+      } catch {
+        setCustomerSearchResults([]);
+      } finally {
+        setIsSearchingCustomers(false);
+      }
+    } else {
+      setCustomerSearchResults([]);
+    }
+  };
+
+  const handleSelectCustomer = (c: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    addresses: string[];
+    notes: string | null;
+  }) => {
+    setSelectedCustomerId(c.id);
+    setCustomerName(c.fullName);
+    if (c.phone) setCustomerPhone(c.phone);
+    if (c.addresses && c.addresses.length > 0) {
+      setDeliveryAddress(c.addresses[0]);
+    }
+    if (c.notes) {
+      setCustomerAlertNote(c.notes);
+    } else {
+      setCustomerAlertNote(null);
+    }
+    setCustomerSearchResults([]);
+    setCustomerSearchQuery("");
+    toast.success(`Datos de ${c.fullName} autocompletados`);
+  };
 
   if (!isOpen) return null;
 
@@ -145,25 +309,45 @@ export function OrderDestinationModal({
     // Para consumo en local, el canal de recepción siempre es in_person
     const effectiveChannelOrigin = orderType === "dine_in" ? "in_person" : channelOrigin;
 
+    const effectiveDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
+    const effectiveDeliveryZoneId =
+      orderType === "delivery" && selectedZoneId !== "outside" && selectedZoneId ? selectedZoneId : null;
+
+    const effectiveWaiterName = isCustomWaiter
+      ? customWaiterName.trim()
+      : selectedWaiterName.trim();
+    const effectiveDriverName = isCustomDriver
+      ? customDriverName.trim()
+      : selectedDriverName.trim();
+
     // 2. Construir payload tipado
     const payload: CreateRestaurantOrderInput = {
       orderType,
       channelOrigin: effectiveChannelOrigin,
       tableId: orderType === "dine_in" ? selectedTableId : null,
+      waiterId: orderType === "dine_in" ? (selectedWaiterId || null) : null,
+      waiterName: orderType === "dine_in" ? (effectiveWaiterName || null) : null,
+      driverName: orderType === "delivery" ? (effectiveDriverName || null) : null,
+      customerId: selectedCustomerId,
       customerName: ["delivery", "takeout"].includes(orderType)
         ? customerName.trim() || (orderType === "delivery" ? "Cliente Domicilio" : null)
         : null,
       customerPhone: ["delivery", "takeout"].includes(orderType) ? customerPhone.trim() || null : null,
       deliveryAddress: orderType === "delivery" ? deliveryAddress.trim() : null,
       deliveryReference: orderType === "delivery" ? deliveryReference.trim() || null : null,
+      deliveryFee: effectiveDeliveryFee,
+      deliveryZoneId: effectiveDeliveryZoneId,
       notes: generalNotes.trim() || null,
       idempotencyKey,
+      taxTotal: summary.tax,
       items: cartItems.map((item) => ({
         productId: item.productId,
         variantId: item.variantId || null,
         variantName: item.variantName || null,
         quantity: item.quantity,
         notes: item.notes,
+        taxPercentage: item.taxPercentage,
+        taxIncludedInPrice: item.taxIncludedInPrice,
         selectedModifiers: item.selectedModifiers.map((m) => ({
           groupId: m.groupId,
           groupName: m.groupName,
@@ -196,7 +380,13 @@ export function OrderDestinationModal({
       });
 
       setIsSubmitting(false);
-      onOrderSuccess(res.orderNumber, res.orderId);
+      const tableName = tables.find((t) => t.id === selectedTableId)?.name_or_number || null;
+      onOrderSuccess(res.orderNumber, res.orderId, {
+        orderType,
+        tableName,
+        customerName: customerName.trim() || null,
+        diners: 1,
+      });
       onClose();
     } catch (err: any) {
       setErrorMessage(err?.message || "Error inesperado al conectar con el servidor.");
@@ -367,16 +557,132 @@ export function OrderDestinationModal({
                     })}
                   </div>
                 )}
+
+                {/* ASIGNACIÓN DE CAMARERO / PERSONAL DE SERVICIO [PED-006] */}
+                <div className="pt-3 border-t border-slate-200/60 dark:border-white/5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-[#ED500A]" />
+                      <span>Camarero / Mesero responsable</span>
+                    </label>
+                    {waiters.length > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        {waiters.length} colaboradores activos
+                      </span>
+                    )}
+                  </div>
+
+                  <select
+                    disabled={isSubmitting}
+                    value={isCustomWaiter ? "custom" : selectedWaiterId || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "custom") {
+                        setIsCustomWaiter(true);
+                        setSelectedWaiterId("");
+                        setSelectedWaiterName("");
+                      } else if (val === "") {
+                        setIsCustomWaiter(false);
+                        setSelectedWaiterId("");
+                        setSelectedWaiterName("");
+                      } else {
+                        setIsCustomWaiter(false);
+                        setSelectedWaiterId(val);
+                        const found = waiters.find((w) => w.id === val);
+                        setSelectedWaiterName(found ? `${found.name} (${found.code})` : "");
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                  >
+                    <option value="">Sin camarero asignado (Atención general)</option>
+                    {waiters.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} — {w.code}
+                      </option>
+                    ))}
+                    <option value="custom">✏️ Otro / Ingresar nombre manualmente...</option>
+                  </select>
+
+                  {isCustomWaiter && (
+                    <input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customWaiterName}
+                      onChange={(e) => setCustomWaiterName(e.target.value)}
+                      placeholder="Nombre del camarero o persona que atiende..."
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white mt-1.5"
+                    />
+                  )}
+                </div>
               </div>
             )}
 
             {/* CASO B: DOMICILIO (DELIVERY) */}
             {orderType === "delivery" && (
               <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                  <Bike className="w-3.5 h-3.5 text-[#ED500A]" />
-                  <span>2. Datos de entrega a domicilio *</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                    <Bike className="w-3.5 h-3.5 text-[#ED500A]" />
+                    <span>2. Datos de entrega a domicilio *</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Cliente frecuente o nuevo</span>
                 </div>
+
+                {/* Buscador predictivo opcional */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customerSearchQuery}
+                      onChange={(e) => handleCustomerSearchChange(e.target.value)}
+                      placeholder="Buscar cliente frecuente por celular o nombre..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-dashed border-slate-300 dark:border-white/20 rounded-lg text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                    />
+                  </div>
+
+                  {/* Resultados predictivos */}
+                  {customerSearchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.06]">
+                      {customerSearchResults.map((res) => (
+                        <button
+                          key={res.id}
+                          type="button"
+                          onClick={() => handleSelectCustomer(res)}
+                          className="w-full p-2.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors flex items-start justify-between gap-2"
+                        >
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {res.fullName}
+                            </div>
+                            {res.phone && (
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {res.phone}
+                              </div>
+                            )}
+                            {res.addresses.length > 0 && (
+                              <div className="text-[10px] text-slate-400 truncate max-w-xs mt-0.5">
+                                {res.addresses[0]}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[#ED500A] font-semibold uppercase shrink-0 mt-0.5">
+                            Seleccionar
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Aviso de preferencia/alergia del cliente */}
+                {customerAlertNote && (
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 text-[11px] flex items-start gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                    <span>Nota del cliente: {customerAlertNote}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -432,6 +738,148 @@ export function OrderDestinationModal({
                   </div>
                 </div>
 
+                {/* MODALIDAD Y TARIFA DE ENTREGA [DOM-001, DOM-002] */}
+                <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-white/5">
+                  {deliveryConfig && deliveryConfig.tariffMode === "fixed" ? (
+                    <div className="p-3 rounded-xl bg-orange-50/40 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-500/20 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Bike className="w-4 h-4 text-[#ED500A]" />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            Tarifa fija de entrega configurada:
+                          </span>
+                        </div>
+                        <span className="text-sm font-bold font-mono text-[#ED500A]">
+                          {formatCOP(deliveryConfig.fixedFee)}
+                        </span>
+                      </div>
+
+                      {/* BADGES SEGÚN QUIÉN PAGA */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {deliveryConfig.payer === "business" && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            ✓ Envío gratis (asumido por el comercio)
+                          </span>
+                        )}
+                        {deliveryConfig.payer === "split_50_50" && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                            🤝 Tarifa compartida 50/50 (Cliente: {formatCOP(deliveryFee)})
+                          </span>
+                        )}
+                        {deliveryConfig.payer === "customer" && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            👤 Paga el cliente
+                          </span>
+                        )}
+                        {deliveryConfig.freeDeliveryThreshold && summary.subtotal >= deliveryConfig.freeDeliveryThreshold && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            🎉 Envío gratis por compra &gt; {formatCOP(deliveryConfig.freeDeliveryThreshold)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-orange-200/60 dark:border-white/5">
+                        <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          Tarifa a cobrar en esta orden (COP):
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="500"
+                          value={deliveryFee}
+                          onChange={(e) => setDeliveryFee(Math.max(0, Number(e.target.value) || 0))}
+                          className="w-28 px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Zona de entrega y cobertura *
+                        </label>
+                        {selectedZoneId && selectedZoneId !== "outside" && (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Zona verificada
+                          </span>
+                        )}
+                      </div>
+
+                      <select
+                        value={selectedZoneId}
+                        onChange={(e) => handleZoneChange(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                      >
+                        {deliveryZones.length === 0 ? (
+                          <option value="outside">Sin zonas configuradas (Tarifa manual)</option>
+                        ) : (
+                          <>
+                            {deliveryZones.map((z) => (
+                              <option key={z.id} value={z.id}>
+                                {z.name} — Tarifa: {formatCOP(z.tariff)} (~{z.estimated_time_min} min)
+                              </option>
+                            ))}
+                            <option value="outside">⚠️ Fuera de cobertura habitual / Tarifa personalizada</option>
+                          </>
+                        )}
+                      </select>
+
+                      {/* ADVERTENCIA FUERA DE COBERTURA */}
+                      {isOutsideZones && (
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                          <div className="flex-1">
+                            <span className="font-bold">Dirección fuera de cobertura habitual:</span>
+                            <p className="text-[11px] mt-0.5">
+                              Esta dirección está fuera de las zonas registradas. Puedes fijar una tarifa manual para procesar el pedido o rechazarlo si no hay cobertura disponible.
+                            </p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <label className="text-[11px] font-semibold">Tarifa manual (COP):</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="500"
+                                value={deliveryFee}
+                                onChange={(e) => setDeliveryFee(Math.max(0, Number(e.target.value) || 0))}
+                                className="w-28 px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ADVERTENCIA PEDIDO MÍNIMO */}
+                      {selectedZoneId && selectedZoneId !== "outside" && (() => {
+                        const activeZone = deliveryZones.find((z) => z.id === selectedZoneId);
+                        if (activeZone && activeZone.min_order > 0 && summary.subtotal < activeZone.min_order) {
+                          return (
+                            <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" />
+                              <span>
+                                Pedido mínimo para {activeZone.name}: <strong>{formatCOP(activeZone.min_order)}</strong>.
+                                (Faltan {formatCOP(activeZone.min_order - summary.subtotal)}).
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </>
+                  )}
+
+                  {/* ADVERTENCIA PEDIDO MÍNIMO GENERAL DEL NEGOCIO */}
+                  {deliveryConfig && deliveryConfig.minOrderAmount > 0 && summary.subtotal < deliveryConfig.minOrderAmount && (
+                    <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 mt-0.5" />
+                      <span>
+                        Pedido mínimo de domicilios: <strong>{formatCOP(deliveryConfig.minOrderAmount)}</strong>.
+                        (Faltan {formatCOP(deliveryConfig.minOrderAmount - summary.subtotal)}).
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Punto de referencia / Instrucciones de llegada (Opcional)
@@ -445,16 +893,123 @@ export function OrderDestinationModal({
                     className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                   />
                 </div>
+
+                {/* ASIGNACIÓN DE DOMICILIARIO [PED-006] */}
+                <div className="pt-3 border-t border-slate-200/60 dark:border-white/5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Bike className="w-3.5 h-3.5 text-[#ED500A]" />
+                      <span>Domiciliario / Repartidor asignado</span>
+                    </label>
+                    {drivers.length > 0 && (
+                      <span className="text-[10px] text-slate-400">
+                        {drivers.length} repartidores registrados
+                      </span>
+                    )}
+                  </div>
+
+                  <select
+                    disabled={isSubmitting}
+                    value={isCustomDriver ? "custom" : selectedDriverName || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "custom") {
+                        setIsCustomDriver(true);
+                        setSelectedDriverName("");
+                      } else if (val === "") {
+                        setIsCustomDriver(false);
+                        setSelectedDriverName("");
+                      } else {
+                        setIsCustomDriver(false);
+                        setSelectedDriverName(val);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                  >
+                    <option value="">Por asignar (Asignar luego de preparar comanda)</option>
+                    {drivers.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name} {d.phone ? `(${d.phone})` : ""} {!d.isActive ? "— [Inactivo]" : ""}
+                      </option>
+                    ))}
+                    <option value="custom">✏️ Otro repartidor / Ingresar nombre manualmente...</option>
+                  </select>
+
+                  {isCustomDriver && (
+                    <input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customDriverName}
+                      onChange={(e) => setCustomDriverName(e.target.value)}
+                      placeholder="Nombre o empresa del repartidor (ej. Juan Repartos / Rappi)..."
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white mt-1.5"
+                    />
+                  )}
+                </div>
               </div>
             )}
 
             {/* CASO C: PARA LLEVAR (TAKEOUT) */}
             {orderType === "takeout" && (
               <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
-                  <ShoppingBag className="w-4 h-4 text-[#ED500A] shrink-0" />
-                  <span>2. Datos para retiro en mostrador (Opcional)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                    <ShoppingBag className="w-4 h-4 text-[#ED500A] shrink-0" />
+                    <span>2. Datos para retiro en mostrador (Opcional)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Cliente habitual o anónimo</span>
                 </div>
+
+                {/* Buscador predictivo opcional */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customerSearchQuery}
+                      onChange={(e) => handleCustomerSearchChange(e.target.value)}
+                      placeholder="Buscar cliente frecuente por celular o nombre..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-dashed border-slate-300 dark:border-white/20 rounded-lg text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                    />
+                  </div>
+
+                  {/* Resultados predictivos */}
+                  {customerSearchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.06]">
+                      {customerSearchResults.map((res) => (
+                        <button
+                          key={res.id}
+                          type="button"
+                          onClick={() => handleSelectCustomer(res)}
+                          className="w-full p-2.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-white/[0.06] transition-colors flex items-start justify-between gap-2"
+                        >
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {res.fullName}
+                            </div>
+                            {res.phone && (
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {res.phone}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[#ED500A] font-semibold uppercase shrink-0 mt-0.5">
+                            Seleccionar
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Aviso de preferencia del cliente */}
+                {customerAlertNote && (
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900 text-[11px] flex items-start gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                    <span>Nota del cliente: {customerAlertNote}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 dark:border-white/5">
                   <div>
@@ -515,19 +1070,50 @@ export function OrderDestinationModal({
                 <span>{summary.itemsCount} productos seleccionados</span>
                 <span>Subtotal: {formatCOP(summary.subtotal)}</span>
               </div>
+
+              {summary.includedTax > 0 && (
+                <div className="flex justify-between items-center text-[11px] text-slate-500">
+                  <span>Base gravable neta (IVA incluido)</span>
+                  <span>{formatCOP(summary.netSubtotal)}</span>
+                </div>
+              )}
+
+              {summary.includedTax > 0 && (
+                <div className="flex justify-between items-center text-[11px] text-slate-500">
+                  <span>IVA incluido desagregado</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">{formatCOP(summary.includedTax)}</span>
+                </div>
+              )}
+
+              {summary.additionalTax > 0 && (
+                <div className="flex justify-between items-center text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <span>+ Impuesto adicional</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatCOP(summary.additionalTax)}</span>
+                </div>
+              )}
+
+              {orderType === "delivery" && deliveryFee > 0 && (
+                <div className="flex justify-between items-center text-xs text-slate-700 dark:text-slate-300 font-medium">
+                  <span>+ Tarifa de domicilio</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{formatCOP(deliveryFee)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-center text-sm font-black text-slate-900 dark:text-white pt-1.5 border-t border-slate-200 dark:border-white/[0.08]">
                 <span>Total comanda</span>
-                <span className="text-[#ED500A]">{formatCOP(summary.total)}</span>
+                <span className="text-[#ED500A]">
+                  {formatCOP(summary.total + (orderType === "delivery" ? deliveryFee : 0))}
+                </span>
               </div>
             </div>
 
             {/* BOTONES DE ACCIÓN */}
-            <div className="pt-2 flex items-center justify-end gap-2.5">
+            <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={onClose}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors disabled:opacity-50 min-h-[44px] flex items-center justify-center cursor-pointer"
               >
                 Modificar carrito
               </button>
@@ -535,7 +1121,7 @@ export function OrderDestinationModal({
               <button
                 type="submit"
                 disabled={isSubmitting || (orderType === "dine_in" && tables.length === 0)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] min-h-[44px] cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -545,7 +1131,9 @@ export function OrderDestinationModal({
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Registrar Pedido — {formatCOP(summary.total)}</span>
+                    <span>
+                      Registrar Pedido — {formatCOP(summary.total + (orderType === "delivery" ? deliveryFee : 0))}
+                    </span>
                   </>
                 )}
               </button>

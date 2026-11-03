@@ -745,3 +745,65 @@ export async function changeSubscriptionPlan(
     return { success: false, error: err.message || "Error al cambiar de plan." };
   }
 }
+
+/**
+ * Consulta rápida y optimizada de la suscripción y vigencia de un comercio
+ * para el widget de suscripción del sidebar [NAV-002].
+ */
+export async function getBusinessSubscriptionDetails(businessId: string): Promise<{
+  planId: PlanId;
+  planName: string;
+  isTrial: boolean;
+  trialRemainingDays: number | null;
+  status: SubscriptionStatus;
+}> {
+  try {
+    const adminClient = await getSupabaseAdminClient();
+    const { data: sub } = await adminClient
+      .from("subscriptions")
+      .select("plan_id, status, trial_ends_at, current_period_end, created_at, plans(code, name)")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let planId: PlanId = "inicio";
+    const rawCode = ((sub?.plans as any)?.code || sub?.plan_id || "").toLowerCase();
+    const rawName = ((sub?.plans as any)?.name || "").toLowerCase();
+    if (rawCode.includes("crece") || rawName.includes("crece")) {
+      planId = "crece";
+    } else if (rawCode.includes("negocio") || rawName.includes("negocio")) {
+      planId = "negocio";
+    }
+
+    const canonicalPlan = NEGOVA_PLANS[planId];
+    const now = new Date();
+    const subStatus = (sub?.status as SubscriptionStatus) || "active";
+    const isTrial = subStatus === "trial" || (sub?.status as string) === "trialing";
+    const trialEnd = sub?.trial_ends_at || sub?.current_period_end;
+    let trialRemainingDays: number | null = null;
+
+    if (isTrial && trialEnd) {
+      trialRemainingDays = calculateRemainingDays(trialEnd, now);
+    } else if (isTrial) {
+      trialRemainingDays = canonicalPlan.trialDays || 30;
+    }
+
+    return {
+      planId,
+      planName: canonicalPlan.name,
+      isTrial,
+      trialRemainingDays,
+      status: subStatus,
+    };
+  } catch (err) {
+    console.warn("[getBusinessSubscriptionDetails] Fallback por error:", err);
+    return {
+      planId: "inicio",
+      planName: NEGOVA_PLANS.inicio.name,
+      isTrial: false,
+      trialRemainingDays: null,
+      status: "active",
+    };
+  }
+}

@@ -9,8 +9,8 @@ import { AppPageContainer } from "@/components/layout/app-page-container";
 import { WorkspacePersonalClient } from "./workspace-personal-client";
 
 export const metadata: Metadata = {
-  title: "Personal & Trabajadores | Workspace NEGOVA",
-  description: "Fichas laborales, información de contacto, cuentas de pago y novedades del equipo.",
+  title: "Gestión de Personal de Servicio | Workspace NEGOVA",
+  description: "Administra el personal de servicio, camareros y roles de atención.",
 };
 
 export default async function WorkspacePersonalPage({
@@ -43,12 +43,12 @@ export default async function WorkspacePersonalPage({
 
   return (
     <AppPageContainer
-      title="Personal & Colaboradores"
-      description="Directorio de trabajadores del comercio, cargos, datos laborales y novedades."
+      title="Gestión de Personal de Servicio"
+      description="Administra el personal de servicio, camareros y roles de atención."
       badge={
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400">
           <Users className="w-3.5 h-3.5" />
-          Equipo de Trabajo
+          Personal de Servicio
         </span>
       }
       actions={

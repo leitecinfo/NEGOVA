@@ -111,4 +111,5 @@ export interface PdfGenerationResult {
   base64: string;
   filename: string;
   sizeBytes: number;
+  contentType?: string;
 }

@@ -17,5 +17,7 @@ export interface CartItem {
   notes?: string;
   image_url?: string | null;
   selectedModifiers?: CartItemModifier[];
+  taxPercentage?: number;
+  taxIncludedInPrice?: boolean;
 }
 

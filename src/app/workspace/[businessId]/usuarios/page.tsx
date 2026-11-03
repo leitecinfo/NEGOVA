@@ -5,7 +5,7 @@ import { UserPlus, Users } from "lucide-react";
 import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { getWorkspaceUsersListAction, getWorkspaceRolesOptionsAction } from "./actions";
 import { AppPageContainer } from "@/components/layout/app-page-container";
-import { AdminButton } from "@/components/admin/ui";
+import { Button } from "@/components/ui";
 import { WorkspaceUsuariosClient } from "./workspace-usuarios-client";
 
 export const metadata: Metadata = {
@@ -48,14 +48,14 @@ export default async function WorkspaceUsuariosPage({
         </span>
       }
       actions={
-        <AdminButton
+        <Button
           href={`/workspace/${businessId}/usuarios/nuevo`}
           variant="primary"
           size="md"
           leftIcon={<UserPlus className="w-4 h-4" />}
         >
           Invitar Empleado
-        </AdminButton>
+        </Button>
       }
     >
       <WorkspaceUsuariosClient

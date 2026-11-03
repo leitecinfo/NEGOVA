@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { AppBreadcrumbs } from "./app-breadcrumbs";
 import { AppUserMenu } from "./app-user-menu";
-import { AdminLiveClock as AppLiveClock } from "@/components/admin/admin-live-clock"; // Can reuse as is or copy later
+import { AppLiveClock } from "./app-live-clock";
 import { AppUserProfile, AppBranding, AppNavSection } from "./navigation-types";
 
 interface AppTopbarProps {

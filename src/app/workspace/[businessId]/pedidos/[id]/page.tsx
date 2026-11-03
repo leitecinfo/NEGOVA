@@ -27,11 +27,9 @@ export default async function WorkspaceOrderDetailPage({
 }) {
   const { businessId, id } = await params;
 
-  // 1. Validar autorización multi-tenant para consultar pedidos (orders.view)
-  const session = await requireWorkspaceSession(businessId, "orders.view");
-
-  // 2. Obtener pedido, configuración comercial y métodos de pago activos
-  const [order, config, paymentMethods] = await Promise.all([
+  // 1. Carga paralela de sesión autorizada, pedido, configuración comercial y métodos de pago
+  const [session, order, config, paymentMethods] = await Promise.all([
+    requireWorkspaceSession(businessId, "orders.view"),
     getRestaurantOrderWithDetails(businessId, id),
     getBusinessDocumentConfig(businessId),
     getPublicBusinessPaymentMethods(businessId),

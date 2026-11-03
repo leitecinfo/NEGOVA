@@ -33,10 +33,11 @@ export async function GET() {
 
     let userRecord: { platform_role?: string | null; status?: string | null } | null = null;
     let profileRecord: { full_name?: string | null; avatar_url?: string | null } | null = null;
+    let supabaseAdmin: any = null;
 
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-      const supabaseAdmin = createAdminClient(
+      supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
@@ -117,6 +118,24 @@ export async function GET() {
       const userBizId = await getUserActiveBusinessId(user.id);
       if (userBizId) {
         dashboardUrl = `/workspace/${userBizId}`;
+        try {
+          const clientForRole = supabaseAdmin || supabase;
+          const { data: memberData } = await clientForRole
+            .from("business_users")
+            .select("roles(id, code, name)")
+            .eq("business_id", userBizId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          const rData = Array.isArray(memberData?.roles) ? memberData?.roles[0] : memberData?.roles;
+          if (rData?.code === "owner") {
+            roleLabel = "Propietario";
+          } else if (rData?.name) {
+            roleLabel = rData.name;
+          }
+        } catch {
+          // Mantener roleLabel si falla consulta
+        }
       } else {
         dashboardUrl = "/login?error=no_active_business";
       }

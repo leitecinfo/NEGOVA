@@ -13,6 +13,7 @@ export type NotificationScope = "platform" | "business";
 export type NotificationAudience = "global" | "user";
 
 export type NotificationType =
+  | "restaurant_order"
   | "support_interaction"
   | "support_ticket"
   | "ticket_assigned"
@@ -23,6 +24,7 @@ export type NotificationType =
   | "business_created"
   | "security"
   | "billing"
+  | "inventory"
   | "system";
 
 export interface AppNotification {
@@ -100,3 +102,71 @@ export function sanitizeWorkspaceNotificationLink(
 
   return null;
 }
+
+// ============================================================================
+// CONTRATOS Y TIPOS PARA GESTIÓN DE PLANTILLAS Y EVENTOS DE NOTIFICACIÓN [CONF-003]
+// ============================================================================
+
+export type NotificationEventId =
+  | "qr_order_created"
+  | "delivery_status_changed"
+  | "low_stock_reached"
+  | "cash_shift_closed"
+  | "account_receivable_overdue";
+
+export type NotificationChannelType = "whatsapp" | "email" | "push";
+
+export type NotificationEventCategory = "pedidos" | "domicilios" | "inventario" | "caja" | "cartera";
+
+export interface NotificationVariableMeta {
+  tag: string;           // Ej: "{cliente}"
+  description: string;   // Ej: "Nombre completo del cliente"
+  sampleValue: string;   // Ej: "Juan Pérez"
+}
+
+export interface NotificationChannelConfig {
+  enabled: boolean;
+  template: string;
+  subject?: string;      // Utilizado principalmente en Email
+}
+
+export interface NotificationEventConfig {
+  id: NotificationEventId;
+  name: string;
+  description: string;
+  category: NotificationEventCategory;
+  enabled: boolean;
+  notifyCustomer?: boolean; // Si la notificación además se envía al cliente final
+  recipientRoles: string[]; // Roles internos que reciben la alerta (ej: 'admin', 'cashier', 'kitchen', 'waiter')
+  channels: {
+    whatsapp: NotificationChannelConfig;
+    email: NotificationChannelConfig;
+    push: NotificationChannelConfig;
+  };
+  availableVariables: NotificationVariableMeta[];
+}
+
+export interface NotificationSettings {
+  events: Record<NotificationEventId, NotificationEventConfig>;
+  generalWhatsAppEnabled: boolean;
+  generalEmailEnabled: boolean;
+  generalPushEnabled: boolean;
+  defaultWhatsAppSenderPhone?: string | null;
+  updatedAt: string;
+}
+
+export interface NotificationRoleOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const NOTIFICATION_AVAILABLE_ROLES: NotificationRoleOption[] = [
+  { id: "owner", label: "Propietario", description: "Acceso global a todas las notificaciones operativas y financieras." },
+  { id: "admin", label: "Administrador", description: "Supervisores de turno y gerencia del local." },
+  { id: "cashier", label: "Cajero", description: "Personal de caja y cobros en punto de venta." },
+  { id: "waiter", label: "Mesero", description: "Atención de mesas y toma de pedidos." },
+  { id: "kitchen", label: "Cocina / KDS", description: "Área de preparación de alimentos y comandas." },
+  { id: "driver", label: "Repartidor", description: "Personal de entregas y domicilios." },
+];
+

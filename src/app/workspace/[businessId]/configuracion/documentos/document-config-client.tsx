@@ -5,8 +5,7 @@ import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { updateDocumentConfigAction, uploadBusinessLogoAction } from "./actions";
 import { toast } from "sonner";
 import { Save, Upload, Image as ImageIcon, Type, PaintBucket, Building2, Printer } from "lucide-react";
-import { AdminButton } from "@/components/admin/ui/admin-button";
-import { AdminInput } from "@/components/admin/ui/admin-input";
+import { Button, Input } from "@/components/ui";
 
 interface DocumentConfigClientProps {
   businessId: string;
@@ -80,7 +79,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Nombre Comercial
             </label>
-            <AdminInput
+            <Input
               name="tradeName"
               value={config.tradeName || ""}
               onChange={handleChange}
@@ -92,7 +91,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Razón Social (Opcional)
             </label>
-            <AdminInput
+            <Input
               name="legalName"
               value={config.legalName || ""}
               onChange={handleChange}
@@ -104,7 +103,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               NIT / Identificación Fiscal
             </label>
-            <AdminInput
+            <Input
               name="taxId"
               value={config.taxId || ""}
               onChange={handleChange}
@@ -116,7 +115,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Teléfono de Contacto
             </label>
-            <AdminInput
+            <Input
               name="phone"
               value={config.phone || ""}
               onChange={handleChange}
@@ -128,7 +127,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Correo Electrónico
             </label>
-            <AdminInput
+            <Input
               type="email"
               name="email"
               value={config.email || ""}
@@ -141,7 +140,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Dirección Física
             </label>
-            <AdminInput
+            <Input
               name="address"
               value={config.address || ""}
               onChange={handleChange}
@@ -153,7 +152,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Ciudad / Municipio
             </label>
-            <AdminInput
+            <Input
               name="city"
               value={config.city || ""}
               onChange={handleChange}
@@ -204,14 +203,14 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
                   onChange={handleLogoUpload}
                   disabled={isUploading}
                 />
-                <AdminButton
+                <Button
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Cambiar Logo
-                </AdminButton>
+                </Button>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Formatos soportados: PNG, JPG, WEBP.
                   <br />
@@ -240,7 +239,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
                   style={{ backgroundColor: config.primaryColor || "#ED500A" }}
                 ></div>
               </div>
-              <AdminInput
+              <Input
                 type="text"
                 name="primaryColor"
                 value={config.primaryColor?.toUpperCase() || "#ED500A"}
@@ -274,7 +273,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Título del documento
               </label>
-              <AdminInput
+              <Input
                 name="documentTitleDefault"
                 value={config.documentTitleDefault || ""}
                 onChange={handleChange}
@@ -286,7 +285,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Subtítulo / leyenda
               </label>
-              <AdminInput
+              <Input
                 name="headerText"
                 value={config.headerText || ""}
                 onChange={handleChange}
@@ -299,7 +298,7 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
               Mensaje de agradecimiento
             </label>
-            <AdminInput
+            <Input
               name="thankYouNote"
               value={config.thankYouNote || ""}
               onChange={handleChange}
@@ -456,14 +455,14 @@ export function DocumentConfigClient({ businessId, initialConfig }: DocumentConf
 
       {/* Guardar */}
       <div className="flex justify-end">
-        <AdminButton
+        <Button
           size="lg"
           onClick={handleSave}
           isLoading={isPending}
         >
           <Save className="w-5 h-5 mr-2" />
           Guardar Configuración
-        </AdminButton>
+        </Button>
       </div>
     </div>
   );

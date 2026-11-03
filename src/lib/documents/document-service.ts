@@ -80,6 +80,7 @@ function mapDbDocToInterface(row: any): BusinessSaleDocument {
   return {
     id: row.id,
     businessId: row.business_id,
+    restaurantOrderId: row.restaurant_order_id || null,
     documentNumber: row.document_number,
     documentType: row.document_type,
     customerName: row.customer_name,
@@ -142,7 +143,7 @@ export function mapRestaurantOrderToDocument(
     items: mappedItems,
     subtotal: Number(order.subtotal || 0),
     discountTotal: 0,
-    taxTotal: 0,
+    taxTotal: Number(order.tax_total || 0),
     total: Number(order.total || 0),
     currency: "COP",
     paymentMethod: "cash",
@@ -161,6 +162,7 @@ function mapInterfaceToDbDoc(doc: BusinessSaleDocument) {
   return {
     id: doc.id,
     business_id: doc.businessId,
+    restaurant_order_id: doc.restaurantOrderId || null,
     document_number: doc.documentNumber,
     document_type: doc.documentType,
     customer_name: doc.customerName,
@@ -421,7 +423,7 @@ export function mapRestaurantOrderToDocument(order: any, items: any[] = []): Bus
     items: normalizedItems,
     subtotal,
     discountTotal: 0,
-    taxTotal: 0,
+    taxTotal: Number(order.tax_total || 0),
     total,
     currency: "COP",
     paymentMethod: "cash",
@@ -466,8 +468,8 @@ export async function getBusinessDocumentsList(
     const shouldQueryBsd = !type || type === "all" || ["sale", "service", "receipt", "order"].includes(type);
     const shouldQueryOrders = !type || type === "all" || type === "order";
 
-    let bsdDocuments: BusinessSaleDocument[] = [];
-    let bsdCount = 0;
+    let bsdPromise: PromiseLike<any> = Promise.resolve({ data: [] as any[], count: 0, error: null as any });
+    const fetchLimit = Math.max(100, page * pageSize * 3);
 
     if (shouldQueryBsd) {
       let bsdQuery = admin
@@ -507,24 +509,23 @@ export async function getBusinessDocumentsList(
         bsdQuery = bsdQuery.or(`document_number.ilike.%${search.trim()}%,customer_name.ilike.%${search.trim()}%`);
       }
 
-      const { data: bsdData, count: countVal, error: bsdError } = await bsdQuery
-        .order("issued_at", { ascending: false });
-
-      if (!bsdError && bsdData) {
-        bsdDocuments = bsdData.map(mapDbDocToInterface);
-        bsdCount = countVal || bsdDocuments.length;
-      }
+      bsdPromise = bsdQuery
+        .order("issued_at", { ascending: false })
+        .limit(fetchLimit);
     }
 
-    let orderDocuments: BusinessSaleDocument[] = [];
-    let orderCount = 0;
+    let orderPromise: PromiseLike<any> = Promise.resolve({ data: [] as any[], count: 0, error: null as any });
 
     if (shouldQueryOrders) {
       // Los pedidos que constituyen ventas comerciales son aquellos entregados ('delivered')
-      // o cancelados ('cancelled' si se consulta explícitamente dicho estado o todos)
+      // o cancelados ('cancelled' si se consulta explícitamente dicho estado o todos).
+      // Se proyectan solo los campos necesarios para reducir radicalmente la carga de red.
       let orderQuery = admin
         .from("restaurant_orders")
-        .select("*, restaurant_order_items(*)", { count: "exact" })
+        .select(
+          "id, business_id, order_number, total, subtotal, delivery_fee, tax_total, status, payment_status, created_at, updated_at, customer_name, customer_phone, delivery_address, notes, order_type, restaurant_order_items(product_name, notes, quantity, unit_price, subtotal)",
+          { count: "exact" }
+        )
         .eq("business_id", businessId);
 
       if (status && status !== "all") {
@@ -567,23 +568,39 @@ export async function getBusinessDocumentsList(
         }
       }
 
-      const { data: orderData, count: oCount, error: orderError } = await orderQuery
-        .order("created_at", { ascending: false });
-
-      if (!orderError && orderData) {
-        orderDocuments = orderData.map((o: any) =>
-          mapRestaurantOrderToDocument(o, o.restaurant_order_items || [])
-        );
-        orderCount = oCount || orderDocuments.length;
-      }
+      orderPromise = orderQuery
+        .order("created_at", { ascending: false })
+        .limit(fetchLimit);
     }
 
-    // Unificar evitando duplicados por ID de documento
+    // Ejecutar ambas consultas en paralelo en la base de datos
+    const [bsdRes, orderRes] = await Promise.all([bsdPromise, orderPromise]);
+
+    let bsdDocuments: BusinessSaleDocument[] = [];
+    let bsdCount = 0;
+    if (!bsdRes.error && bsdRes.data) {
+      bsdDocuments = bsdRes.data.map(mapDbDocToInterface);
+      bsdCount = bsdRes.count || bsdDocuments.length;
+    }
+
+    let orderDocuments: BusinessSaleDocument[] = [];
+    let orderCount = 0;
+    if (!orderRes.error && orderRes.data) {
+      orderDocuments = orderRes.data.map((o: any) =>
+        mapRestaurantOrderToDocument(o, o.restaurant_order_items || [])
+      );
+      orderCount = orderRes.count || orderDocuments.length;
+    }
+
+    // Unificar evitando duplicados por ID de documento o restaurant_order_id
     const seenIds = new Set<string>();
     const allDocuments: BusinessSaleDocument[] = [];
 
     for (const doc of bsdDocuments) {
       seenIds.add(doc.id);
+      if (doc.restaurantOrderId) {
+        seenIds.add(doc.restaurantOrderId);
+      }
       allDocuments.push(doc);
     }
 
@@ -630,13 +647,36 @@ export async function getBusinessDocumentById(
   try {
     const admin = await getSupabaseAdminClient();
     
-    // 1. Consultar comprobantes tradicionales
-    const { data: row } = await admin
-      .from("business_sale_documents")
-      .select("*")
-      .eq("id", documentId)
-      .eq("business_id", businessId)
-      .maybeSingle();
+    // 1. Consultar comprobantes tradicionales (por id de documento o restaurant_order_id)
+    let row: any = null;
+    try {
+      const { data: r, error: qErr } = await admin
+        .from("business_sale_documents")
+        .select("*")
+        .eq("business_id", businessId)
+        .or(`id.eq.${documentId},restaurant_order_id.eq.${documentId}`)
+        .maybeSingle();
+
+      if (!qErr) {
+        row = r;
+      } else {
+        const { data: fallbackRow } = await admin
+          .from("business_sale_documents")
+          .select("*")
+          .eq("id", documentId)
+          .eq("business_id", businessId)
+          .maybeSingle();
+        row = fallbackRow;
+      }
+    } catch {
+      const { data: fallbackRow } = await admin
+        .from("business_sale_documents")
+        .select("*")
+        .eq("id", documentId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      row = fallbackRow;
+    }
 
     if (row) {
       return mapDbDocToInterface(row);
@@ -724,10 +764,14 @@ export async function createBusinessSaleDocument(
     customerAddress?: string | null;
     documentType?: BusinessSaleDocument["documentType"];
     items: BusinessSaleDocument["items"];
+    discountTotal?: number;
+    taxTotal?: number;
+    total?: number;
     paymentMethod?: BusinessSaleDocument["paymentMethod"];
     status?: BusinessSaleDocument["status"];
     notes?: string | null;
     userId?: string | null;
+    restaurantOrderId?: string | null;
   },
   options?: {
     userId?: string;
@@ -735,6 +779,25 @@ export async function createBusinessSaleDocument(
 ): Promise<{ success: boolean; document?: BusinessSaleDocument; error?: string }> {
   try {
     const admin = await getSupabaseAdminClient();
+
+    // Idempotencia: si proviene de un restaurant_order_id, verificar si ya existe un documento para este pedido
+    if (docData.restaurantOrderId) {
+      try {
+        const { data: existingDoc } = await admin
+          .from("business_sale_documents")
+          .select("*")
+          .eq("business_id", businessId)
+          .eq("restaurant_order_id", docData.restaurantOrderId)
+          .maybeSingle();
+
+        if (existingDoc) {
+          return { success: true, document: mapDbDocToInterface(existingDoc) };
+        }
+      } catch {
+        // Ignorar si columna aún no está en cache de BD
+      }
+    }
+
     const currentYear = new Date().getFullYear();
     const operatorUserId = options?.userId || docData.userId || undefined;
 
@@ -748,9 +811,10 @@ export async function createBusinessSaleDocument(
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const docNumber = await generateNextDocumentNumber(admin, businessId, currentYear);
-      const rowId = `doc-${businessId.slice(0, 6)}-${Date.now()}-${attempt}`;
+      const randSuffix = Math.random().toString(36).slice(2, 6);
+      const rowId = `doc-${businessId.slice(0, 6)}-${Date.now()}-${randSuffix}-${attempt}`;
 
-      const rowToInsert = {
+      const rowToInsert: Record<string, any> = {
         id: rowId,
         business_id: businessId,
         document_number: docNumber,
@@ -774,6 +838,10 @@ export async function createBusinessSaleDocument(
         updated_at: new Date().toISOString(),
       };
 
+      if (docData.restaurantOrderId) {
+        rowToInsert.restaurant_order_id = docData.restaurantOrderId;
+      }
+
       const { data: inserted, error: insertErr } = await admin
         .from("business_sale_documents")
         .insert(rowToInsert)
@@ -783,6 +851,21 @@ export async function createBusinessSaleDocument(
       if (!insertErr && inserted) {
         insertedRow = inserted;
         break;
+      }
+
+      // Si el error es falta de columna en BD remota aún no migrada, reintentar sin restaurant_order_id
+      if (insertErr && (insertErr.code === "PGRST204" || insertErr.message?.includes("restaurant_order_id"))) {
+        delete rowToInsert.restaurant_order_id;
+        const { data: retryInserted, error: retryErr } = await admin
+          .from("business_sale_documents")
+          .insert(rowToInsert)
+          .select()
+          .single();
+
+        if (!retryErr && retryInserted) {
+          insertedRow = retryInserted;
+          break;
+        }
       }
 
       // Si el error es violación de restricción única (código 23505), reintentar con el siguiente correlativo
@@ -800,6 +883,43 @@ export async function createBusinessSaleDocument(
     }
 
     const createdDoc = mapDbDocToInterface(insertedRow);
+
+    // Registrar movimiento de caja automáticamente si la venta directa nace pagada/completada y no viene de una orden de restaurante
+    if (
+      !docData.restaurantOrderId &&
+      (createdDoc.status === "paid" || createdDoc.status === "completed") &&
+      createdDoc.total > 0 &&
+      createdDoc.paymentMethod !== "credit"
+    ) {
+      try {
+        const { getActiveCashSession, recordCashMovement } = await import("@/lib/cash/cash-service");
+        const activeSession = await getActiveCashSession(businessId, undefined, operatorUserId);
+        if (activeSession) {
+          const pm = String(createdDoc.paymentMethod || "cash").toLowerCase();
+          const movType =
+            pm === "cash" || pm === "efectivo"
+              ? "sale_cash"
+              : pm === "card" || pm === "tarjeta" || pm === "datáfono"
+              ? "sale_card"
+              : "sale_digital";
+
+          await recordCashMovement(
+            businessId,
+            {
+              sessionId: activeSession.id,
+              movementType: movType,
+              amount: createdDoc.total,
+              referenceId: createdDoc.id,
+              referenceType: "sale_document",
+              notes: `Venta ${createdDoc.documentNumber} (${createdDoc.paymentMethod})`,
+            },
+            operatorUserId || null
+          );
+        }
+      } catch (cashErr) {
+        console.warn("[createBusinessSaleDocument] Aviso al registrar movimiento en turno de caja:", cashErr);
+      }
+    }
 
     // Auditoría centralizada no bloqueante
     try {
@@ -967,17 +1087,446 @@ export async function generateBusinessDocumentPdf(
  * para preservar de forma inmutable el historial fiscal y operativo del negocio.
  * Cambia el estado a 'cancelled' y registra la auditoría con logAuditAction.
  */
+/**
+ * [POS-005] Revierte de forma integral los efectos de una venta al ser anulada:
+ * 1. Devuelve el stock de productos inventariables a `inventory_stock` y `products.metadata.stock_quantity`, registrando `inventory_movements`.
+ * 2. Devuelve los ingredientes obligatorios de recetas activas al inventario proporcionalmente.
+ * 3. Revierte los movimientos de caja (`cash_movements`) vinculados a la venta/pedido.
+ * 4. Si la venta fue a crédito, reduce `credit_used` del cliente y marca `accounts_receivable` como `cancelled`.
+ * 5. Registra el evento en `audit_logs` con quién anuló, cuándo y el motivo.
+ */
+export async function reverseSaleEffectsOnCancel(
+  admin: any,
+  businessId: string,
+  params: {
+    documentId: string;
+    documentNumber: string;
+    restaurantOrderId?: string | null;
+    linkedSaleDocId?: string | null;
+    items: Array<any>;
+    total: number;
+    paymentMethod?: string | null;
+    paymentStatus?: string | null;
+    customerId?: string | null;
+    userId?: string | null;
+    authorizedBy?: string | null;
+    reason?: string | null;
+    previousStatus?: string;
+    nowIso: string;
+  }
+): Promise<void> {
+  const {
+    documentId,
+    documentNumber,
+    restaurantOrderId,
+    linkedSaleDocId,
+    total,
+    paymentMethod,
+    paymentStatus,
+    customerId,
+    userId,
+    authorizedBy,
+    reason,
+    previousStatus,
+    nowIso,
+  } = params;
+
+  const refIds = Array.from(
+    new Set([documentId, restaurantOrderId, linkedSaleDocId].filter(Boolean))
+  ) as string[];
+
+  // 1. Determinar líneas de ítems a revertir (priorizando restaurant_order_items si hay orden vinculada)
+  let effectiveItems: Array<any> = Array.isArray(params.items) ? params.items : [];
+  if (restaurantOrderId) {
+    try {
+      const { data: orderItems } = await admin
+        .from("restaurant_order_items")
+        .select("*")
+        .eq("order_id", restaurantOrderId);
+      if (Array.isArray(orderItems) && orderItems.length > 0) {
+        effectiveItems = orderItems;
+      }
+    } catch {
+      // Continuar con params.items
+    }
+  }
+
+  // 2. Revertir Stock de Productos e Ingredientes de Recetas
+  if (effectiveItems.length > 0) {
+    try {
+      const [{ data: businessProducts }, { data: locationsData }] = await Promise.all([
+        admin.from("products").select("*").eq("business_id", businessId),
+        admin.from("locations").select("*").eq("business_id", businessId),
+      ]);
+
+      const productsList: Array<any> = Array.isArray(businessProducts) ? businessProducts : [];
+      const locationsList: Array<any> = Array.isArray(locationsData) ? locationsData : [];
+      const defaultLoc =
+        locationsList.find((l: any) => l.is_default && l.is_active !== false) ||
+        locationsList.find((l: any) => l.is_active !== false) ||
+        locationsList[0] ||
+        null;
+      const defaultLocationId: string | null = defaultLoc?.id || null;
+
+      for (const item of effectiveItems) {
+        const qty = Number(item.quantity || 0);
+        if (qty <= 0) continue;
+
+        const rawItemProdId = item.product_id || item.productId || item.id || null;
+        const rawItemName = String(item.description || item.product_name || item.name || "").trim();
+        const cleanItemName = rawItemName.replace(/\s*\(.*\)\s*$/, "").trim().toLowerCase();
+
+        // Ignorar cargos de domicilio
+        if (
+          String(rawItemProdId || "").startsWith("fee-") ||
+          cleanItemName === "costo de domicilio / envío"
+        ) {
+          continue;
+        }
+
+        const matchedProduct =
+          productsList.find((p: any) => rawItemProdId && p.id === rawItemProdId) ||
+          productsList.find(
+            (p: any) =>
+              rawItemName &&
+              String(p.name || "").trim().toLowerCase() === rawItemName.toLowerCase()
+          ) ||
+          productsList.find(
+            (p: any) =>
+              cleanItemName &&
+              String(p.name || "").trim().toLowerCase() === cleanItemName
+          ) ||
+          null;
+
+        const targetProductId = matchedProduct?.id || rawItemProdId;
+        if (!targetProductId) continue;
+
+        // Verificar si el producto tiene una receta activa
+        let activeRecipe: any = null;
+        try {
+          const { data: recipeRow } = await admin
+            .from("recipes")
+            .select("*")
+            .eq("business_id", businessId)
+            .eq("product_id", targetProductId)
+            .eq("status", "active")
+            .maybeSingle();
+          activeRecipe = recipeRow || null;
+        } catch {
+          activeRecipe = null;
+        }
+
+        if (activeRecipe) {
+          // 2A. Devolver ingredientes obligatorios de la receta al inventario
+          const { data: ingredients } = await admin
+            .from("recipe_ingredients")
+            .select("*")
+            .eq("recipe_id", activeRecipe.id);
+
+          const mandatoryIngredients = (ingredients || []).filter((ri: any) => !ri.is_optional);
+          const portions = Math.max(1, Number(activeRecipe.portions || 1));
+          const targetLocId = activeRecipe.location_id || defaultLocationId;
+
+          for (const ri of mandatoryIngredients) {
+            const returnQty = Number(((qty * Number(ri.quantity || 0)) / portions).toFixed(4));
+            if (returnQty <= 0) continue;
+
+            const { data: stockRows } = await admin
+              .from("inventory_stock")
+              .select("*")
+              .eq("business_id", businessId)
+              .eq("product_id", ri.product_id);
+
+            const stockList = Array.isArray(stockRows) ? stockRows : [];
+            const stockRow =
+              stockList.find((s: any) => targetLocId && s.location_id === targetLocId) ||
+              stockList[0] ||
+              null;
+
+            if (stockRow) {
+              const newStockQty = Number((Number(stockRow.quantity || 0) + returnQty).toFixed(4));
+              await admin
+                .from("inventory_stock")
+                .update({ quantity: newStockQty, updated_at: nowIso })
+                .eq("id", stockRow.id)
+                .eq("business_id", businessId);
+              stockRow.quantity = newStockQty;
+            } else if (targetLocId) {
+              await admin.from("inventory_stock").insert({
+                business_id: businessId,
+                product_id: ri.product_id,
+                location_id: targetLocId,
+                quantity: returnQty,
+                min_stock: 0,
+                max_stock: null,
+                cost: 0,
+                updated_at: nowIso,
+              });
+            }
+
+            const ingProduct = productsList.find((p: any) => p.id === ri.product_id);
+            if (ingProduct) {
+              const prevMeta =
+                typeof ingProduct.metadata === "object" && ingProduct.metadata !== null
+                  ? ingProduct.metadata
+                  : {};
+              const baseStock =
+                prevMeta.stock_quantity !== undefined
+                  ? Number(prevMeta.stock_quantity)
+                  : Number(ingProduct.stock ?? 0);
+              const nextMetaStock = Number((baseStock + returnQty).toFixed(4));
+              const updatedMeta = { ...prevMeta, stock_quantity: nextMetaStock };
+
+              await admin
+                .from("products")
+                .update({ metadata: updatedMeta, updated_at: nowIso })
+                .eq("id", ri.product_id)
+                .eq("business_id", businessId);
+              ingProduct.metadata = updatedMeta;
+            }
+
+            await admin.from("inventory_movements").insert({
+              business_id: businessId,
+              product_id: ri.product_id,
+              location_id: stockRow?.location_id || targetLocId,
+              movement_type: "entry",
+              quantity: returnQty,
+              cost_per_unit: Number(stockRow?.cost || 0),
+              reference_id: documentId,
+              reference_type: "sale_cancellation",
+              notes: `Devolución de ingrediente por anulación de venta ${documentNumber}`,
+              created_by: userId || null,
+              created_at: nowIso,
+            });
+          }
+        } else {
+          // 2B. Devolver stock directo del producto al inventario
+          const { data: stockRows } = await admin
+            .from("inventory_stock")
+            .select("*")
+            .eq("business_id", businessId)
+            .eq("product_id", targetProductId);
+
+          const stockList = Array.isArray(stockRows) ? stockRows : [];
+          const stockRow =
+            stockList.find((s: any) => defaultLocationId && s.location_id === defaultLocationId) ||
+            stockList[0] ||
+            null;
+
+          if (stockRow) {
+            const newStockQty = Number((Number(stockRow.quantity || 0) + qty).toFixed(4));
+            await admin
+              .from("inventory_stock")
+              .update({ quantity: newStockQty, updated_at: nowIso })
+              .eq("id", stockRow.id)
+              .eq("business_id", businessId);
+            stockRow.quantity = newStockQty;
+          } else if (defaultLocationId) {
+            await admin.from("inventory_stock").insert({
+              business_id: businessId,
+              product_id: targetProductId,
+              location_id: defaultLocationId,
+              quantity: qty,
+              min_stock: 0,
+              max_stock: null,
+              cost: 0,
+              updated_at: nowIso,
+            });
+          }
+
+          if (matchedProduct) {
+            const prevMeta =
+              typeof matchedProduct.metadata === "object" && matchedProduct.metadata !== null
+                ? matchedProduct.metadata
+                : {};
+            const baseStock =
+              prevMeta.stock_quantity !== undefined
+                ? Number(prevMeta.stock_quantity)
+                : Number(matchedProduct.stock ?? 0);
+            const nextMetaStock = Number((baseStock + qty).toFixed(4));
+            const updatedMeta = { ...prevMeta, stock_quantity: nextMetaStock };
+
+            await admin
+              .from("products")
+              .update({ metadata: updatedMeta, updated_at: nowIso })
+              .eq("id", matchedProduct.id)
+              .eq("business_id", businessId);
+            matchedProduct.metadata = updatedMeta;
+          }
+
+          await admin.from("inventory_movements").insert({
+            business_id: businessId,
+            product_id: targetProductId,
+            location_id: stockRow?.location_id || defaultLocationId,
+            movement_type: "entry",
+            quantity: qty,
+            cost_per_unit: Number(stockRow?.cost || 0),
+            reference_id: documentId,
+            reference_type: "sale_cancellation",
+            notes: `Devolución de stock por anulación de venta ${documentNumber}`,
+            created_by: userId || null,
+            created_at: nowIso,
+          });
+        }
+      }
+    } catch (stockErr) {
+      console.warn("[reverseSaleEffectsOnCancel] Aviso al revertir stock/recetas:", stockErr);
+    }
+  }
+
+  // 3. Revertir movimientos de caja (cash_movements) vinculados a la venta o comanda
+  for (const refId of refIds) {
+    try {
+      await admin
+        .from("cash_movements")
+        .delete()
+        .eq("business_id", businessId)
+        .eq("reference_id", refId);
+    } catch (cashErr) {
+      console.warn("[reverseSaleEffectsOnCancel] Aviso al revertir cash_movements:", cashErr);
+    }
+  }
+
+  // 4. Revertir crédito de cliente (customers.credit_used y accounts_receivable)
+  try {
+    let creditDecremented = false;
+    const { data: arRows } = await admin
+      .from("accounts_receivable")
+      .select("*")
+      .eq("business_id", businessId);
+
+    const matchingAr = (arRows || []).filter(
+      (ar: any) =>
+        ar.status !== "cancelled" &&
+        (refIds.includes(ar.order_id) ||
+          refIds.includes(ar.sale_document_id) ||
+          refIds.includes(ar.id))
+    );
+
+    for (const ar of matchingAr) {
+      const amountToRelease = Number(ar.balance ?? ar.amount ?? total ?? 0);
+      await admin
+        .from("accounts_receivable")
+        .update({
+          status: "cancelled",
+          balance: 0,
+          updated_at: nowIso,
+        })
+        .eq("id", ar.id)
+        .eq("business_id", businessId);
+
+      if (ar.customer_id && amountToRelease > 0) {
+        const { data: cust } = await admin
+          .from("customers")
+          .select("*")
+          .eq("id", ar.customer_id)
+          .eq("business_id", businessId)
+          .maybeSingle();
+
+        if (cust) {
+          const newCreditUsed = Math.max(
+            0,
+            Number((Number(cust.credit_used || 0) - amountToRelease).toFixed(2))
+          );
+          await admin
+            .from("customers")
+            .update({
+              credit_used: newCreditUsed,
+              updated_at: nowIso,
+            })
+            .eq("id", cust.id)
+            .eq("business_id", businessId);
+          creditDecremented = true;
+        }
+      }
+    }
+
+    const isCreditSale =
+      String(paymentMethod || "").toLowerCase() === "credit" ||
+      String(paymentStatus || "").toLowerCase() === "credit";
+
+    if (!creditDecremented && isCreditSale && customerId && total > 0) {
+      const { data: cust } = await admin
+        .from("customers")
+        .select("*")
+        .eq("id", customerId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+
+      if (cust) {
+        const newCreditUsed = Math.max(
+          0,
+          Number((Number(cust.credit_used || 0) - Number(total)).toFixed(2))
+        );
+        await admin
+          .from("customers")
+          .update({
+            credit_used: newCreditUsed,
+            updated_at: nowIso,
+          })
+          .eq("id", cust.id)
+          .eq("business_id", businessId);
+      }
+    }
+  } catch (creditErr) {
+    console.warn("[reverseSaleEffectsOnCancel] Aviso al revertir crédito de cliente:", creditErr);
+  }
+
+  // 5. Registrar en audit_logs quién anuló, cuándo y el motivo
+  try {
+    await admin.from("audit_logs").insert({
+      business_id: businessId,
+      user_id: userId || null,
+      authorized_by: authorizedBy || userId || null,
+      action: "sale.cancelled",
+      entity: "sale_document",
+      entity_type: "business_sale_document",
+      entity_id: documentId,
+      details: {
+        reason: reason || "Sin motivo especificado",
+        cancelled_at: nowIso,
+        cancelled_by: userId || null,
+        document_number: documentNumber,
+        total,
+        previous_status: previousStatus || "paid",
+        new_status: "cancelled",
+      },
+      metadata: {
+        original_action: "cancel_sale_document",
+        document_number: documentNumber,
+        previous_status: previousStatus || "paid",
+        new_status: "cancelled",
+        cancellation_reason: reason || "Sin motivo especificado",
+        reason: reason || "Sin motivo especificado",
+        cancelled_at: nowIso,
+        cancelled_by: userId || null,
+      },
+      created_at: nowIso,
+    });
+  } catch (auditInsertErr) {
+    console.warn("[reverseSaleEffectsOnCancel] Aviso al insertar en audit_logs:", auditInsertErr);
+  }
+}
+
 export async function cancelBusinessSaleDocument(
   businessId: string,
   documentId: string,
   options?: {
     userId?: string;
+    authorizedBy?: string;
     reason?: string;
   }
 ): Promise<{ success: boolean; document?: BusinessSaleDocument; error?: string }> {
   try {
     const admin = await getSupabaseAdminClient();
     const nowIso = new Date().toISOString();
+
+    if (options?.reason !== undefined && options.reason.trim().length < 3) {
+      return {
+        success: false,
+        error: "Debe especificar un motivo de anulación de al menos 3 caracteres.",
+      };
+    }
 
     // 1. Validar aislamiento multi-tenant estricto en business_sale_documents
     const { data: existingDoc, error: fetchErr } = await admin
@@ -1023,6 +1572,37 @@ export async function cancelBusinessSaleDocument(
           return { success: false, error: "No se pudo cancelar el pedido." };
         }
 
+        // Sincronizar también documento comercial vinculado si existe
+        let linkedSaleDocId: string | null = null;
+        try {
+          const { data: linkedBsd } = await admin
+            .from("business_sale_documents")
+            .select("id, status, notes")
+            .eq("business_id", businessId)
+            .eq("restaurant_order_id", documentId)
+            .maybeSingle();
+
+          if (linkedBsd && linkedBsd.status !== "cancelled") {
+            linkedSaleDocId = linkedBsd.id;
+            const bsdNotes = reasonText
+              ? linkedBsd.notes
+                ? `${linkedBsd.notes} | Cancelación: ${reasonText}`
+                : `Cancelación: ${reasonText}`
+              : linkedBsd.notes;
+            await admin
+              .from("business_sale_documents")
+              .update({
+                status: "cancelled",
+                notes: bsdNotes,
+                updated_at: nowIso,
+              })
+              .eq("id", linkedBsd.id)
+              .eq("business_id", businessId);
+          }
+        } catch {
+          // Ignorar si no existe
+        }
+
         if (updatedOrder.table_id) {
           try {
             // Verificar si existen otros pedidos activos en la misma mesa antes de liberarla
@@ -1061,6 +1641,24 @@ export async function cancelBusinessSaleDocument(
         }
 
         const mapped = mapRestaurantOrderToDocument(updatedOrder, updatedOrder.restaurant_order_items || []);
+
+        await reverseSaleEffectsOnCancel(admin, businessId, {
+          documentId,
+          documentNumber: mapped.documentNumber,
+          restaurantOrderId: documentId,
+          linkedSaleDocId,
+          items: updatedOrder.restaurant_order_items || [],
+          total: Number(updatedOrder.total || 0),
+          paymentMethod: mapped.paymentMethod,
+          paymentStatus: orderRow.payment_status,
+          customerId: orderRow.customer_id,
+          userId: options?.userId,
+          authorizedBy: options?.authorizedBy,
+          reason: reasonText,
+          previousStatus: orderRow.status,
+          nowIso,
+        });
+
         return { success: true, document: mapped };
       }
 
@@ -1099,7 +1697,41 @@ export async function cancelBusinessSaleDocument(
 
     const cancelledDoc = mapDbDocToInterface(updatedDoc);
 
-    // 3. Auditoría de cancelación centralizada y no bloqueante
+    // Si el documento está vinculado a un pedido de restaurante, sincronizar su cancelación
+    if (existingDoc.restaurant_order_id) {
+      try {
+        await admin
+          .from("restaurant_orders")
+          .update({
+            status: "cancelled",
+            notes: updatedNotes,
+            updated_at: nowIso,
+          })
+          .eq("id", existingDoc.restaurant_order_id)
+          .eq("business_id", businessId);
+      } catch (roErr) {
+        console.warn("[cancelBusinessSaleDocument] Aviso al sincronizar cancelación de pedido:", roErr);
+      }
+    }
+
+    // 3. Revertir stock, ingredientes de recetas, movimientos de caja, crédito y registrar en audit_logs [POS-005]
+    await reverseSaleEffectsOnCancel(admin, businessId, {
+      documentId,
+      documentNumber: existingDoc.document_number,
+      restaurantOrderId: existingDoc.restaurant_order_id || null,
+      items: Array.isArray(existingDoc.items) ? existingDoc.items : [],
+      total: Number(existingDoc.total || 0),
+      paymentMethod: existingDoc.payment_method,
+      paymentStatus: existingDoc.status,
+      customerId: existingDoc.customer_id,
+      userId: options?.userId,
+      authorizedBy: options?.authorizedBy,
+      reason: reasonText,
+      previousStatus,
+      nowIso,
+    });
+
+    // 4. Auditoría de cancelación centralizada y no bloqueante
     try {
       await logAuditAction({
         action: "status_change",
@@ -1249,6 +1881,53 @@ export interface WorkspaceDashboardData {
   businessCurrency: string;
 }
 
+// Cache en memoria para determinar si la columna restaurant_order_id existe en business_sale_documents
+let _hasBsdRestaurantOrderIdCol: boolean | null = null;
+
+async function fetchBsdSalesSummary(
+  admin: any,
+  businessId: string,
+  minIssuedAt?: string
+): Promise<Array<{ id: string; total: number; status: string; restaurant_order_id?: string | null }>> {
+  const selectFields = _hasBsdRestaurantOrderIdCol === false
+    ? "id, total, status"
+    : "id, total, status, restaurant_order_id";
+
+  let query = admin
+    .from("business_sale_documents")
+    .select(selectFields)
+    .eq("business_id", businessId)
+    .neq("status", "cancelled");
+
+  if (minIssuedAt) {
+    query = query.gte("issued_at", minIssuedAt);
+  }
+
+  const res = await query;
+  if (res.error) {
+    if (res.error.code === "42703" || res.error.message?.includes("restaurant_order_id")) {
+      _hasBsdRestaurantOrderIdCol = false;
+      let fallbackQuery = admin
+        .from("business_sale_documents")
+        .select("id, total, status")
+        .eq("business_id", businessId)
+        .neq("status", "cancelled");
+      if (minIssuedAt) {
+        fallbackQuery = fallbackQuery.gte("issued_at", minIssuedAt);
+      }
+      const fallbackRes = await fallbackQuery;
+      return (fallbackRes.data as any) || [];
+    }
+    console.warn("[getWorkspaceDashboardData] Aviso al consultar BSD:", res.error.message);
+    return [];
+  }
+
+  if (_hasBsdRestaurantOrderIdCol === null) {
+    _hasBsdRestaurantOrderIdCol = true;
+  }
+  return (res.data as any) || [];
+}
+
 /**
  * 8. Obtiene métricas reales y documentos recientes para el Dashboard del Workspace
  */
@@ -1278,26 +1957,18 @@ export async function getWorkspaceDashboardData(
     }
 
     // 2. Ventas del día (filtradas por negocio, status no cancelado y fecha de hoy)
-    const [{ data: todayBsdRows, error: todayErr }, { data: todayOrderRows, error: todayOrderErr }] = await Promise.all([
-      admin
-        .from("business_sale_documents")
-        .select("id, total")
-        .eq("business_id", businessId)
-        .neq("status", "cancelled")
-        .gte("issued_at", startOfTodayIso),
+    const [todayBsdRows, { data: todayOrderRows, error: todayOrderErr }] = await Promise.all([
+      fetchBsdSalesSummary(admin, businessId, startOfTodayIso),
       admin
         .from("restaurant_orders")
-        .select("id, total")
+        .select("id, total, status")
         .eq("business_id", businessId)
         .eq("status", "delivered")
         .gte("created_at", startOfTodayIso),
     ]);
 
-    if (todayErr) {
-      console.error("[getWorkspaceDashboardData] Error al consultar ventas de hoy en BSD:", todayErr);
-    }
     if (todayOrderErr) {
-      console.error("[getWorkspaceDashboardData] Error al consultar comandas de hoy:", todayOrderErr);
+      console.warn("[getWorkspaceDashboardData] Aviso al consultar comandas de hoy:", todayOrderErr.message);
     }
 
     const seenTodayIds = new Set<string>();
@@ -1305,12 +1976,17 @@ export async function getWorkspaceDashboardData(
     let todaySalesCount = 0;
 
     for (const row of todayBsdRows || []) {
+      if ((row as any).status === "cancelled" || (row as any).status === "annulled") continue;
       seenTodayIds.add(row.id);
+      if ((row as any).restaurant_order_id) {
+        seenTodayIds.add((row as any).restaurant_order_id);
+      }
       todaySalesTotal += Number(row.total || 0);
       todaySalesCount++;
     }
 
     for (const row of todayOrderRows || []) {
+      if ((row as any).status === "cancelled" || (row as any).status === "annulled") continue;
       if (!seenTodayIds.has(row.id)) {
         seenTodayIds.add(row.id);
         todaySalesTotal += Number(row.total || 0);
@@ -1360,35 +2036,37 @@ export async function getWorkspaceDashboardData(
     const recentDocuments = unifiedRecent.slice(0, 8);
 
     // 4. Total histórico vendido (no cancelado)
-    const [{ data: allActiveRows }, { data: allActiveOrderRows }] = await Promise.all([
-      admin
-        .from("business_sale_documents")
-        .select("id, total")
-        .eq("business_id", businessId)
-        .neq("status", "cancelled"),
+    const [allActiveRows, { data: allActiveOrderRows }] = await Promise.all([
+      fetchBsdSalesSummary(admin, businessId),
       admin
         .from("restaurant_orders")
-        .select("id, total")
+        .select("id, total, status")
         .eq("business_id", businessId)
         .eq("status", "delivered"),
     ]);
 
     const seenAllTimeIds = new Set<string>();
     let allTimeSalesTotal = 0;
+    let totalSalesCount = 0;
 
     for (const row of allActiveRows || []) {
+      if ((row as any).status === "cancelled" || (row as any).status === "annulled") continue;
       seenAllTimeIds.add(row.id);
+      if ((row as any).restaurant_order_id) {
+        seenAllTimeIds.add((row as any).restaurant_order_id);
+      }
       allTimeSalesTotal += Number(row.total || 0);
+      totalSalesCount++;
     }
 
     for (const row of allActiveOrderRows || []) {
+      if ((row as any).status === "cancelled" || (row as any).status === "annulled") continue;
       if (!seenAllTimeIds.has(row.id)) {
         seenAllTimeIds.add(row.id);
         allTimeSalesTotal += Number(row.total || 0);
+        totalSalesCount++;
       }
     }
-
-    const totalSalesCount = seenAllTimeIds.size;
 
     return {
       todaySalesTotal,
@@ -1457,6 +2135,37 @@ export async function registerBusinessDocumentPayment(
 
       if (bsdErr || !updatedBsd) {
         return { success: false, error: "Error al registrar el pago." };
+      }
+
+      if (!bsd.restaurant_order_id && Number(bsd.total || 0) > 0 && effectivePaymentMethod !== "credit") {
+        try {
+          const { getActiveCashSession, recordCashMovement } = await import("@/lib/cash/cash-service");
+          const activeSession = await getActiveCashSession(businessId, undefined, paymentData?.userId);
+          if (activeSession) {
+            const pm = String(effectivePaymentMethod || "cash").toLowerCase();
+            const movType =
+              pm === "cash" || pm === "efectivo"
+                ? "sale_cash"
+                : pm === "card" || pm === "tarjeta" || pm === "datáfono"
+                ? "sale_card"
+                : "sale_digital";
+
+            await recordCashMovement(
+              businessId,
+              {
+                sessionId: activeSession.id,
+                movementType: movType,
+                amount: Number(bsd.total),
+                referenceId: documentId,
+                referenceType: "sale_document",
+                notes: `Pago de documento ${bsd.document_number} (${effectivePaymentMethod})`,
+              },
+              paymentData?.userId || null
+            );
+          }
+        } catch (cashErr) {
+          console.warn("[registerBusinessDocumentPayment] Aviso al registrar movimiento en turno de caja:", cashErr);
+        }
       }
 
       try {

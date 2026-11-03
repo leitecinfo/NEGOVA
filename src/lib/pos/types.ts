@@ -26,7 +26,20 @@ export interface PosCartItem {
   modifiersPrice: number; // Suma de precios adicionales de los modificadores
   unitPrice: number; // basePrice + modifiersPrice
   lineTotal: number; // unitPrice * quantity
+  taxPercentage?: number; // Tarifa de IVA / Impuesto (ej. 0, 5, 8, 19)
+  taxIncludedInPrice?: boolean; // ¿El precio ya incluye el impuesto?
+  taxAmount?: number; // Monto de impuesto de esta línea en COP
+  netSubtotal?: number; // Base gravable de la línea (excluyendo IVA)
   notes?: string;
+  isCustom?: boolean;
+  discountAmount?: number;
+}
+
+export interface PosOrderTaxBreakdown {
+  percentage: number;
+  base: number;
+  taxAmount: number;
+  included: boolean;
 }
 
 export interface PosOrderSummary {
@@ -34,14 +47,46 @@ export interface PosOrderSummary {
   itemsCount: number; // Cantidad total de artículos individuales sumados
   linesCount: number; // Cantidad de líneas distintas en el pedido
   subtotal: number; // Suma de lineTotal de todos los items
-  tax: number; // Impuesto (0 o porcentaje)
+  netSubtotal: number; // Base gravable neta total (sin IVA)
+  includedTax: number; // Total IVA ya incluido en los precios
+  additionalTax: number; // Total IVA adicional a cobrar
+  tax: number; // Impuesto total liquidado (includedTax + additionalTax)
   discount: number; // Descuento global
-  total: number; // subtotal - discount + tax
+  total: number; // Total a cobrar (subtotal - discount + additionalTax)
+  taxesBreakdown: PosOrderTaxBreakdown[]; // Desglose por tarifas para tickets y facturación
 }
 
 // ==============================================================================
 // FUNCIONES PURAS DE CÁLCULO Y DETERMINACIÓN DE LÍNEAS
 // ==============================================================================
+
+/**
+ * Calcula la base gravable y el impuesto para una línea según su tarifa y condición de inclusión en precio.
+ * Estándar fiscal:
+ * - Si taxIncludedInPrice es true: netSubtotal = round(lineTotal / (1 + rate / 100)), taxAmount = lineTotal - netSubtotal
+ * - Si taxIncludedInPrice es false: netSubtotal = lineTotal, taxAmount = round(lineTotal * (rate / 100))
+ */
+export function calculateItemTax(
+  lineTotal: number,
+  taxPercentage: number = 0,
+  taxIncludedInPrice: boolean = true
+): { netSubtotal: number; taxAmount: number } {
+  const safeTotal = Math.max(0, lineTotal || 0);
+  const safeRate = Math.max(0, taxPercentage || 0);
+
+  if (safeRate <= 0) {
+    return { netSubtotal: safeTotal, taxAmount: 0 };
+  }
+
+  if (taxIncludedInPrice) {
+    const netSubtotal = Math.round(safeTotal / (1 + safeRate / 100));
+    const taxAmount = safeTotal - netSubtotal;
+    return { netSubtotal, taxAmount };
+  } else {
+    const taxAmount = Math.round(safeTotal * (safeRate / 100));
+    return { netSubtotal: safeTotal, taxAmount };
+  }
+}
 
 /**
  * Genera un identificador único y determinístico para una línea del carrito.
@@ -72,7 +117,7 @@ export function generateCartItemId(
 }
 
 /**
- * Calcula el resumen totalizador del carrito de compras del POS.
+ * Calcula el resumen totalizador del carrito de compras del POS con soporte para impuestos desagregados.
  */
 export function calculateCartSummary(
   items: PosCartItem[],
@@ -84,18 +129,71 @@ export function calculateCartSummary(
   const linesCount = safeItems.length;
   const subtotal = safeItems.reduce((acc, item) => acc + (item.lineTotal || 0), 0);
   
-  const safeDiscount = Math.max(0, Math.min(subtotal, discount || 0));
+  let includedTax = 0;
+  let additionalTax = 0;
+  let netSubtotal = 0;
+
+  const breakdownMap = new Map<string, { percentage: number; base: number; taxAmount: number; included: boolean }>();
+
+  for (const item of safeItems) {
+    const rate = Math.max(0, item.taxPercentage || 0);
+    const included = item.taxIncludedInPrice !== false;
+    
+    // Usar valores cacheados en el item o recalcularlos
+    let itemNet = item.netSubtotal;
+    let itemTax = item.taxAmount;
+
+    if (itemNet === undefined || itemTax === undefined) {
+      const calc = calculateItemTax(item.lineTotal, rate, included);
+      itemNet = calc.netSubtotal;
+      itemTax = calc.taxAmount;
+    }
+
+    if (rate > 0) {
+      if (included) {
+        includedTax += itemTax;
+        netSubtotal += itemNet;
+      } else {
+        additionalTax += itemTax;
+        netSubtotal += itemNet;
+      }
+
+      const key = `${rate}_${included ? "inc" : "exc"}`;
+      const existing = breakdownMap.get(key) || { percentage: rate, base: 0, taxAmount: 0, included };
+      existing.base += itemNet;
+      existing.taxAmount += itemTax;
+      breakdownMap.set(key, existing);
+    } else {
+      netSubtotal += item.lineTotal;
+    }
+  }
+
+  // Si se envió un impuesto adicional manual/global
   const safeTax = Math.max(0, tax || 0);
-  const total = Math.max(0, subtotal - safeDiscount + safeTax);
+  additionalTax += safeTax;
+
+  const safeDiscount = Math.max(0, Math.min(subtotal, discount || 0));
+  const total = Math.max(0, subtotal - safeDiscount + additionalTax);
+
+  const taxesBreakdown: PosOrderTaxBreakdown[] = Array.from(breakdownMap.values()).map((b) => ({
+    percentage: b.percentage,
+    base: Math.round(b.base),
+    taxAmount: Math.round(b.taxAmount),
+    included: b.included,
+  }));
 
   return {
     items: safeItems,
     itemsCount,
     linesCount,
     subtotal: Math.round(subtotal),
-    tax: Math.round(safeTax),
+    netSubtotal: Math.round(netSubtotal),
+    includedTax: Math.round(includedTax),
+    additionalTax: Math.round(additionalTax),
+    tax: Math.round(includedTax + additionalTax),
     discount: Math.round(safeDiscount),
     total: Math.round(total),
+    taxesBreakdown,
   };
 }
 
@@ -126,6 +224,10 @@ export function createCartItem(
     ? getEffectiveVariantIngredients(product.metadata?.ingredients, variant)
     : (product.metadata?.ingredients || null);
 
+  const taxPercentage = Number(product.metadata?.tax_percentage ?? (product as any).tax_percentage ?? 0);
+  const taxIncludedInPrice = product.metadata?.tax_included_in_price ?? (product as any).tax_included_in_price ?? true;
+  const { netSubtotal, taxAmount } = calculateItemTax(lineTotal, taxPercentage, taxIncludedInPrice);
+
   return {
     id,
     productId: product.id,
@@ -140,6 +242,10 @@ export function createCartItem(
     modifiersPrice,
     unitPrice,
     lineTotal,
+    taxPercentage,
+    taxIncludedInPrice,
+    taxAmount,
+    netSubtotal,
     notes: notes?.trim() || undefined,
   };
 }

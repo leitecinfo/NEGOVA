@@ -5,6 +5,7 @@ import { hasPlatformPermission } from "@/lib/auth/permissions";
 import {
   getRestaurantOrdersList,
   getRestaurantOrdersSummary,
+  getKdsAlertConfig,
 } from "@/lib/restaurant/restaurant-service";
 import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
 import { OrdersListClient } from "./orders-list-client";
@@ -37,8 +38,8 @@ export default async function WorkspaceOrdersListPage({
   const endDate = typeof sParams.endDate === "string" ? sParams.endDate : undefined;
   const page = typeof sParams.page === "string" ? Math.max(1, parseInt(sParams.page, 10) || 1) : 1;
 
-  // 3. Consultar listado, resumen y métodos de pago activos en paralelo
-  const [listResult, summaryResult, paymentMethods] = await Promise.all([
+  // 3. Consultar listado, resumen, métodos de pago y configuración de alertas KDS en paralelo
+  const [listResult, summaryResult, paymentMethods, alertConfig] = await Promise.all([
     getRestaurantOrdersList({
       businessId,
       search,
@@ -53,6 +54,7 @@ export default async function WorkspaceOrdersListPage({
     }),
     getRestaurantOrdersSummary(businessId),
     getPublicBusinessPaymentMethods(businessId),
+    getKdsAlertConfig(businessId),
   ]);
 
   const canUpdateOrder =
@@ -71,6 +73,7 @@ export default async function WorkspaceOrdersListPage({
       initialData={listResult}
       summary={summaryResult}
       paymentMethods={paymentMethods}
+      alertConfig={alertConfig}
       canUpdateOrder={canUpdateOrder}
       canCancelOrder={canCancelOrder}
       filters={{

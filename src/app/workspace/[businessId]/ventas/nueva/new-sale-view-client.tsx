@@ -5,6 +5,7 @@ import { PosScreenClient } from "@/components/pos/pos-screen-client";
 import { NewSaleFormClient } from "./new-sale-form-client";
 import { Product, Category } from "@/lib/products/types";
 import { RestaurantTable } from "@/lib/restaurant/types";
+import { CashRegister, CashSession } from "@/lib/cash/types";
 
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 
@@ -16,6 +17,9 @@ interface NewSaleViewClientProps {
   initialProducts: Product[];
   initialCategories: Category[];
   initialTables?: RestaurantTable[];
+  initialCashRegisters?: CashRegister[];
+  initialActiveSession?: CashSession | null;
+  initialCashBalance?: number;
   posSettings?: {
     printReceipt?: boolean;
     receiptCopies?: number;
@@ -33,6 +37,9 @@ export function NewSaleViewClient({
   initialProducts,
   initialCategories,
   initialTables = [],
+  initialCashRegisters = [],
+  initialActiveSession = null,
+  initialCashBalance,
   posSettings,
   paymentMethods,
 }: NewSaleViewClientProps) {
@@ -62,6 +69,10 @@ export function NewSaleViewClient({
       initialProducts={initialProducts}
       initialCategories={initialCategories}
       initialTables={initialTables}
+      initialCashRegisters={initialCashRegisters}
+      initialActiveSession={initialActiveSession}
+      initialCashBalance={initialCashBalance}
+      initialPaymentMethods={paymentMethods}
       onSwitchToManualForm={() => setMode("manual")}
     />
   );

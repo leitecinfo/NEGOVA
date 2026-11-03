@@ -23,7 +23,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { AdminLogoutModal } from "@/components/admin/admin-logout-modal";
+import { LogoutModal } from "@/components/ui/logout-modal";
 import { createClient } from "@/lib/supabase/client";
 
 // Data para Categorías Mega-Dropdown
@@ -774,7 +774,7 @@ export function Navbar() {
       )}
 
       {/* Modal Personalizado de Confirmación de Cierre de Sesión */}
-      <AdminLogoutModal
+      <LogoutModal
         isOpen={logoutModalOpen}
         onClose={() => setLogoutModalOpen(false)}
         userEmail={user?.email}

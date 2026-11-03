@@ -13,7 +13,9 @@ import {
   Flame,
   Info,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Product, ProductVariant, ProductModifierGroup } from "@/lib/products/types";
+import { validateModifierGroupSelection, validateAllModifierGroups } from "@/lib/pos/types";
 import { DigitalMenuPublicBusiness } from "@/lib/menu/types";
 
 interface Props {
@@ -38,6 +40,8 @@ interface Props {
       optionName: string;
       price: number;
     }>;
+    taxPercentage?: number;
+    taxIncludedInPrice?: boolean;
   }) => void;
 }
 
@@ -115,7 +119,7 @@ export function ProductDetailModal({
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) || null;
   const basePrice = selectedVariant ? selectedVariant.price : product.price;
 
-  // Calcular precio de extras seleccionados
+  // Calcular precio de extras seleccionados y lista de modificadores normalizada
   let extrasPrice = 0;
   const chosenModifiersList: {
     groupId: string;
@@ -126,7 +130,8 @@ export function ProductDetailModal({
   }[] = [];
 
   modifierGroups.forEach((group) => {
-    const chosenIds = selectedModifiers[group.name] || [];
+    const groupKey = group.id || group.name;
+    const chosenIds = selectedModifiers[groupKey] || selectedModifiers[group.name] || [];
     group.options.forEach((opt) => {
       const optId = opt.id || opt.name;
       if (chosenIds.includes(optId)) {
@@ -145,6 +150,29 @@ export function ProductDetailModal({
   const unitTotal = basePrice + extrasPrice;
   const grandTotal = unitTotal * quantity;
 
+  // Validación de requerimientos y límites de modificadores
+  const validation = useMemo(() => {
+    // 1. Validar variante si el producto tiene variantes registradas
+    if (variants.length > 0 && !selectedVariantId) {
+      return {
+        isValid: false,
+        error: "Debes elegir una presentación o tamaño.",
+      };
+    }
+
+    // 2. Validar reglas de cada grupo de modificadores (obligatoriedad, mín y máx)
+    for (const group of modifierGroups) {
+      const groupKey = group.id || group.name;
+      const chosen = selectedModifiers[groupKey] || selectedModifiers[group.name] || [];
+      const check = validateModifierGroupSelection(group, chosen);
+      if (!check.isValid) {
+        return check;
+      }
+    }
+
+    return { isValid: true };
+  }, [variants, selectedVariantId, modifierGroups, selectedModifiers]);
+
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
@@ -154,31 +182,52 @@ export function ProductDetailModal({
   };
 
   const handleToggleModifier = (group: ProductModifierGroup, optionId: string) => {
-    const current = selectedModifiers[group.name] || [];
-    const maxSelect = group.max_select || 1;
+    const groupKey = group.id || group.name;
+    const current = selectedModifiers[groupKey] || selectedModifiers[group.name] || [];
+    const maxAllowed = group.max_select ?? (group.required && !group.max_select ? 1 : Infinity);
+    const isSingleChoice = maxAllowed === 1;
 
-    if (maxSelect === 1) {
-      // Selección única
+    if (isSingleChoice) {
+      // Selección única (estilo radio button)
       if (current.includes(optionId)) {
         if (!group.required) {
-          setSelectedModifiers({ ...selectedModifiers, [group.name]: [] });
+          setSelectedModifiers((prev) => ({
+            ...prev,
+            [groupKey]: [],
+            [group.name]: [],
+          }));
         }
       } else {
-        setSelectedModifiers({ ...selectedModifiers, [group.name]: [optionId] });
+        setSelectedModifiers((prev) => ({
+          ...prev,
+          [groupKey]: [optionId],
+          [group.name]: [optionId],
+        }));
       }
     } else {
-      // Selección múltiple
+      // Selección múltiple (estilo checkbox)
       if (current.includes(optionId)) {
-        setSelectedModifiers({
-          ...selectedModifiers,
-          [group.name]: current.filter((id) => id !== optionId),
-        });
+        const next = current.filter((id) => id !== optionId);
+        setSelectedModifiers((prev) => ({
+          ...prev,
+          [groupKey]: next,
+          [group.name]: next,
+        }));
       } else {
-        if (current.length < maxSelect) {
-          setSelectedModifiers({
-            ...selectedModifiers,
-            [group.name]: [...current, optionId],
-          });
+        if (current.length < maxAllowed) {
+          const next = [...current, optionId];
+          setSelectedModifiers((prev) => ({
+            ...prev,
+            [groupKey]: next,
+            [group.name]: next,
+          }));
+        } else {
+          // El usuario intenta seleccionar más de lo permitido
+          toast.warning(
+            `Límite alcanzado: puedes seleccionar como máximo ${maxAllowed} ${
+              maxAllowed === 1 ? "opción" : "opciones"
+            } en «${group.name}».`
+          );
         }
       }
     }
@@ -392,34 +441,93 @@ export function ProductDetailModal({
           {modifierGroups.length > 0 && (
             <div className="space-y-4 pt-2 border-t border-white/10">
               {modifierGroups.map((group) => {
-                const chosenIds = selectedModifiers[group.name] || [];
+                const groupKey = group.id || group.name;
+                const chosenIds = selectedModifiers[groupKey] || selectedModifiers[group.name] || [];
+                const maxAllowed = group.max_select ?? (group.required && !group.max_select ? 1 : Infinity);
+                const minRequired = group.required ? Math.max(1, group.min_select || 1) : (group.min_select || 0);
+                const isSingleChoice = maxAllowed === 1;
+                const groupValidation = validateModifierGroupSelection(group, chosenIds);
+                const isComplete = groupValidation.isValid;
+
                 return (
-                  <div key={group.name} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                        {group.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {group.max_select === 1
-                          ? "Selecciona 1 opción"
-                          : `Hasta ${group.max_select || "varias"} opciones`}
+                  <div
+                    key={groupKey}
+                    className={`space-y-2 p-3 sm:p-3.5 rounded-2xl border transition-all ${
+                      !groupValidation.isValid
+                        ? isDark
+                          ? "bg-amber-500/[0.04] border-amber-500/30"
+                          : "bg-amber-50/50 border-amber-300/70"
+                        : isDark
+                        ? "bg-white/[0.02] border-white/5"
+                        : "bg-slate-50/60 border-slate-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-black uppercase tracking-wider truncate">
+                          {group.name}
+                        </span>
+                        {group.required ? (
+                          <span
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md shrink-0 ${
+                              isComplete
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                            }`}
+                          >
+                            {isComplete ? "✓ Listo" : "Obligatorio"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md shrink-0">
+                            Opcional
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                        {isSingleChoice
+                          ? "1 opción"
+                          : `${chosenIds.length} / ${maxAllowed === Infinity ? "∞" : maxAllowed}`}
                       </span>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="text-[11px] text-slate-400">
+                      {isSingleChoice
+                        ? "Selecciona 1 opción"
+                        : minRequired > 0
+                        ? `Selecciona de ${minRequired} a ${maxAllowed === Infinity ? "varias" : maxAllowed} opciones`
+                        : `Hasta ${maxAllowed === Infinity ? "varias" : maxAllowed} opciones`}
+                    </div>
+
+                    {/* Alerta de validación específica del grupo */}
+                    {!groupValidation.isValid && (
+                      <div className="flex items-center gap-1.5 p-2 rounded-xl text-xs bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                        <span className="text-[11px] leading-tight font-medium">{groupValidation.error}</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 pt-1">
                       {group.options.map((opt) => {
                         const optId = opt.id || opt.name;
                         const isChosen = chosenIds.includes(optId);
+                        const isAtMax = chosenIds.length >= maxAllowed && !isChosen && !isSingleChoice;
+
                         return (
                           <button
                             key={optId}
                             type="button"
+                            disabled={!opt.is_available}
                             onClick={() => handleToggleModifier(group, optId)}
-                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-all ${
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                               isChosen
                                 ? isDark
-                                  ? "bg-white/10 border-white/30 text-white"
-                                  : "bg-blue-50 border-blue-300 text-blue-900"
+                                  ? "bg-white/10 border-white/30 text-white shadow-xs"
+                                  : "bg-blue-50 border-blue-300 text-blue-900 shadow-xs"
+                                : isAtMax
+                                ? isDark
+                                  ? "bg-white/[0.01] border-white/5 text-slate-400 opacity-60"
+                                  : "bg-slate-50/50 border-slate-200 text-slate-400 opacity-60"
                                 : isDark
                                 ? "bg-white/[0.02] border-white/5 text-slate-300 hover:bg-white/5"
                                 : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
@@ -427,7 +535,9 @@ export function ProductDetailModal({
                           >
                             <div className="flex items-center gap-2">
                               <div
-                                className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                                className={`w-3.5 h-3.5 ${
+                                  isSingleChoice ? "rounded-full" : "rounded"
+                                } border flex items-center justify-center shrink-0 ${
                                   isChosen ? "border-transparent text-white" : "border-slate-500"
                                 }`}
                                 style={{
@@ -436,7 +546,9 @@ export function ProductDetailModal({
                               >
                                 {isChosen && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                               </div>
-                              <span className="font-semibold">{opt.name}</span>
+                              <span className={`font-semibold ${isChosen ? "text-white font-bold" : ""}`}>
+                                {opt.name}
+                              </span>
                             </div>
 
                             {opt.price > 0 && (
@@ -457,78 +569,113 @@ export function ProductDetailModal({
 
         {/* Barra Inferior Fija: Selector de Cantidad & Botón de Pedido WhatsApp */}
         <div
-          className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 ${
+          className={`p-4 border-t flex flex-col gap-3 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))] ${
             isDark ? "bg-[#0E1017] border-white/10" : "bg-slate-50 border-slate-200"
           }`}
         >
-          {/* Selector de Cantidad */}
-          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-4">
-            <span className="text-xs font-bold text-slate-400">Cantidad:</span>
-            <div
-              className={`flex items-center rounded-xl border ${
-                isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-300"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="p-2 hover:opacity-75 transition-opacity"
-                disabled={quantity <= 1}
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-              <span className="w-8 text-center text-xs font-black">{quantity}</span>
-              <button
-                type="button"
-                onClick={() => setQuantity(quantity + 1)}
-                className="p-2 hover:opacity-75 transition-opacity"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+          {/* Alerta global si faltan selecciones obligatorias */}
+          {!validation.isValid && (
+            <div className="w-full px-3 py-2 rounded-xl text-xs bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+              <span className="font-semibold text-[11px] leading-tight">
+                {validation.error}
+              </span>
             </div>
-          </div>
+          )}
 
-          {/* Acciones de Pedido */}
-          <div className="flex flex-col sm:flex-row items-center gap-2 flex-1 w-full sm:w-auto">
-            {onAddToCart && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!product) return;
-                  onAddToCart({
-                    productId: product.id,
-                    name: product.name,
-                    variantId: selectedVariant?.id || null,
-                    variantName: selectedVariant?.name,
-                    unitPrice: unitTotal,
-                    quantity,
-                    image_url: product.image_url,
-                    selectedModifiers: chosenModifiersList.length > 0 ? chosenModifiersList : undefined,
-                  });
-                  onClose();
-                }}
-                className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer touch-manipulation"
-                style={{ backgroundColor: primaryColor }}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+            {/* Selector de Cantidad */}
+            <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-4">
+              <span className="text-xs font-bold text-slate-400">Cantidad:</span>
+              <div
+                className={`flex items-center rounded-xl border ${
+                  isDark ? "bg-white/5 border-white/10" : "bg-white border-slate-300"
+                }`}
               >
-                <Plus className="w-4 h-4" />
-                <span>+ Agregar al Pedido &bull; {formatPrice(grandTotal)}</span>
-              </button>
-            )}
+                <button
+                  type="button"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="p-2 hover:opacity-75 transition-opacity cursor-pointer disabled:opacity-30"
+                  disabled={quantity <= 1}
+                  aria-label="Disminuir cantidad"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-8 text-center text-xs font-black">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="p-2 hover:opacity-75 transition-opacity cursor-pointer"
+                  aria-label="Aumentar cantidad"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
-            {cleanWhatsapp && (
-              <a
-                href={buildWhatsappUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`w-full sm:w-auto ${
-                  onAddToCart ? "px-4 py-3" : "flex-1 py-3 px-5"
-                } flex items-center justify-center gap-2 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98]`}
-                style={{ backgroundColor: "#22C55E" }}
-              >
-                <MessageCircle className="w-4 h-4 fill-current" />
-                <span>{onAddToCart ? "Pedir Directo" : `Pedir por WhatsApp • ${formatPrice(grandTotal)}`}</span>
-              </a>
-            )}
+            {/* Acciones de Pedido */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 flex-1 w-full sm:w-auto">
+              {onAddToCart && (
+                <button
+                  type="button"
+                  disabled={!validation.isValid}
+                  onClick={() => {
+                    if (!product || !validation.isValid) return;
+                    onAddToCart({
+                      productId: product.id,
+                      name: product.name,
+                      variantId: selectedVariant?.id || null,
+                      variantName: selectedVariant?.name,
+                      unitPrice: unitTotal,
+                      quantity,
+                      image_url: product.image_url,
+                      selectedModifiers: chosenModifiersList.length > 0 ? chosenModifiersList : undefined,
+                      taxPercentage: Number((product.metadata as any)?.tax_percentage ?? (product as any).tax_percentage ?? 0),
+                      taxIncludedInPrice: (product.metadata as any)?.tax_included_in_price ?? (product as any).tax_included_in_price ?? true,
+                    });
+                    onClose();
+                  }}
+                  className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100 min-h-[44px]"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>
+                    {validation.isValid
+                      ? `+ Agregar al Pedido • ${formatPrice(grandTotal)}`
+                      : validation.error || "Completa las opciones"}
+                  </span>
+                </button>
+              )}
+
+              {cleanWhatsapp && (
+                validation.isValid ? (
+                  <a
+                    href={buildWhatsappUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-full sm:w-auto ${
+                      onAddToCart ? "px-4 py-3" : "flex-1 py-3 px-5"
+                    } flex items-center justify-center gap-2 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-md transition-transform hover:scale-[1.02] active:scale-[0.98] min-h-[44px]`}
+                    style={{ backgroundColor: "#22C55E" }}
+                  >
+                    <MessageCircle className="w-4 h-4 fill-current" />
+                    <span>{onAddToCart ? "Pedir Directo" : `Pedir por WhatsApp • ${formatPrice(grandTotal)}`}</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className={`w-full sm:w-auto ${
+                      onAddToCart ? "px-4 py-3" : "flex-1 py-3 px-5"
+                    } flex items-center justify-center gap-2 rounded-xl font-black text-xs uppercase tracking-wider text-white bg-slate-400 dark:bg-white/10 opacity-50 cursor-not-allowed min-h-[44px]`}
+                    title={validation.error}
+                  >
+                    <MessageCircle className="w-4 h-4 fill-current" />
+                    <span>{onAddToCart ? "Pedir Directo" : "Completar Opciones"}</span>
+                  </button>
+                )
+              )}
+            </div>
           </div>
         </div>
       </div>

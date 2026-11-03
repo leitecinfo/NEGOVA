@@ -25,6 +25,8 @@ export interface CreatePublicOrderInput {
     variantName?: string | null;
     quantity: number;
     notes?: string;
+    taxPercentage?: number;
+    taxIncludedInPrice?: boolean;
     selectedModifiers?: Array<{
       groupId: string;
       groupName: string;
@@ -176,6 +178,8 @@ export async function createPublicMenuOrderAction(
         variantName: it.variantName || null,
         quantity: it.quantity,
         notes: it.notes || undefined,
+        taxPercentage: it.taxPercentage,
+        taxIncludedInPrice: it.taxIncludedInPrice,
         selectedModifiers: it.selectedModifiers || undefined,
       })),
     };
@@ -238,6 +242,15 @@ export async function createPublicMenuOrderAction(
                 })),
               }));
 
+        const { extractDeliveryVerification } = await import("@/lib/delivery/delivery-service");
+        const { extractTrackingCode } = await import("@/lib/delivery/tracking-service");
+        const resolvedDeliveryPin =
+          (result as any).deliveryPin ||
+          (savedOrder ? extractDeliveryVerification(savedOrder.notes).code : null);
+        const resolvedTrackingCode =
+          (result as any).trackingCode ||
+          ((savedOrder as any)?.tracking_code || (savedOrder ? extractTrackingCode(savedOrder.notes) : null));
+
         const summaryText = formatOrderSummaryMessage({
           orderNumber: confirmedOrderNumber,
           businessName: bizWhatsApp.businessName,
@@ -248,6 +261,8 @@ export async function createPublicMenuOrderAction(
           deliveryReference: input.deliveryReference || null,
           paymentMethodLabel: paymentLabel,
           notes: input.notes || null,
+          deliveryPin: resolvedDeliveryPin,
+          trackingCode: resolvedTrackingCode,
           subtotal: savedOrder ? Number(savedOrder.subtotal || 0) : Number(result.total || 0),
           deliveryFee: savedOrder ? Number((savedOrder as any).delivery_fee || 0) : 0,
           total: Number(result.total || 0),

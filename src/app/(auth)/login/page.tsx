@@ -45,6 +45,8 @@ function LoginPageContent() {
   const [cachedPassword, setCachedPassword] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [mfaType, setMfaType] = useState<"totp" | "email">("email");
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
   // Estado del Modal de Alerta
   const [modalState, setModalState] = useState<{
@@ -149,10 +151,14 @@ function LoginPageContent() {
         if (res && res.success && res.requiresMfa) {
           setMfaEmail(res.mfaEmail || email);
           setCachedPassword(password);
+          setMfaType(res.mfaType || "email");
+          setUseRecoveryCode(false);
           setIsMfaStep(true);
           setResendCooldown(60);
           toast.info("Verificación de Seguridad Requerida", {
-            description: "Hemos enviado un código de 6 dígitos a tu correo registrado.",
+            description: res.mfaType === "totp"
+              ? "Ingresa el código de 6 dígitos de tu app de autenticación o un código de respaldo."
+              : "Hemos enviado un código de 6 dígitos a tu correo registrado.",
           });
           return;
         }
@@ -187,11 +193,16 @@ function LoginPageContent() {
     });
   };
 
-  // Paso 2: Validar código OTP de 6 dígitos
+  // Paso 2: Validar código OTP de 6 dígitos o código de respaldo [CONF-004]
   const handleMfaSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (otpCode.length !== 6) {
+    const cleanCode = otpCode.trim();
+    if (!useRecoveryCode && cleanCode.length !== 6) {
       showAlert("Código Incompleto", "Por favor ingresa los 6 dígitos del código de seguridad.", "warning");
+      return;
+    }
+    if (useRecoveryCode && cleanCode.replace(/[^A-Za-z0-9]/g, "").length !== 8) {
+      showAlert("Código Incompleto", "Por favor ingresa un código de respaldo de 8 caracteres (ej. 8B4C-29D1).", "warning");
       return;
     }
 
@@ -474,30 +485,44 @@ function LoginPageContent() {
                   </button>
                 </form>
               ) : (
-                /* PASO 2: Formulario de Código OTP de Doble Factor */
+                /* PASO 2: Formulario de Código OTP de Doble Factor / Código de Respaldo [CONF-004] */
                 <form onSubmit={handleMfaSubmit} className="space-y-5 animate-in fade-in-50 duration-200">
                   <div className="space-y-2">
                     <label className="text-xs font-mono font-medium text-slate-700">
-                      Código de Seguridad (6 Dígitos)
+                      {useRecoveryCode
+                        ? "Código de Respaldo (8 Caracteres)"
+                        : mfaType === "totp"
+                        ? "Código de Autenticación (Google Authenticator)"
+                        : "Código de Seguridad (6 Dígitos)"}
                     </label>
                     <div className="relative group">
                       <KeyRound className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400 group-focus-within:text-[#ED500A] transition-colors" />
                       <input
                         type="text"
-                        maxLength={6}
+                        maxLength={useRecoveryCode ? 10 : 6}
                         autoFocus
                         value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                        placeholder="123456"
-                        className="w-full pl-10 pr-3 py-3 text-center text-xl tracking-[0.4em] font-mono font-bold rounded-xl border border-slate-200 bg-[#F8F9FD]/60 focus:ring-2 focus:ring-[#ED500A] focus:border-transparent outline-none transition-all placeholder-slate-300 text-[#0B0E14]"
+                        onChange={(e) => {
+                          if (useRecoveryCode) {
+                            setOtpCode(e.target.value.toUpperCase());
+                          } else {
+                            setOtpCode(e.target.value.replace(/\D/g, ""));
+                          }
+                        }}
+                        placeholder={useRecoveryCode ? "EJ. 8B4C-29D1" : "123456"}
+                        className="w-full pl-10 pr-3 py-3 text-center text-xl tracking-[0.3em] font-mono font-bold rounded-xl border border-slate-200 bg-[#F8F9FD]/60 focus:ring-2 focus:ring-[#ED500A] focus:border-transparent outline-none transition-all placeholder-slate-300 text-[#0B0E14]"
                       />
                     </div>
                     <p className="text-[11px] text-slate-400 font-mono text-center">
-                      Código de uso único con vigencia de 10 minutos.
+                      {useRecoveryCode
+                        ? "Código de respaldo de uso único para recuperación de acceso."
+                        : mfaType === "totp"
+                        ? "Código de 6 dígitos generado en tu aplicación móvil."
+                        : "Código de uso único con vigencia de 10 minutos enviado por correo."}
                     </p>
                   </div>
 
-                  {/* Acciones de reenvío */}
+                  {/* Acciones de recuperación y reenvío */}
                   <div className="flex items-center justify-between text-xs pt-1">
                     <button
                       type="button"
@@ -508,31 +533,49 @@ function LoginPageContent() {
                       <span>Cambiar cuenta</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={resendCooldown > 0 || isPending}
-                      className="text-[#ED500A] hover:underline disabled:text-slate-400 disabled:no-underline flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>
-                        {resendCooldown > 0
-                          ? `Reenviar en ${resendCooldown}s`
-                          : "Reenviar código"}
-                      </span>
-                    </button>
+                    {mfaType === "totp" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseRecoveryCode(!useRecoveryCode);
+                          setOtpCode("");
+                        }}
+                        className="text-[#ED500A] hover:underline flex items-center gap-1 transition-colors cursor-pointer font-medium"
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        <span>
+                          {useRecoveryCode
+                            ? "Usar código de 6 dígitos"
+                            : "¿Sin acceso a tu app? Usar respaldo"}
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendCooldown > 0 || isPending}
+                        className="text-[#ED500A] hover:underline disabled:text-slate-400 disabled:no-underline flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>
+                          {resendCooldown > 0
+                            ? `Reenviar en ${resendCooldown}s`
+                            : "Reenviar código"}
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Botón Validar OTP */}
                   <button
                     type="submit"
-                    disabled={isPending || otpCode.length !== 6}
+                    disabled={isPending || (useRecoveryCode ? otpCode.replace(/[^A-Za-z0-9]/g, "").length !== 8 : otpCode.length !== 6)}
                     className="group relative w-full py-3.5 pl-6 pr-4 rounded-xl bg-[#ED500A] hover:bg-[#d64505] disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-title font-bold text-sm shadow-md active:scale-[0.98] transition-all duration-300 flex items-center justify-between cursor-pointer"
                   >
                     {isPending ? (
                       <div className="w-full flex items-center justify-center gap-2">
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Verificando código...</span>
+                        <span>Verificando...</span>
                       </div>
                     ) : (
                       <>

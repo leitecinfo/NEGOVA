@@ -144,7 +144,7 @@ describe("Fase 2.7 — Endurecimiento del Catálogo y Verificación de Integrida
       const pageElement = await WorkspaceModulePlaceholderPage({
         params: Promise.resolve({
           businessId: "biz-test-uuid",
-          moduleId: "inventario",
+          moduleId: "finanzas",
         }),
       });
 

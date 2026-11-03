@@ -113,6 +113,9 @@ export async function createNotification(input: {
       title: newNotif.title,
       message: newNotif.message,
       link: newNotif.href,
+      entity_type: newNotif.entityType,
+      entity_id: newNotif.entityId,
+      entity_number: newNotif.entityNumber,
       metadata: {
         ...newNotif.metadata,
         entityType: newNotif.entityType,
@@ -223,9 +226,9 @@ export async function getNotifications(
         createdAt: row.created_at,
         read: Boolean(row.is_read),
         isRead: Boolean(row.is_read),
-        entityType: row.metadata?.entityType || null,
-        entityId: row.metadata?.entityId || null,
-        entityNumber: row.metadata?.entityNumber || null,
+        entityType: row.entity_type || row.metadata?.entityType || null,
+        entityId: row.entity_id || row.metadata?.entityId || null,
+        entityNumber: row.entity_number || row.metadata?.entityNumber || null,
         href: row.link || null,
         link: row.link || null,
         metadata: row.metadata || {},
@@ -333,6 +336,133 @@ export async function markAllNotificationsAsRead(options?: {
     return true;
   } catch (err: any) {
     console.error("[NotificationsService Error] Error al marcar todas como leídas:", err);
+    return false;
+  }
+}
+
+/**
+ * 5. CREAR NOTIFICACIÓN DE NUEVO PEDIDO CON IDEMPOTENCIA ESTRICTA
+ */
+export async function createOrderNotification(order: {
+  businessId: string;
+  orderId: string;
+  orderNumber: number;
+  orderType: string;
+  customerName?: string | null;
+  total: number;
+}): Promise<AppNotification | null> {
+  if (!order.businessId || !order.orderId) return null;
+
+  try {
+    const supabase = await getAdminSupabaseClient();
+
+    // Idempotencia: Verificar si ya existe una notificación para este pedido
+    const { data: existing } = await supabase
+      .from("platform_notifications")
+      .select("id")
+      .eq("business_id", order.businessId)
+      .eq("entity_type", "restaurant_order")
+      .eq("entity_id", order.orderId)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return null;
+    }
+
+    const orderNumberFormatted = `#${order.orderNumber}`;
+    const formattedTotal = `$${Number(order.total || 0).toLocaleString("es-CO")}`;
+
+    let title = `Nuevo pedido ${orderNumberFormatted}`;
+    let message = "";
+
+    switch (order.orderType) {
+      case "dine_in":
+        title = `Nuevo pedido en mesa ${orderNumberFormatted}`;
+        message = `Consumo en el establecimiento. Total: ${formattedTotal}`;
+        break;
+      case "takeout":
+        title = `Nuevo pedido para llevar ${orderNumberFormatted}`;
+        message = `Pedido para recoger${order.customerName ? ` de ${order.customerName}` : ""}. Total: ${formattedTotal}`;
+        break;
+      case "delivery":
+        title = `Nuevo pedido a domicilio ${orderNumberFormatted}`;
+        message = `Pedido para entrega a domicilio${order.customerName ? ` para ${order.customerName}` : ""}. Total: ${formattedTotal}`;
+        break;
+      default:
+        message = `Nuevo pedido recibido. Total: ${formattedTotal}`;
+        break;
+    }
+
+    const notif = await createNotification({
+      scope: "business",
+      audience: "global",
+      businessId: order.businessId,
+      type: "restaurant_order",
+      title,
+      message,
+      entityType: "restaurant_order",
+      entityId: order.orderId,
+      entityNumber: orderNumberFormatted,
+      href: `/workspace/${order.businessId}/pedidos/${order.orderId}`,
+      link: `/workspace/${order.businessId}/pedidos/${order.orderId}`,
+      metadata: {
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        orderType: order.orderType,
+        customerName: order.customerName || null,
+        total: order.total,
+        entityType: "restaurant_order",
+        entityId: order.orderId,
+        entityNumber: orderNumberFormatted,
+      },
+    });
+
+    return notif;
+  } catch (err: any) {
+    console.error("[NotificationsService Error] Error al crear notificación de pedido:", err);
+    return null;
+  }
+}
+
+/**
+ * 6. ELIMINAR NOTIFICACIÓN CON AISLAMIENTO DE NEGOCIO
+ */
+export async function deleteNotification(
+  id: string,
+  options?: {
+    scope?: NotificationScope;
+    businessId?: string;
+    currentUserId?: string;
+  }
+): Promise<boolean> {
+  const targetScope = options?.scope || "platform";
+
+  if (targetScope === "business" && !options?.businessId) {
+    console.error("[NotificationsService Error] businessId requerido para scope business");
+    return false;
+  }
+
+  try {
+    const supabase = await getAdminSupabaseClient();
+    let query = supabase
+      .from("platform_notifications")
+      .delete()
+      .eq("id", id)
+      .eq("scope", targetScope);
+
+    if (targetScope === "business" && options?.businessId) {
+      query = query.eq("business_id", options.businessId);
+    }
+
+    if (options?.currentUserId && isValidUuid(options.currentUserId)) {
+      query = query.or(`audience.eq.global,and(audience.eq.user,recipient_user_id.eq.${options.currentUserId})`);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+    return true;
+  } catch (err: any) {
+    console.error("[NotificationsService Error] Error al eliminar notificación:", err);
     return false;
   }
 }

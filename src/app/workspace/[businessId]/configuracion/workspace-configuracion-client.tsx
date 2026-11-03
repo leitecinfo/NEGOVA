@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition, useRef, useMemo } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { BusinessDocumentConfig } from "@/lib/documents/types";
 import {
@@ -42,12 +43,16 @@ import {
   Info,
   AlertCircle,
   Bike,
+  Scale,
+  Bell,
+  ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
-import { AdminTabs } from "@/components/admin/ui/admin-tabs";
-import { AdminKpiGrid, AdminKpiCard } from "@/components/admin/ui/admin-kpi-card";
-import { AdminButton } from "@/components/admin/ui/admin-button";
-import { AdminInput } from "@/components/admin/ui/admin-input";
-import { AdminBadge } from "@/components/admin/ui/admin-badge";
+import { AdminTabs, AdminKpiGrid, AdminKpiCard, AdminButton, AdminInput, AdminBadge } from "@/components/ui";
+
+
+
+
 import { ImageCropperModal } from "@/components/ui/image-cropper-modal";
 import { CommercialActivity, PlanFeatureKey, COMMERCIAL_ACTIVITIES, PLAN_FEATURES } from "@/config/commercial-activities";
 import { CommercialPlan, PlanLimits, PlanId } from "@/config/plans";
@@ -456,6 +461,117 @@ export function WorkspaceConfiguracionClient({
           onClick={() => setActiveTab("mi-negocio")}
         />
       </AdminKpiGrid>
+
+      {/* ── MÓDULOS DE CONFIGURACIÓN AVANZADA ───────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <Link
+          href={`/workspace/${businessId}/configuracion/impresion`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+              <Printer className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Impresoras y Estaciones
+              </p>
+              <p className="text-[11px] text-slate-500">Tickets, cocina y cajón</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+
+        <Link
+          href={`/workspace/${businessId}/configuracion/unidades`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+              <Scale className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Unidades y Conversiones
+              </p>
+              <p className="text-[11px] text-slate-500">Peso, volumen y equivalencias</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+
+        <Link
+          href={`/workspace/${businessId}/configuracion/notificaciones`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+              <Bell className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Plantillas de Notificación
+              </p>
+              <p className="text-[11px] text-slate-500">WhatsApp, email y eventos</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+
+        <Link
+          href={`/workspace/${businessId}/configuracion/seguridad`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-[#ED500A]">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Seguridad y 2FA
+              </p>
+              <p className="text-[11px] text-slate-500">TOTP y códigos de respaldo</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+
+        <Link
+          href={`/workspace/${businessId}/configuracion/pagina-enlaces`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-pink-50 dark:bg-pink-950/40 text-pink-600 dark:text-pink-400">
+              <Globe className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Página de Enlaces (Bio)
+              </p>
+              <p className="text-[11px] text-slate-500">Linktree para redes y WhatsApp</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+
+        <Link
+          href={`/workspace/${businessId}/configuracion/facturacion-electronica`}
+          className="p-3.5 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.16] shadow-xs flex items-center justify-between transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
+                Facturación DIAN
+              </p>
+              <p className="text-[11px] text-slate-500">Resolución, CUFE y proveedor</p>
+            </div>
+          </div>
+          <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ED500A] transition-colors" />
+        </Link>
+      </div>
 
       {/* ── TABS NAV ──────────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] p-4 shadow-xs">
@@ -898,8 +1014,8 @@ export function WorkspaceConfiguracionClient({
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">Mi plan y funcionalidades</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Capacidades disponibles según tu suscripción activa con NEGOVA.</p>
+                  <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">Tu plan y límites de uso</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Capacidades disponibles, cuotas numéricas y consumo actual según tu suscripción activa.</p>
                 </div>
               </div>
             </div>
@@ -915,11 +1031,184 @@ export function WorkspaceConfiguracionClient({
                 </div>
               </div>
 
-              {/* Uso de recursos */}
+              {/* Tabla de límites y consumo actual */}
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Uso de recursos</p>
-                <ProgressBar value={activeUserCount} max={planLimits.maxUsers} label="Usuarios" />
-                <ProgressBar value={activeProductCount} max={planLimits.maxProducts} label="Productos" />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
+                    Tabla de límites y uso actual
+                  </p>
+                  <span className="text-[11px] text-slate-400">Actualizado según tu suscripción activa</span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121622]">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200/80 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] text-slate-600 dark:text-slate-400 font-medium">
+                        <th className="py-2.5 px-4">Recurso / Capacidad</th>
+                        <th className="py-2.5 px-4 text-center">Uso Actual</th>
+                        <th className="py-2.5 px-4 text-center">Límite</th>
+                        <th className="py-2.5 px-4">Consumo</th>
+                        <th className="py-2.5 px-4 text-right">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                      {/* Productos */}
+                      {(() => {
+                        const pct = Math.min(100, Math.round((activeProductCount / planLimits.maxProducts) * 100));
+                        const isAtLimit = activeProductCount >= planLimits.maxProducts;
+                        const isNearLimit = pct >= 80;
+                        return (
+                          <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01]">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-slate-400" />
+                                <div>
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">Productos en catálogo</span>
+                                  <p className="text-[10px] text-slate-400">Items activos disponibles para venta</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 dark:text-white">
+                              {activeProductCount}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                              {planLimits.maxProducts === Infinity ? "Ilimitado" : planLimits.maxProducts}
+                            </td>
+                            <td className="py-3 px-4 min-w-[140px]">
+                              <div
+                                className="space-y-1"
+                                title={`Productos: ${activeProductCount} de ${planLimits.maxProducts} (${pct}%)`}
+                              >
+                                <div className="h-1.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isAtLimit ? "bg-rose-500" : isNearLimit ? "bg-amber-500" : "bg-emerald-500"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">{pct}% utilizado</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {isAtLimit ? (
+                                <AdminBadge variant="red">Límite alcanzado</AdminBadge>
+                              ) : isNearLimit ? (
+                                <AdminBadge variant="amber">80%+ límite</AdminBadge>
+                              ) : (
+                                <AdminBadge variant="emerald">Disponible</AdminBadge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })()}
+
+                      {/* Empleados / Usuarios */}
+                      {(() => {
+                        const pct = Math.min(100, Math.round((activeUserCount / planLimits.maxUsers) * 100));
+                        const isAtLimit = activeUserCount >= planLimits.maxUsers;
+                        const isNearLimit = pct >= 80;
+                        return (
+                          <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01]">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-slate-400" />
+                                <div>
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">Empleados y usuarios</span>
+                                  <p className="text-[10px] text-slate-400">Cuentas con acceso activo al negocio</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 dark:text-white">
+                              {activeUserCount}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                              {planLimits.maxUsers === Infinity ? "Ilimitado" : planLimits.maxUsers}
+                            </td>
+                            <td className="py-3 px-4 min-w-[140px]">
+                              <div
+                                className="space-y-1"
+                                title={`Empleados: ${activeUserCount} de ${planLimits.maxUsers} (${pct}%)`}
+                              >
+                                <div className="h-1.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isAtLimit ? "bg-rose-500" : isNearLimit ? "bg-amber-500" : "bg-emerald-500"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">{pct}% utilizado</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {isAtLimit ? (
+                                <AdminBadge variant="red">Límite alcanzado</AdminBadge>
+                              ) : isNearLimit ? (
+                                <AdminBadge variant="amber">80%+ límite</AdminBadge>
+                              ) : (
+                                <AdminBadge variant="emerald">Disponible</AdminBadge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })()}
+
+                      {/* Sucursales / Sedes */}
+                      {(() => {
+                        const branchCount = 1;
+                        const pct = Math.min(100, Math.round((branchCount / planLimits.maxBranches) * 100));
+                        const isAtLimit = branchCount >= planLimits.maxBranches;
+                        return (
+                          <tr className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01]">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-slate-400" />
+                                <div>
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">Sucursales y sedes físicas</span>
+                                  <p className="text-[10px] text-slate-400">Locales u operaciones administradas</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 dark:text-white">
+                              {branchCount}
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                              {planLimits.maxBranches === Infinity ? "Ilimitado" : planLimits.maxBranches}
+                            </td>
+                            <td className="py-3 px-4 min-w-[140px]">
+                              <div
+                                className="space-y-1"
+                                title={`Sucursales: ${branchCount} de ${planLimits.maxBranches} (${pct}%)`}
+                              >
+                                <div className="h-1.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isAtLimit ? "bg-amber-500" : "bg-emerald-500"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">{pct}% utilizado</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <AdminBadge variant={isAtLimit ? "slate" : "emerald"}>
+                                {isAtLimit ? "Cupo máximo" : "Disponible"}
+                              </AdminBadge>
+                            </td>
+                          </tr>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Resumen rápido de barras de progreso */}
+                <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <ProgressBar value={activeUserCount} max={planLimits.maxUsers} label="Usuarios activos" />
+                  <ProgressBar value={activeProductCount} max={planLimits.maxProducts} label="Productos en catálogo" />
+                </div>
               </div>
 
               {/* Funcionalidades */}
@@ -1012,6 +1301,59 @@ export function WorkspaceConfiguracionClient({
                 <Info className="w-3.5 h-3.5 shrink-0" />
                 Configuración estándar para Colombia. Si operas en otra zona, comunícate con soporte.
               </p>
+            </div>
+          </div>
+
+          {/* ─── Unidades de Medida y Conversiones [CONF-001] ───────────── */}
+          <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
+                    <Scale className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
+                      Unidades de Medida y Conversiones
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Administra unidades oficiales (peso, volumen, longitud, conteo) y factores de conversión para recetas y productos.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/workspace/${businessId}/configuracion/unidades`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all shrink-0"
+                >
+                  <span>Configurar Unidades</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold">Peso</span>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">kg, g, lb, oz</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Base: 1 kg</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold">Volumen</span>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">lt, ml</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Base: 1 lt</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold">Longitud</span>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">m, cm</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Base: 1 m</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold">Conteo</span>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1">unidad, porción</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Base: 1 un</p>
+                </div>
+              </div>
             </div>
           </div>
 

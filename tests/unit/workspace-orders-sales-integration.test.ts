@@ -274,6 +274,16 @@ const createMockSupabase = () => ({
           };
           return chain;
         },
+        insert: (row: any) => {
+          const inserted = { ...row, id: row.id || `doc-${Date.now()}` };
+          inMemorySaleDocs.push(inserted);
+          return {
+            select: () => ({
+              single: () => Promise.resolve({ data: inserted, error: null }),
+            }),
+            then: (resolve: any, reject?: any) => Promise.resolve({ data: inserted, error: null }).then(resolve, reject),
+          };
+        },
         update: (data: any) => ({
           eq: (col1: string, val1: any) => ({
             eq: (col2: string, val2: any) => {
@@ -321,17 +331,34 @@ const createMockSupabase = () => ({
       };
     }
 
+    const defaultChain: any = {
+      eq: () => defaultChain,
+      neq: () => defaultChain,
+      order: () => defaultChain,
+      limit: () => defaultChain,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      single: () => Promise.resolve({ data: null, error: null }),
+      then: (resolve: any, reject?: any) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
+    };
+
     return {
-      select: () => ({
-        eq: () => ({
-          order: () => Promise.resolve({ data: [], error: null }),
-          maybeSingle: () => Promise.resolve({ data: null, error: null }),
-          then: (resolve: any, reject?: any) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
-        }),
-      }),
+      select: () => defaultChain,
+      insert: () => Promise.resolve({ error: null }),
+      update: () => defaultChain,
+      delete: () => defaultChain,
     };
   },
-  rpc: vi.fn(),
+  rpc: vi.fn((fnName: string, args: any) => {
+    if (fnName === "get_next_business_document_number") {
+      const year = args?.p_year || new Date().getFullYear();
+      const count = inMemorySaleDocs.length + 1;
+      return Promise.resolve({
+        data: `DOC-${year}-${String(count).padStart(4, "0")}`,
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: null, error: null });
+  }),
 });
 
 vi.mock("../../src/lib/supabase/server", () => ({
@@ -613,8 +640,18 @@ describe("Integración Pedidos → Ventas → Mesas → Canales (NEGOVA)", () =>
       const orderInDb = inMemoryOrders.find((o) => o.id === orderId);
       expect(orderInDb?.payment_status).toBe("paid");
 
+      // Verificar que se creó automáticamente el documento de venta en business_sale_documents [INT-001]
+      expect(inMemorySaleDocs.length).toBe(1);
+      const createdSaleDoc = inMemorySaleDocs[0];
+      expect(createdSaleDoc.restaurant_order_id).toBe(orderId);
+      expect(createdSaleDoc.total).toBe(40000);
+      expect(createdSaleDoc.status).toBe("paid");
+      expect(createdSaleDoc.customer_name).toBe("Cliente Pago");
+      expect(createdSaleDoc.document_number).toMatch(/^DOC-\d{4}-\d{4}$/);
+
       const doc = await getBusinessDocumentById(BUSINESS_A, orderId);
       expect(doc?.status).toBe("paid");
+      expect(doc?.restaurantOrderId).toBe(orderId);
     });
 
     it("2.5. El registro de pago es idempotente y no duplica transacciones al reintentar", async () => {
@@ -648,11 +685,137 @@ describe("Integración Pedidos → Ventas → Mesas → Canales (NEGOVA)", () =>
       // Primer cobro
       const pay1 = await registerRestaurantOrderPayment(BUSINESS_A, orderId, "card", "user-cajero");
       expect(pay1.success).toBe(true);
+      const docsCountAfterPay1 = inMemorySaleDocs.length;
 
-      // Reintento de cobro (mismo pedido ya pagado)
+      // Reintento de cobro (mismo pedido ya pagado) - Regla: Un pedido solo genera UN documento de venta
       const pay2 = await registerRestaurantOrderPayment(BUSINESS_A, orderId, "card", "user-cajero");
       expect(pay2.success).toBe(true);
       expect(pay2.order?.payment_status).toBe("paid");
+      expect(inMemorySaleDocs.length).toBe(docsCountAfterPay1);
+    });
+
+    it("2.6. [INT-001] Si el pedido se cancela, el documento de venta vinculado también se cancela", async () => {
+      const orderId = "order-to-cancel-sale";
+      inMemoryOrders.push({
+        id: orderId,
+        business_id: BUSINESS_A,
+        order_number: 107,
+        status: "received",
+        order_type: "dine_in",
+        channel_origin: "in_person",
+        subtotal: 35000,
+        delivery_fee: 0,
+        total: 35000,
+        notes: null,
+        table_id: "tbl-01",
+        customer_name: "Cliente Por Cancelar",
+        customer_phone: null,
+        delivery_address: null,
+        delivery_reference: null,
+        delivery_status: null,
+        driver_name: null,
+        payment_status: "pending",
+        idempotency_key: null,
+        idempotency_hash: null,
+        created_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      inMemoryOrderItems.push({
+        id: "item-cancel-01",
+        business_id: BUSINESS_A,
+        order_id: orderId,
+        product_id: "prod-cancel-01",
+        product_name: "Alitas BBQ",
+        quantity: 1,
+        unit_price: 35000,
+        subtotal: 35000,
+        notes: null,
+        modifiers: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // Registrar cobro inicial
+      const payRes = await registerRestaurantOrderPayment(BUSINESS_A, orderId, "cash", "user-cajero");
+      expect(payRes.success).toBe(true);
+
+      const linkedDocBefore = inMemorySaleDocs.find((d) => d.restaurant_order_id === orderId);
+      expect(linkedDocBefore).toBeDefined();
+      expect(linkedDocBefore?.status).toBe("paid");
+
+      // Cancelar el pedido operativo
+      const cancelRes = await cancelRestaurantOrder(BUSINESS_A, orderId, "Devolución por error de digitación");
+      expect(cancelRes.success).toBe(true);
+
+      // Regla de negocio: si el pedido se cancela, el documento de venta también se cancela
+      const linkedDocAfter = inMemorySaleDocs.find((d) => d.restaurant_order_id === orderId);
+      expect(linkedDocAfter?.status).toBe("cancelled");
+      expect(linkedDocAfter?.notes).toContain("Devolución por error de digitación");
+
+      // Criterio de aceptación: el pedido cancelado aparece en Ventas como cancelado y no como venta completada
+      const salesList = await getBusinessDocumentsList({ businessId: BUSINESS_A, status: "completed" });
+      expect(salesList.documents.some((d) => d.restaurantOrderId === orderId || d.id === orderId)).toBe(false);
+    });
+
+    it("2.7. [INT-001] Si se cancela el documento desde Ventas, el pedido operativo se cancela automáticamente", async () => {
+      const orderId = "order-cancel-from-sales";
+      inMemoryOrders.push({
+        id: orderId,
+        business_id: BUSINESS_A,
+        order_number: 108,
+        status: "received",
+        order_type: "takeout",
+        channel_origin: "in_person",
+        subtotal: 28000,
+        delivery_fee: 0,
+        total: 28000,
+        notes: null,
+        table_id: null,
+        customer_name: "Cliente Mostrador",
+        customer_phone: null,
+        delivery_address: null,
+        delivery_reference: null,
+        delivery_status: null,
+        driver_name: null,
+        payment_status: "pending",
+        idempotency_key: null,
+        idempotency_hash: null,
+        created_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      inMemoryOrderItems.push({
+        id: "item-cancel-02",
+        business_id: BUSINESS_A,
+        order_id: orderId,
+        product_id: "prod-cancel-02",
+        product_name: "Combo Burger",
+        quantity: 1,
+        unit_price: 28000,
+        subtotal: 28000,
+        notes: null,
+        modifiers: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      await registerRestaurantOrderPayment(BUSINESS_A, orderId, "card", "user-cajero");
+      const docInDb = inMemorySaleDocs.find((d) => d.restaurant_order_id === orderId);
+      expect(docInDb).toBeDefined();
+
+      // Cancelar desde el servicio de documentos de venta
+      const cancelDocRes = await cancelBusinessSaleDocument(BUSINESS_A, docInDb.id, {
+        reason: "Anulación solicitada por cliente",
+      });
+      expect(cancelDocRes.success).toBe(true);
+
+      // El pedido operativo debe reflejar status 'cancelled'
+      const orderInDb = inMemoryOrders.find((o) => o.id === orderId);
+      expect(orderInDb?.status).toBe("cancelled");
+      expect(orderInDb?.notes).toContain("Anulación solicitada por cliente");
     });
   });
 

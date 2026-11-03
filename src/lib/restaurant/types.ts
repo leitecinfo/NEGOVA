@@ -1,9 +1,41 @@
 import { z } from "zod";
 
+// Rooms [MES-001]
+export const RestaurantRoomSchema = z.object({
+  id: z.string().uuid(),
+  business_id: z.string().uuid(),
+  location_id: z.string().uuid().nullable().optional(),
+  name: z.string().min(1, "Nombre de sala requerido"),
+  description: z.string().nullable().optional(),
+  status: z.enum(["active", "inactive"]).default("active"),
+  sort_order: z.number().optional().default(0),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type RestaurantRoom = z.infer<typeof RestaurantRoomSchema>;
+
+export const CreateRestaurantRoomSchema = z.object({
+  name: z.string().trim().min(1, "El nombre de la sala es obligatorio"),
+  description: z.string().trim().nullable().optional(),
+  location_id: z.string().uuid().nullable().optional(),
+  status: z.enum(["active", "inactive"]).default("active"),
+  sort_order: z.number().optional().default(0),
+});
+
+export type CreateRestaurantRoomInput = z.infer<typeof CreateRestaurantRoomSchema>;
+
+export interface RestaurantRoomWithTables extends RestaurantRoom {
+  tablesCount: number;
+  availableTablesCount: number;
+  occupiedTablesCount: number;
+}
+
 // Tables
 export const RestaurantTableSchema = z.object({
   id: z.string().uuid(),
   business_id: z.string().uuid(),
+  room_id: z.string().uuid().nullable().optional(),
   name_or_number: z.string().min(1, "Nombre o número requerido"),
   capacity: z.number().nullable().optional(),
   status: z.enum(["available", "occupied"]).default("available"),
@@ -36,10 +68,13 @@ export interface RestaurantTableActiveOrder {
   items_count: number;
   created_at: string;
   notes?: string | null;
+  order_type?: string | null;
+  driver_name?: string | null;
 }
 
 export interface RestaurantTableWithOrder extends RestaurantTable {
   activeOrder?: RestaurantTableActiveOrder | null;
+  roomName?: string | null;
 }
 
 export interface RestaurantTablesSummary {
@@ -51,21 +86,29 @@ export interface RestaurantTablesSummary {
 
 export interface CreateTableInput {
   name_or_number: string;
+  room_id?: string | null;
   capacity?: number;
   sort_order?: number;
 }
 
 export interface UpdateTableInput {
   name_or_number?: string;
+  room_id?: string | null;
   capacity?: number;
   sort_order?: number;
+}
+
+export interface TransferRestaurantTableInput {
+  sourceTableId: string;
+  targetTableId: string;
+  notes?: string | null;
 }
 
 // Orders
 export const OrderStatusEnum = z.enum(["received", "in_preparation", "ready", "delivered", "cancelled"]);
 export const OrderTypeEnum = z.enum(["dine_in", "takeout", "delivery"]);
 export const ChannelOriginEnum = z.enum(["in_person", "whatsapp", "digital_menu"]);
-export const PaymentStatusEnum = z.enum(["pending", "paid", "partial"]);
+export const PaymentStatusEnum = z.enum(["pending", "paid", "partial", "credit"]);
 
 export const RestaurantOrderSchema = z.object({
   id: z.string().uuid(),
@@ -76,9 +119,11 @@ export const RestaurantOrderSchema = z.object({
   channel_origin: ChannelOriginEnum,
   subtotal: z.number().min(0),
   delivery_fee: z.number().default(0),
+  tax_total: z.number().default(0).optional(),
   total: z.number().min(0),
   notes: z.string().nullable().optional(),
   table_id: z.string().uuid().nullable().optional(),
+  customer_id: z.string().uuid().nullable().optional(),
   customer_name: z.string().nullable().optional(),
   customer_phone: z.string().nullable().optional(),
   delivery_address: z.string().nullable().optional(),
@@ -113,9 +158,14 @@ export const RestaurantOrderItemSchema = z.object({
   order_id: z.string().uuid(),
   product_id: z.string().uuid().nullable().optional(),
   product_name: z.string().min(1),
+  variant_id: z.string().nullable().optional(),
+  variant_name: z.string().nullable().optional(),
   quantity: z.number().min(1),
   unit_price: z.number().min(0),
   subtotal: z.number().min(0),
+  tax_percentage: z.number().default(0).optional(),
+  tax_included_in_price: z.boolean().default(true).optional(),
+  tax_amount: z.number().default(0).optional(),
   notes: z.string().nullable().optional(),
   modifiers: z.any().default([]),
   created_at: z.string(),
@@ -151,6 +201,8 @@ export interface CreateOrderItemInput {
   variantName?: string | null;
   quantity: number;
   notes?: string;
+  taxPercentage?: number;
+  taxIncludedInPrice?: boolean;
   selectedModifiers?: CreateOrderItemModifierInput[];
 }
 
@@ -158,11 +210,19 @@ export interface CreateRestaurantOrderInput {
   orderType: "dine_in" | "takeout" | "delivery";
   channelOrigin: "in_person" | "whatsapp" | "digital_menu";
   tableId?: string | null;
+  customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   deliveryAddress?: string | null;
   deliveryReference?: string | null;
+  deliveryFee?: number;
+  deliveryZoneId?: string | null;
+  taxTotal?: number;
   notes?: string | null;
+  driverName?: string | null;
+  driverId?: string | null;
+  waiterName?: string | null;
+  waiterId?: string | null;
   items: CreateOrderItemInput[];
   idempotencyKey?: string | null;
 }
@@ -172,6 +232,7 @@ export interface CreateRestaurantOrderInput {
 // ==========================================
 
 export const VALID_ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ["received", "in_preparation", "ready", "delivered", "cancelled"],
   received: ["in_preparation", "ready", "delivered", "cancelled"],
   in_preparation: ["received", "ready", "delivered", "cancelled"],
   ready: ["received", "in_preparation", "delivered", "cancelled"],
@@ -216,5 +277,176 @@ export interface RestaurantOrdersSummary {
   delivered: number;
   cancelled: number;
 }
+
+// ==========================================
+// Tipos para Pagos Divididos, Descuentos y Propinas [POS-002 & MES-003]
+// ==========================================
+
+export interface PresetTableDiscount {
+  id: string;
+  label: string;
+  percentage: number;
+  reason: string;
+}
+
+export const PRESET_TABLE_DISCOUNTS: PresetTableDiscount[] = [
+  { id: "senior_10", label: "Adulto Mayor 10%", percentage: 10, reason: "Adulto Mayor 10%" },
+  { id: "student_15", label: "Estudiante 15%", percentage: 15, reason: "Estudiante 15%" },
+  { id: "employee_20", label: "Convenio / Empleado 20%", percentage: 20, reason: "Convenio / Empleado 20%" },
+  { id: "frequent_5", label: "Cliente Frecuente 5%", percentage: 5, reason: "Cliente Frecuente 5%" },
+];
+
+export const PRESET_TIP_PERCENTAGES = [5, 10, 15] as const;
+
+export interface SplitPaymentItem {
+  method: string;
+  amount: number;
+  receivedAmount?: number;
+  change?: number;
+}
+
+export interface PaymentDiscountInput {
+  type: "percentage" | "fixed";
+  value: number;
+  amount?: number;
+  presetId?: string;
+  reason?: string;
+}
+
+export interface PaymentTipInput {
+  amount?: number;
+  percentage?: number;
+}
+
+export interface ProcessOrderPaymentInput {
+  paymentMethod?: string;
+  isSplit?: boolean;
+  splitPayments?: SplitPaymentItem[];
+  discount?: PaymentDiscountInput;
+  tip?: PaymentTipInput;
+  cashChange?: number;
+  notes?: string;
+  customerId?: string | null;
+  creditDueDate?: string | null;
+  creditDueDays?: number | null;
+  closeTableOrder?: boolean;
+  loyaltyPointsRedeemed?: number;
+  loyaltyDiscountAmount?: number;
+}
+
+export interface OrderFinancialBreakdown {
+  orderId: string;
+  orderNumber: number;
+  tableId: string | null;
+  subtotal: number;
+  discountAmount: number;
+  discountReason: string | null;
+  netSaleTotal: number;
+  tipAmount: number;
+  tipPercentage: number | null;
+  totalCollected: number;
+  isSplit: boolean;
+  paymentStatus: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface TableSalesAndTipsReport {
+  totalNetSales: number;
+  totalTips: number;
+  totalDiscounts: number;
+  totalCollected: number;
+  ordersCount: number;
+  ordersWithTipCount: number;
+  ordersWithDiscountCount: number;
+  orders: OrderFinancialBreakdown[];
+}
+
+// ==========================================
+// Tipos para Monitor de Cocina (KDS) [KDS-001]
+// ==========================================
+
+export type KdsTabFilter = "received" | "in_preparation" | "ready" | "delivered" | "all";
+
+export type KdsAlertLevel = "normal" | "warning" | "critical";
+
+export interface KdsTimeAlertConfig {
+  warningMinutes: number; // default 15
+  criticalMinutes: number; // default 30
+}
+
+export const DEFAULT_KDS_TIME_ALERTS: KdsTimeAlertConfig = {
+  warningMinutes: 15,
+  criticalMinutes: 30,
+};
+
+export function getKdsAlertLevel(
+  createdAt: string | Date,
+  config: KdsTimeAlertConfig = DEFAULT_KDS_TIME_ALERTS
+): {
+  level: KdsAlertLevel;
+  elapsedMinutes: number;
+  elapsedFormatted: string;
+} {
+  const createdTime = new Date(createdAt).getTime();
+  const now = Date.now();
+  const elapsedMs = Math.max(0, now - createdTime);
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const elapsedMinutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  let elapsedFormatted: string;
+  if (elapsedMinutes >= 1440) {
+    const days = Math.floor(elapsedMinutes / 1440);
+    const hours = Math.floor((elapsedMinutes % 1440) / 60);
+    elapsedFormatted = hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  } else if (elapsedMinutes >= 60) {
+    const hours = Math.floor(elapsedMinutes / 60);
+    const mins = elapsedMinutes % 60;
+    elapsedFormatted = mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  } else {
+    elapsedFormatted = `${pad(elapsedMinutes)}:${pad(remainingSeconds)}`;
+  }
+
+  let level: KdsAlertLevel = "normal";
+  if (elapsedMinutes >= config.criticalMinutes) {
+    level = "critical";
+  } else if (elapsedMinutes >= config.warningMinutes) {
+    level = "warning";
+  }
+
+  return { level, elapsedMinutes, elapsedFormatted };
+}
+
+// ==========================================
+// Tipos para Tickets Abiertos [KDS-003]
+// ==========================================
+
+export interface OpenTicketDetails extends RestaurantOrderWithDetails {
+  cashierName?: string | null;
+  roomName?: string | null;
+  dinersCount?: number | null;
+  elapsedMinutes?: number;
+  alertLevel?: KdsAlertLevel;
+  formattedElapsed?: string;
+}
+
+export interface OpenTicketsSummary {
+  totalCount: number;
+  totalAmount: number;
+  delayedCount: number;
+  delayedAmount: number;
+  criticalCount: number;
+  criticalAmount: number;
+}
+
+export interface KdsOpenTicketsResponse {
+  tickets: OpenTicketDetails[];
+  summary: OpenTicketsSummary;
+  alertConfig: KdsTimeAlertConfig;
+}
+
 
 

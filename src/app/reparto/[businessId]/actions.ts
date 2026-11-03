@@ -139,3 +139,111 @@ export async function verifyAndCompleteDeliveryAction(
     return { success: false, error: err?.message || "Error al verificar la entrega." };
   }
 }
+
+/**
+ * Server Action pública: Consulta pedidos asignados mediante token criptográfico seguro
+ * No expone datos de pedidos ajenos ni teléfonos en logs
+ */
+export async function getDriverOrdersByTokenAction(token: string) {
+  try {
+    const { getDriverOrdersBySessionToken } = await import("@/lib/delivery/delivery-service");
+    return await getDriverOrdersBySessionToken(token);
+  } catch (err: any) {
+    return {
+      success: false,
+      error: "No se pudieron obtener las órdenes asignadas.",
+      pendingOrders: [],
+      completedOrders: [],
+    };
+  }
+}
+
+/**
+ * Server Action pública: Confirma entrega de pedido mediante token criptográfico seguro
+ * Mantiene la separación estricta entre entrega física y estado de pago
+ */
+export async function confirmDeliveryByTokenAction(
+  token: string,
+  orderId: string,
+  enteredCode?: string
+): Promise<{ success: boolean; error?: string; remainingAttempts?: number }> {
+  try {
+    const { confirmDeliveryOrderBySessionToken } = await import("@/lib/delivery/delivery-service");
+    return await confirmDeliveryOrderBySessionToken(token, orderId, enteredCode);
+  } catch (err: any) {
+    return {
+      success: false,
+      error: "Error al registrar la entrega.",
+    };
+  }
+}
+
+
+
+/**
+ * Server Action: Permite al domiciliario autorizar una entrega con motivo justificado
+ * si el cliente perdió su código o no tiene batería [DOM-006]
+ */
+export async function confirmDeliveryWithExceptionByDriverAction(
+  businessId: string,
+  pin: string,
+  orderId: string,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const auth = await authenticateDriverPin(businessId, pin);
+    if (!auth.success || !auth.driver) {
+      return { success: false, error: "PIN inválido o no autorizado." };
+    }
+
+    if (!reason || reason.trim().length < 4) {
+      return { success: false, error: "Debes ingresar un motivo válido (mínimo 4 caracteres)." };
+    }
+
+    const { confirmDeliveryWithException } = await import("@/lib/delivery/delivery-service");
+    const result = await confirmDeliveryWithException(
+      businessId,
+      orderId,
+      `Excepción reportada en app de reparto por domiciliario ${auth.driver.name}: ${reason.trim()}`
+    );
+
+    return result;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al procesar la excepción de entrega." };
+  }
+}
+
+/**
+ * Server Action: Reporta una novedad o incidencia directamente desde el portal móvil del repartidor [DOM-006]
+ */
+export async function reportDeliveryIssueByDriverAction(
+  businessId: string,
+  pin: string,
+  orderId: string,
+  issueType: any,
+  notes: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const auth = await authenticateDriverPin(businessId, pin);
+    if (!auth.success || !auth.driver) {
+      return { success: false, error: "PIN inválido o no autorizado." };
+    }
+
+    if (!notes || notes.trim().length < 3) {
+      return { success: false, error: "Por favor describe el detalle de la novedad." };
+    }
+
+    const { reportDeliveryIssue } = await import("@/lib/delivery/delivery-service");
+    const result = await reportDeliveryIssue(
+      businessId,
+      orderId,
+      issueType,
+      notes.trim(),
+      auth.driver.name
+    );
+
+    return result;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al reportar la novedad." };
+  }
+}

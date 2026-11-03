@@ -47,6 +47,19 @@ export function PaymentMethodLogo({
     );
   }
 
+  // Si es venta a crédito (cartera)
+  if (code === "credit" || code === "a_credito") {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 shrink-0 ${sizeClasses} ${className}`}
+        aria-label="A crédito"
+        role="img"
+      >
+        <CreditCard className={iconSizes} />
+      </div>
+    );
+  }
+
   // Si tiene logoPath en catálogo y no ha fallado la carga
   if (meta?.logoPath && !hasError) {
     return (

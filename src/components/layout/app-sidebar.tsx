@@ -22,9 +22,16 @@ interface AppSidebarProps {
   onToggleCollapse: () => void;
   navSections: AppNavSection[];
   branding: AppBranding;
+  sidebarFooterWidget?: React.ReactNode;
 }
 
-export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, branding }: AppSidebarProps) {
+export function AppSidebar({
+  isCollapsed,
+  onToggleCollapse,
+  navSections,
+  branding,
+  sidebarFooterWidget,
+}: AppSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
   const searchParams = useSearchParams();
   const { startNavigation } = useNavigationProgress();
@@ -32,6 +39,7 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
   // Estado de grupos desglosables en modo expandido
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     operacion: true,
+    ventas: true,
     catalogo: true,
     gestion: true,
     administracion: true,
@@ -671,6 +679,15 @@ export function AppSidebar({ isCollapsed, onToggleCollapse, navSections, brandin
             </div>
           </div>
         </ModalPortal>
+      )}
+
+      {/* Widget de suscripción / Pie del sidebar [NAV-002] */}
+      {sidebarFooterWidget && (
+        <div className={`shrink-0 ${isCollapsed ? "px-1.5 py-1" : "px-3 pt-2 pb-1"}`}>
+          {React.isValidElement(sidebarFooterWidget)
+            ? React.cloneElement(sidebarFooterWidget as React.ReactElement<any>, { isCollapsed })
+            : sidebarFooterWidget}
+        </div>
       )}
 
       {/* 4. Footer del Sidebar: Botón Exclusivo para Desglosar / Colapsar la Barra Lateral */}

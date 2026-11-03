@@ -23,6 +23,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  CornerDownRight,
 } from "lucide-react";
 
 interface Props {
@@ -47,12 +48,19 @@ export function CategoryManagerModal({
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newParentId, setNewParentId] = useState<string>("");
 
   // Estado para editar categoría existente
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editParentId, setEditParentId] = useState<string>("");
   const [editStatus, setEditStatus] = useState<"active" | "inactive">("active");
+
+  // Categorías que pueden actuar como padre (nivel raíz)
+  const rootCategories = React.useMemo(() => {
+    return categories.filter((c) => !c.parent_category_id);
+  }, [categories]);
 
   // Estado para confirmación segura de eliminación
   const [categoryToDelete, setCategoryToDelete] = useState<{
@@ -66,6 +74,7 @@ export function CategoryManagerModal({
     setIsCreating(true);
     setNewName("");
     setNewDesc("");
+    setNewParentId("");
   };
 
   const handleSaveCreate = () => {
@@ -78,6 +87,7 @@ export function CategoryManagerModal({
       const res = await createCategoryAction(businessId, {
         name: newName.trim(),
         description: newDesc.trim() || null,
+        parent_category_id: newParentId.trim() || null,
         sort_order: (categories.length + 1) * 10,
       });
 
@@ -86,6 +96,7 @@ export function CategoryManagerModal({
         setIsCreating(false);
         setNewName("");
         setNewDesc("");
+        setNewParentId("");
         if (onSuccess) onSuccess();
       } else {
         toast.error("Error al crear categoría", { description: res.error });
@@ -97,6 +108,7 @@ export function CategoryManagerModal({
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditDesc(cat.description || "");
+    setEditParentId(cat.parent_category_id || "");
     setEditStatus((cat.status as "active" | "inactive") || "active");
   };
 
@@ -110,6 +122,7 @@ export function CategoryManagerModal({
       const res = await updateCategoryAction(businessId, categoryId, {
         name: editName.trim(),
         description: editDesc.trim() || null,
+        parent_category_id: editParentId ? editParentId : null,
         status: editStatus,
       });
 
@@ -184,21 +197,43 @@ export function CategoryManagerModal({
     }
   }, [isOpen]);
 
-  // Deduplicación defensiva estricta para garantizar que nunca se muestren categorías repetidas
-  const uniqueCategories = React.useMemo(() => {
-    const map = new Map<string, Category>();
+  // Agrupación y ordenamiento jerárquico (padres primero, luego sus respectivas subcategorías)
+  const hierarchicalCategories = React.useMemo(() => {
+    const roots = categories.filter((c) => !c.parent_category_id);
+    const childrenMap = new Map<string, Category[]>();
     for (const c of categories) {
-      const key = c.name.toLowerCase().trim();
-      if (!map.has(key)) {
-        map.set(key, c);
+      if (c.parent_category_id) {
+        const list = childrenMap.get(c.parent_category_id) || [];
+        list.push(c);
+        childrenMap.set(c.parent_category_id, list);
       }
     }
-    return Array.from(map.values());
+
+    const result: Category[] = [];
+    for (const root of roots) {
+      result.push(root);
+      const kids = childrenMap.get(root.id) || [];
+      result.push(...kids);
+    }
+    // Incluir huérfanas si existieran
+    for (const c of categories) {
+      if (!result.some((r) => r.id === c.id)) {
+        result.push(c);
+      }
+    }
+    return result;
   }, [categories]);
 
-  const filteredCategories = uniqueCategories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCategories = React.useMemo(() => {
+    if (!search.trim()) return hierarchicalCategories;
+    const q = search.toLowerCase().trim();
+    return hierarchicalCategories.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.description?.toLowerCase() || "").includes(q) ||
+        (c.parent?.name?.toLowerCase() || "").includes(q)
+    );
+  }, [hierarchicalCategories, search]);
 
   return (
     <>
@@ -279,6 +314,26 @@ export function CategoryManagerModal({
                     className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                   />
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                    Categoría Padre (Opcional — Máximo 2 niveles)
+                  </label>
+                  <select
+                    value={newParentId}
+                    onChange={(e) => setNewParentId(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                  >
+                    <option value="">Ninguna (Categoría Principal)</option>
+                    {rootCategories
+                      .filter((c) => c.status === "active")
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -325,7 +380,7 @@ export function CategoryManagerModal({
                   return (
                     <div
                       key={cat.id}
-                      className="p-3 bg-white dark:bg-[#0D0F16] border border-[#ED500A]/40 rounded-xl space-y-2 shadow-xs animate-in fade-in duration-100"
+                      className="p-3 bg-white dark:bg-[#0D0F16] border border-[#ED500A]/40 rounded-xl space-y-2.5 shadow-xs animate-in fade-in duration-100"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
@@ -342,6 +397,32 @@ export function CategoryManagerModal({
                           className="px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-lg text-xs"
                           placeholder="Descripción"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Categoría Padre (Opcional — Máximo 2 niveles)
+                        </label>
+                        <select
+                          value={editParentId}
+                          onChange={(e) => setEditParentId(e.target.value)}
+                          disabled={categories.some((c) => c.parent_category_id === cat.id)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A] disabled:opacity-50"
+                        >
+                          <option value="">Ninguna (Categoría Principal)</option>
+                          {rootCategories
+                            .filter((c) => c.id !== cat.id && c.status === "active")
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                        {categories.some((c) => c.parent_category_id === cat.id) && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                            Esta categoría ya tiene subcategorías asociadas; no puede convertirse en subcategoría.
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.06]">
@@ -382,16 +463,41 @@ export function CategoryManagerModal({
                   );
                 }
 
+                const isChild = Boolean(cat.parent_category_id);
+                const parentCat = isChild
+                  ? cat.parent || categories.find((c) => c.id === cat.parent_category_id)
+                  : null;
+                const subcategoriesCount = categories.filter(
+                  (c) => c.parent_category_id === cat.id
+                ).length;
+
                 return (
                   <div
                     key={cat.id}
-                    className="flex items-center justify-between p-3 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-2xs"
+                    className={`flex items-center justify-between p-3 bg-white dark:bg-[#0D0F16] border rounded-xl hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-2xs ${
+                      isChild
+                        ? "ml-4 border-l-2 border-l-[#ED500A]/60 border-slate-200/80 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.01]"
+                        : "border-slate-200 dark:border-white/[0.08]"
+                    }`}
                   >
                     <div className="flex-1 min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isChild && (
+                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        )}
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                           {cat.name}
                         </span>
+                        {isChild && parentCat && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-500/20">
+                            Subcategoría de {parentCat.name}
+                          </span>
+                        )}
+                        {!isChild && subcategoriesCount > 0 && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
+                            {subcategoriesCount} {subcategoriesCount === 1 ? "subcategoría" : "subcategorías"}
+                          </span>
+                        )}
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             cat.status === "active"
@@ -457,7 +563,7 @@ export function CategoryManagerModal({
           {/* Pie del modal */}
           <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-white/5">
             <span className="text-[11px] text-slate-500">
-              Total: {uniqueCategories.length} {uniqueCategories.length === 1 ? "categoría" : "categorías"}
+              Total: {hierarchicalCategories.length} {hierarchicalCategories.length === 1 ? "categoría" : "categorías"}
             </span>
             <button
               type="button"
@@ -496,9 +602,9 @@ export function CategoryManagerModal({
               className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-amber-300 dark:border-amber-500/30 rounded-lg text-xs focus:outline-none"
             >
               <option value="">Dejar sin categoría (categoría = null)</option>
-              {uniqueCategories
-                .filter((c) => c.id !== categoryToDelete.id && c.status === "active")
-                .map((c) => (
+              {categories
+                .filter((c: Category) => c.id !== categoryToDelete.id && c.status === "active")
+                .map((c: Category) => (
                   <option key={c.id} value={c.id}>
                     Mover a «{c.name}»
                   </option>

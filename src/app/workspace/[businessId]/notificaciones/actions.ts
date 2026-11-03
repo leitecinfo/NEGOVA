@@ -5,6 +5,8 @@ import {
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  deleteNotification,
+  createOrderNotification,
 } from "@/lib/notifications/notifications-service";
 import { AppNotification, NotificationType } from "@/lib/notifications/types";
 import { verifyWorkspaceAction } from "@/lib/auth/workspace-context";
@@ -124,3 +126,68 @@ export async function markAllWorkspaceNotificationsAsReadAction(
     return { success: false, error: err.message || "Error al procesar la acción masiva." };
   }
 }
+
+/**
+ * 5. ACTION: Eliminar una notificación del negocio
+ */
+export async function deleteWorkspaceNotificationAction(
+  businessId: string,
+  notificationId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "none");
+    if (!auth.success || !auth.context) {
+      return { success: false, error: auth.error || "No autorizado para eliminar la notificación." };
+    }
+
+    const deleted = await deleteNotification(notificationId, {
+      scope: "business",
+      businessId,
+      currentUserId: auth.context.userId,
+    });
+
+    if (!deleted) {
+      return { success: false, error: "No se encontró la notificación o no tienes permiso para eliminarla." };
+    }
+
+    revalidatePath(`/workspace/${businessId}/notificaciones`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al eliminar la notificación." };
+  }
+}
+
+/**
+ * 6. ACTION: Sincronizar / persistir notificación de pedido detectado por Realtime
+ */
+export async function syncOrderNotificationAction(
+  businessId: string,
+  orderData: {
+    orderId: string;
+    orderNumber: number;
+    orderType: string;
+    customerName?: string | null;
+    total: number;
+  }
+): Promise<{ success: boolean; notification?: AppNotification | null; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "none");
+    if (!auth.success || !auth.context) {
+      return { success: false, error: "No autorizado." };
+    }
+
+    const notif = await createOrderNotification({
+      businessId,
+      orderId: orderData.orderId,
+      orderNumber: orderData.orderNumber,
+      orderType: orderData.orderType,
+      customerName: orderData.customerName,
+      total: orderData.total,
+    });
+
+    return { success: true, notification: notif };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al sincronizar notificación." };
+  }
+}
+

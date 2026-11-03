@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BusinessDigitalMenu,
   DigitalMenuModality,
@@ -8,7 +8,8 @@ import {
   DigitalMenuCustomSettings,
   DigitalMenuPublicBusiness,
 } from "@/lib/menu/types";
-import { Product, Category } from "@/lib/products/types";
+import { Product, Category, isProductAvailableInQr } from "@/lib/products/types";
+import { subscribeToCatalogUpdates } from "@/lib/products/channel-sync";
 import { UrbanaMenuTemplate } from "./urbana-template";
 import { EleganteMenuTemplate } from "./elegante-template";
 import { ComercialMenuTemplate } from "./comercial-template";
@@ -61,6 +62,45 @@ export function TemplateRenderer({
   const fileType = overrideFileType !== undefined ? overrideFileType : menu.file_type;
   const fileName = overrideFileName !== undefined ? overrideFileName : menu.file_name;
 
+  // Estado reactivo de productos para reflejar cambios de canales en tiempo real sin recargar
+  const [liveProducts, setLiveProducts] = useState<Product[]>(products);
+
+  useEffect(() => {
+    setLiveProducts(products);
+  }, [products]);
+
+  useEffect(() => {
+    if (!business?.id) return;
+
+    const unsubscribe = subscribeToCatalogUpdates(business.id, {
+      onProductUpsert: (updatedProduct) => {
+        setLiveProducts((prev) => {
+          const exists = prev.some((p) => p.id === updatedProduct.id);
+          if (exists) {
+            return prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p));
+          }
+          return [...prev, updatedProduct];
+        });
+      },
+      onProductDelete: (deletedProductId) => {
+        setLiveProducts((prev) => prev.filter((p) => p.id !== deletedProductId));
+      },
+    });
+
+    return () => unsubscribe();
+  }, [business?.id]);
+
+  // El menú QR solo muestra productos activos, disponibles y con available_in_qr = true
+  const qrVisibleProducts = useMemo(() => {
+    return liveProducts.filter(
+      (p) =>
+        p.status !== "archived" &&
+        p.status !== "inactive" &&
+        p.is_available !== false &&
+        isProductAvailableInQr(p)
+    );
+  }, [liveProducts]);
+
   // 1. MODALIDAD C: Archivo propio (PDF o Imagen)
   if (modality === "file") {
     if (!fileUrl) {
@@ -105,7 +145,7 @@ export function TemplateRenderer({
         <EleganteMenuTemplate
           business={business}
           categories={categories}
-          products={products}
+          products={qrVisibleProducts}
           settings={settings}
           paymentMethods={paymentMethods}
           isPreview={isPreview}
@@ -120,7 +160,7 @@ export function TemplateRenderer({
         <ComercialMenuTemplate
           business={business}
           categories={categories}
-          products={products}
+          products={qrVisibleProducts}
           settings={settings}
           paymentMethods={paymentMethods}
           isPreview={isPreview}
@@ -135,7 +175,7 @@ export function TemplateRenderer({
         <VisualMenuTemplate
           business={business}
           categories={categories}
-          products={products}
+          products={qrVisibleProducts}
           settings={settings}
           paymentMethods={paymentMethods}
           isPreview={isPreview}
@@ -151,7 +191,7 @@ export function TemplateRenderer({
         <UrbanaMenuTemplate
           business={business}
           categories={categories}
-          products={products}
+          products={qrVisibleProducts}
           settings={settings}
           paymentMethods={paymentMethods}
           isPreview={isPreview}

@@ -311,7 +311,7 @@ export const ALL_PERMISSION_MODULES: PermissionModuleGroup[] = [
     moduleName: "Clientes y Cuentas por Cobrar",
     description: "Directorio de clientes, cartera y fiados",
     scope: "business",
-    status: "under_construction",
+    status: "implemented",
     permissions: [
       { code: "customers.view", name: "Ver Clientes", description: "Consultar directorio de clientes y estado de carteras de crédito", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "customers.create", name: "Registrar Cliente", description: "Dar de alta nuevos clientes y datos de contacto", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
@@ -322,14 +322,55 @@ export const ALL_PERMISSION_MODULES: PermissionModuleGroup[] = [
   {
     moduleId: "inventario",
     moduleName: "Inventario y Stock",
-    description: "Existencias, compras, entradas y mermas",
+    description: "Existencias, compras, entradas, transferencias y mermas",
     scope: "business",
-    status: "under_construction",
+    status: "implemented",
     permissions: [
       { code: "inventory.view", name: "Ver Inventario", description: "Consultar existencias y niveles de stock de materias primas", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "inventory.create", name: "Registrar Entrada de Stock", description: "Ingresar compras de proveedores y materias primas", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "inventory.update", name: "Editar Existencias", description: "Modificar costos y umbrales mínimos de stock", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
       { code: "inventory.adjust", name: "Ajustar Inventario / Mermas", description: "Realizar arqueos de inventario físico y registrar bajas", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+      { code: "inventory.transfer", name: "Transferir Stock entre Ubicaciones", description: "Traspasar existencias entre almacenes, bodegas o barras", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+    ],
+  },
+  {
+    moduleId: "cajas",
+    moduleName: "Cajas y Control de Turnos",
+    description: "Aperturas, cierres, arqueos de efectivo y movimientos de caja",
+    scope: "business",
+    status: "implemented",
+    permissions: [
+      { code: "cash.view", name: "Ver Cajas y Turnos", description: "Consultar cajas registradoras, sesiones activas y balances", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "cash.open", name: "Abrir Turno de Caja", description: "Iniciar sesión operativa con fondo inicial de caja", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "cash.close", name: "Cerrar Turno de Caja", description: "Realizar conteo final, arqueo y cierre del turno", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "cash.move", name: "Registrar Movimiento de Efectivo", description: "Registrar ingresos, retiros de dinero o pagos menores en caja", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "cash.manage", name: "Administrar Terminales de Caja", description: "Crear, activar y configurar cajas registradoras del negocio", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+    ],
+  },
+  {
+    moduleId: "proveedores",
+    moduleName: "Directorio de Proveedores",
+    description: "Contactos de abastecimiento, condiciones comerciales y cuentas",
+    scope: "business",
+    status: "implemented",
+    permissions: [
+      { code: "suppliers.view", name: "Ver Proveedores", description: "Consultar directorio y datos comerciales de proveedores", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "suppliers.create", name: "Registrar Proveedor", description: "Dar de alta nuevos distribuidores o proveedores", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "suppliers.update", name: "Editar Proveedor", description: "Actualizar cuentas de pago, plazos de entrega y datos fiscales", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "suppliers.delete", name: "Eliminar Proveedor", description: "Desactivar o archivar proveedores del directorio", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+    ],
+  },
+  {
+    moduleId: "compras",
+    moduleName: "Compras y Cuentas por Pagar",
+    description: "Facturas de compra de insumos, recepciones y pasivos",
+    scope: "business",
+    status: "under_construction",
+    permissions: [
+      { code: "purchases.view", name: "Ver Compras", description: "Consultar recepciones de compras y cuentas por pagar a proveedores", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "purchases.create", name: "Registrar Compra", description: "Ingresar facturas de insumos y compras de inventario", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "purchases.update", name: "Editar Compra", description: "Modificar compras abiertas o corregir importes antes de cerrar", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+      { code: "purchases.cancel", name: "Anular Compra", description: "Revertir afectaciones contables y de existencias por compras erróneas", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
     ],
   },
   {
@@ -337,12 +378,27 @@ export const ALL_PERMISSION_MODULES: PermissionModuleGroup[] = [
     moduleName: "Gastos y Egresos Operativos",
     description: "Control de pagos, compras menores y caja chica",
     scope: "business",
-    status: "under_construction",
+    status: "implemented",
     permissions: [
       { code: "expenses.view", name: "Ver Gastos", description: "Consultar egresos y pagos operativos del negocio", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "expenses.create", name: "Registrar Gasto", description: "Crear comprobantes de egreso y compras menores", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "expenses.update", name: "Editar Gasto", description: "Modificar categorías e importes de egresos", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
       { code: "expenses.delete", name: "Eliminar Gasto", description: "Anular registros de egresos no autorizados", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+    ],
+  },
+  {
+    moduleId: "recetas",
+    moduleName: "Recetas y Escandallos",
+    description: "Fichas técnicas, costo por porción y descuento de ingredientes",
+    scope: "business",
+    status: "under_construction",
+    compatibleBusinessTypes: GASTRONOMY_BUSINESS_TYPES,
+    applicableCategories: ["gastronomicos"],
+    permissions: [
+      { code: "recipes.view", name: "Ver Recetas y Escandallos", description: "Consultar fichas técnicas, ingredientes y costos unitarios", isAssignableToAuxiliar: true, minRoleLevel: "auxiliar" },
+      { code: "recipes.create", name: "Crear Receta", description: "Vincular ingredientes y cantidades a productos del menú", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+      { code: "recipes.update", name: "Editar Receta", description: "Modificar porciones, ingredientes y mermas de preparación", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
+      { code: "recipes.delete", name: "Eliminar Receta", description: "Desvincular o suprimir recetas y escandallos", isAssignableToAuxiliar: false, minRoleLevel: "owner" },
     ],
   },
   {
@@ -417,8 +473,12 @@ export const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "orders.view", "orders.create", "orders.update", "orders.cancel", "orders.manage",
     "products.view", "products.create", "products.update", "products.delete",
     "customers.view", "customers.create", "customers.update", "customers.delete",
-    "inventory.view", "inventory.create", "inventory.update", "inventory.adjust",
+    "inventory.view", "inventory.create", "inventory.update", "inventory.adjust", "inventory.transfer",
+    "cash.view", "cash.open", "cash.close", "cash.move", "cash.manage",
+    "suppliers.view", "suppliers.create", "suppliers.update", "suppliers.delete",
+    "purchases.view", "purchases.create", "purchases.update", "purchases.cancel",
     "expenses.view", "expenses.create", "expenses.update", "expenses.delete",
+    "recipes.view", "recipes.create", "recipes.update", "recipes.delete",
     "business_users.view", "business_users.create", "business_users.update", "business_users.disable",
     "business_settings.view", "business_settings.update",
     "reports.view", "reports.export"
@@ -429,7 +489,11 @@ export const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "products.view", "products.create", "products.update",
     "customers.view", "customers.create", "customers.update",
     "inventory.view", "inventory.create",
+    "cash.view", "cash.open", "cash.close", "cash.move",
+    "suppliers.view", "suppliers.create", "suppliers.update",
+    "purchases.view", "purchases.create",
     "expenses.view", "expenses.create",
+    "recipes.view",
     "reports.view"
   ],
 
@@ -439,8 +503,12 @@ export const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "orders.view", "orders.create", "orders.update", "orders.cancel", "orders.manage",
     "products.view", "products.create", "products.update",
     "customers.view", "customers.create", "customers.update",
-    "inventory.view", "inventory.create", "inventory.update", "inventory.adjust",
+    "inventory.view", "inventory.create", "inventory.update", "inventory.adjust", "inventory.transfer",
+    "cash.view", "cash.open", "cash.close", "cash.move", "cash.manage",
+    "suppliers.view", "suppliers.create", "suppliers.update",
+    "purchases.view", "purchases.create", "purchases.update",
     "expenses.view", "expenses.create", "expenses.update",
+    "recipes.view", "recipes.create", "recipes.update",
     "business_users.view", "business_users.create", "business_users.update",
     "business_settings.view",
     "reports.view", "reports.export"
@@ -451,7 +519,11 @@ export const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
     "products.view",
     "customers.view", "customers.create", "customers.update",
     "inventory.view", "inventory.create", "inventory.adjust",
+    "cash.view", "cash.open", "cash.close", "cash.move",
+    "suppliers.view",
+    "purchases.view",
     "expenses.view", "expenses.create",
+    "recipes.view",
     "business_users.view",
     "reports.view"
   ],
@@ -464,6 +536,7 @@ export const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, string[]> = {
   cashier: [
     "sales.view", "sales.create",
     "orders.view", "orders.create",
+    "cash.view", "cash.open", "cash.close", "cash.move",
     "products.view",
     "customers.view", "customers.create"
   ]
@@ -536,8 +609,14 @@ export function isPermissionCompatibleWithBusinessType(
   permissionCode: string,
   businessType?: string | null
 ): boolean {
-  // Soporte universal para capacidades operativas de personal y nómina en negocios
-  if (permissionCode.startsWith("staff.") || permissionCode.startsWith("payroll.")) {
+  // Soporte universal para capacidades operativas de personal, nómina y reportes en negocios
+  if (
+    permissionCode.startsWith("staff.") ||
+    permissionCode.startsWith("payroll.") ||
+    permissionCode === "reports:read" ||
+    permissionCode === "reports.view" ||
+    permissionCode === "reports.export"
+  ) {
     return true;
   }
 

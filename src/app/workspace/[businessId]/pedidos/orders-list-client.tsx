@@ -37,27 +37,35 @@ import {
   ChevronRight,
   ArrowRightLeft,
   ExternalLink,
+  Flame,
+  AlertTriangle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import {
-  AdminDataTable,
-  AdminTableToolbar,
-  AdminSelect,
-  AdminPagination,
-  AdminKpiGrid,
-  AdminKpiCard,
-  AdminConfirmDialog,
-} from "@/components/admin/ui";
+  DataTable,
+  TableToolbar,
+  Select,
+  Pagination,
+  KpiGrid,
+  KpiCard,
+  ConfirmDialog,
+} from "@/components/ui";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   RestaurantOrderWithDetails,
   RestaurantOrdersListResult,
   RestaurantOrdersSummary,
   VALID_ORDER_STATUS_TRANSITIONS,
+  ProcessOrderPaymentInput,
+  KdsTimeAlertConfig,
+  DEFAULT_KDS_TIME_ALERTS,
+  getKdsAlertLevel,
 } from "@/lib/restaurant/types";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 import { OrderPaymentModal } from "@/components/payments/order-payment-modal";
+import { OrderDetailModal } from "./order-detail-modal";
 import {
   updateRestaurantOrderStatusAction,
   cancelRestaurantOrderAction,
@@ -71,6 +79,7 @@ interface OrdersListClientProps {
   initialData: RestaurantOrdersListResult;
   summary: RestaurantOrdersSummary;
   paymentMethods?: PublicPaymentMethodDTO[];
+  alertConfig?: KdsTimeAlertConfig;
   canUpdateOrder: boolean;
   canCancelOrder: boolean;
   filters: {
@@ -91,6 +100,7 @@ export function OrdersListClient({
   initialData,
   summary,
   paymentMethods = [],
+  alertConfig,
   canUpdateOrder,
   canCancelOrder,
   filters,
@@ -98,6 +108,34 @@ export function OrdersListClient({
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
+
+  // Umbrales de alertas de preparación [KDS-002]
+  const resolvedAlertConfig = alertConfig || DEFAULT_KDS_TIME_ALERTS;
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [alertFilter, setAlertFilter] = useState<"all" | "delayed" | "critical">("all");
+
+  // Reloj de tiempo transcurrido en vivo (actualiza cada 15s para mover pedidos a demorado/crítico)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sincronización en tiempo real al recibir eventos de nuevos pedidos o pedidos listos
+  useEffect(() => {
+    const handleLiveOrderEvent = () => {
+      router.refresh();
+    };
+
+    window.addEventListener("negova:new_order", handleLiveOrderEvent);
+    window.addEventListener("negova:order_ready", handleLiveOrderEvent);
+
+    return () => {
+      window.removeEventListener("negova:new_order", handleLiveOrderEvent);
+      window.removeEventListener("negova:order_ready", handleLiveOrderEvent);
+    };
+  }, [router]);
 
   // Modo de visualización: "queue" (Cola Operativa / Tablero) o "table" (Tabla / Historial)
   const [viewMode, setViewMode] = useState<"queue" | "table">("queue");
@@ -157,6 +195,15 @@ export function OrdersListClient({
   const [startDate, setStartDate] = useState(filters.startDate);
   const [endDate, setEndDate] = useState(filters.endDate);
 
+  // Sincronizar estado local si cambian los props del servidor
+  useEffect(() => {
+    setSearch(filters.search);
+  }, [filters.search]);
+
+  useEffect(() => {
+    setStatus(filters.status);
+  }, [filters.status]);
+
   // Modal de confirmación para cancelar pedido
   const [cancelModal, setCancelModal] = useState<{
     isOpen: boolean;
@@ -206,6 +253,22 @@ export function OrdersListClient({
       router.push(`${pathname}?${params.toString()}`);
     });
   };
+
+  // Filtrado reactivo en tiempo real al escribir (debounce 300ms)
+  const isSearchInitialMount = React.useRef(true);
+  useEffect(() => {
+    if (isSearchInitialMount.current) {
+      isSearchInitialMount.current = false;
+      return;
+    }
+    if (search === filters.search) return;
+
+    const timer = setTimeout(() => {
+      applyFilters({ search });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +366,7 @@ export function OrdersListClient({
   // Badges y utilidades de estado operativo
   const getOrderStatusBadge = (orderStatus: string) => {
     switch (orderStatus) {
+      case "pending":
       case "received":
         return {
           label: "Recibido",
@@ -359,7 +423,7 @@ export function OrdersListClient({
     switch (type) {
       case "dine_in":
         return {
-          label: tableName ? `Mesa: ${tableName}` : "En mesa",
+          label: tableName ? (tableName.toLowerCase().startsWith("mesa") ? tableName : `Mesa ${tableName}`) : "Mesa",
           icon: UtensilsCrossed,
           color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20",
         };
@@ -422,6 +486,7 @@ export function OrdersListClient({
 
   // Etiquetas semánticas de estados para mensajes y accesibilidad
   const statusLabels: Record<string, string> = {
+    pending: "Recibidos",
     received: "Recibidos",
     in_preparation: "En Preparación",
     ready: "Listos para Entrega",
@@ -538,8 +603,8 @@ export function OrdersListClient({
     }
   };
 
-  // Confirmar registro de pago
-  const handleConfirmPayment = async (method: string) => {
+  // Confirmar registro de pago [POS-002: soporte para pagos múltiples, descuentos y propinas]
+  const handleConfirmPayment = async (data: string | ProcessOrderPaymentInput) => {
     if (!paymentModal.order) return;
     const order = paymentModal.order;
 
@@ -547,7 +612,7 @@ export function OrdersListClient({
     setUpdatingOrderId(order.id);
 
     try {
-      const res = await registerRestaurantOrderPaymentAction(businessId, order.id, method);
+      const res = await registerRestaurantOrderPaymentAction(businessId, order.id, data);
       if (res.success) {
         toast.success(`Pago del Pedido #${order.order_number} registrado correctamente.`);
         setPaymentModal({ isOpen: false, order: null, isSubmitting: false });
@@ -576,13 +641,45 @@ export function OrdersListClient({
     filters.endDate
   );
 
+  // Conteo en tiempo real de pedidos demorados y críticos [KDS-002]
+  const alertMetrics = React.useMemo(() => {
+    let delayedCount = 0;
+    let criticalCount = 0;
+
+    for (const ord of localOrders) {
+      if (ord.status !== "delivered" && ord.status !== "cancelled") {
+        const { level } = getKdsAlertLevel(ord.created_at, resolvedAlertConfig);
+        if (level === "warning") delayedCount++;
+        else if (level === "critical") criticalCount++;
+      }
+    }
+
+    return {
+      delayedCount,
+      criticalCount,
+      totalAlerts: delayedCount + criticalCount,
+    };
+  }, [localOrders, resolvedAlertConfig, currentTime]);
+
+  // Filtrado de pedidos locales según filtro de alerta seleccionado (todos, demorados o críticos)
+  const filteredLocalOrders = React.useMemo(() => {
+    if (alertFilter === "all") return localOrders;
+    return localOrders.filter((o) => {
+      if (o.status === "delivered" || o.status === "cancelled") return false;
+      const alert = getKdsAlertLevel(o.created_at, resolvedAlertConfig);
+      if (alertFilter === "delayed") return alert.level === "warning";
+      if (alertFilter === "critical") return alert.level === "critical";
+      return true;
+    });
+  }, [localOrders, alertFilter, resolvedAlertConfig, currentTime]);
+
   // Agrupamiento dinámico de pedidos basado en el estado local optimista
   const ordersByStatus = {
-    received: localOrders.filter((o) => o.status === "received"),
-    in_preparation: localOrders.filter((o) => o.status === "in_preparation"),
-    ready: localOrders.filter((o) => o.status === "ready"),
-    delivered: localOrders.filter((o) => o.status === "delivered"),
-    cancelled: localOrders.filter((o) => o.status === "cancelled"),
+    received: filteredLocalOrders.filter((o) => o.status === "received" || (o.status as string) === "pending"),
+    in_preparation: filteredLocalOrders.filter((o) => o.status === "in_preparation"),
+    ready: filteredLocalOrders.filter((o) => o.status === "ready"),
+    delivered: filteredLocalOrders.filter((o) => o.status === "delivered"),
+    cancelled: filteredLocalOrders.filter((o) => o.status === "cancelled"),
   };
 
   // Columnas operativas con contadores dinámicos e instantáneos
@@ -643,6 +740,10 @@ export function OrdersListClient({
     const nextAction = statusBadge.nextAction;
     const isCancelled = order.status === "cancelled";
 
+    // Cálculo de nivel de alerta de cocina [KDS-002]
+    const alert = getKdsAlertLevel(order.created_at, resolvedAlertConfig);
+    const isDeliveredOrCancelled = order.status === "delivered" || isCancelled;
+
     return (
       <div
         key={order.id}
@@ -659,58 +760,83 @@ export function OrdersListClient({
           setDragOverColumnId(null);
         }}
         onClick={() => setDetailModal({ isOpen: true, order })}
-        className={`bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between gap-3 relative select-none group ${statusBadge.headerColor} border-t-4 ${
+        className={`bg-white dark:bg-[#0D0F16] border rounded-2xl p-3.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 relative select-none group ${statusBadge.headerColor} border-t-4 ${
+          !isDeliveredOrCancelled && alert.level === "critical"
+            ? "border-rose-400 dark:border-rose-500/80 ring-2 ring-rose-500/30 bg-rose-50/[0.04]"
+            : !isDeliveredOrCancelled && alert.level === "warning"
+            ? "border-amber-400 dark:border-amber-500/80 ring-1 ring-amber-500/30 bg-amber-50/[0.04]"
+            : "border-slate-200/90 dark:border-white/[0.08]"
+        } ${
           isDraggable ? "lg:cursor-grab lg:active:cursor-grabbing cursor-pointer" : "cursor-pointer"
         } ${
           isBeingDragged ? "opacity-40 scale-[0.98] ring-2 ring-[#ED500A] shadow-lg" : ""
         }`}
       >
-        {/* 1. ENCABEZADO: #Orden, Modalidad y Tiempo */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* 1. ENCABEZADO: #Orden, Modalidad y Tiempo / Alertas [KDS-002] */}
+        <div className="flex items-start justify-between gap-2">
+          {/* Izquierda: Drag, #Orden y Modalidad */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
             {isDraggable && (
               <span
                 onClick={(e) => e.stopPropagation()}
-                className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 -ml-0.5 p-0.5 rounded transition-colors"
+                className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 -ml-0.5 p-0.5 rounded transition-colors shrink-0"
                 title="Arrastrar comanda"
               >
-                <GripVertical className="w-3.5 h-3.5 shrink-0" />
+                <GripVertical className="w-3.5 h-3.5" />
               </span>
             )}
             <span className="font-mono font-black text-base text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors shrink-0">
               #{order.order_number}
             </span>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${typeBadge.color} shrink-0`}>
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${typeBadge.color} truncate max-w-[130px]`}
+              title={typeBadge.label}
+            >
               <TypeIcon className="w-3 h-3 shrink-0" />
-              <span>{typeBadge.label}</span>
+              <span className="truncate">{typeBadge.label}</span>
             </span>
           </div>
 
-          <span
-            className={`text-[11px] shrink-0 font-medium ${
-              waitInfo.isUrgent && order.status !== "delivered" && !isCancelled
-                ? "text-amber-600 dark:text-amber-400 font-bold"
-                : "text-slate-400 dark:text-slate-500"
-            }`}
-          >
-            {waitInfo.label}
-          </span>
+          {/* Derecha: Badge de Tiempo o Alerta */}
+          <div className="flex items-center gap-1.5 shrink-0" suppressHydrationWarning>
+            {!isDeliveredOrCancelled && alert.level === "critical" ? (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap"
+                title={`Abierto hace ${alert.elapsedFormatted}`}
+                suppressHydrationWarning
+              >
+                <Flame className="w-3 h-3 text-rose-500 shrink-0" />
+                <span suppressHydrationWarning>{alert.elapsedFormatted}</span>
+              </span>
+            ) : !isDeliveredOrCancelled && alert.level === "warning" ? (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 whitespace-nowrap"
+                title={`Abierto hace ${alert.elapsedFormatted}`}
+                suppressHydrationWarning
+              >
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                <span suppressHydrationWarning>{alert.elapsedFormatted}</span>
+              </span>
+            ) : (
+              <span
+                className={`text-[11px] font-medium whitespace-nowrap ${
+                  waitInfo.isUrgent && order.status !== "delivered" && !isCancelled
+                    ? "text-amber-600 dark:text-amber-400 font-bold"
+                    : "text-slate-400 dark:text-slate-500"
+                }`}
+                suppressHydrationWarning
+              >
+                {waitInfo.label}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* 2. CLIENTE O MESA (Línea limpia y legible) */}
-        {(order.customer_name || (order.order_type === "dine_in" && order.tableName)) && (
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
-            {order.order_type === "dine_in" ? (
-              <>
-                <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className="truncate">{order.tableName}</span>
-              </>
-            ) : (
-              <>
-                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="truncate">{order.customer_name}</span>
-              </>
-            )}
+        {/* 2. CLIENTE (Solo si tiene nombre registrado para evitar duplicar el nombre de la mesa) */}
+        {order.customer_name && (
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 min-w-0">
+            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="truncate">{order.customer_name}</span>
           </div>
         )}
 
@@ -939,12 +1065,21 @@ export function OrdersListClient({
           Operación de Cocina & Salón
         </span>
       }
+      actions={
+        <Link
+          href={`/workspace/${businessId}/cocina`}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.98]"
+        >
+          <ChefHat className="w-4 h-4" />
+          <span>Monitor Cocina (KDS)</span>
+        </Link>
+      }
       maxWidth="7xl"
     >
       <div className="space-y-6 font-body">
         {/* 1. INDICADORES RESUMIDOS DE PEDIDOS (KPIs) */}
-        <AdminKpiGrid cols={4}>
-          <AdminKpiCard
+        <KpiGrid cols={4}>
+          <KpiCard
             title="Total Pedidos"
             value={summary.total}
             subtext="Comandas registradas"
@@ -957,7 +1092,7 @@ export function OrdersListClient({
             }}
           />
 
-          <AdminKpiCard
+          <KpiCard
             title="Recibidos"
             value={summary.received}
             subtext="Pendientes de preparación"
@@ -970,7 +1105,7 @@ export function OrdersListClient({
             }}
           />
 
-          <AdminKpiCard
+          <KpiCard
             title="En Preparación"
             value={summary.inPreparation}
             subtext="En cocina o barra"
@@ -983,7 +1118,7 @@ export function OrdersListClient({
             }}
           />
 
-          <AdminKpiCard
+          <KpiCard
             title="Listos"
             value={summary.ready}
             subtext="Para servir o despachar"
@@ -995,7 +1130,86 @@ export function OrdersListClient({
               applyFilters({ status: "ready" });
             }}
           />
-        </AdminKpiGrid>
+        </KpiGrid>
+
+        {/* 1B. INDICADORES DE TIEMPO Y ALERTAS DE DEMORA DE COMANDAS [KDS-002] */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div
+            onClick={() => setAlertFilter(alertFilter === "delayed" ? "all" : "delayed")}
+            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              alertFilter === "delayed"
+                ? "bg-amber-500/15 border-amber-500 text-amber-950 dark:text-amber-200 ring-2 ring-amber-500/40"
+                : "bg-amber-50/50 dark:bg-amber-500/[0.04] border-amber-200/80 dark:border-amber-500/20 hover:border-amber-400"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Comandas Demoradas
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    &gt; {resolvedAlertConfig.warningMinutes} min
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {alertMetrics.delayedCount === 1
+                    ? "1 comanda esperando atención"
+                    : `${alertMetrics.delayedCount} comandas esperando atención`}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-mono font-black text-amber-600 dark:text-amber-400">
+                {alertMetrics.delayedCount}
+              </span>
+              {alertFilter === "delayed" && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Filtrado activo</p>
+              )}
+            </div>
+          </div>
+
+          <div
+            onClick={() => setAlertFilter(alertFilter === "critical" ? "all" : "critical")}
+            className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              alertFilter === "critical"
+                ? "bg-rose-500/15 border-rose-500 text-rose-950 dark:text-rose-200 ring-2 ring-rose-500/40"
+                : "bg-rose-50/50 dark:bg-rose-500/[0.04] border-rose-200/80 dark:border-rose-500/20 hover:border-rose-400"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+                <Flame className={`w-5 h-5 text-rose-500 ${alertMetrics.criticalCount > 0 ? "animate-pulse" : ""}`} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Comandas Críticas
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-500/30">
+                    &gt; {resolvedAlertConfig.criticalMinutes} min
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {alertMetrics.criticalCount === 1
+                    ? "1 comanda requiere atención urgente"
+                    : `${alertMetrics.criticalCount} comandas requieren atención urgente`}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-2xl font-mono font-black text-rose-600 dark:text-rose-400">
+                {alertMetrics.criticalCount}
+              </span>
+              {alertFilter === "critical" && (
+                <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold">Filtrado activo</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* 2. BARRA DE CONTROL Y SELECTOR DE VISTA (COLA vs TABLA) */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/[0.08]">
@@ -1047,7 +1261,7 @@ export function OrdersListClient({
         </div>
 
         {/* 3. BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS ESTANDARIZADOS */}
-        <AdminTableToolbar
+        <TableToolbar
           layout="stacked"
           searchQuery={search}
           onSearchChange={setSearch}
@@ -1062,7 +1276,7 @@ export function OrdersListClient({
           filters={
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 w-full items-center">
               {/* Filtro de Estado Operativo */}
-              <AdminSelect
+              <Select
                 value={status}
                 containerClassName="w-full"
                 className="w-full"
@@ -1081,7 +1295,7 @@ export function OrdersListClient({
               />
 
               {/* Filtro de Destino / Tipo de Orden */}
-              <AdminSelect
+              <Select
                 value={orderType}
                 containerClassName="w-full"
                 className="w-full"
@@ -1098,7 +1312,7 @@ export function OrdersListClient({
               />
 
               {/* Filtro de Estado de Pago */}
-              <AdminSelect
+              <Select
                 value={paymentStatus}
                 containerClassName="w-full"
                 className="w-full"
@@ -1115,7 +1329,7 @@ export function OrdersListClient({
               />
 
               {/* Filtro de Canal de Origen */}
-              <AdminSelect
+              <Select
                 value={channelOrigin}
                 containerClassName="w-full"
                 className="w-full"
@@ -1372,7 +1586,7 @@ export function OrdersListClient({
 
             {/* PAGINACIÓN INFERIOR PARA NAVEGAR HISTORIAL */}
             <div className="pt-2">
-              <AdminPagination
+              <Pagination
                 currentPage={initialData.currentPage}
                 totalPages={initialData.totalPages}
                 totalItems={initialData.totalCount}
@@ -1385,9 +1599,9 @@ export function OrdersListClient({
           </div>
         ) : (
           /* TABLA TRADICIONAL / HISTORIAL COMPLETO */
-          <AdminDataTable<RestaurantOrderWithDetails>
+          <DataTable<RestaurantOrderWithDetails>
             isLoading={isPending}
-            data={initialData.orders}
+            data={filteredLocalOrders}
             columns={[
               {
                 header: "Pedido",
@@ -1477,11 +1691,27 @@ export function OrdersListClient({
                 render: (order) => {
                   const statusBadge = getOrderStatusBadge(order.status);
                   const StatusIcon = statusBadge.icon;
+                  const alert = getKdsAlertLevel(order.created_at, resolvedAlertConfig);
+                  const isDeliveredOrCancelled = order.status === "delivered" || order.status === "cancelled";
                   return (
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
-                      <StatusIcon className="w-3 h-3" />
-                      <span>{statusBadge.label}</span>
-                    </span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
+                        <StatusIcon className="w-3 h-3" />
+                        <span>{statusBadge.label}</span>
+                      </span>
+                      {!isDeliveredOrCancelled && alert.level === "critical" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse">
+                          <Flame className="w-3 h-3 text-rose-500" />
+                          <span>Crítico (+{alert.elapsedMinutes}m)</span>
+                        </span>
+                      )}
+                      {!isDeliveredOrCancelled && alert.level === "warning" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" />
+                          <span>Demorado (+{alert.elapsedMinutes}m)</span>
+                        </span>
+                      )}
+                    </div>
                   );
                 },
               },
@@ -1564,7 +1794,7 @@ export function OrdersListClient({
         )}
 
         {/* 5. MODAL DE CONFIRMACIÓN PARA CANCELAR PEDIDO */}
-        <AdminConfirmDialog
+        <ConfirmDialog
           isOpen={cancelModal.isOpen && !!cancelModal.order}
           onClose={() => setCancelModal({ isOpen: false, order: null, reason: "" })}
           onConfirm={handleConfirmCancel}
@@ -1574,7 +1804,7 @@ export function OrdersListClient({
           variant="destructive"
           isLoading={isPending}
           reasonValue={cancelModal.reason}
-          onReasonChange={(val) => setCancelModal((prev) => ({ ...prev, reason: val }))}
+          onReasonChange={(val: string) => setCancelModal((prev) => ({ ...prev, reason: val }))}
           reasonLabel="Motivo de cancelación (Opcional)"
           reasonPlaceholder="Ej. Solicitud del cliente, error en comanda..."
           itemDetails={
@@ -1737,371 +1967,37 @@ export function OrdersListClient({
           </ModalPortal>
         )}
 
-        {/* MODAL DE DETALLE COMPLETO DE COMANDA / PEDIDO */}
-        {detailModal.isOpen && detailModal.order && (
-          <ModalPortal>
-            <div
-              className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
-              onClick={() => setDetailModal({ isOpen: false, order: null })}
-            >
-              <div
-                className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg sm:max-w-xl md:max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] my-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* 1. HEADER DEL MODAL */}
-                <div className="flex items-start justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-white/10 shrink-0 bg-slate-50/70 dark:bg-white/[0.02]">
-                  <div className="space-y-1.5 min-w-0 pr-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-black text-lg sm:text-xl text-slate-900 dark:text-white">
-                        #{detailModal.order.order_number}
-                      </span>
-                      {(() => {
-                        const tBadge = getOrderTypeBadge(detailModal.order.order_type, detailModal.order.tableName);
-                        const TIcon = tBadge.icon;
-                        return (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${tBadge.color}`}>
-                            <TIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span>{tBadge.label}</span>
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const sBadge = getOrderStatusBadge(detailModal.order.status);
-                        const SIcon = sBadge.icon;
-                        return (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${sBadge.color}`}>
-                            <SIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span>{sBadge.label}</span>
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const pBadge = getPaymentStatusBadge(detailModal.order.payment_status);
-                        return (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${pBadge.color}`}>
-                            {pBadge.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{formatDate(detailModal.order.created_at)}</span>
-                      </span>
-                      {(() => {
-                        const cBadge = getChannelBadge(detailModal.order.channel_origin);
-                        const CIcon = cBadge.icon;
-                        return (
-                          <span className={`inline-flex items-center gap-1 font-semibold ${cBadge.color}`}>
-                            <CIcon className="w-3.5 h-3.5" />
-                            <span>Canal: {cBadge.label}</span>
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setDetailModal({ isOpen: false, order: null })}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
-                    title="Cerrar detalles"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* 2. BODY DEL MODAL */}
-                <div className="overflow-y-auto p-4 sm:p-5 space-y-4 flex-1 [scrollbar-width:thin]">
-                  {/* DESTINO / CLIENTE / UBICACIÓN */}
-                  <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-                      Información de Entrega y Contacto
-                    </span>
-
-                    {detailModal.order.customer_name ? (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-slate-200/80 dark:bg-white/10 flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-400 block leading-none">Cliente</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white">
-                              {detailModal.order.customer_name}
-                            </span>
-                          </div>
-                        </div>
-
-                        {detailModal.order.customer_phone && (
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`tel:${detailModal.order.customer_phone}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 transition-colors"
-                              title="Llamar al cliente"
-                            >
-                              <Phone className="w-3.5 h-3.5 text-slate-500" />
-                              <span>{detailModal.order.customer_phone}</span>
-                            </a>
-                            <a
-                              href={`https://wa.me/${detailModal.order.customer_phone.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 transition-colors"
-                              title="Abrir WhatsApp del cliente"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>WhatsApp</span>
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-600 dark:text-slate-300">
-                        {detailModal.order.order_type === "dine_in"
-                          ? `Pedido en ${detailModal.order.tableName || "Mesa asignada"}`
-                          : "Cliente no especificado"}
-                      </div>
-                    )}
-
-                    {detailModal.order.order_type === "delivery" && detailModal.order.delivery_address && (
-                      <div className="pt-2 border-t border-slate-200/60 dark:border-white/5 flex items-start gap-2 text-xs">
-                        <MapPin className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-                            {detailModal.order.delivery_address}
-                          </span>
-                          {detailModal.order.delivery_reference && (
-                            <span className="text-[11px] text-slate-400 block mt-0.5">
-                              Referencia: {detailModal.order.delivery_reference}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* DESGLOSE DETALLADO DE PRODUCTOS */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                        Productos ({detailModal.order.items?.length || detailModal.order.itemsCount || 0})
-                      </span>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200/80 dark:border-white/10 divide-y divide-slate-100 dark:divide-white/5 overflow-hidden">
-                      {detailModal.order.items && detailModal.order.items.length > 0 ? (
-                        detailModal.order.items.map((item, idx) => (
-                          <div key={idx} className="p-3 bg-white dark:bg-[#12151E] flex items-start justify-between gap-3 text-xs">
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-sm text-[#ED500A]">
-                                  {item.quantity}×
-                                </span>
-                                <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                                  {item.product_name}
-                                </span>
-                              </div>
-
-                              {item.notes && (
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-6 italic">
-                                  Nota: {item.notes}
-                                </p>
-                              )}
-
-                              {item.modifiers && Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
-                                <div className="pl-6 pt-0.5 flex flex-wrap gap-1">
-                                  {item.modifiers.map((mod: any, mIdx: number) => (
-                                    <span
-                                      key={mIdx}
-                                      className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"
-                                    >
-                                      + {mod.optionName || mod.option_name || mod.name || ""}
-                                      {mod.price ? ` (${formatCOP(mod.price)})` : ""}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="text-right shrink-0">
-                              <span className="font-mono font-bold text-xs sm:text-sm text-slate-900 dark:text-white block">
-                                {formatCOP(item.subtotal)}
-                              </span>
-                              {item.quantity > 1 && (
-                                <span className="text-[10px] text-slate-400 font-mono block">
-                                  {formatCOP(item.unit_price)} c/u
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-xs text-slate-400">
-                          {detailModal.order.itemsCount || 0} producto(s) en la comanda
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* NOTAS GENERALES / MÉTODO DE PAGO */}
-                  {detailModal.order.notes && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                        <span>Notas e indicaciones del pedido</span>
-                      </div>
-                      <p className="leading-relaxed pl-5 whitespace-pre-wrap">
-                        {detailModal.order.notes}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* RESUMEN DE TOTALES */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-1.5 text-xs">
-                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                      <span>Subtotal de productos:</span>
-                      <span className="font-mono font-medium">{formatCOP(detailModal.order.subtotal)}</span>
-                    </div>
-
-                    {detailModal.order.order_type === "delivery" && (
-                      <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                        <span>Costo de domicilio:</span>
-                        <span className="font-mono font-medium text-[#ED500A]">
-                          {detailModal.order.delivery_fee > 0 ? formatCOP(detailModal.order.delivery_fee) : "Gratis"}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-white/10">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Total a pagar:
-                      </span>
-                      <span className="font-mono text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                        {formatCOP(detailModal.order.total)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. FOOTER DEL MODAL CON ACCIONES */}
-                <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <Link
-                    href={`/workspace/${businessId}/pedidos/${detailModal.order.id}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <span>Ficha completa</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Botón Cobrar si pago pendiente */}
-                    {detailModal.order.payment_status === "pending" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const orderToPay = detailModal.order;
-                          setDetailModal({ isOpen: false, order: null });
-                          if (orderToPay) {
-                            setPaymentModal({
-                              isOpen: true,
-                              order: orderToPay,
-                              isSubmitting: false,
-                            });
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 transition-colors cursor-pointer"
-                      >
-                        <DollarSign className="w-3.5 h-3.5 shrink-0" />
-                        <span>Registrar Cobro</span>
-                      </button>
-                    )}
-
-                    {/* Acciones de estado */}
-                    {canUpdateOrder && detailModal.order.status === "received" ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isPending || updatingOrderId === detailModal.order.id}
-                          onClick={() => {
-                            if (detailModal.order) {
-                              handleQuickStatusTransition(detailModal.order, "in_preparation");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {updatingOrderId === detailModal.order.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          )}
-                          <span>Confirmar Comanda</span>
-                        </button>
-
-                        {canCancelOrder && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const orderToCancel = detailModal.order;
-                              setDetailModal({ isOpen: false, order: null });
-                              if (orderToCancel) {
-                                setCancelModal({
-                                  isOpen: true,
-                                  order: orderToCancel,
-                                  reason: "",
-                                });
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Rechazar</span>
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      (() => {
-                        const sBadge = getOrderStatusBadge(detailModal.order.status);
-                        const nAction = sBadge.nextAction;
-                        const isFin = detailModal.order.status === "delivered" || detailModal.order.status === "cancelled";
-                        if (!canUpdateOrder || !nAction || isFin) return null;
-                        return (
-                          <button
-                            type="button"
-                            disabled={isPending || updatingOrderId === detailModal.order.id}
-                            onClick={() => {
-                              if (detailModal.order && nAction) {
-                                handleQuickStatusTransition(detailModal.order, nAction.targetStatus);
-                              }
-                            }}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            {updatingOrderId === detailModal.order.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              nAction.icon && <nAction.icon className="w-3.5 h-3.5" />
-                            )}
-                            <span>Pasar a {nAction.label}</span>
-                          </button>
-                        );
-                      })()
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setDetailModal({ isOpen: false, order: null })}
-                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ModalPortal>
-        )}
+        {/* MODAL DE DETALLE COMPLETO DE COMANDA / PEDIDO (4 SECCIONES CON ACCIONES DIRECTAS) */}
+        <OrderDetailModal
+          businessId={businessId}
+          businessName={businessName}
+          isOpen={detailModal.isOpen}
+          order={detailModal.order}
+          onClose={() => setDetailModal({ isOpen: false, order: null })}
+          canUpdateOrder={canUpdateOrder}
+          canCancelOrder={canCancelOrder}
+          onPay={(orderToPay) => {
+            setDetailModal({ isOpen: false, order: null });
+            setPaymentModal({
+              isOpen: true,
+              order: orderToPay,
+              isSubmitting: false,
+            });
+          }}
+          onCancel={(orderToCancel) => {
+            setDetailModal({ isOpen: false, order: null });
+            setCancelModal({
+              isOpen: true,
+              order: orderToCancel,
+              reason: "",
+            });
+          }}
+          onStatusTransition={(targetOrder, nextStatus) => {
+            handleQuickStatusTransition(targetOrder, nextStatus);
+          }}
+          isUpdatingStatus={isPending}
+          updatingOrderId={updatingOrderId}
+        />
       </div>
     </AppPageContainer>
   );

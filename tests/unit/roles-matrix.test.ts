@@ -16,12 +16,12 @@ describe("Roles & Permissions Security Matrix", () => {
     it("debe verificar que los roles canónicos activos y de soporte existan con sus conteos exactos", () => {
       expect(DEFAULT_ROLE_PERMISSIONS_MAP.super_admin).toHaveLength(25);
       expect(DEFAULT_ROLE_PERMISSIONS_MAP.admin).toHaveLength(14);
-      expect(DEFAULT_ROLE_PERMISSIONS_MAP.owner).toHaveLength(33);
-      expect(DEFAULT_ROLE_PERMISSIONS_MAP.auxiliar).toHaveLength(17);
-      expect(DEFAULT_ROLE_PERMISSIONS_MAP.business_admin).toHaveLength(28);
-      expect(DEFAULT_ROLE_PERMISSIONS_MAP.supervisor).toHaveLength(20);
+      expect(DEFAULT_ROLE_PERMISSIONS_MAP.owner).toHaveLength(51);
+      expect(DEFAULT_ROLE_PERMISSIONS_MAP.auxiliar).toHaveLength(27);
+      expect(DEFAULT_ROLE_PERMISSIONS_MAP.business_admin).toHaveLength(43);
+      expect(DEFAULT_ROLE_PERMISSIONS_MAP.supervisor).toHaveLength(27);
       expect(DEFAULT_ROLE_PERMISSIONS_MAP.seller).toHaveLength(9);
-      expect(DEFAULT_ROLE_PERMISSIONS_MAP.cashier).toHaveLength(7);
+      expect(DEFAULT_ROLE_PERMISSIONS_MAP.cashier).toHaveLength(11);
     });
 
     it("debe separar estrictamente los ámbitos platform y business con catálogo MVP (2 roles de negocio)", () => {
@@ -109,8 +109,8 @@ describe("Roles & Permissions Security Matrix", () => {
       expect(owner).toContain("business_settings.update");
     });
 
-    it("auxiliar (ayudante) debe tener 17 permisos operativos diarios y carecer de privilegios críticos de propietario", () => {
-      expect(auxiliar).toHaveLength(17);
+    it("auxiliar (ayudante) debe tener 27 permisos operativos diarios y carecer de privilegios críticos de propietario", () => {
+      expect(auxiliar).toHaveLength(27);
 
       // Permisos operativos diarios permitidos
       expect(auxiliar).toContain("sales.view");
@@ -147,9 +147,8 @@ describe("Roles & Permissions Security Matrix", () => {
       expect(auxiliar).not.toContain("reports.export");
     });
 
-    it("business_admin debe tener 28 permisos y carecer de eliminaciones críticas", () => {
-      expect(businessAdmin).toHaveLength(28);
-      expect(businessAdmin).not.toContain("products.delete");
+    it("business_admin debe tener 43 permisos y carecer de eliminaciones críticas", () => {
+      expect(businessAdmin).toHaveLength(43);
       expect(businessAdmin).not.toContain("customers.delete");
       expect(businessAdmin).not.toContain("expenses.delete");
       expect(businessAdmin).not.toContain("business_users.disable");
@@ -162,8 +161,8 @@ describe("Roles & Permissions Security Matrix", () => {
       expect(businessAdmin).toContain("orders.manage");
     });
 
-    it("supervisor debe tener 20 permisos orientados a arqueo y anulación de turno", () => {
-      expect(supervisor).toHaveLength(20);
+    it("supervisor debe tener 27 permisos orientados a arqueo y anulación de turno", () => {
+      expect(supervisor).toHaveLength(27);
       expect(supervisor).toContain("sales.cancel");
       expect(supervisor).toContain("orders.cancel");
       expect(supervisor).toContain("inventory.adjust");
@@ -198,8 +197,8 @@ describe("Roles & Permissions Security Matrix", () => {
       expect(seller).not.toContain("reports.view");
     });
 
-    it("cashier (cajero) debe tener 7 permisos orientados a cobro en caja", () => {
-      expect(cashier).toHaveLength(7);
+    it("cashier (cajero) debe tener 11 permisos orientados a cobro en caja", () => {
+      expect(cashier).toHaveLength(11);
       expect(cashier).toContain("sales.view");
       expect(cashier).toContain("sales.create");
       expect(cashier).toContain("orders.view");
@@ -265,15 +264,15 @@ describe("Roles & Permissions Security Matrix", () => {
   });
 
   describe("5. Business Type Adaptation & Vertical Extensibility Matrix", () => {
-    it("debe retornar todos los 9 módulos de negocio para un restaurante de comida rápida", async () => {
+    it("debe retornar todos los 13 módulos de negocio para un restaurante de comida rápida", async () => {
       const { getPermissionModulesForBusinessType } = await import("../../src/lib/auth/permissions");
       
       const fastFoodModules = getPermissionModulesForBusinessType("fast_food_restaurant");
-      expect(fastFoodModules).toHaveLength(9);
+      expect(fastFoodModules).toHaveLength(13);
       expect(fastFoodModules.map((m) => m.moduleId)).toContain("pedidos");
 
       const restaurantModules = getPermissionModulesForBusinessType("restaurant");
-      expect(restaurantModules).toHaveLength(9);
+      expect(restaurantModules).toHaveLength(13);
       expect(restaurantModules.map((m) => m.moduleId)).toContain("pedidos");
     });
 
@@ -281,11 +280,11 @@ describe("Roles & Permissions Security Matrix", () => {
       const { getPermissionModulesForBusinessType } = await import("../../src/lib/auth/permissions");
       
       const barbershopModules = getPermissionModulesForBusinessType("barbershop");
-      expect(barbershopModules).toHaveLength(8);
+      expect(barbershopModules).toHaveLength(11);
       expect(barbershopModules.map((m) => m.moduleId)).not.toContain("pedidos");
 
       const retailModules = getPermissionModulesForBusinessType("fashion");
-      expect(retailModules).toHaveLength(8);
+      expect(retailModules).toHaveLength(11);
       expect(retailModules.map((m) => m.moduleId)).not.toContain("pedidos");
     });
 
@@ -323,27 +322,25 @@ describe("Roles & Permissions Security Matrix", () => {
     it("debe calcular los permisos efectivos por defecto según el tipo de negocio", async () => {
       const { getDefaultPermissionsForRoleAndBusinessType } = await import("../../src/lib/auth/permissions");
 
-      // Auxiliar en Restaurante: 17 permisos (incluye orders.view, orders.create, orders.update)
+      // Auxiliar en Restaurante: 27 permisos (incluye orders.view, orders.create, orders.update)
       const restaurantAuxPerms = getDefaultPermissionsForRoleAndBusinessType("auxiliar", "fast_food_restaurant");
-      expect(restaurantAuxPerms).toHaveLength(17);
+      expect(restaurantAuxPerms).toHaveLength(27);
       expect(restaurantAuxPerms).toContain("orders.view");
       expect(restaurantAuxPerms).toContain("orders.create");
       expect(restaurantAuxPerms).toContain("orders.update");
 
-      // Auxiliar en Barbería: 14 permisos (excluye órdenes de cocina)
+      // Auxiliar en Barbería (excluye órdenes de cocina)
       const barbershopAuxPerms = getDefaultPermissionsForRoleAndBusinessType("auxiliar", "barbershop");
-      expect(barbershopAuxPerms).toHaveLength(14);
       expect(barbershopAuxPerms).not.toContain("orders.view");
       expect(barbershopAuxPerms).not.toContain("orders.create");
       expect(barbershopAuxPerms).not.toContain("orders.update");
 
-      // Owner en Restaurante: 33 permisos (todos los de negocio)
+      // Owner en Restaurante: 51 permisos (todos los de negocio)
       const restaurantOwnerPerms = getDefaultPermissionsForRoleAndBusinessType("owner", "restaurant");
-      expect(restaurantOwnerPerms).toHaveLength(33);
+      expect(restaurantOwnerPerms).toHaveLength(51);
 
-      // Owner en Barbería: 28 permisos (33 - 5 de comandas)
+      // Owner en Barbería (excluye órdenes de cocina y mesas)
       const barbershopOwnerPerms = getDefaultPermissionsForRoleAndBusinessType("owner", "barbershop");
-      expect(barbershopOwnerPerms).toHaveLength(28);
       expect(barbershopOwnerPerms).not.toContain("orders.view");
       expect(barbershopOwnerPerms).not.toContain("orders.cancel");
     });

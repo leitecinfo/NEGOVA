@@ -8,13 +8,17 @@ import {
   Building2,
   Shield,
   Info,
+  KeyRound,
+  ShieldCheck,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UserModel } from "@/lib/auth/users-service";
 import { UserEffectivePermissionsDetail } from "@/lib/auth/user-permissions-service";
-import { saveUserPermissionsAction } from "../actions";
-import { AdminStatusBadge } from "@/components/admin/ui";
+import { saveUserPermissionsAction, assignUserPinAction } from "../actions";
+import { StatusBadge, Button } from "@/components/ui";
 import { UserPermissionsMatrixEditor } from "@/components/permissions/user-permissions-matrix-editor";
+import { PinAssignModal } from "@/components/security/pin-assign-modal";
 
 interface WorkspaceUserDetailClientProps {
   user: UserModel;
@@ -34,6 +38,8 @@ export function WorkspaceUserDetailClient({
   const [permissionsData, setPermissionsData] = useState<UserEffectivePermissionsDetail | null>(
     initialPermissions
   );
+  const [hasPin, setHasPin] = useState(Boolean(user.hasSecurityPin));
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
 
   const handleSavePermissions = async (granted: string[], revoked: string[]) => {
     const res = await saveUserPermissionsAction(businessId, user.id, granted, revoked);
@@ -69,7 +75,7 @@ export function WorkspaceUserDetailClient({
                 >
                   {user.primaryRole.name}
                 </span>
-                <AdminStatusBadge
+                <StatusBadge
                   status={user.status}
                   label={
                     user.status === "active"
@@ -106,6 +112,50 @@ export function WorkspaceUserDetailClient({
             </div>
           </div>
         </div>
+
+        {/* Sección: PIN de Seguridad y Autorizaciones [EMP-002] */}
+        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-[#ED500A]" />
+              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-900 dark:text-white">
+                PIN de Autorización Operativa
+              </h3>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                  hasPin
+                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                }`}
+              >
+                {hasPin ? (
+                  <>
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>PIN Configurado</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3 h-3" />
+                    <span>Sin PIN Asignado</span>
+                  </>
+                )}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              PIN de 4 a 6 dígitos numéricos usado para autorizar anulaciones de venta, aperturas de caja o descuentos mayores.
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant={hasPin ? "outline" : "primary"}
+            size="sm"
+            leftIcon={<KeyRound className="w-3.5 h-3.5" />}
+            onClick={() => setIsPinModalOpen(true)}
+          >
+            {hasPin ? "Cambiar PIN" : "Asignar PIN"}
+          </Button>
+        </div>
       </div>
 
       {/* 2. MATRIZ DE PERMISOS EFECTIVOS (DISEÑO UNIFICADO CON ADMIN) */}
@@ -131,6 +181,16 @@ export function WorkspaceUserDetailClient({
           </p>
         </div>
       )}
+
+      {/* Modal para Asignar / Cambiar PIN de Seguridad [EMP-002] */}
+      <PinAssignModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onSuccess={() => setHasPin(true)}
+        employeeName={user.fullName}
+        hasExistingPin={hasPin}
+        onSavePin={(pin) => assignUserPinAction(businessId, user.id, pin)}
+      />
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "../supabase/server";
 import { logAuditAction } from "@/lib/audit/audit-service";
 import {
+  RestaurantRoom,
+  CreateRestaurantRoomInput,
+  CreateRestaurantRoomSchema,
+  RestaurantRoomWithTables,
   RestaurantTable,
   RestaurantTableWithOrder,
   RestaurantTablesSummary,
@@ -16,8 +20,19 @@ import {
   RestaurantOrdersListResult,
   RestaurantOrdersSummary,
   VALID_ORDER_STATUS_TRANSITIONS,
+  ProcessOrderPaymentInput,
+  PRESET_TABLE_DISCOUNTS,
+  OrderFinancialBreakdown,
+  TableSalesAndTipsReport,
+  KdsTimeAlertConfig,
+  DEFAULT_KDS_TIME_ALERTS,
+  getKdsAlertLevel,
+  OpenTicketDetails,
+  OpenTicketsSummary,
+  KdsOpenTicketsResponse,
 } from "./types";
 import { Product, ProductModifierGroup, ProductVariant, getEffectiveVariantIngredients } from "../products/types";
+import { calculateItemTax } from "../pos/types";
 import { extractDeliveryVerification } from "@/lib/delivery/delivery-service";
 
 /**
@@ -68,6 +83,234 @@ export async function getDbClient() {
   }
 
   return await createClient();
+}
+
+// ==========================================
+// SALAS DE RESTAURANTE (restaurant_rooms) [MES-001]
+// ==========================================
+
+export async function getRestaurantRooms(businessId: string): Promise<RestaurantRoom[]> {
+  try {
+    const supabase = await getDbClient();
+    const { data, error } = await supabase
+      .from("restaurant_rooms")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.warn("[getRestaurantRooms] Error:", error.message);
+      return [];
+    }
+
+    return (data || []) as RestaurantRoom[];
+  } catch (err) {
+    console.warn("[getRestaurantRooms] Error de conexión:", err);
+    return [];
+  }
+}
+
+export async function getRestaurantRoomsWithTables(
+  businessId: string
+): Promise<RestaurantRoomWithTables[]> {
+  try {
+    const [rooms, tables] = await Promise.all([
+      getRestaurantRooms(businessId),
+      getRestaurantTables(businessId),
+    ]);
+
+    return rooms.map((room) => {
+      const roomTables = tables.filter((t) => t.room_id === room.id);
+      const available = roomTables.filter((t) => t.status === "available").length;
+      const occupied = roomTables.filter((t) => t.status === "occupied").length;
+
+      return {
+        ...room,
+        tablesCount: roomTables.length,
+        availableTablesCount: available,
+        occupiedTablesCount: occupied,
+      };
+    });
+  } catch (err) {
+    console.error("[getRestaurantRoomsWithTables] Error:", err);
+    return [];
+  }
+}
+
+export async function createRestaurantRoom(
+  businessId: string,
+  input: CreateRestaurantRoomInput
+): Promise<{ success: boolean; room?: RestaurantRoom; error?: string }> {
+  const parsed = CreateRestaurantRoomSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Datos de sala inválidos." };
+  }
+
+  const cleanName = parsed.data.name.trim();
+  const supabase = await getDbClient();
+
+  try {
+    // Validar nombre único dentro del comercio
+    const { data: existing } = await supabase
+      .from("restaurant_rooms")
+      .select("id")
+      .eq("business_id", businessId)
+      .ilike("name", cleanName)
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        success: false,
+        error: `Ya existe una sala con el nombre «${cleanName}» en este comercio.`,
+      };
+    }
+
+    const { data: newRoom, error } = await supabase
+      .from("restaurant_rooms")
+      .insert({
+        business_id: businessId,
+        location_id: parsed.data.location_id || null,
+        name: cleanName,
+        description: parsed.data.description || null,
+        status: parsed.data.status || "active",
+        sort_order: parsed.data.sort_order || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*")
+      .single();
+
+    if (error || !newRoom) {
+      return {
+        success: false,
+        error: error?.message || "No fue posible registrar la sala.",
+      };
+    }
+
+    return { success: true, room: newRoom as RestaurantRoom };
+  } catch (err: any) {
+    console.error("[createRestaurantRoom] Error:", err);
+    return { success: false, error: err?.message || "Error al crear la sala." };
+  }
+}
+
+export async function updateRestaurantRoom(
+  businessId: string,
+  roomId: string,
+  input: { name?: string; description?: string; status?: "active" | "inactive" }
+): Promise<{ success: boolean; room?: RestaurantRoom; error?: string }> {
+  try {
+    const supabase = await getDbClient();
+    const payload: any = { updated_at: new Date().toISOString() };
+    if (input.name) payload.name = input.name.trim();
+    if (input.description !== undefined) payload.description = input.description ? input.description.trim() : null;
+    if (input.status) payload.status = input.status;
+
+    const { data: updated, error } = await supabase
+      .from("restaurant_rooms")
+      .update(payload)
+      .eq("id", roomId)
+      .eq("business_id", businessId)
+      .select("*")
+      .single();
+
+    if (error || !updated) {
+      return { success: false, error: error?.message || "No se pudo actualizar la sala." };
+    }
+    return { success: true, room: updated as RestaurantRoom };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al actualizar sala." };
+  }
+}
+
+export async function deleteRestaurantRoom(
+  businessId: string,
+  roomId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await getDbClient();
+
+    // Validar si tiene mesas asignadas
+    const { data: tables } = await supabase
+      .from("restaurant_tables")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("room_id", roomId);
+
+    if (tables && tables.length > 0) {
+      return {
+        success: false,
+        error: `No puedes eliminar esta sala porque tiene ${tables.length} mesas asignadas. Reasigna o elimina las mesas primero.`,
+      };
+    }
+
+    const { error } = await supabase
+      .from("restaurant_rooms")
+      .delete()
+      .eq("id", roomId)
+      .eq("business_id", businessId);
+
+    if (error) {
+      return { success: false, error: error.message || "Error al eliminar sala." };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al eliminar sala." };
+  }
+}
+
+export async function getRestaurantTableTransfersHistory(
+  businessId: string
+): Promise<Array<{
+  id: string;
+  sourceTableName: string;
+  targetTableName: string;
+  orderNumber?: number;
+  userName?: string;
+  transferredAt: string;
+  notes?: string;
+}>> {
+  try {
+    const supabase = await getDbClient();
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("id, action, metadata, created_at, user_id")
+      .eq("business_id", businessId)
+      .eq("action", "update")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error || !data) return [];
+
+    const transfers: Array<{
+      id: string;
+      sourceTableName: string;
+      targetTableName: string;
+      orderNumber?: number;
+      userName?: string;
+      transferredAt: string;
+      notes?: string;
+    }> = [];
+
+    for (const row of data) {
+      const meta = row.metadata as any;
+      if (meta?.original_action === "transfer_restaurant_table") {
+        transfers.push({
+          id: row.id,
+          sourceTableName: meta.source_table_name || "Mesa origen",
+          targetTableName: meta.target_table_name || "Mesa destino",
+          orderNumber: meta.order_number,
+          transferredAt: row.created_at,
+          notes: meta.notes,
+        });
+      }
+    }
+
+    return transfers;
+  } catch {
+    return [];
+  }
 }
 
 // ==========================================
@@ -150,11 +393,16 @@ export async function getRestaurantTablesWithOrders(
       }
     }
 
+    // Consultar salas para enriquecer el nombre de la sala
+    const rooms = await getRestaurantRooms(businessId).catch(() => [] as RestaurantRoom[]);
+    const roomsMap = new Map<string, string>(rooms.map((r) => [r.id, r.name]));
+
     return tables.map((tbl) => {
       const activeOrder = tbl.current_order_id ? ordersMap.get(tbl.current_order_id) || null : null;
       return {
         ...tbl,
         activeOrder,
+        roomName: tbl.room_id ? roomsMap.get(tbl.room_id) || null : null,
       };
     });
   } catch (err) {
@@ -222,6 +470,7 @@ export async function createRestaurantTable(
       .from("restaurant_tables")
       .insert({
         business_id: businessId,
+        room_id: input.room_id || null,
         name_or_number: cleanName,
         capacity: input.capacity && input.capacity > 0 ? Math.floor(input.capacity) : 4,
         sort_order: input.sort_order !== undefined ? Number(input.sort_order) : 0,
@@ -304,6 +553,10 @@ export async function updateRestaurantTable(
 
     if (input.sort_order !== undefined) {
       updates.sort_order = Number(input.sort_order);
+    }
+
+    if (input.room_id !== undefined) {
+      updates.room_id = input.room_id || null;
     }
 
     const { data: updated, error: updateErr } = await supabase
@@ -475,6 +728,270 @@ export async function releaseRestaurantTable(
 }
 
 /**
+ * [MES-002] Traslada el pedido activo de una mesa ocupada (`sourceTableId`) a una mesa libre (`targetTableId`).
+ * - Mueve `current_order_id` a la mesa destino y marca la mesa destino como `occupied`.
+ * - Libera la mesa origen (`status = 'available'`, `current_order_id = null`).
+ * - Actualiza `table_id` en el pedido (`restaurant_orders`) conservando intactos todos sus ítems y estado.
+ * - Registra la operación en `audit_logs`.
+ */
+export async function transferRestaurantTable(
+  businessId: string,
+  sourceTableId: string,
+  targetTableId: string,
+  options?: {
+    userId?: string | null;
+    notes?: string | null;
+  }
+): Promise<{
+  success: boolean;
+  sourceTable?: RestaurantTable;
+  targetTable?: RestaurantTable;
+  order?: RestaurantOrderWithDetails | null;
+  error?: string;
+}> {
+  if (!sourceTableId || !targetTableId) {
+    return {
+      success: false,
+      error: "Debe seleccionar la mesa de origen y la mesa de destino.",
+    };
+  }
+
+  if (sourceTableId === targetTableId) {
+    return {
+      success: false,
+      error: "La mesa de destino debe ser distinta a la mesa de origen.",
+    };
+  }
+
+  const supabase = await getDbClient();
+  const nowIso = new Date().toISOString();
+
+  try {
+    // 1. Consultar mesa de origen y mesa de destino validando aislamiento multi-tenant
+    const [{ data: sourceTable, error: srcErr }, { data: targetTable, error: tgtErr }] =
+      await Promise.all([
+        supabase
+          .from("restaurant_tables")
+          .select("*")
+          .eq("id", sourceTableId)
+          .eq("business_id", businessId)
+          .maybeSingle(),
+        supabase
+          .from("restaurant_tables")
+          .select("*")
+          .eq("id", targetTableId)
+          .eq("business_id", businessId)
+          .maybeSingle(),
+      ]);
+
+    if (srcErr || !sourceTable) {
+      return {
+        success: false,
+        error: "La mesa de origen no existe o no pertenece a este comercio.",
+      };
+    }
+
+    if (tgtErr || !targetTable) {
+      return {
+        success: false,
+        error: "La mesa de destino no existe o no pertenece a este comercio.",
+      };
+    }
+
+    // 2. Validar que la mesa de origen esté ocupada y tenga un pedido activo
+    let activeOrderId: string | null = sourceTable.current_order_id || null;
+    if (!activeOrderId) {
+      const { data: fallbackOrders } = await supabase
+        .from("restaurant_orders")
+        .select("id, status")
+        .eq("table_id", sourceTableId)
+        .eq("business_id", businessId)
+        .neq("status", "cancelled")
+        .neq("status", "delivered")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (fallbackOrders && fallbackOrders.length > 0) {
+        activeOrderId = fallbackOrders[0].id;
+      }
+    }
+
+    if (sourceTable.status !== "occupied" || !activeOrderId) {
+      return {
+        success: false,
+        error: `La mesa de origen «${sourceTable.name_or_number}» no está ocupada o no tiene un pedido activo para trasladar.`,
+      };
+    }
+
+    // 3. Validar que la mesa de destino esté libre
+    if (targetTable.status !== "available" || targetTable.current_order_id) {
+      return {
+        success: false,
+        error: `La mesa de destino «${targetTable.name_or_number}» no se encuentra libre.`,
+      };
+    }
+
+    // 4. Actualizar table_id en el pedido activo (conservando intactos todos sus ítems y estado)
+    const { data: orderData, error: orderUpdateErr } = await supabase
+      .from("restaurant_orders")
+      .update({
+        table_id: targetTableId,
+        updated_at: nowIso,
+      })
+      .eq("id", activeOrderId)
+      .eq("business_id", businessId)
+      .select("*, restaurant_order_items(*)")
+      .single();
+
+    if (orderUpdateErr || !orderData) {
+      return {
+        success: false,
+        error: orderUpdateErr?.message || "No fue posible actualizar la mesa del pedido activo.",
+      };
+    }
+
+    // También trasladar cualquier otra comanda activa en curso vinculada a la mesa de origen
+    try {
+      await supabase
+        .from("restaurant_orders")
+        .update({
+          table_id: targetTableId,
+          updated_at: nowIso,
+        })
+        .eq("table_id", sourceTableId)
+        .eq("business_id", businessId)
+        .neq("status", "cancelled")
+        .neq("status", "delivered");
+    } catch {
+      // Continuar
+    }
+
+    // 5. Liberar la mesa de origen y ocupar la mesa de destino con el current_order_id
+    const { data: updatedSource, error: updateSrcErr } = await supabase
+      .from("restaurant_tables")
+      .update({
+        status: "available",
+        current_order_id: null,
+        updated_at: nowIso,
+      })
+      .eq("id", sourceTableId)
+      .eq("business_id", businessId)
+      .select("*")
+      .single();
+
+    if (updateSrcErr || !updatedSource) {
+      return {
+        success: false,
+        error: updateSrcErr?.message || "No fue posible liberar la mesa de origen.",
+      };
+    }
+
+    const { data: updatedTarget, error: updateTgtErr } = await supabase
+      .from("restaurant_tables")
+      .update({
+        status: "occupied",
+        current_order_id: activeOrderId,
+        updated_at: nowIso,
+      })
+      .eq("id", targetTableId)
+      .eq("business_id", businessId)
+      .select("*")
+      .single();
+
+    if (updateTgtErr || !updatedTarget) {
+      return {
+        success: false,
+        error: updateTgtErr?.message || "No fue posible ocupar la mesa de destino.",
+      };
+    }
+
+    // 6. Registrar en audit_logs
+    const cleanNotes = options?.notes?.trim() || null;
+    try {
+      await supabase.from("audit_logs").insert({
+        business_id: businessId,
+        user_id: options?.userId || null,
+        action: "table.transfer",
+        entity: "restaurant_table",
+        entity_type: "restaurant_table",
+        entity_id: sourceTableId,
+        details: {
+          source_table_id: sourceTableId,
+          source_table_name: sourceTable.name_or_number,
+          target_table_id: targetTableId,
+          target_table_name: targetTable.name_or_number,
+          order_id: activeOrderId,
+          order_number: orderData.order_number,
+          notes: cleanNotes,
+          transferred_at: nowIso,
+        },
+        metadata: {
+          original_action: "transfer_restaurant_table",
+          source_table_id: sourceTableId,
+          source_table_name: sourceTable.name_or_number,
+          target_table_id: targetTableId,
+          target_table_name: targetTable.name_or_number,
+          order_id: activeOrderId,
+          order_number: orderData.order_number,
+          notes: cleanNotes,
+          transferred_at: nowIso,
+        },
+        created_at: nowIso,
+      });
+    } catch (auditErr) {
+      console.warn("[transferRestaurantTable] Aviso al insertar en audit_logs:", auditErr);
+    }
+
+    try {
+      await logAuditAction({
+        businessId,
+        userId: options?.userId || undefined,
+        action: "update",
+        entityType: "restaurant_table",
+        entityId: sourceTableId,
+        oldData: {
+          table_id: sourceTableId,
+          table_name: sourceTable.name_or_number,
+          current_order_id: activeOrderId,
+        },
+        newData: {
+          table_id: targetTableId,
+          table_name: targetTable.name_or_number,
+          current_order_id: activeOrderId,
+        },
+        metadata: {
+          original_action: "transfer_restaurant_table",
+          source_table_id: sourceTableId,
+          source_table_name: sourceTable.name_or_number,
+          target_table_id: targetTableId,
+          target_table_name: targetTable.name_or_number,
+          order_id: activeOrderId,
+          order_number: orderData.order_number,
+          notes: cleanNotes,
+        },
+      });
+    } catch {
+      // No bloqueante
+    }
+
+    const refreshedOrder = await getRestaurantOrderWithDetails(businessId, activeOrderId);
+
+    return {
+      success: true,
+      sourceTable: updatedSource as RestaurantTable,
+      targetTable: updatedTarget as RestaurantTable,
+      order: refreshedOrder,
+    };
+  } catch (err: any) {
+    console.error("[transferRestaurantTable] Error:", err);
+    return {
+      success: false,
+      error: err?.message || "Error inesperado al trasladar la mesa.",
+    };
+  }
+}
+
+/**
  * Regenera el código QR de una mesa incrementando su versión de revocación.
  */
 export async function regenerateTableQr(
@@ -629,6 +1146,8 @@ export interface CreateOrderResult {
   orderId?: string;
   orderNumber?: number;
   total?: number;
+  deliveryPin?: string | null;
+  trackingCode?: string | null;
   error?: string;
 }
 
@@ -640,9 +1159,10 @@ export interface CreateOrderResult {
 export async function createRestaurantOrder(
   businessId: string,
   input: CreateRestaurantOrderInput,
-  userId?: string
+  userId?: string,
+  supabaseClient?: any
 ): Promise<CreateOrderResult> {
-  const supabase = await getDbClient();
+  const supabase = supabaseClient || (await getDbClient());
 
   // 1. Validación de destino y canal
   if (!["dine_in", "takeout", "delivery"].includes(input.orderType)) {
@@ -711,7 +1231,7 @@ export async function createRestaurantOrder(
   }
 
   const productMap = new Map<string, Product>();
-  dbProducts.forEach((p) => productMap.set(p.id, p as Product));
+  dbProducts.forEach((p: any) => productMap.set(p.id, p as Product));
 
   // 5. Recalcular importes, validar complementos y construir snapshots
   interface PreparedItem {
@@ -722,10 +1242,17 @@ export async function createRestaurantOrder(
     subtotal: number;
     notes?: string;
     modifiers: any[];
+    variantId?: string | null;
+    variantName?: string | null;
+    taxPercentage: number;
+    taxIncludedInPrice: boolean;
+    taxAmount: number;
   }
 
   const preparedItems: PreparedItem[] = [];
   let calculatedSubtotal = 0;
+  let calculatedAdditionalTax = 0;
+  let calculatedTotalTax = 0;
 
   for (let idx = 0; idx < input.items.length; idx++) {
     const it = input.items[idx];
@@ -875,6 +1402,23 @@ export async function createRestaurantOrder(
     const lineSubtotal = unitPrice * safeQty;
     calculatedSubtotal += lineSubtotal;
 
+    // Calcular impuestos por producto (IVA / Impoconsumo)
+    const taxPercentage = typeof it.taxPercentage === "number"
+      ? it.taxPercentage
+      : Number((product.metadata as any)?.tax_percentage ?? (product as any).tax_percentage ?? 0);
+    const taxIncludedInPrice = typeof it.taxIncludedInPrice === "boolean"
+      ? it.taxIncludedInPrice
+      : ((product.metadata as any)?.tax_included_in_price ?? (product as any).tax_included_in_price ?? true);
+
+    const { taxAmount } = calculateItemTax(lineSubtotal, taxPercentage, taxIncludedInPrice);
+
+    if (taxPercentage > 0) {
+      if (!taxIncludedInPrice) {
+        calculatedAdditionalTax += taxAmount;
+      }
+      calculatedTotalTax += taxAmount;
+    }
+
     preparedItems.push({
       productId: product.id,
       productName: resolvedProductName,
@@ -883,6 +1427,11 @@ export async function createRestaurantOrder(
       subtotal: lineSubtotal,
       notes: it.notes?.trim() || undefined,
       modifiers: validatedModifiersSnapshot,
+      variantId: selectedVariant?.id || it.variantId || null,
+      variantName: selectedVariant?.name || it.variantName || null,
+      taxPercentage,
+      taxIncludedInPrice,
+      taxAmount,
     });
   }
 
@@ -890,47 +1439,55 @@ export async function createRestaurantOrder(
   let calculatedDeliveryFee = 0;
   if (input.orderType === "delivery") {
     try {
-      // 1. Priorizar configuración oficial en businesses.settings.delivery
+      // 1. Priorizar configuración oficial en businesses.settings.delivery [DOM-002]
       const { data: bizData } = await supabase
         .from("businesses")
         .select("settings")
         .eq("id", businessId)
         .maybeSingle();
 
-      const deliveryConfig = (bizData?.settings as any)?.delivery;
-      if (deliveryConfig && typeof deliveryConfig === "object") {
-        if (deliveryConfig.enabled !== false && typeof deliveryConfig.fee === "number" && !isNaN(deliveryConfig.fee) && deliveryConfig.fee >= 0) {
-          calculatedDeliveryFee = deliveryConfig.fee;
-        }
-      } else {
-        // Fallback a business_digital_menus.custom_settings.deliveryFee
-        const query = supabase.from("business_digital_menus");
-        if (query && typeof query.select === "function") {
-          const { data: menuConfig } = await query
-            .select("custom_settings")
-            .eq("business_id", businessId)
-            .maybeSingle();
+      const rawDelivery = (bizData?.settings as any)?.delivery;
+      const { normalizeDeliveryBusinessConfig, calculateDeliveryFeeForOrder } = await import("@/lib/delivery/types");
+      const deliveryConfig = normalizeDeliveryBusinessConfig(rawDelivery);
 
-          const rawFee = (menuConfig?.custom_settings as any)?.deliveryFee;
-          if (typeof rawFee === "number" && rawFee > 0) {
-            calculatedDeliveryFee = rawFee;
-          }
-        }
+      if (typeof input.deliveryFee === "number" && !isNaN(input.deliveryFee) && input.deliveryFee >= 0) {
+        calculatedDeliveryFee = input.deliveryFee;
+      } else {
+        const feeResult = calculateDeliveryFeeForOrder(deliveryConfig, calculatedSubtotal);
+        calculatedDeliveryFee = feeResult.customerDeliveryFee;
       }
     } catch (feeErr) {
       console.warn("[createRestaurantOrder] No fue posible consultar deliveryFee configurado:", feeErr);
+      if (typeof input.deliveryFee === "number" && !isNaN(input.deliveryFee)) {
+        calculatedDeliveryFee = input.deliveryFee;
+      }
     }
   }
 
-  const calculatedTotal = calculatedSubtotal + calculatedDeliveryFee;
+  const calculatedTotal = calculatedSubtotal + calculatedDeliveryFee + calculatedAdditionalTax;
   const payloadHash = computeOrderPayloadHash(input);
 
-  // Generar código de verificación aleatorio para pedidos a domicilio (PIN de 4 dígitos)
+  // Generar código de verificación aleatorio para pedidos a domicilio (PIN criptográfico de 4 dígitos exactos, permite ceros iniciales)
+  // y código de seguimiento único tipo TRK-XXXXXX para consulta pública del cliente [DOM-004]
   let finalNotes = input.notes?.trim() || null;
   let generatedDeliveryPin: string | null = null;
+  let generatedTrackingCode: string | null = null;
   if (input.orderType === "delivery") {
-    generatedDeliveryPin = String(Math.floor(1000 + Math.random() * 9000));
-    finalNotes = finalNotes ? `${finalNotes} [PIN:${generatedDeliveryPin}:0]` : `[PIN:${generatedDeliveryPin}:0]`;
+    const crypto = await import("crypto");
+    const pinNumber = crypto.randomInt(0, 10000);
+    generatedDeliveryPin = pinNumber.toString().padStart(4, "0");
+
+    const { generateTrackingCode } = await import("@/lib/delivery/tracking-service");
+    generatedTrackingCode = generateTrackingCode();
+
+    const pinTag = `[PIN:${generatedDeliveryPin}:0]`;
+    const trkTag = `[TRK:${generatedTrackingCode}]`;
+    const driverTag = input.driverName?.trim() ? `[DOMICILIARIO:${input.driverName.trim()}]` : "";
+    
+    finalNotes = [finalNotes, pinTag, trkTag, driverTag].filter(Boolean).join(" ");
+  } else if (input.waiterName?.trim()) {
+    const waiterTag = `[CAMARERO:${input.waiterName.trim()}]`;
+    finalNotes = finalNotes ? `${finalNotes} ${waiterTag}` : waiterTag;
   }
 
   // 6. Inserción verdaderamente transaccional vía PostgreSQL RPC
@@ -947,6 +1504,7 @@ export async function createRestaurantOrder(
       p_channel_origin: resolvedChannelOrigin,
       p_subtotal: calculatedSubtotal,
       p_delivery_fee: calculatedDeliveryFee,
+      p_tax_total: calculatedTotalTax,
       p_total: calculatedTotal,
       p_items: preparedItems.map((item) => ({
         product_id: item.productId,
@@ -956,6 +1514,11 @@ export async function createRestaurantOrder(
         subtotal: item.subtotal,
         notes: item.notes || null,
         modifiers: item.modifiers,
+        variant_id: item.variantId || null,
+        variant_name: item.variantName || null,
+        tax_percentage: item.taxPercentage,
+        tax_included_in_price: item.taxIncludedInPrice,
+        tax_amount: item.taxAmount,
       })),
       p_table_id: input.orderType === "dine_in" ? input.tableId : null,
       p_customer_name: ["delivery", "takeout"].includes(input.orderType)
@@ -985,6 +1548,54 @@ export async function createRestaurantOrder(
         p_channel_origin: fallbackChannel,
         p_subtotal: calculatedSubtotal,
         p_delivery_fee: calculatedDeliveryFee,
+        p_tax_total: calculatedTotalTax,
+        p_total: calculatedTotal,
+        p_items: preparedItems.map((item) => ({
+          product_id: item.productId,
+          product_name: item.productName,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          subtotal: item.subtotal,
+          notes: item.notes || null,
+          modifiers: item.modifiers,
+          variant_id: item.variantId || null,
+          variant_name: item.variantName || null,
+          tax_percentage: item.taxPercentage,
+          tax_included_in_price: item.taxIncludedInPrice,
+          tax_amount: item.taxAmount,
+        })),
+        p_table_id: input.orderType === "dine_in" ? input.tableId : null,
+        p_customer_name: ["delivery", "takeout"].includes(input.orderType)
+          ? input.customerName?.trim() || (input.orderType === "delivery" ? "Cliente Domicilio" : null)
+          : null,
+        p_customer_phone: ["delivery", "takeout"].includes(input.orderType) ? input.customerPhone?.trim() || null : null,
+        p_delivery_address: input.orderType === "delivery" ? input.deliveryAddress?.trim() : null,
+        p_delivery_reference: input.orderType === "delivery" ? input.deliveryReference?.trim() || null : null,
+        p_notes: finalNotes,
+        p_idempotency_key: input.idempotencyKey || null,
+        p_idempotency_hash: payloadHash,
+        p_user_id: userId || null,
+      }
+    );
+    rpcData = retryResult.data;
+    rpcError = retryResult.error;
+  }
+
+  // Fallback defensivo: si la firma en el schema cache de PostgREST no incluye 'p_tax_total' (versión de 16 parámetros)
+  if (
+    rpcError &&
+    (rpcError.message?.includes("schema cache") || rpcError.code === "PGRST202") &&
+    rpcError.message?.includes("create_restaurant_pos_order")
+  ) {
+    console.warn("[createRestaurantOrder] Reintentando RPC con firma heredada de 16 parámetros (sin p_tax_total)...");
+    const legacyRetry = await supabase.rpc(
+      "create_restaurant_pos_order",
+      {
+        p_business_id: businessId,
+        p_order_type: input.orderType,
+        p_channel_origin: resolvedChannelOrigin === "digital_menu" ? "whatsapp" : resolvedChannelOrigin,
+        p_subtotal: calculatedSubtotal,
+        p_delivery_fee: calculatedDeliveryFee,
         p_total: calculatedTotal,
         p_items: preparedItems.map((item) => ({
           product_id: item.productId,
@@ -1008,8 +1619,10 @@ export async function createRestaurantOrder(
         p_user_id: userId || null,
       }
     );
-    rpcData = retryResult.data;
-    rpcError = retryResult.error;
+    if (!legacyRetry.error) {
+      rpcData = legacyRetry.data;
+      rpcError = null;
+    }
   }
 
   if (rpcError) {
@@ -1059,6 +1672,14 @@ export async function createRestaurantOrder(
       };
     }
 
+    if (rpcError.message?.includes("Existencias insuficientes para")) {
+      const match = rpcError.message.match(/Existencias insuficientes para[^\n\r]+/);
+      return {
+        success: false,
+        error: match ? match[0] : rpcError.message,
+      };
+    }
+
     if (rpcError.message?.includes("BUSINESS_UNAVAILABLE")) {
       return {
         success: false,
@@ -1104,33 +1725,39 @@ export async function createRestaurantOrder(
     }
   }
 
-  // Descontar existencias únicamente para productos con control de stock activo
+  // Garantizar que la orden tenga estado inicial 'received' en caso de que la RPC haya insertado 'pending'
   try {
-    for (const it of preparedItems) {
-      const p = productMap.get(it.productId);
-      if (p && (p.metadata as any)?.track_stock && typeof (p.metadata as any)?.stock_quantity === "number") {
-        const currentStock = (p.metadata as any).stock_quantity;
-        const newStock = Math.max(0, currentStock - it.quantity);
-        const updatedMeta = { ...(p.metadata as any), stock_quantity: newStock };
-        await supabase
-          .from("products")
-          .update({ metadata: updatedMeta })
-          .eq("id", p.id)
-          .eq("business_id", businessId);
-      }
+    const orderQuery = supabase.from("restaurant_orders");
+    if (typeof (orderQuery as any)?.update === "function") {
+      await (orderQuery as any)
+        .update({
+          status: "received",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", rpcData.order_id)
+        .eq("status", "pending")
+        .eq("business_id", businessId);
     }
-  } catch (stockErr) {
-    console.warn("[createRestaurantOrder] Advertencia al actualizar stock:", stockErr);
+  } catch (statErr) {
+    console.warn("[createRestaurantOrder] Advertencia al normalizar status a received:", statErr);
   }
 
-  // Si el pedido es a domicilio, inicializar delivery_status como 'pending'
+  // [STOCK-001]: El descuento de existencias (tanto en public.inventory_stock como en
+  // public.products.metadata) se ejecuta de forma transaccional y atómica dentro de la RPC
+  // PostgreSQL 'create_restaurant_pos_order', garantizando que nunca quede un pedido sin
+  // descuento de inventario ni descuento sin pedido por caídas de red intermedias.
+
+  // Si el pedido es a domicilio, inicializar delivery_status (o assigned si tiene conductor) y persistir tracking_code [DOM-004]
   if (input.orderType === "delivery") {
     try {
       const orderQuery = supabase.from("restaurant_orders");
       if (typeof (orderQuery as any)?.update === "function") {
         await (orderQuery as any)
           .update({
-            delivery_status: "pending",
+            delivery_status: input.driverName?.trim() ? "assigned" : "pending",
+            driver_name: input.driverName?.trim() || null,
+            delivery_zone_id: input.deliveryZoneId || null,
+            tracking_code: generatedTrackingCode,
             updated_at: new Date().toISOString(),
           })
           .eq("id", rpcData.order_id)
@@ -1138,6 +1765,39 @@ export async function createRestaurantOrder(
       }
     } catch (dErr) {
       console.warn("[createRestaurantOrder] Advertencia al inicializar delivery_status:", dErr);
+    }
+  } else if (input.orderType === "dine_in" && input.waiterName?.trim()) {
+    try {
+      const orderQuery = supabase.from("restaurant_orders");
+      if (typeof (orderQuery as any)?.update === "function") {
+        await (orderQuery as any)
+          .update({
+            driver_name: input.waiterName.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", rpcData.order_id)
+          .eq("business_id", businessId);
+      }
+    } catch (wErr) {
+      console.warn("[createRestaurantOrder] Advertencia al asociar camarero en comanda:", wErr);
+    }
+  }
+
+  // Si se especificó un cliente registrado, vincular customer_id al pedido [POS-003]
+  if (input.customerId) {
+    try {
+      const orderQuery = supabase.from("restaurant_orders");
+      if (typeof (orderQuery as any)?.update === "function") {
+        await (orderQuery as any)
+          .update({
+            customer_id: input.customerId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", rpcData.order_id)
+          .eq("business_id", businessId);
+      }
+    } catch (cErr) {
+      console.warn("[createRestaurantOrder] Advertencia al vincular customer_id:", cErr);
     }
   }
 
@@ -1170,11 +1830,28 @@ export async function createRestaurantOrder(
     }
   }
 
+  // Registrar notificación persistente in-app para el comercio
+  try {
+    const { createOrderNotification } = await import("@/lib/notifications/notifications-service");
+    await createOrderNotification({
+      businessId,
+      orderId: rpcData.order_id,
+      orderNumber: rpcData.order_number,
+      orderType: input.orderType,
+      customerName: input.customerName || null,
+      total: Number(rpcData.total),
+    });
+  } catch (inAppErr) {
+    console.warn("[createRestaurantOrder] Advertencia al generar notificación in-app:", inAppErr);
+  }
+
   return {
     success: true,
     orderId: rpcData.order_id,
     orderNumber: rpcData.order_number,
     total: Number(rpcData.total),
+    deliveryPin: generatedDeliveryPin,
+    trackingCode: generatedTrackingCode,
   };
 }
 
@@ -1221,7 +1898,7 @@ export async function getRestaurantOrdersList({
   try {
     let query = supabase
       .from("restaurant_orders")
-      .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers)", {
+      .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers, variant_id, variant_name)", {
         count: "exact",
       })
       .eq("business_id", businessId);
@@ -1375,7 +2052,7 @@ export async function getRestaurantOrdersSummary(businessId: string): Promise<Re
     };
 
     for (const order of data) {
-      if (order.status === "received") summary.received++;
+      if (order.status === "received" || order.status === "pending") summary.received++;
       else if (order.status === "in_preparation") summary.inPreparation++;
       else if (order.status === "ready") summary.ready++;
       else if (order.status === "delivered") summary.delivered++;
@@ -1398,27 +2075,29 @@ export async function getRestaurantOrderWithDetails(
 ): Promise<RestaurantOrderWithDetails | null> {
   const supabase = await getDbClient();
   try {
-    const [{ data: order, error }, tables] = await Promise.all([
-      supabase
-        .from("restaurant_orders")
-        .select("*, restaurant_order_items(*)")
-        .eq("id", orderId)
-        .eq("business_id", businessId)
-        .maybeSingle(),
-      getRestaurantTables(businessId),
-    ]);
+    const { data: order, error } = await supabase
+      .from("restaurant_orders")
+      .select("*, restaurant_order_items(*)")
+      .eq("id", orderId)
+      .eq("business_id", businessId)
+      .maybeSingle();
 
     if (error || !order) {
       return null;
     }
 
-    const tableMap = new Map<string, string>();
-    for (const tbl of tables) {
-      tableMap.set(tbl.id, tbl.name_or_number);
+    let tableName: string | null = null;
+    if (order.table_id) {
+      const { data: tableData } = await supabase
+        .from("restaurant_tables")
+        .select("name_or_number")
+        .eq("id", order.table_id)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      tableName = tableData?.name_or_number || "Mesa";
     }
 
     const items = Array.isArray(order.restaurant_order_items) ? order.restaurant_order_items : [];
-    const tableName = order.table_id ? tableMap.get(order.table_id) || "Mesa" : null;
     const verification = extractDeliveryVerification(order.notes);
 
     return {
@@ -1434,6 +2113,7 @@ export async function getRestaurantOrderWithDetails(
       notes: verification.cleanNotes,
       table_id: order.table_id || null,
       tableName,
+      customer_id: order.customer_id || null,
       customer_name: order.customer_name || null,
       customer_phone: order.customer_phone || null,
       delivery_address: order.delivery_address || null,
@@ -1466,7 +2146,8 @@ export async function updateRestaurantOrderStatus(
   businessId: string,
   orderId: string,
   newStatus: string,
-  userId?: string
+  userId?: string,
+  reason?: string
 ): Promise<{ success: boolean; error?: string; order?: RestaurantOrderWithDetails }> {
   const supabase = await getDbClient();
 
@@ -1488,6 +2169,7 @@ export async function updateRestaurantOrderStatus(
   const allowedTransitions = VALID_ORDER_STATUS_TRANSITIONS[currentOrder.status] || [];
   if (!allowedTransitions.includes(newStatus)) {
     const statusLabels: Record<string, string> = {
+      pending: "Recibido",
       received: "Recibido",
       in_preparation: "En preparación",
       ready: "Listo",
@@ -1521,6 +2203,40 @@ export async function updateRestaurantOrderStatus(
 
   // 4. Liberación / sincronización automática de mesas asociadas al pedido
   await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+
+  // Si el pedido pasa a cancelado, cancelar automáticamente el documento de venta vinculado
+  if (newStatus === "cancelled") {
+    try {
+      const fromBsd = supabase.from("business_sale_documents");
+      if (fromBsd && typeof fromBsd.select === "function") {
+        const { data: linkedDoc } = await fromBsd
+          .select("id, status, notes")
+          .eq("business_id", businessId)
+          .eq("restaurant_order_id", orderId)
+          .maybeSingle();
+
+        if (linkedDoc && linkedDoc.status !== "cancelled" && linkedDoc.status !== "annulled") {
+          const reasonText = reason?.trim();
+          const updatedNotes = reasonText
+            ? linkedDoc.notes
+              ? `${linkedDoc.notes} | Cancelación: ${reasonText}`
+              : `Cancelación: ${reasonText}`
+            : linkedDoc.notes;
+
+          await fromBsd
+            .update({
+              status: "cancelled",
+              notes: updatedNotes,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", linkedDoc.id)
+            .eq("business_id", businessId);
+        }
+      }
+    } catch (docErr) {
+      console.warn("[updateRestaurantOrderStatus] Aviso al cancelar documento de venta vinculado:", docErr);
+    }
+  }
 
   const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
   return {
@@ -1650,9 +2366,41 @@ export async function cancelRestaurantOrder(
     return { success: false, error: "Pedido no encontrado o no pertenece a este comercio." };
   }
 
-  const res = await updateRestaurantOrderStatus(businessId, orderId, "cancelled", userId);
+  const res = await updateRestaurantOrderStatus(businessId, orderId, "cancelled", userId, reason);
   if (!res.success) {
     return { success: false, error: res.error };
+  }
+
+  // Cancelar también el documento de venta comercial vinculado si existe
+  try {
+    const fromBsd = supabase.from("business_sale_documents");
+    if (fromBsd && typeof fromBsd.select === "function") {
+      const { data: linkedDoc } = await fromBsd
+        .select("id, status, notes")
+        .eq("business_id", businessId)
+        .eq("restaurant_order_id", orderId)
+        .maybeSingle();
+
+      if (linkedDoc && linkedDoc.status !== "cancelled" && linkedDoc.status !== "annulled") {
+        const reasonText = reason?.trim();
+        const updatedNotes = reasonText
+          ? linkedDoc.notes
+            ? `${linkedDoc.notes} | Cancelación: ${reasonText}`
+            : `Cancelación: ${reasonText}`
+          : linkedDoc.notes;
+
+        await fromBsd
+          .update({
+            status: "cancelled",
+            notes: updatedNotes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", linkedDoc.id)
+          .eq("business_id", businessId);
+      }
+    }
+  } catch (docCancelErr) {
+    console.warn("[cancelRestaurantOrder] Aviso al sincronizar cancelación de documento:", docCancelErr);
   }
 
   // Asegurar sincronización de mesas vinculadas
@@ -1663,15 +2411,27 @@ export async function cancelRestaurantOrder(
 
 /**
  * Registra el pago real de un pedido operativo (actualiza payment_status a 'paid').
- * Permite que los pedidos entregados conserven su estado pendiente hasta que se cobre efectivamente.
- * Garantiza idempotencia y audita la transacción financiera.
+ * Emite / vincula automáticamente el documento comercial unificado en `business_sale_documents`
+ * con correlativo secuencial determinista e idempotencia estricta.
  */
 export async function registerRestaurantOrderPayment(
   businessId: string,
   orderId: string,
-  paymentMethod?: string,
+  paymentInput?: string | ProcessOrderPaymentInput,
   userId?: string
-): Promise<{ success: boolean; error?: string; order?: RestaurantOrderWithDetails }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  order?: RestaurantOrderWithDetails;
+  document?: any;
+  summary?: {
+    subtotal: number;
+    discountAmount: number;
+    netSaleTotal: number;
+    tipAmount: number;
+    totalCollected: number;
+  };
+}> {
   const supabase = await getDbClient();
   const currentOrder = await getRestaurantOrderWithDetails(businessId, orderId);
   if (!currentOrder) {
@@ -1681,17 +2441,206 @@ export async function registerRestaurantOrderPayment(
     return { success: false, error: "No se puede registrar pago para un pedido cancelado." };
   }
 
-  // Idempotencia: si ya está pagado, no duplicar ni re-procesar
-  if (currentOrder.payment_status === "paid") {
-    return { success: true, order: currentOrder };
+  // Normalizar entrada de pago [POS-002 & MES-003]
+  const paymentData: ProcessOrderPaymentInput =
+    typeof paymentInput === "string"
+      ? { paymentMethod: paymentInput }
+      : (paymentInput || { paymentMethod: "cash" });
+
+  const primaryMethod = paymentData.paymentMethod || (paymentData.splitPayments?.[0]?.method) || "cash";
+
+  // Calcular descuento y monto neto [POS-002 & MES-003]
+  const originalSubtotal = Number(currentOrder.subtotal || currentOrder.total || 0);
+  const taxTotal = Number(currentOrder.tax_total || 0);
+  const deliveryFee = Number(currentOrder.delivery_fee || 0);
+
+  let discountAmount = 0;
+  let discountReason = paymentData.discount?.reason;
+
+  if (paymentData.loyaltyDiscountAmount && paymentData.loyaltyDiscountAmount > 0) {
+    discountAmount += Number(paymentData.loyaltyDiscountAmount);
+    discountReason = discountReason
+      ? `${discountReason} + Puntos Fidelización`
+      : "Puntos Fidelización";
+  }
+
+  if (paymentData.discount) {
+    if (paymentData.discount.presetId) {
+      const preset = PRESET_TABLE_DISCOUNTS.find((p) => p.id === paymentData.discount?.presetId);
+      if (preset) {
+        if (!discountReason) discountReason = preset.reason;
+        if (!paymentData.discount.amount && (!paymentData.discount.value || paymentData.discount.value <= 0)) {
+          paymentData.discount.value = preset.percentage;
+          paymentData.discount.type = "percentage";
+        }
+      }
+    }
+
+    if (paymentData.discount.amount && paymentData.discount.amount > 0) {
+      discountAmount = Math.min(originalSubtotal, Number(paymentData.discount.amount));
+    } else if (paymentData.discount.type === "percentage" && paymentData.discount.value > 0) {
+      const pct = Math.min(100, Number(paymentData.discount.value));
+      discountAmount = Math.round(originalSubtotal * (pct / 100));
+    } else if (paymentData.discount.type === "fixed" && paymentData.discount.value > 0) {
+      discountAmount = Math.min(originalSubtotal, Number(paymentData.discount.value));
+    }
+  }
+
+  // El descuento reduce el total antes del pago
+  const netSaleTotal = Math.max(0, originalSubtotal - discountAmount + taxTotal + deliveryFee);
+
+  // Calcular propina separada de la venta neta [POS-002 & MES-003]
+  let tipAmount = 0;
+  if (paymentData.tip) {
+    if (paymentData.tip.amount && paymentData.tip.amount > 0) {
+      tipAmount = Number(paymentData.tip.amount);
+    } else if (paymentData.tip.percentage && paymentData.tip.percentage > 0) {
+      tipAmount = Math.round(netSaleTotal * (Number(paymentData.tip.percentage) / 100));
+    }
+  }
+
+  // Construir desglose en notas
+  const noteParts: string[] = [];
+  if (currentOrder.notes) noteParts.push(currentOrder.notes);
+  if (discountAmount > 0) {
+    noteParts.push(`Descuento: -$${discountAmount}${discountReason ? ` (${discountReason})` : ""}`);
+  }
+  if (paymentData.loyaltyPointsRedeemed && paymentData.loyaltyPointsRedeemed > 0) {
+    noteParts.push(`Puntos Redimidos: ${paymentData.loyaltyPointsRedeemed} (-$${paymentData.loyaltyDiscountAmount || 0})`);
+  }
+  if (tipAmount > 0) {
+    noteParts.push(
+      `Propina: +$${tipAmount}${paymentData.tip?.percentage ? ` (${paymentData.tip.percentage}%)` : ""}`
+    );
+  }
+  if (paymentData.isSplit && paymentData.splitPayments && paymentData.splitPayments.length > 0) {
+    const splitDesc = paymentData.splitPayments.map((p) => `${p.method}: $${p.amount}`).join(" + ");
+    noteParts.push(`Pago dividido: ${splitDesc}`);
+  }
+  if (paymentData.cashChange && paymentData.cashChange > 0) {
+    noteParts.push(`Cambio efectivo: $${paymentData.cashChange}`);
+  }
+  const consolidatedNotes = noteParts.filter(Boolean).join(" | ");
+
+  // Verificar si ya existe documento de venta emitido para este pedido
+  const { data: existingDoc } = await supabase
+    .from("business_sale_documents")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("restaurant_order_id", orderId)
+    .maybeSingle();
+
+  // Idempotencia: si ya está pagado o a crédito y ya tiene documento de venta emitido, no duplicar
+  if ((currentOrder.payment_status === "paid" || currentOrder.payment_status === "credit") && existingDoc) {
+    if (paymentData.closeTableOrder) {
+      await supabase
+        .from("restaurant_orders")
+        .update({ status: "delivered", updated_at: new Date().toISOString() })
+        .eq("id", orderId)
+        .eq("business_id", businessId);
+      await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+    }
+    const refreshedIdemp = await getRestaurantOrderWithDetails(businessId, orderId);
+    return {
+      success: true,
+      order: refreshedIdemp || currentOrder,
+      document: existingDoc,
+      summary: {
+        subtotal: originalSubtotal,
+        discountAmount,
+        netSaleTotal,
+        tipAmount,
+        totalCollected: netSaleTotal + tipAmount,
+      },
+    };
+  }
+
+  // [POS-003] Validación de venta a crédito
+  const isCreditSale =
+    primaryMethod.toLowerCase() === "credit" ||
+    primaryMethod.toLowerCase() === "a_credito" ||
+    primaryMethod.toLowerCase() === "a crédito";
+
+  let targetCustomer: any = null;
+
+  if (isCreditSale) {
+    let targetCustomerId = paymentData.customerId || currentOrder.customer_id;
+
+    if (!targetCustomerId && currentOrder.customer_phone) {
+      const { data: matchedCust } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("business_id", businessId)
+        .eq("phone", currentOrder.customer_phone)
+        .maybeSingle();
+      if (matchedCust) {
+        targetCustomerId = matchedCust.id;
+        targetCustomer = matchedCust;
+      }
+    }
+
+    if (!targetCustomerId) {
+      return {
+        success: false,
+        error: "Para registrar una venta a crédito debes seleccionar un cliente registrado con crédito habilitado.",
+      };
+    }
+
+    if (!targetCustomer) {
+      const { data: cust, error: custErr } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", targetCustomerId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+
+      if (custErr || !cust) {
+        return {
+          success: false,
+          error: "El cliente seleccionado no existe o no pertenece a este comercio.",
+        };
+      }
+      targetCustomer = cust;
+    }
+
+    const creditLimit = Number(targetCustomer.credit_limit || 0);
+    const creditUsed = Number(targetCustomer.credit_used || 0);
+    const availableCredit = Math.max(0, Number((creditLimit - creditUsed).toFixed(2)));
+
+    // Criterio 1: Al seleccionar "A crédito" con cliente sin crédito -> error
+    if (creditLimit <= 0) {
+      return {
+        success: false,
+        error: `El cliente «${targetCustomer.full_name}» no tiene cupo de crédito autorizado.`,
+      };
+    }
+
+    // Criterio 2: Al superar el límite -> error con saldo disponible
+    if (netSaleTotal > availableCredit) {
+      return {
+        success: false,
+        error: `Cupo de crédito insuficiente. Disponible: $${availableCredit.toLocaleString("es-CO")}, solicitado: $${netSaleTotal.toLocaleString("es-CO")}.`,
+      };
+    }
+  }
+
+  // 1. Actualizar estado del pedido restaurant_orders
+  const newPaymentStatus = isCreditSale ? "credit" : "paid";
+  const orderUpdatePayload: Record<string, any> = {
+    payment_status: newPaymentStatus,
+    customer_id: targetCustomer?.id || currentOrder.customer_id || null,
+    total: netSaleTotal,
+    notes: consolidatedNotes || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (paymentData.closeTableOrder) {
+    orderUpdatePayload.status = "delivered";
   }
 
   const { error: updateErr } = await supabase
     .from("restaurant_orders")
-    .update({
-      payment_status: "paid",
-      updated_at: new Date().toISOString(),
-    })
+    .update(orderUpdatePayload)
     .eq("id", orderId)
     .eq("business_id", businessId);
 
@@ -1699,7 +2648,258 @@ export async function registerRestaurantOrderPayment(
     return { success: false, error: updateErr.message || "Error al registrar el pago del pedido." };
   }
 
-  // Registrar auditoría de la transacción financiera
+  // [MES-003] Si es cierre de orden de mesa, liberar automáticamente la mesa asociada
+  if (paymentData.closeTableOrder) {
+    await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
+    if (currentOrder.table_id) {
+      const tblRef = supabase.from("restaurant_tables");
+      if (tblRef && typeof tblRef.update === "function") {
+        await tblRef
+          .update({
+            status: "available",
+            current_order_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", currentOrder.table_id)
+          .eq("business_id", businessId);
+      }
+    }
+  }
+
+  // 2. Crear o vincular documento de venta unificado en business_sale_documents
+  let saleDoc = existingDoc;
+  if (!saleDoc) {
+    try {
+      const { createBusinessSaleDocument } = await import("@/lib/documents/document-service");
+
+      const rawOrderItems = currentOrder.items || (currentOrder as any).restaurant_order_items || [];
+      const mappedItems = rawOrderItems.map((it: any) => {
+        let desc = it.product_name || (it as any).productName;
+        if (it.notes) desc += ` (${it.notes})`;
+        return {
+          id: it.id,
+          productId: it.product_id || undefined,
+          description: desc,
+          quantity: Number(it.quantity || 1),
+          unitPrice: Number(it.unit_price || 0),
+          discount: 0,
+          total: Number(it.subtotal || 0),
+        };
+      });
+
+      if (Number(currentOrder.delivery_fee || 0) > 0) {
+        mappedItems.push({
+          id: `fee-${currentOrder.id}`,
+          description: "Costo de Domicilio / Envío",
+          quantity: 1,
+          unitPrice: Number(currentOrder.delivery_fee),
+          discount: 0,
+          total: Number(currentOrder.delivery_fee),
+        });
+      }
+
+      if (mappedItems.length === 0 && Number(netSaleTotal) > 0) {
+        mappedItems.push({
+          id: `item-${currentOrder.id}`,
+          description: `Consumo Comanda #${currentOrder.order_number}`,
+          quantity: 1,
+          unitPrice: Number(netSaleTotal),
+          discount: 0,
+          total: Number(netSaleTotal),
+        });
+      }
+
+      const validMethod =
+        isCreditSale
+          ? "credit"
+          : paymentData.isSplit
+          ? "other"
+          : primaryMethod === "card" || primaryMethod === "credit"
+          ? "card"
+          : primaryMethod === "transfer"
+          ? "transfer"
+          : primaryMethod === "other"
+          ? "other"
+          : "cash";
+
+      const docRes = await createBusinessSaleDocument(businessId, {
+        customerName: targetCustomer?.full_name || currentOrder.customer_name?.trim() || "Consumidor Final",
+        customerId: targetCustomer?.id || currentOrder.customer_id || null,
+        customerPhone: targetCustomer?.phone || currentOrder.customer_phone?.trim() || null,
+        customerAddress: currentOrder.delivery_address?.trim() || null,
+        documentType: "order",
+        items: mappedItems,
+        discountTotal: discountAmount,
+        total: netSaleTotal,
+        paymentMethod: validMethod as any,
+        status: isCreditSale ? "pending" : "paid",
+        notes: consolidatedNotes || null,
+        restaurantOrderId: orderId,
+        userId: userId || null,
+      });
+
+      if (docRes.success && docRes.document) {
+        saleDoc = docRes.document;
+      }
+    } catch (docErr) {
+      console.error("[registerRestaurantOrderPayment] Error creando documento de venta unificado:", docErr);
+    }
+  }
+
+  // 2.1 [POS-003] Si es venta a crédito: Crear cuenta por cobrar en accounts_receivable e incrementar credit_used
+  if (isCreditSale && targetCustomer) {
+    try {
+      let dueDateIso = paymentData.creditDueDate;
+      if (!dueDateIso) {
+        const dueDays = typeof paymentData.creditDueDays === "number" && paymentData.creditDueDays > 0 ? paymentData.creditDueDays : 30;
+        const target = new Date();
+        target.setDate(target.getDate() + dueDays);
+        dueDateIso = target.toISOString();
+      }
+
+      const nowIso = new Date().toISOString();
+      const { error: arErr } = await supabase
+        .from("accounts_receivable")
+        .insert({
+          business_id: businessId,
+          customer_id: targetCustomer.id,
+          order_id: orderId,
+          sale_document_id: saleDoc?.id || null,
+          amount: netSaleTotal,
+          paid_amount: 0,
+          balance: netSaleTotal,
+          due_date: dueDateIso,
+          status: "pending",
+          notes: `Venta a crédito POS - Pedido #${currentOrder.order_number}`,
+          created_by: userId || null,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+      if (arErr) {
+        console.error("[registerRestaurantOrderPayment] Error creando cuenta por cobrar:", arErr);
+      }
+
+      // Incrementar credit_used del cliente
+      const currentUsed = Number(targetCustomer.credit_used || 0);
+      const newCreditUsed = Number((currentUsed + netSaleTotal).toFixed(2));
+      await supabase
+        .from("customers")
+        .update({
+          credit_used: newCreditUsed,
+          updated_at: nowIso,
+        })
+        .eq("id", targetCustomer.id)
+        .eq("business_id", businessId);
+    } catch (arEx) {
+      console.error("[registerRestaurantOrderPayment] Excepción gestionando crédito:", arEx);
+    }
+  }
+
+  // 2.2 [FID-001] Gestión de Puntos de Fidelización (acumulación y redención)
+  try {
+    let loyaltyCustomer = targetCustomer;
+    const effectiveCustomerId = paymentData.customerId || currentOrder.customer_id;
+    if (!loyaltyCustomer && effectiveCustomerId) {
+      const { data: cust } = await supabase
+        .from("customers")
+        .select("id, full_name, phone")
+        .eq("id", effectiveCustomerId)
+        .eq("business_id", businessId)
+        .maybeSingle();
+      loyaltyCustomer = cust;
+    }
+
+    if (loyaltyCustomer?.id) {
+      const {
+        getLoyaltyProgramConfig,
+        redeemLoyaltyPoints,
+        calculatePointsEarned,
+        accumulateLoyaltyPoints,
+      } = await import("@/lib/loyalty/loyalty-service");
+
+      const loyaltyCfg = await getLoyaltyProgramConfig(businessId);
+
+      // Redención de puntos si se aplicaron al pago
+      if (paymentData.loyaltyPointsRedeemed && paymentData.loyaltyPointsRedeemed > 0) {
+        await redeemLoyaltyPoints(
+          businessId,
+          loyaltyCustomer.id,
+          paymentData.loyaltyPointsRedeemed,
+          orderId,
+          "order",
+          `Redención en Pedido #${currentOrder.order_number}`,
+          userId
+        );
+      }
+
+      // Acumulación de puntos por el valor neto de la compra
+      if (loyaltyCfg.enabled && netSaleTotal > 0) {
+        const pointsEarned = calculatePointsEarned(netSaleTotal, loyaltyCfg);
+        if (pointsEarned > 0) {
+          await accumulateLoyaltyPoints(
+            businessId,
+            loyaltyCustomer.id,
+            pointsEarned,
+            orderId,
+            "order",
+            `Puntos por compra Pedido #${currentOrder.order_number} ($${netSaleTotal.toLocaleString("es-CO")})`,
+            userId
+          );
+        }
+      }
+    }
+  } catch (loyaltyEx) {
+    console.warn("[registerRestaurantOrderPayment] Error en puntos de fidelización:", loyaltyEx);
+  }
+
+  // 3. Registrar cash_movements por cada método de pago [POS-001 & POS-002 & MES-003]
+  // [POS-003] REGLA ESTRICTA: La venta a crédito NO suma al efectivo del turno.
+  try {
+    const { getActiveCashSession, recordCashMovement } = await import("@/lib/cash/cash-service");
+    const activeSession = await getActiveCashSession(businessId);
+    if (activeSession) {
+      const paymentsToRecord =
+        paymentData.isSplit && paymentData.splitPayments && paymentData.splitPayments.length > 0
+          ? paymentData.splitPayments
+          : [{ method: primaryMethod, amount: netSaleTotal + tipAmount }];
+
+      for (const p of paymentsToRecord) {
+        const amt = Number(p.amount);
+        if (amt > 0) {
+          const mLower = (p.method || "").toLowerCase();
+          // Criterio 3: La venta a crédito NO genera movimiento de caja de efectivo
+          if (mLower === "credit" || mLower === "a_credito" || mLower === "a crédito") {
+            continue;
+          }
+
+          let mType: "sale_cash" | "sale_card" | "sale_digital" = "sale_digital";
+          if (mLower === "cash" || mLower === "efectivo") {
+            mType = "sale_cash";
+          } else if (mLower === "card" || mLower === "tarjeta" || mLower === "datafono") {
+            mType = "sale_card";
+          }
+
+          await recordCashMovement(
+            businessId,
+            {
+              sessionId: activeSession.id,
+              movementType: mType,
+              amount: amt,
+              referenceId: orderId,
+              referenceType: "order",
+              notes: `Cobro Pedido #${currentOrder.order_number} [${p.method.toUpperCase()}]`,
+            },
+            userId
+          );
+        }
+      }
+    }
+  } catch (cashErr) {
+    console.error("[registerRestaurantOrderPayment] Error registrando movimientos de caja:", cashErr);
+  }
+
+  // 4. Registrar auditoría de la transacción financiera
   try {
     await logAuditAction({
       businessId,
@@ -1709,8 +2909,14 @@ export async function registerRestaurantOrderPayment(
       entityId: orderId,
       metadata: {
         orderNumber: currentOrder.order_number,
-        total: currentOrder.total,
-        paymentMethod: paymentMethod || "cash",
+        total: netSaleTotal,
+        discountAmount,
+        tipAmount,
+        isSplit: Boolean(paymentData.isSplit),
+        paymentMethod: primaryMethod,
+        splitPayments: paymentData.splitPayments || null,
+        saleDocumentId: saleDoc?.id || null,
+        saleDocumentNumber: saleDoc?.documentNumber || saleDoc?.document_number || null,
       },
     });
   } catch (auditErr) {
@@ -1718,7 +2924,663 @@ export async function registerRestaurantOrderPayment(
   }
 
   const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
-  return { success: true, order: refreshed || undefined };
+  return {
+    success: true,
+    order: refreshed || undefined,
+    document: saleDoc || undefined,
+    summary: {
+      subtotal: originalSubtotal,
+      discountAmount,
+      netSaleTotal,
+      tipAmount,
+      totalCollected: netSaleTotal + tipAmount,
+    },
+  };
 }
+
+/**
+ * [MES-003] Completa el cobro de una mesa (descuentos preestablecidos o personalizados,
+ * propina voluntaria 5%, 10%, 15% o personalizada, pago único o mixto).
+ * Al confirmar:
+ * - El pedido queda en estado `delivered` + `paid` (o `credit`).
+ * - La mesa queda automáticamente libre (`status = 'available'`, `current_order_id = null`).
+ * - La propina se registra separada de la venta neta en los reportes.
+ */
+export async function closeTableOrderWithPayment(
+  businessId: string,
+  tableId: string,
+  paymentInput: string | ProcessOrderPaymentInput,
+  userId?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  table?: RestaurantTable;
+  order?: RestaurantOrderWithDetails;
+  document?: any;
+  summary?: {
+    subtotal: number;
+    discountAmount: number;
+    netSaleTotal: number;
+    tipAmount: number;
+    totalCollected: number;
+  };
+}> {
+  if (!tableId) {
+    return { success: false, error: "Debes seleccionar una mesa para cobrar." };
+  }
+
+  const supabase = await getDbClient();
+
+  try {
+    // 1. Consultar la mesa validando aislamiento multi-tenant
+    const { data: table, error: tblErr } = await supabase
+      .from("restaurant_tables")
+      .select("*")
+      .eq("id", tableId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    if (tblErr || !table) {
+      return { success: false, error: "Mesa no encontrada o no pertenece a este comercio." };
+    }
+
+    // 2. Identificar la comanda activa de la mesa
+    let targetOrderId: string | null = table.current_order_id || null;
+
+    if (!targetOrderId) {
+      const { data: tableOrders } = await supabase
+        .from("restaurant_orders")
+        .select("id, status, payment_status, created_at")
+        .eq("table_id", tableId)
+        .eq("business_id", businessId);
+
+      const openOrder = (tableOrders || []).find(
+        (o: any) => o.status !== "cancelled" && (o.payment_status !== "paid" || o.status !== "delivered")
+      );
+      if (openOrder) {
+        targetOrderId = openOrder.id;
+      }
+    }
+
+    if (!targetOrderId) {
+      return {
+        success: false,
+        error: `La mesa «${table.name_or_number}» no tiene una orden activa pendiente de cobro.`,
+      };
+    }
+
+    // 3. Normalizar input y activar closeTableOrder = true
+    const normalizedInput: ProcessOrderPaymentInput =
+      typeof paymentInput === "string"
+        ? { paymentMethod: paymentInput, closeTableOrder: true }
+        : { ...paymentInput, closeTableOrder: true };
+
+    // 4. Validar cobertura en pago mixto/dividido si aplica
+    if (
+      normalizedInput.isSplit &&
+      (!normalizedInput.splitPayments || normalizedInput.splitPayments.length === 0)
+    ) {
+      return {
+        success: false,
+        error: "Debes especificar al menos un método de pago para el pago dividido.",
+      };
+    }
+
+    const payRes = await registerRestaurantOrderPayment(
+      businessId,
+      targetOrderId,
+      normalizedInput,
+      userId
+    );
+
+    if (!payRes.success) {
+      return { success: false, error: payRes.error };
+    }
+
+    // 5. Garantizar que la mesa quede liberada en restaurant_tables
+    const nowIso = new Date().toISOString();
+    const tblRef = supabase.from("restaurant_tables");
+    if (tblRef && typeof tblRef.update === "function") {
+      await tblRef
+        .update({
+          status: "available",
+          current_order_id: null,
+          updated_at: nowIso,
+        })
+        .eq("id", tableId)
+        .eq("business_id", businessId);
+    }
+
+    const { data: refreshedTable } = await supabase
+      .from("restaurant_tables")
+      .select("*")
+      .eq("id", tableId)
+      .eq("business_id", businessId)
+      .maybeSingle();
+
+    const finalTable: RestaurantTable = (refreshedTable as RestaurantTable) || {
+      ...table,
+      status: "available",
+      current_order_id: null,
+      updated_at: nowIso,
+    };
+
+    return {
+      success: true,
+      table: finalTable,
+      order: payRes.order,
+      document: payRes.document,
+      summary: payRes.summary,
+    };
+  } catch (err: any) {
+    console.error("[closeTableOrderWithPayment] Error:", err);
+    return {
+      success: false,
+      error: err?.message || "Error al procesar el cobro y cierre de la mesa.",
+    };
+  }
+}
+
+/**
+ * [MES-003] Extrae el desglose financiero (descuento, propina separada, venta neta y total recaudado)
+ * de un pedido o documento comercial.
+ */
+export function extractOrderFinancialBreakdown(order: any): OrderFinancialBreakdown {
+  const subtotal = Number(order.subtotal || order.total || 0);
+  const netSaleTotal = Number(order.total || 0);
+  const notes = String(order.notes || "");
+
+  // Extraer descuento
+  let discountAmount = Number(order.discount_total || order.discountTotal || 0);
+  let discountReason: string | null = null;
+  const discountMatch = notes.match(/Descuento:\s*-\$?([\d.,]+)(?:\s*\(([^)]+)\))?/i);
+  if (discountMatch) {
+    if (!discountAmount) {
+      discountAmount = Number(discountMatch[1].replace(/[.,]/g, "")) || 0;
+    }
+    if (discountMatch[2]) {
+      discountReason = discountMatch[2].trim();
+    }
+  } else if (!discountAmount && subtotal > netSaleTotal) {
+    discountAmount = subtotal - netSaleTotal;
+  }
+
+  // Extraer propina (registrada separada de la venta neta)
+  let tipAmount = Number(order.tip_amount || order.tipAmount || 0);
+  let tipPercentage: number | null = null;
+  const tipMatch = notes.match(/Propina:\s*\+\$?([\d.,]+)(?:\s*\(([\d.]+)%\))?/i);
+  if (tipMatch) {
+    if (!tipAmount) {
+      tipAmount = Number(tipMatch[1].replace(/[.,]/g, "")) || 0;
+    }
+    if (tipMatch[2]) {
+      tipPercentage = Number(tipMatch[2]) || null;
+    }
+  }
+
+  const isSplit = /Pago dividido:/i.test(notes);
+
+  return {
+    orderId: order.id,
+    orderNumber: Number(order.order_number || 0),
+    tableId: order.table_id || null,
+    subtotal,
+    discountAmount,
+    discountReason,
+    netSaleTotal,
+    tipAmount,
+    tipPercentage,
+    totalCollected: netSaleTotal + tipAmount,
+    isSplit,
+    paymentStatus: order.payment_status || order.status || "pending",
+    status: order.status || "received",
+    createdAt: order.created_at || order.issued_at || new Date().toISOString(),
+  };
+}
+
+/**
+ * [MES-003] Genera el reporte de ventas y propinas separadas para el negocio.
+ * Garantiza que `totalNetSales` contenga únicamente la venta neta y `totalTips`
+ * contenga las propinas separadas para liquidación de personal y reportes contables.
+ */
+export async function getTableSalesAndTipsReport(
+  businessId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<TableSalesAndTipsReport> {
+  const supabase = await getDbClient();
+
+  let query = supabase
+    .from("restaurant_orders")
+    .select("*")
+    .eq("business_id", businessId);
+
+  if (startDate && typeof query.gte === "function") {
+    query = query.gte("created_at", startDate);
+  }
+  if (endDate && typeof query.lte === "function") {
+    query = query.lte("created_at", endDate);
+  }
+
+  const { data: rawOrders } = await query;
+  const validOrders = (rawOrders || []).filter(
+    (o: any) =>
+      o.status !== "cancelled" &&
+      (o.payment_status === "paid" || o.payment_status === "credit")
+  );
+
+  let totalNetSales = 0;
+  let totalTips = 0;
+  let totalDiscounts = 0;
+  let ordersWithTipCount = 0;
+  let ordersWithDiscountCount = 0;
+  const breakdowns: OrderFinancialBreakdown[] = [];
+
+  for (const ord of validOrders) {
+    const bd = extractOrderFinancialBreakdown(ord);
+    totalNetSales += bd.netSaleTotal;
+    totalTips += bd.tipAmount;
+    totalDiscounts += bd.discountAmount;
+    if (bd.tipAmount > 0) ordersWithTipCount += 1;
+    if (bd.discountAmount > 0) ordersWithDiscountCount += 1;
+    breakdowns.push(bd);
+  }
+
+  return {
+    totalNetSales: Number(totalNetSales.toFixed(2)),
+    totalTips: Number(totalTips.toFixed(2)),
+    totalDiscounts: Number(totalDiscounts.toFixed(2)),
+    totalCollected: Number((totalNetSales + totalTips).toFixed(2)),
+    ordersCount: breakdowns.length,
+    ordersWithTipCount,
+    ordersWithDiscountCount,
+    orders: breakdowns,
+  };
+}
+
+/**
+ * Consulta pedidos activos para el Monitor de Cocina (KDS) [KDS-001].
+ * Retorna pedidos en estados: received, in_preparation, ready, y los más recientes delivered.
+ * Ordena los pedidos activos por created_at ASC (FIFO de preparación).
+ */
+export async function getKdsOrders(
+  businessId: string,
+  limitDelivered: number = 30
+): Promise<RestaurantOrderWithDetails[]> {
+  const supabase = await getDbClient();
+
+  try {
+    // 1. Consultar pedidos activos y mesas en paralelo
+    const [activeRes, deliveredRes, tables] = await Promise.all([
+      // Pedidos activos (FIFO: más antiguos primero para atención en cocina)
+      supabase
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers, variant_id, variant_name)")
+        .eq("business_id", businessId)
+        .in("status", ["received", "in_preparation", "ready", "pending"])
+        .order("created_at", { ascending: true }),
+
+      // Pedidos entregados recientes (LIFO: más recientes primero)
+      supabase
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers, variant_id, variant_name)")
+        .eq("business_id", businessId)
+        .eq("status", "delivered")
+        .order("updated_at", { ascending: false })
+        .limit(limitDelivered),
+
+      getRestaurantTables(businessId),
+    ]);
+
+    const rawActive = activeRes.data || [];
+    const rawDelivered = deliveredRes.data || [];
+
+    const tableMap = new Map<string, string>();
+    for (const tbl of tables) {
+      tableMap.set(tbl.id, tbl.name_or_number);
+    }
+
+    const formatOrder = (row: any): RestaurantOrderWithDetails => {
+      const items = Array.isArray(row.restaurant_order_items) ? row.restaurant_order_items : [];
+      const tableName = row.table_id ? tableMap.get(row.table_id) || "Mesa" : null;
+      const verification = extractDeliveryVerification(row.notes);
+
+      return {
+        id: row.id,
+        business_id: row.business_id,
+        order_number: row.order_number,
+        status: row.status,
+        order_type: row.order_type,
+        channel_origin: row.channel_origin,
+        subtotal: Number(row.subtotal || 0),
+        delivery_fee: Number(row.delivery_fee || 0),
+        total: Number(row.total || 0),
+        notes: verification.cleanNotes,
+        table_id: row.table_id || null,
+        tableName,
+        customer_name: row.customer_name || null,
+        customer_phone: row.customer_phone || null,
+        delivery_address: row.delivery_address || null,
+        delivery_reference: row.delivery_reference || null,
+        delivery_status: row.delivery_status || null,
+        driver_name: row.driver_name || null,
+        delivery_verification_code: verification.code,
+        delivery_verification_attempts: verification.attempts,
+        payment_status: row.payment_status || "pending",
+        idempotency_key: row.idempotency_key || null,
+        idempotency_hash: row.idempotency_hash || null,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        itemsCount: items.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
+        items,
+        deliveryVerificationCode: verification.code,
+        deliveryVerificationAttempts: verification.attempts,
+      };
+    };
+
+    const activeOrders = rawActive.map(formatOrder);
+    const deliveredOrders = rawDelivered.map(formatOrder);
+
+    // Combinar: activos primero (FIFO), seguidos de entregados recientes
+    return [...activeOrders, ...deliveredOrders];
+  } catch (err) {
+    console.error("[getKdsOrders] Error consultando órdenes para KDS:", err);
+    return [];
+  }
+}
+
+/**
+ * [KDS-002] Consulta la configuración de umbrales de alerta de tiempo para el monitor de cocina (KDS).
+ * Prioriza `businesses.settings.kds_alerts`, y si no está configurada, retorna los umbrales predeterminados (15 min / 30 min).
+ */
+export async function getKdsAlertConfig(businessId: string): Promise<KdsTimeAlertConfig> {
+  try {
+    const supabase = await getDbClient();
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("settings")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    if (!error && data?.settings && typeof data.settings === "object") {
+      const cfg = (data.settings as Record<string, any>).kds_alerts;
+      if (cfg && typeof cfg === "object") {
+        const warningMinutes = Number(cfg.warningMinutes);
+        const criticalMinutes = Number(cfg.criticalMinutes);
+        if (warningMinutes > 0 && criticalMinutes > warningMinutes) {
+          return { warningMinutes, criticalMinutes };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[getKdsAlertConfig] Error al consultar configuración KDS:", err);
+  }
+  return DEFAULT_KDS_TIME_ALERTS;
+}
+
+/**
+ * [KDS-002] Actualiza y persiste la configuración de umbrales de alerta de tiempo de preparación para KDS.
+ * Valida que los valores sean positivos y que `criticalMinutes > warningMinutes`.
+ */
+export async function saveKdsAlertConfig(
+  businessId: string,
+  config: KdsTimeAlertConfig
+): Promise<{ success: boolean; config?: KdsTimeAlertConfig; error?: string }> {
+  const warningMinutes = Math.max(1, Math.floor(Number(config?.warningMinutes) || 15));
+  const criticalMinutes = Math.max(warningMinutes + 1, Math.floor(Number(config?.criticalMinutes) || 30));
+
+  if (criticalMinutes <= warningMinutes) {
+    return {
+      success: false,
+      error: "El umbral de alerta crítica (roja) debe ser estrictamente mayor al umbral de advertencia (amarilla).",
+    };
+  }
+
+  try {
+    const supabase = await getDbClient();
+    const { data: biz, error: fetchErr } = await supabase
+      .from("businesses")
+      .select("settings")
+      .eq("id", businessId)
+      .single();
+
+    if (fetchErr || !biz) {
+      return { success: false, error: "Negocio no encontrado." };
+    }
+
+    const currentSettings = (biz.settings && typeof biz.settings === "object" ? biz.settings : {}) as Record<string, any>;
+    const updatedSettings = {
+      ...currentSettings,
+      kds_alerts: {
+        warningMinutes,
+        criticalMinutes,
+        updated_at: new Date().toISOString(),
+      },
+    };
+
+    const { error: updateErr } = await supabase
+      .from("businesses")
+      .update({ settings: updatedSettings })
+      .eq("id", businessId);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    return {
+      success: true,
+      config: { warningMinutes, criticalMinutes },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Error al guardar configuración de alertas KDS.",
+    };
+  }
+}
+
+/**
+ * [KDS-003] Consulta y enriquece los tickets abiertos (no cobrados) del restaurante.
+ * Filtra órdenes donde:
+ *   - business_id === businessId
+ *   - status !== 'cancelled'
+ *   - payment_status !== 'paid'
+ * Calcula KPIs consolidados:
+ *   - En esta vista: total tickets y valor acumulado en COP.
+ *   - Demorados: tickets que superan warningMinutes y su valor en COP.
+ *   - Críticos: tickets que superan criticalMinutes y su valor en COP.
+ * Enriquece cada ticket con:
+ *   - Info de canal (POS, QR, Domicilio, WhatsApp)
+ *   - Servicio (En mesa, Para llevar, Domicilio)
+ *   - Mesa y Sala ("Mesa 4 · Salón Principal")
+ *   - Cliente (nombre y teléfono)
+ *   - Comensales (número de comensales o capacidad)
+ *   - Cajero / creador (nombre del usuario o canal origen)
+ *   - Tiempo transcurrido y nivel de alerta (normal, warning, critical)
+ */
+export async function getKdsOpenTickets(
+  businessId: string
+): Promise<KdsOpenTicketsResponse> {
+  const supabase = await getDbClient();
+  const alertConfig = await getKdsAlertConfig(businessId);
+
+  try {
+    // 1. Consultar en paralelo órdenes abiertas, mesas y salas
+    const [ordersRes, tables, rooms] = await Promise.all([
+      supabase
+        .from("restaurant_orders")
+        .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers, variant_id, variant_name)")
+        .eq("business_id", businessId)
+        .neq("status", "cancelled")
+        .neq("payment_status", "paid")
+        .order("created_at", { ascending: true }),
+      getRestaurantTables(businessId),
+      getRestaurantRooms(businessId),
+    ]);
+
+    const rawOrders = ordersRes.data || [];
+
+    // Mapeo de salas
+    const roomsMap = new Map<string, string>();
+    for (const rm of rooms) {
+      roomsMap.set(rm.id, rm.name);
+    }
+
+    // Mapeo de mesas
+    const tableMap = new Map<string, { name: string; roomId?: string | null; capacity?: number | null }>();
+    for (const tbl of tables) {
+      tableMap.set(tbl.id, {
+        name: tbl.name_or_number,
+        roomId: tbl.room_id || null,
+        capacity: tbl.capacity || null,
+      });
+    }
+
+    // Consultar nombres de cajeros / creadores a partir de `created_by`
+    const userIds = Array.from(
+      new Set(rawOrders.map((o: any) => o.created_by).filter((id: any): id is string => Boolean(id)))
+    );
+    const cashierMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      try {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        if (profiles) {
+          for (const p of profiles) {
+            if (p.full_name) cashierMap.set(p.id, p.full_name);
+          }
+        }
+      } catch (profErr) {
+        console.warn("[getKdsOpenTickets] No se pudieron cargar perfiles:", profErr);
+      }
+    }
+
+    // Parseador auxiliar de comensales desde notas
+    const extractDiners = (notes?: string | null, tableCapacity?: number | null): number => {
+      if (notes) {
+        const match = notes.match(/(\d+)\s*(?:personas?|comensales?)/i);
+        if (match && match[1]) {
+          const parsed = parseInt(match[1], 10);
+          if (parsed > 0) return parsed;
+        }
+      }
+      if (tableCapacity && tableCapacity > 0) return tableCapacity;
+      return 1;
+    };
+
+    let totalAmount = 0;
+    let delayedCount = 0;
+    let delayedAmount = 0;
+    let criticalCount = 0;
+    let criticalAmount = 0;
+
+    const tickets: OpenTicketDetails[] = rawOrders.map((row: any) => {
+      const items = Array.isArray(row.restaurant_order_items) ? row.restaurant_order_items : [];
+      const tblInfo = row.table_id ? tableMap.get(row.table_id) : null;
+      const tableName = tblInfo ? tblInfo.name : null;
+      const roomName = tblInfo?.roomId ? roomsMap.get(tblInfo.roomId) || null : null;
+      const verification = extractDeliveryVerification(row.notes);
+
+      // Tiempo transcurrido y alerta [KDS-002]
+      const { level, elapsedMinutes, elapsedFormatted } = getKdsAlertLevel(
+        row.created_at,
+        alertConfig
+      );
+
+      // Cajero
+      let cashierName: string | null = null;
+      if (row.created_by && cashierMap.has(row.created_by)) {
+        cashierName = cashierMap.get(row.created_by)!;
+      } else if (row.channel_origin === "digital_menu") {
+        cashierName = "Menú QR (Auto-pedido)";
+      } else if (row.channel_origin === "whatsapp") {
+        cashierName = "Pedido Online / WhatsApp";
+      } else {
+        cashierName = "Caja Principal";
+      }
+
+      const total = Number(row.total || 0);
+      const dinersCount = extractDiners(verification.cleanNotes, tblInfo?.capacity);
+
+      // Acumular KPIs
+      totalAmount += total;
+      if (level === "critical") {
+        criticalCount++;
+        criticalAmount += total;
+      } else if (level === "warning") {
+        delayedCount++;
+        delayedAmount += total;
+      }
+
+      return {
+        id: row.id,
+        business_id: row.business_id,
+        order_number: row.order_number,
+        status: row.status,
+        order_type: row.order_type,
+        channel_origin: row.channel_origin,
+        subtotal: Number(row.subtotal || 0),
+        delivery_fee: Number(row.delivery_fee || 0),
+        total,
+        notes: verification.cleanNotes,
+        table_id: row.table_id || null,
+        tableName,
+        roomName,
+        customer_name: row.customer_name || null,
+        customer_phone: row.customer_phone || null,
+        delivery_address: row.delivery_address || null,
+        delivery_reference: row.delivery_reference || null,
+        delivery_status: row.delivery_status || null,
+        driver_name: row.driver_name || null,
+        delivery_verification_code: verification.code,
+        delivery_verification_attempts: verification.attempts,
+        payment_status: row.payment_status || "pending",
+        idempotency_key: row.idempotency_key || null,
+        idempotency_hash: row.idempotency_hash || null,
+        created_by: row.created_by || null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        itemsCount: items.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0),
+        items,
+        cashierName,
+        dinersCount,
+        elapsedMinutes,
+        alertLevel: level,
+        formattedElapsed: elapsedFormatted,
+      };
+    });
+
+    const summary: OpenTicketsSummary = {
+      totalCount: tickets.length,
+      totalAmount,
+      delayedCount,
+      delayedAmount,
+      criticalCount,
+      criticalAmount,
+    };
+
+    return { tickets, summary, alertConfig };
+  } catch (err) {
+    console.error("[getKdsOpenTickets] Error consultando tickets abiertos:", err);
+    return {
+      tickets: [],
+      summary: {
+        totalCount: 0,
+        totalAmount: 0,
+        delayedCount: 0,
+        delayedAmount: 0,
+        criticalCount: 0,
+        criticalAmount: 0,
+      },
+      alertConfig,
+    };
+  }
+}
+
+
+
 
 

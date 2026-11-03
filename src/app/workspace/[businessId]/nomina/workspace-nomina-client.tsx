@@ -28,16 +28,18 @@ import {
   getWorkspacePayrollPeriodsAction,
   getWorkspacePayrollPeriodDetailAction,
   createWorkspacePayrollPeriodAction,
+  approveWorkspacePayrollPeriodAction,
   registerWorkspacePayrollPaymentAction,
   cancelWorkspacePayrollReceiptAction,
-} from "../personal/actions";
+} from "./actions";
 import {
-  AdminDataTable,
-  AdminDataTableColumn,
-  AdminKpiCard,
-  AdminKpiGrid,
-  AdminConfirmDialog,
-} from "@/components/admin/ui";
+  DataTable,
+  type DataTableColumn,
+  KpiCard,
+  KpiGrid,
+  ConfirmDialog,
+} from "@/components/ui";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface WorkspaceNominaClientProps {
@@ -71,6 +73,8 @@ export function WorkspaceNominaClient({
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<PayrollReceiptModel | null>(null);
   const [voucherReceipt, setVoucherReceipt] = useState<PayrollReceiptModel | null>(null);
+  const [receiptToCancel, setReceiptToCancel] = useState<{ id: string; name: string } | null>(null);
+  const [periodToApprove, setPeriodToApprove] = useState<PayrollPeriodModel | null>(null);
 
   // Formulario nuevo período
   const [newPeriodData, setNewPeriodData] = useState({
@@ -129,6 +133,22 @@ export function WorkspaceNominaClient({
     });
   };
 
+  const handleApprovePeriod = (periodId: string) => {
+    startTransition(async () => {
+      const res = await approveWorkspacePayrollPeriodAction(businessId, periodId);
+      if (res.success && "period" in res && res.period) {
+        toast.success(`Período "${res.period.name}" aprobado exitosamente. Listo para desembolso.`);
+        setPeriodToApprove(null);
+        setSelectedPeriod(res.period);
+        setPeriods((prev) =>
+          prev.map((p) => (p.id === periodId ? { ...p, status: "approved" } : p))
+        );
+      } else {
+        toast.error(("error" in res && res.error) || "No fue posible aprobar el período de nómina.");
+      }
+    });
+  };
+
   const handleRegisterPaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedReceipt) return;
@@ -176,8 +196,8 @@ export function WorkspaceNominaClient({
   return (
     <div className="space-y-6 font-body">
       {/* 1. KPIS DEL PERÍODO ACTIVO */}
-      <AdminKpiGrid cols={3}>
-        <AdminKpiCard
+      <KpiGrid cols={3}>
+        <KpiCard
           title="Total a Pagar en Período"
           value={`$ ${totalCalculatedNet.toLocaleString("es-CO")}`}
           subtext={selectedPeriod?.name || "Sin período seleccionado"}
@@ -185,7 +205,7 @@ export function WorkspaceNominaClient({
           variant="purple"
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Comprobantes Pagados"
           value={paidCount}
           subtext="Egresos asentados en finanzas"
@@ -193,14 +213,14 @@ export function WorkspaceNominaClient({
           variant="emerald"
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Obligaciones Pendientes"
           value={pendingCount}
           subtext="Por desembolsar"
           icon={<Clock className="w-4 h-4" />}
           variant="amber"
         />
-      </AdminKpiGrid>
+      </KpiGrid>
 
       {/* AVISO DE ALCANCE OPERATIVO */}
       <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-500/10 border border-blue-200/60 dark:border-blue-500/20 text-xs text-blue-900 dark:text-blue-200">
@@ -218,30 +238,63 @@ export function WorkspaceNominaClient({
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">
               Período de Liquidación:
             </label>
-            <select
-              value={selectedPeriod?.id || ""}
-              onChange={(e) => loadPeriodDetail(e.target.value)}
-              className="text-xs font-bold text-slate-900 dark:text-white bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
-            >
-              {periods.map((p) => (
-                <option key={p.id} value={p.id} className="dark:bg-[#0D0F16]">
-                  {p.name} ({p.startDate} a {p.endDate}) — {p.status === "paid" ? "Pagado" : "Pendiente"}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedPeriod?.id || ""}
+                onChange={(e) => loadPeriodDetail(e.target.value)}
+                className="text-xs font-bold text-slate-900 dark:text-white bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
+              >
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id} className="dark:bg-[#0D0F16]">
+                    {p.name} ({p.startDate} a {p.endDate}) — {p.status === "paid" ? "Pagado" : p.status === "approved" ? "Aprobado" : "Calculado"}
+                  </option>
+                ))}
+              </select>
+
+              {selectedPeriod && (
+                <div>
+                  {selectedPeriod.status === "paid" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3" /> Pagado
+                    </span>
+                  ) : selectedPeriod.status === "approved" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                      <ShieldCheck className="w-3 h-3" /> Aprobado para Pago
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      <Clock className="w-3 h-3" /> Calculado (Pendiente Aprobación)
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {canCalculate && (
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Liquidar Nuevo Período</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canCalculate && selectedPeriod && (selectedPeriod.status === "calculated" || selectedPeriod.status === "draft") && (
+            <button
+              type="button"
+              onClick={() => setPeriodToApprove(selectedPeriod)}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Aprobar Período</span>
+            </button>
+          )}
+
+          {canCalculate && (
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Liquidar Nuevo Período</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 3. TABLA DE COMPROBANTES / LIQUIDACIONES */}
@@ -275,12 +328,12 @@ export function WorkspaceNominaClient({
             </span>
           </div>
 
-          <AdminDataTable<PayrollReceiptModel>
+          <DataTable<PayrollReceiptModel>
             data={receipts}
             columns={[
               {
                 header: "Colaborador",
-                render: (rec) => (
+                render: (rec: PayrollReceiptModel) => (
                   <div>
                     <span className="font-bold text-slate-900 dark:text-white">{rec.employeeName}</span>
                     <span className="block text-[10px] text-slate-400 font-normal">
@@ -293,31 +346,31 @@ export function WorkspaceNominaClient({
                 header: "Base Período",
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap font-mono text-slate-600 dark:text-slate-300",
-                render: (rec) => `$ ${rec.baseSalary.toLocaleString("es-CO")}`,
+                render: (rec: PayrollReceiptModel) => `$ ${rec.baseSalary.toLocaleString("es-CO")}`,
               },
               {
                 header: "Bonos / Extras (+)",
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap font-mono text-emerald-600 dark:text-emerald-400",
-                render: (rec) => `+ $ ${rec.bonusesAmount.toLocaleString("es-CO")}`,
+                render: (rec: PayrollReceiptModel) => `+ $ ${rec.bonusesAmount.toLocaleString("es-CO")}`,
               },
               {
                 header: "Deducciones (-)",
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap font-mono text-red-500 dark:text-red-400",
-                render: (rec) => `- $ ${(rec.deductionsAmount + rec.advancesAmount).toLocaleString("es-CO")}`,
+                render: (rec: PayrollReceiptModel) => `- $ ${(rec.deductionsAmount + rec.advancesAmount).toLocaleString("es-CO")}`,
               },
               {
                 header: "Neto a Pagar",
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap font-mono font-bold text-slate-900 dark:text-white",
-                render: (rec) => `$ ${rec.netAmount.toLocaleString("es-CO")}`,
+                render: (rec: PayrollReceiptModel) => `$ ${rec.netAmount.toLocaleString("es-CO")}`,
               },
               {
                 header: "Estado",
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap",
-                render: (rec) => (
+                render: (rec: PayrollReceiptModel) => (
                   <>
                     {rec.status === "paid" ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
@@ -342,7 +395,7 @@ export function WorkspaceNominaClient({
                 headerClassName: "whitespace-nowrap text-right",
                 className: "whitespace-nowrap text-right",
                 align: "right",
-                render: (rec) => (
+                render: (rec: PayrollReceiptModel) => (
                   <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                     {rec.status === "pending" && canPay && (
                       <button
@@ -373,7 +426,7 @@ export function WorkspaceNominaClient({
                     {rec.status === "paid" && canCancel && (
                       <button
                         type="button"
-                        onClick={() => handleCancelReceipt(rec.id, rec.employeeName)}
+                        onClick={() => setReceiptToCancel({ id: rec.id, name: rec.employeeName })}
                         className="text-[11px] text-red-500 hover:text-red-700 hover:underline cursor-pointer"
                         title="Revertir y anular comprobante"
                       >
@@ -384,7 +437,7 @@ export function WorkspaceNominaClient({
                 ),
               },
             ]}
-            keyExtractor={(rec) => rec.id}
+            keyExtractor={(rec: PayrollReceiptModel) => rec.id}
             minWidth="min-w-[850px]"
           />
         </div>
@@ -666,6 +719,41 @@ export function WorkspaceNominaClient({
           </div>
         </ModalPortal>
       )}
+
+      {/* MODAL: CONFIRMACIÓN PARA APROBAR PERÍODO DE NÓMINA */}
+      <ConfirmModal
+        isOpen={Boolean(periodToApprove)}
+        onClose={() => setPeriodToApprove(null)}
+        onConfirm={() => {
+          if (periodToApprove) {
+            handleApprovePeriod(periodToApprove.id);
+          }
+        }}
+        title="Aprobar Período de Nómina"
+        description={`¿Confirmas la aprobación del período "${periodToApprove?.name || ""}" por un valor neto de $${(periodToApprove?.totalNet || 0).toLocaleString("es-CO")} (${periodToApprove?.receiptsCount || 0} colaboradores)? Una vez aprobado, quedará formalmente validado para proceder con los desembolsos y generación de comprobantes.`}
+        confirmText="Sí, aprobar nómina"
+        cancelText="Revisar liquidación"
+        variant="default"
+        isLoading={isPending}
+      />
+
+      {/* MODAL: CONFIRMACIÓN PARA ANULAR COMPROBANTE DE PAGO */}
+      <ConfirmModal
+        isOpen={Boolean(receiptToCancel)}
+        onClose={() => setReceiptToCancel(null)}
+        onConfirm={() => {
+          if (receiptToCancel) {
+            handleCancelReceipt(receiptToCancel.id, receiptToCancel.name);
+            setReceiptToCancel(null);
+          }
+        }}
+        title="Anular Comprobante de Nómina"
+        description={`¿Estás seguro de anular el comprobante pagado de ${receiptToCancel?.name || ""}? Esta acción cancelará automáticamente el egreso financiero vinculado en Gastos.`}
+        confirmText="Sí, anular comprobante"
+        cancelText="Conservar comprobante"
+        variant="danger"
+        isLoading={isPending}
+      />
     </div>
   );
 }

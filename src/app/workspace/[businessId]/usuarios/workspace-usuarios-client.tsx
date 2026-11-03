@@ -41,19 +41,14 @@ import {
   resetWorkspaceUserPasswordAction,
   removeWorkspaceUserAction,
 } from "./actions";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { TableToolbar } from "@/components/ui/table-toolbar";
+import { Select } from "@/components/ui/select";
 import {
-  AdminDataTable,
-  AdminDataTableColumn,
-  AdminPagination,
-  AdminEmptyState,
-  AdminTableToolbar,
-  AdminKpiCard,
-  AdminKpiGrid,
-  AdminTabs,
-  AdminSelect,
-  AdminConfirmDialog,
-  AdminStatusBadge,
-} from "@/components/admin/ui";
+  KpiCard,
+  KpiGrid,
+  ConfirmDialog,
+} from "@/components/ui";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface WorkspaceUsuariosClientProps {
@@ -188,10 +183,32 @@ export function WorkspaceUsuariosClient({
     });
   };
 
+  // Filtrado reactivo en tiempo real al escribir (debounce 300ms)
+  const isSearchInitialMount = React.useRef(true);
+  useEffect(() => {
+    if (isSearchInitialMount.current) {
+      isSearchInitialMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchUsers(1, selectedStatus, selectedRole, searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
     fetchUsers(1, selectedStatus, selectedRole, searchQuery);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setCurrentPage(1);
+    fetchUsers(1, selectedStatus, selectedRole, "");
   };
 
   const handleStatusChange = (status: string) => {
@@ -351,8 +368,8 @@ export function WorkspaceUsuariosClient({
 
   return (
     <div className="space-y-6 font-body">
-      <AdminKpiGrid cols={3}>
-        <AdminKpiCard
+      <KpiGrid cols={3}>
+        <KpiCard
           title="Total Empleados"
           value={data.stats.total}
           subtext="Colaboradores del negocio"
@@ -364,7 +381,7 @@ export function WorkspaceUsuariosClient({
           }}
         />
 
-        <AdminKpiCard
+        <KpiCard
           title="Cuentas Activas"
           value={data.stats.activeCount}
           subtext="Operativas sin restricción"
@@ -373,34 +390,33 @@ export function WorkspaceUsuariosClient({
           isSelected={selectedStatus === "active"}
           onClick={() => handleStatusChange("active")}
         />
-      </AdminKpiGrid>
+      </KpiGrid>
 
-      <AdminTableToolbar
+      <TableToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
+        onClearSearch={handleClearSearch}
         searchPlaceholder="Buscar por nombre, correo, teléfono o negocio..."
         onRefresh={() => fetchUsers()}
         isPending={isPending}
         filters={
-          <>
-            <AdminSelect
-              value={selectedStatus}
-              onChange={(val) => handleStatusChange(val)}
-              options={[
-                { value: "all", label: "Todos los estados" },
-                { value: "active", label: "Activo" },
-                { value: "invited", label: "Invitación pendiente" },
-                { value: "disabled", label: "Deshabilitado" },
-                { value: "blocked", label: "Bloqueado" },
-              ]}
-            />
-          </>
+          <Select
+            value={selectedStatus}
+            onChange={(val) => handleStatusChange(val)}
+            options={[
+              { value: "all", label: "Todos los estados" },
+              { value: "active", label: "Activo" },
+              { value: "invited", label: "Invitación pendiente" },
+              { value: "disabled", label: "Deshabilitado" },
+              { value: "blocked", label: "Bloqueado" },
+            ]}
+          />
         }
       />
 
-      {/* TABLA UNIFICADA CON ADMIN-DATA-TABLE */}
-      <AdminDataTable<UserModel>
+      {/* TABLA UNIFICADA CON DATA-TABLE CANÓNICO */}
+      <DataTable<UserModel>
         isLoading={isPending}
         data={data.users}
         columns={[
@@ -657,7 +673,7 @@ export function WorkspaceUsuariosClient({
       />
 
       {/* 5. MODAL REUTILIZABLE DE CONFIRMACIÓN */}
-      <AdminConfirmDialog
+      <ConfirmDialog
         isOpen={confirmModal.isOpen && !!confirmModal.user}
         onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
         onConfirm={executeConfirmAction}

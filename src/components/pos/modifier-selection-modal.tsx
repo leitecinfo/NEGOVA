@@ -44,7 +44,7 @@ export function ModifierSelectionModal({
 
   const rawVariants: ProductVariant[] = (product?.metadata as any)?.variants || [];
   const hasVariants = Boolean(
-    (product?.metadata as any)?.has_variants && rawVariants.length > 0
+    ((product?.metadata as any)?.has_variants || rawVariants.length > 0) && rawVariants.length > 0
   );
 
   const modifierGroups: ProductModifierGroup[] =
@@ -428,7 +428,7 @@ export function ModifierSelectionModal({
           </div>
 
           {/* FOOTER: TOTAL Y BOTÓN DE ACCIÓN */}
-          <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/5 space-y-3 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0">
             <div className="flex items-center justify-between">
               {/* Selector de cantidad */}
               <div className="flex items-center gap-3">
@@ -438,7 +438,8 @@ export function ModifierSelectionModal({
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     disabled={quantity <= 1}
-                    className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg disabled:opacity-30 transition-colors"
+                    className="w-9 h-9 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg disabled:opacity-30 transition-colors cursor-pointer active:scale-95"
+                    aria-label="Disminuir cantidad"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -448,7 +449,8 @@ export function ModifierSelectionModal({
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => q + 1)}
-                    className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors"
+                    className="w-9 h-9 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer active:scale-95"
+                    aria-label="Aumentar cantidad"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -471,7 +473,7 @@ export function ModifierSelectionModal({
               type="button"
               disabled={!validation.isValid}
               onClick={handleSubmit}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
+              className="w-full inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-md shadow-[#ED500A]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] min-h-[46px]"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>

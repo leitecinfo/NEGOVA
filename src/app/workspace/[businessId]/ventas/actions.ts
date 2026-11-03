@@ -12,6 +12,7 @@ import type {
   BusinessDocumentItem,
 } from "@/lib/documents/types";
 import { revalidatePath } from "next/cache";
+import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 
 export interface CreateSaleItemInput {
   description: string;
@@ -32,6 +33,7 @@ export interface CreateSaleActionInput {
   items: CreateSaleItemInput[];
   discountTotal?: number;
   taxTotal?: number;
+  generateElectronicInvoice?: boolean;
 }
 
 /**
@@ -45,12 +47,20 @@ export async function createSaleAction(
   success: boolean;
   documentId?: string;
   documentNumber?: string;
+  cufe?: string;
+  electronicNumber?: string;
   error?: string;
 }> {
   // 1. Autorización multi-tenant y permiso RBAC sales.create
   const auth = await verifyWorkspaceAction(businessId, "sales.create");
   if (!auth.success || !auth.context) {
     return { success: false, error: auth.error || "Acceso no autorizado" };
+  }
+
+  // Validación de límites de suscripción en servidor [SUB-001]
+  const planLimit = await checkPlanLimit(businessId, "sales");
+  if (!planLimit.allowed) {
+    return { success: false, error: planLimit.error };
   }
 
   // 2. Validaciones de negocio
@@ -118,6 +128,39 @@ export async function createSaleAction(
     return { success: false, error: result.error || "No se pudo registrar la venta." };
   }
 
+  // 5. Facturación Electrónica DIAN [DIAN-001]
+  let cufe: string | undefined;
+  let electronicNumber: string | undefined;
+
+  const shouldGenerateDianInvoice = Boolean(input.generateElectronicInvoice);
+  if (shouldGenerateDianInvoice) {
+    try {
+      const { generateElectronicInvoiceForSale } = await import("@/lib/dian/dian-service");
+      const feRes = await generateElectronicInvoiceForSale(
+        businessId,
+        {
+          id: result.document.id,
+          documentNumber: result.document.documentNumber,
+          customerName: result.document.customerName,
+          customerId: result.document.customerId,
+          customerEmail: result.document.customerEmail,
+          subtotal: result.document.subtotal,
+          taxTotal: result.document.taxTotal,
+          discountTotal: result.document.discountTotal,
+          total: result.document.total,
+          items: result.document.items,
+        },
+        auth.context.userId
+      );
+      if (feRes.success && feRes.invoice) {
+        cufe = feRes.invoice.cufe;
+        electronicNumber = feRes.invoice.documentNumber;
+      }
+    } catch (dianErr) {
+      console.warn("[createSaleAction] Error al emitir factura electrónica DIAN:", dianErr);
+    }
+  }
+
   revalidatePath(`/workspace/${businessId}`);
   revalidatePath(`/workspace/${businessId}/ventas`);
 
@@ -125,25 +168,29 @@ export async function createSaleAction(
     success: true,
     documentId: result.document.id,
     documentNumber: result.document.documentNumber,
+    cufe,
+    electronicNumber,
   };
 }
 
 /**
  * Server Action: Anular un comprobante de venta (Transición de estado a 'cancelled')
- * Protegido con permiso sales.cancel (owner).
+ * Protegido con validación de PIN de autorización para operaciones sensibles [EMP-002 / POS-005].
  */
 export async function cancelSaleAction(
   businessId: string,
   documentId: string,
-  reason: string
+  reason: string,
+  pin?: string
 ): Promise<{
   success: boolean;
+  authorizerName?: string;
   error?: string;
 }> {
-  // 1. Autorización multi-tenant y permiso RBAC sales.cancel (owner)
-  const auth = await verifyWorkspaceAction(businessId, "sales.cancel");
+  // 1. Autorización multi-tenant y pertenencia al negocio (al menos sales.view)
+  const auth = await verifyWorkspaceAction(businessId, "sales.view");
   if (!auth.success || !auth.context) {
-    return { success: false, error: auth.error || "No tiene permisos para anular documentos de venta." };
+    return { success: false, error: auth.error || "No tiene acceso al módulo de ventas." };
   }
 
   const cleanReason = (reason || "").trim();
@@ -151,21 +198,96 @@ export async function cancelSaleAction(
     return { success: false, error: "Debe especificar un motivo de cancelación de al menos 3 caracteres." };
   }
 
-  // 2. Invocar servicio comercial de cancelación
+  // 2. Validación de PIN de autorización para operación sensible [EMP-002 / POS-005]
+  const {
+    verifyPinAuthorization,
+    doesBusinessRequirePinForCancellation,
+  } = await import("@/lib/security/pin-service");
+
+  const cleanPin = (pin || "").trim();
+  let authorizerName: string | undefined;
+  let authorizerId: string | undefined;
+
+  if (cleanPin.length > 0) {
+    if (cleanPin.length < 4 || cleanPin.length > 6) {
+      return {
+        success: false,
+        error: "Se requiere el PIN de 4 a 6 dígitos de un supervisor o colaborador autorizado para anular la venta.",
+      };
+    }
+
+    const pinAuth = await verifyPinAuthorization(businessId, {
+      pin: cleanPin,
+      requiredPermission: "sales.cancel",
+      action: "sale.cancel",
+      entity: "sale_document",
+      entityId: documentId,
+      details: { reason: cleanReason },
+      actorUserId: auth.context.userId,
+    });
+
+    if (!pinAuth.success || !pinAuth.authorized) {
+      return {
+        success: false,
+        error: pinAuth.error || "PIN de autorización incorrecto o sin permisos de anulación.",
+      };
+    }
+
+    authorizerName = pinAuth.authorizer?.fullName;
+    authorizerId = pinAuth.authorizer?.id;
+  } else {
+    const requiresPin = await doesBusinessRequirePinForCancellation(businessId);
+    if (requiresPin) {
+      return {
+        success: false,
+        error: "Se requiere el PIN de 4 a 6 dígitos de un supervisor o colaborador autorizado para anular la venta.",
+      };
+    }
+
+    // Si el negocio no tiene PIN configurado, validar que el usuario actual tenga permiso sales.cancel
+    const cancelAuth = await verifyWorkspaceAction(businessId, "sales.cancel");
+    if (!cancelAuth.success) {
+      return {
+        success: false,
+        error: cancelAuth.error || "No cuenta con permisos para anular ventas.",
+      };
+    }
+  }
+
+  // 3. Invocar servicio comercial de cancelación (revierte stock, recetas, caja, crédito y audita)
+  const formattedReason = authorizerName
+    ? `${cleanReason} [Autorizado por: ${authorizerName}]`
+    : cleanReason;
+
   const result = await cancelBusinessSaleDocument(businessId, documentId, {
     userId: auth.context.userId,
-    reason: cleanReason,
+    authorizedBy: authorizerId || auth.context.userId,
+    reason: formattedReason,
   });
 
   if (!result.success) {
     return { success: false, error: result.error || "No se pudo anular el documento." };
   }
 
+  // 4. Si la venta tenía factura electrónica DIAN, emitir Nota Crédito [DIAN-001]
+  try {
+    const { getElectronicDocumentBySaleId, generateCreditNoteForSale } = await import("@/lib/dian/dian-service");
+    const existingFe = await getElectronicDocumentBySaleId(businessId, documentId);
+    if (existingFe && existingFe.status !== "cancelled") {
+      await generateCreditNoteForSale(businessId, documentId, cleanReason, auth.context.userId);
+    }
+  } catch (ncErr) {
+    console.warn("[cancelSaleAction] Error al emitir Nota Crédito DIAN:", ncErr);
+  }
+
   revalidatePath(`/workspace/${businessId}`);
   revalidatePath(`/workspace/${businessId}/ventas`);
   revalidatePath(`/workspace/${businessId}/ventas/${documentId}`);
 
-  return { success: true };
+  return {
+    success: true,
+    authorizerName,
+  };
 }
 
 /**

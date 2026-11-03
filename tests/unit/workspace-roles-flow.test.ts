@@ -155,8 +155,8 @@ describe("Workspace Roles & Permissions Flow (Fase 2.2)", () => {
       const owner = res.data!.find((r) => r.code === "owner");
       const auxiliar = res.data!.find((r) => r.code === "auxiliar");
 
-      expect(owner?.permissionCount).toBe(33);
-      expect(auxiliar?.permissionCount).toBe(17);
+      expect(owner?.permissionCount).toBe(51);
+      expect(auxiliar?.permissionCount).toBe(27);
 
       // Owner tiene permisos críticos de negocio
       expect(owner?.permissions).toContain("business_settings.update");
@@ -173,7 +173,7 @@ describe("Workspace Roles & Permissions Flow (Fase 2.2)", () => {
 
     it("todos los módulos de permisos de negocio deben pertenecer al scope 'business'", () => {
       const businessModules = ALL_PERMISSION_MODULES.filter((m) => m.scope === "business");
-      expect(businessModules).toHaveLength(9);
+      expect(businessModules).toHaveLength(13);
 
       const moduleIds = businessModules.map((m) => m.moduleId);
       expect(moduleIds).toEqual([
@@ -182,7 +182,11 @@ describe("Workspace Roles & Permissions Flow (Fase 2.2)", () => {
         "productos",
         "clientes",
         "inventario",
+        "cajas",
+        "proveedores",
+        "compras",
         "gastos",
+        "recetas",
         "empleados",
         "configuracion_negocio",
         "reportes",
@@ -199,12 +203,12 @@ describe("Workspace Roles & Permissions Flow (Fase 2.2)", () => {
       const owner = res.data!.find((r) => r.code === "owner");
       const auxiliar = res.data!.find((r) => r.code === "auxiliar");
 
-      // Para barbería: el owner tiene 28 permisos (sin pedidos) y el auxiliar 14 permisos
-      expect(owner?.permissionCount).toBe(28);
+      // Para barbería: el owner tiene 42 permisos (sin pedidos) y el auxiliar 23 permisos
+      expect(owner?.permissionCount).toBe(42);
       expect(owner?.permissions).not.toContain("orders.view");
       expect(owner?.permissions).not.toContain("orders.create");
 
-      expect(auxiliar?.permissionCount).toBe(14);
+      expect(auxiliar?.permissionCount).toBe(23);
       expect(auxiliar?.permissions).not.toContain("orders.view");
       expect(auxiliar?.permissions).not.toContain("orders.create");
       expect(auxiliar?.permissions).toContain("sales.create");

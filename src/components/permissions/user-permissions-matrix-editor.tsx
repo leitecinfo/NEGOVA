@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { UserEffectivePermissionsDetail } from "@/lib/auth/user-permissions-service";
-import { AdminButton, AdminConfirmDialog } from "@/components/admin/ui";
+import { Button, ConfirmDialog } from "@/components/ui";
 
 export interface UserPermissionsMatrixEditorProps {
   permissionsData: UserEffectivePermissionsDetail;
@@ -224,7 +224,7 @@ export function UserPermissionsMatrixEditor({
         {/* Acciones de Edición */}
         {canEditUser && (
           <div className="flex items-center gap-2.5">
-            <AdminButton
+            <Button
               type="button"
               variant="outline"
               size="sm"
@@ -233,8 +233,8 @@ export function UserPermissionsMatrixEditor({
               leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
             >
               Restablecer al Rol
-            </AdminButton>
-            <AdminButton
+            </Button>
+            <Button
               type="button"
               variant="primary"
               size="sm"
@@ -244,7 +244,7 @@ export function UserPermissionsMatrixEditor({
               leftIcon={<Save className="w-3.5 h-3.5" />}
             >
               Guardar Permisos
-            </AdminButton>
+            </Button>
           </div>
         )}
       </div>
@@ -440,7 +440,7 @@ export function UserPermissionsMatrixEditor({
       </div>
 
       {/* 5. MODAL DE CONFIRMACIÓN */}
-      <AdminConfirmDialog
+      <ConfirmDialog
         isOpen={confirmModalOpen}
         title="Guardar Permisos Individuales"
         description={`¿Estás seguro de que deseas actualizar los permisos individuales de ${userName}? Los cambios afectarán de inmediato las acciones y accesos que este colaborador puede ejecutar en el comercio.`}

@@ -4,13 +4,15 @@ import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import {
   getRestaurantTablesWithOrders,
   getRestaurantTablesSummary,
+  getRestaurantRoomsWithTables,
 } from "@/lib/restaurant/restaurant-service";
+import { getBusinessLocations } from "@/lib/inventory/inventory-service";
 import { TablesDashboardClient } from "./tables-dashboard-client";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Mesas | NEGOVA",
-    description: "Administración, disponibilidad y cuentas activas de mesas en salón.",
+    title: "Mesas y Salas | NEGOVA",
+    description: "Administración de salas, disponibilidad y cuentas activas de mesas en salón.",
   };
 }
 
@@ -29,7 +31,7 @@ export default async function WorkspaceMesasPage({
     session = await requireWorkspaceSession(businessId, "orders.view");
   }
 
-  // 2. Determinar si el usuario tiene privilegios para administrar (crear/editar/eliminar) mesas
+  // 2. Determinar si el usuario tiene privilegios para administrar (crear/editar/eliminar) mesas y salas
   const canManageTables =
     session.isOwner ||
     session.roleCode === "owner" ||
@@ -38,10 +40,12 @@ export default async function WorkspaceMesasPage({
       (session as any).permissions?.includes?.(p)
     );
 
-  // 3. Consultar en paralelo las mesas con sus comandas activas y el resumen consolidado
-  const [tables, summary] = await Promise.all([
+  // 3. Consultar en paralelo las mesas con sus comandas activas, las salas y el resumen consolidado
+  const [tables, summary, rooms, locations] = await Promise.all([
     getRestaurantTablesWithOrders(businessId),
     getRestaurantTablesSummary(businessId),
+    getRestaurantRoomsWithTables(businessId).catch(() => []),
+    getBusinessLocations(businessId).catch(() => []),
   ]);
 
   return (
@@ -50,6 +54,8 @@ export default async function WorkspaceMesasPage({
       businessName={session.businessName}
       initialTables={tables}
       initialSummary={summary}
+      initialRooms={rooms}
+      locations={locations}
       canManageTables={canManageTables}
     />
   );

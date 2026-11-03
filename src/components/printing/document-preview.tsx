@@ -1,6 +1,6 @@
 import React from "react";
 import { PrintableDocument } from "@/lib/printing/types";
-import { AdminButton } from "@/components/admin/ui/admin-button";
+import { Button } from "@/components/ui/button";
 import { Printer, Download, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -111,18 +111,18 @@ export function DocumentPreview({ document, onClose }: DocumentPreviewProps) {
 
         {/* Actions */}
         <div className="p-4 bg-white border-t border-gray-100 flex gap-2 justify-end">
-          <AdminButton variant="outline" onClick={handleDownload}>
+          <Button variant="outline" onClick={handleDownload}>
             <Download className="w-4 h-4 mr-2" />
             Descargar
-          </AdminButton>
-          <AdminButton variant="outline" onClick={handleShare}>
+          </Button>
+          <Button variant="outline" onClick={handleShare}>
             <Share2 className="w-4 h-4 mr-2" />
             Compartir
-          </AdminButton>
-          <AdminButton onClick={handlePrint}>
+          </Button>
+          <Button onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" />
             Imprimir
-          </AdminButton>
+          </Button>
         </div>
       </div>
     </div>

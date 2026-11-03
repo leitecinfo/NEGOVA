@@ -25,7 +25,13 @@ export async function getCategoriesAction(
 
 export async function createCategoryAction(
   businessId: string,
-  payload: { name: string; description?: string | null; sort_order?: number }
+  payload: {
+    name: string;
+    description?: string | null;
+    sort_order?: number;
+    parent_category_id?: string | null;
+    default_tax_rate?: number | null;
+  }
 ): Promise<{ success: boolean; data?: Category; error?: string }> {
   try {
     const auth = await verifyWorkspaceAction(businessId, "products.create");
@@ -47,7 +53,14 @@ export async function createCategoryAction(
 export async function updateCategoryAction(
   businessId: string,
   categoryId: string,
-  payload: { name?: string; description?: string | null; sort_order?: number; status?: "active" | "inactive" | "archived" }
+  payload: {
+    name?: string;
+    description?: string | null;
+    sort_order?: number;
+    status?: "active" | "inactive" | "archived";
+    parent_category_id?: string | null;
+    default_tax_rate?: number | null;
+  }
 ): Promise<{ success: boolean; data?: Category; error?: string }> {
   try {
     const auth = await verifyWorkspaceAction(businessId, "products.update");
@@ -74,6 +87,20 @@ export async function archiveCategoryAction(
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Error interno del servidor." };
+  }
+}
+
+export async function getProductsAction(
+  businessId: string
+): Promise<{ success: boolean; data?: Product[]; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.view");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const products = await productsService.getProducts(businessId);
+    return { success: true, data: products };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al listar productos." };
   }
 }
 
@@ -143,6 +170,8 @@ export async function createProductAction(
 
     const product = await productsService.createProduct(businessId, parsed.data);
     revalidatePath(`/workspace/${businessId}/productos`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/menu/${businessId}`);
     return { success: true, data: product };
   } catch (error: any) {
     return { success: false, error: error.message || "Error interno del servidor." };
@@ -174,6 +203,8 @@ export async function updateProductAction(
 
     const product = await productsService.updateProduct(businessId, productId, parsed.data);
     revalidatePath(`/workspace/${businessId}/productos`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/menu/${businessId}`);
     return { success: true, data: product };
   } catch (error: any) {
     return { success: false, error: error.message || "Error interno del servidor." };
@@ -191,9 +222,46 @@ export async function toggleProductAvailabilityAction(
 
     await productsService.toggleProductAvailability(businessId, productId, isAvailable);
     revalidatePath(`/workspace/${businessId}/productos`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/menu/${businessId}`);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Error interno del servidor." };
+  }
+}
+
+export async function toggleProductChannelAction(
+  businessId: string,
+  productId: string,
+  channel: "pos" | "qr" | "online",
+  enabled: boolean
+): Promise<{ success: boolean; data?: Product; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.update");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const channelUpdates: {
+      available_in_pos?: boolean;
+      available_in_qr?: boolean;
+      available_online?: boolean;
+    } = {};
+
+    if (channel === "pos") channelUpdates.available_in_pos = enabled;
+    if (channel === "qr") channelUpdates.available_in_qr = enabled;
+    if (channel === "online") channelUpdates.available_online = enabled;
+
+    const updated = await productsService.updateProductChannelAvailability(
+      businessId,
+      productId,
+      channelUpdates
+    );
+
+    revalidatePath(`/workspace/${businessId}/productos`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/menu/${businessId}`);
+    return { success: true, data: updated };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al cambiar disponibilidad del canal." };
   }
 }
 
@@ -244,8 +312,93 @@ export async function checkProductPlanLimitAction(
 }
 
 // ==========================================
-// IMÁGENES Y ALMACENAMIENTO (STORAGE)
+// IMPORTACIÓN Y EXPORTACIÓN DE PRODUCTOS [CAT-006]
 // ==========================================
+
+export async function exportProductsCSVAction(
+  businessId: string
+): Promise<{ success: boolean; csvContent?: string; filename?: string; count?: number; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.view");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const products = await productsService.getProducts(businessId);
+    const { generateProductsCSV } = await import("@/lib/products/csv-service");
+    const csvContent = generateProductsCSV(products);
+
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `catalogo_productos_${dateStr}.csv`;
+
+    return {
+      success: true,
+      csvContent,
+      filename,
+      count: products.length,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al exportar catálogo en CSV." };
+  }
+}
+
+export async function validateProductsCSVAction(
+  businessId: string,
+  csvContent: string
+): Promise<{
+  success: boolean;
+  data?: import("@/lib/products/csv-service").ParsedCSVResult;
+  error?: string;
+}> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.create");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const products = await productsService.getProducts(businessId);
+    const { validateProductsCSV } = await import("@/lib/products/csv-service");
+    const parsed = validateProductsCSV(csvContent, products);
+
+    return { success: true, data: parsed };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al validar archivo CSV." };
+  }
+}
+
+export async function importProductsBatchAction(
+  businessId: string,
+  validRows: import("@/lib/products/csv-service").ValidatedProductRow[]
+): Promise<{
+  success: boolean;
+  data?: import("@/lib/products/csv-service").ImportBatchResult;
+  error?: string;
+}> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.create");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const { importProductsBatch } = await import("@/lib/products/csv-service");
+    const result = await importProductsBatch(businessId, validRows);
+
+    revalidatePath(`/workspace/${businessId}/productos`);
+    return { success: true, data: result };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al importar lote de productos." };
+  }
+}
+
+export async function getProductsTemplateCSVAction(
+  businessId: string
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.view");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const { generateProductsTemplateCSV } = await import("@/lib/products/csv-service");
+    const template = generateProductsTemplateCSV();
+    return { success: true, data: template };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al generar plantilla." };
+  }
+}
+
 
 export async function uploadProductImageAction(
   businessId: string,
@@ -287,5 +440,72 @@ export async function uploadProductImageAction(
     return { success: false, error: error.message || "Error interno al procesar la imagen." };
   }
 }
+
+// ==========================================
+// MERMAS DE PRODUCTOS E INGREDIENTES [CAT-007]
+// ==========================================
+
+export async function getSpoilageRecordsAction(
+  businessId: string,
+  options?: import("@/lib/spoilage/types").SpoilageFilterOptions
+): Promise<{
+  success: boolean;
+  data?: import("@/lib/spoilage/types").SpoilageRecord[];
+  error?: string;
+}> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.view");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const { getSpoilageRecords } = await import("@/lib/spoilage/spoilage-service");
+    const records = await getSpoilageRecords(businessId, options);
+    return { success: true, data: records };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al obtener registros de mermas." };
+  }
+}
+
+export async function getSpoilageKPIsAction(
+  businessId: string
+): Promise<{
+  success: boolean;
+  data?: import("@/lib/spoilage/types").SpoilageKPIs;
+  error?: string;
+}> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.view");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const { getSpoilageKPIs } = await import("@/lib/spoilage/spoilage-service");
+    const kpis = await getSpoilageKPIs(businessId);
+    return { success: true, data: kpis };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al calcular indicadores de mermas." };
+  }
+}
+
+export async function createSpoilageRecordAction(
+  businessId: string,
+  input: import("@/lib/spoilage/types").CreateSpoilageInput
+): Promise<{
+  success: boolean;
+  data?: import("@/lib/spoilage/types").SpoilageRecord;
+  error?: string;
+}> {
+  try {
+    const auth = await verifyWorkspaceAction(businessId, "products.update");
+    if (!auth.success) return { success: false, error: auth.error };
+
+    const { createSpoilageRecord } = await import("@/lib/spoilage/spoilage-service");
+    const record = await createSpoilageRecord(businessId, input, auth.context?.userId);
+
+    revalidatePath(`/workspace/${businessId}/productos`);
+    revalidatePath(`/workspace/${businessId}/inventario`);
+    return { success: true, data: record };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al registrar la merma." };
+  }
+}
+
 
 

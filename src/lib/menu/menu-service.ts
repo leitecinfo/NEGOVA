@@ -9,6 +9,8 @@ import {
   deleteDigitalMenuFileStorage,
 } from "@/lib/storage/supabase-storage";
 import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
+import { isProductAvailableInQr } from "@/lib/products/types";
+import { normalizeProductChannels } from "@/lib/products/products-service";
 
 async function getDbClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -388,7 +390,7 @@ export async function getPublicDigitalMenu(
   const [categoriesRes, productsRes, paymentMethods] = await Promise.all([
     supabase
       .from("categories")
-      .select("id, business_id, name, description, sort_order, status, created_at, updated_at")
+      .select("id, business_id, parent_category_id, name, description, sort_order, status, created_at, updated_at")
       .eq("business_id", business.id)
       .eq("status", "active")
       .order("sort_order", { ascending: true })
@@ -396,7 +398,7 @@ export async function getPublicDigitalMenu(
 
     supabase
       .from("products")
-      .select("id, business_id, category_id, name, description, image_url, price, status, is_available, sort_order, metadata, created_at, updated_at")
+      .select("*")
       .eq("business_id", business.id)
       .eq("status", "active")
       .eq("is_available", true)
@@ -406,11 +408,15 @@ export async function getPublicDigitalMenu(
     getPublicBusinessPaymentMethods(business.id),
   ]);
 
+  const qrProducts = ((productsRes.data || []) as any[])
+    .map(normalizeProductChannels)
+    .filter((p) => isProductAvailableInQr(p));
+
   return {
     business: publicBusiness,
     menu: effectiveMenu,
     categories: (categoriesRes.data || []) as any,
-    products: (productsRes.data || []) as any,
+    products: qrProducts as any,
     paymentMethods,
   };
 }

@@ -36,11 +36,17 @@ export function WorkspaceOrdersHeaderBadge({ businessId, canViewOrders }: Props)
 
     fetchPendingOrders();
 
+    const handleNewOrder = () => {
+      fetchPendingOrders();
+    };
+    window.addEventListener("negova:new_order", handleNewOrder);
+
     // Sondeo suave cada 15 segundos para mantener actualizado el contador en tiempo real
     const interval = setInterval(fetchPendingOrders, 15000);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("negova:new_order", handleNewOrder);
       clearInterval(interval);
     };
   }, [businessId, canViewOrders]);

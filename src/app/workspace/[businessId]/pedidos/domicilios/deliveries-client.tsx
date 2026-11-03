@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
   Bike,
@@ -32,6 +32,10 @@ import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { OperationalDeliveryDriver } from "@/lib/delivery/delivery-service";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { DeliveryByDriverTab } from "@/components/delivery/delivery-by-driver-tab";
+import { DeliveryIntegrationsTab } from "@/components/delivery/delivery-integrations-tab";
+import { createClient } from "@/lib/supabase/client";
+import { getBusinessDeliveryOrdersAction } from "./actions";
 import {
   assignDriverToOrderAction,
   dispatchDeliveryOrderAction,
@@ -48,6 +52,8 @@ interface DeliveriesClientProps {
   initialOrders: RestaurantOrderWithDetails[];
   initialDrivers: OperationalDeliveryDriver[];
   config: BusinessDocumentConfig;
+  initialDeliveryConfig?: any;
+  defaultTab?: string;
 }
 
 export function DeliveriesClient({
@@ -61,10 +67,47 @@ export function DeliveriesClient({
 }: DeliveriesClientProps) {
   const [orders, setOrders] = useState<RestaurantOrderWithDetails[]>(initialOrders);
   const [drivers, setDrivers] = useState<OperationalDeliveryDriver[]>(initialDrivers);
+  const [currentMainTab, setCurrentMainTab] = useState<"orders" | "by_driver" | "integrations">("orders");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "on_the_way" | "delivered">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let supabase: any = null;
+    let channel: any = null;
+    try {
+      supabase = createClient();
+      channel = supabase
+        .channel(`deliveries-client-orders-${businessId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "restaurant_orders",
+            filter: `business_id=eq.${businessId}`,
+          },
+          () => {
+            startTransition(async () => {
+              const res = await getBusinessDeliveryOrdersAction(businessId);
+              if (res.success && res.data) {
+                setOrders(res.data);
+              }
+            });
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("[DeliveriesClient] Error en Supabase Realtime:", err);
+    }
+
+    return () => {
+      if (supabase && channel) {
+        supabase.removeChannel(channel).catch(() => {});
+      }
+    };
+  }, [businessId]);
 
   // Estados de modales
   const [isDriversModalOpen, setIsDriversModalOpen] = useState(false);
@@ -274,7 +317,60 @@ export function DeliveriesClient({
       maxWidth="6xl"
     >
       <div className="space-y-6">
-        {/* TARJETAS RESUMEN DE DOMICILIOS */}
+        {/* PESTAÑAS PRINCIPALES DEL MÓDULO */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/[0.08] pb-3">
+          <button
+            type="button"
+            onClick={() => setCurrentMainTab("orders")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              currentMainTab === "orders"
+                ? "bg-[#ED500A] text-white shadow-xs"
+                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
+            }`}
+          >
+            Lista de Pedidos
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentMainTab("by_driver")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              currentMainTab === "by_driver"
+                ? "bg-[#ED500A] text-white shadow-xs"
+                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
+            }`}
+          >
+            Por Repartidor
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentMainTab("integrations")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              currentMainTab === "integrations"
+                ? "bg-[#ED500A] text-white shadow-xs"
+                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
+            }`}
+          >
+            Integraciones (Rappi / Justo)
+          </button>
+        </div>
+
+        {currentMainTab === "integrations" ? (
+          <DeliveryIntegrationsTab businessId={businessId} />
+        ) : currentMainTab === "by_driver" ? (
+          <DeliveryByDriverTab
+            businessId={businessId}
+            orders={orders}
+            drivers={drivers}
+            businessTimezone={businessTimezone}
+            onAssignDriver={handleAssignDriver}
+            onDispatch={handleDispatch}
+            onConfirmException={(order) => setExceptionOrder(order)}
+            onOpenTicket={(order) => setTicketOrder(order)}
+            onOpenDriverModal={() => setIsDriversModalOpen(true)}
+          />
+        ) : (
+          <>
+            {/* TARJETAS RESUMEN DE DOMICILIOS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs">
             <span className="text-xs text-slate-500 dark:text-slate-400">Total Domicilios</span>
@@ -615,6 +711,9 @@ export function DeliveriesClient({
               );
             })}
           </div>
+        )}
+
+          </>
         )}
 
         {/* MODAL GESTIÓN DE REPARTIDORES OPERATIVOS (SIN CONSUMIR ASIENTOS) */}

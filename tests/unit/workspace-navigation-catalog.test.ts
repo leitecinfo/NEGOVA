@@ -51,6 +51,16 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       expect(implementedIds).toContain("notificaciones");
       expect(implementedIds).toContain("perfil");
       expect(implementedIds).toContain("soporte");
+      expect(implementedIds).toContain("clientes");
+      expect(implementedIds).toContain("gastos");
+      expect(implementedIds).toContain("caja");
+      expect(implementedIds).toContain("cocina");
+      expect(implementedIds).toContain("reportes");
+      expect(implementedIds).toContain("nomina");
+      expect(implementedIds).toContain("inventario");
+      expect(implementedIds).toContain("recetas");
+      expect(implementedIds).toContain("compras");
+      expect(implementedIds).toContain("proveedores");
     });
 
     it("should identify modules under construction without creating mock implementations", () => {
@@ -58,17 +68,9 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
         (m) => m.status === "under_construction"
       ).map((m) => m.id);
 
-      expect(constructionIds).toContain("clientes");
-      expect(constructionIds).toContain("proveedores");
-      expect(constructionIds).toContain("inventario");
-      expect(constructionIds).toContain("compras");
-      expect(constructionIds).toContain("gastos");
-      expect(constructionIds).toContain("caja");
       expect(constructionIds).toContain("finanzas");
       expect(constructionIds).toContain("cuentas");
-      expect(constructionIds).toContain("reportes");
       expect(constructionIds).toContain("menu");
-      expect(constructionIds).toContain("cocina");
       expect(constructionIds).toContain("despacho");
     });
   });
@@ -94,7 +96,7 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
   });
 
   describe("buildWorkspaceNavSections", () => {
-    it("should build exactly 5 core sections in canonical order for a standard non-gastronomy business", () => {
+    it("should build core sections in canonical order for a standard non-gastronomy business", () => {
       const sections = buildWorkspaceNavSections(businessId, {
         businessType: "retail",
       });
@@ -102,27 +104,33 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       expect(sections.length).toBe(WORKSPACE_NAV_GROUPS.length);
       expect(sections.map((s) => s.id)).toEqual([
         "operacion",
+        "ventas",
         "catalogo",
         "gestion",
         "administracion",
         "cuenta",
       ]);
 
-      // Verify gastronomy specific items are NOT present in non-gastro operation
+      // Verify non-gastro operation items
       const operacionSection = sections.find((s) => s.id === "operacion");
-      expect(operacionSection?.items.map((i) => i.id)).toEqual(["dashboard", "pos", "ventas"]);
+      expect(operacionSection?.items.map((i) => i.id)).toEqual(["dashboard", "pos"]);
+
+      // Verify ventas section
+      const ventasSection = sections.find((s) => s.id === "ventas");
+      expect(ventasSection?.items.map((i) => i.id)).toEqual(["ventas", "caja"]);
     });
 
-    it("should build exactly 5 core sections including Pedidos and Mesas inside Operación for gastronomy businesses", () => {
+    it("should build core sections including Pedidos and Mesas inside Operación for gastronomy businesses", () => {
       const sections = buildWorkspaceNavSections(businessId, {
         businessType: "fast_food",
       });
 
       expect(sections.length).toBe(WORKSPACE_NAV_GROUPS.length);
 
-      // Verify exact 5 group ordering
+      // Verify exact group ordering
       expect(sections.map((s) => s.id)).toEqual([
         "operacion",
+        "ventas",
         "catalogo",
         "gestion",
         "administracion",
@@ -133,9 +141,11 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       expect(operacionSection?.items.map((i: AppNavItem) => i.id)).toEqual([
         "dashboard",
         "pos",
-        "ventas",
         "pedidos",
+        "domicilios",
         "mesas",
+        "reservas",
+        "cocina",
       ]);
     });
 
@@ -148,26 +158,34 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
         sections.map((s: AppNavSection) => [s.id, s.items.map((i: AppNavItem) => i.id)])
       );
 
-      // 1. Operación: Inicio, Punto de venta, Ventas, Pedidos, Mesas
-      expect(sectionMap["operacion"]).toEqual(["dashboard", "pos", "ventas", "pedidos", "mesas"]);
+      // 1. Operación: Inicio, Punto de venta, Pedidos, Domicilios, Mesas, Reservas, Cocina
+      expect(sectionMap["operacion"]).toEqual(["dashboard", "pos", "pedidos", "domicilios", "mesas", "reservas", "cocina"]);
 
-      // 2. Catálogo: Inventario y Presencia digital
-      expect(sectionMap["catalogo"]).toEqual(["productos", "menu-digital"]);
+      // 2. Ventas: Historial, Caja
+      expect(sectionMap["ventas"]).toEqual(["ventas", "caja"]);
 
-      // 3. Gestión del negocio: Clientes, Proveedores, Gastos, Finanzas, Documentos, Reportes
+      // 3. Productos: Productos, Inventario, Recetas, Compras, Proveedores
+      expect(sectionMap["catalogo"]).toEqual([
+        "productos",
+        "inventario",
+        "recetas",
+        "compras",
+        "proveedores",
+      ]);
+
+      // 4. Gestión del negocio: Clientes, Gastos, Finanzas, Documentos, Reportes
       expect(sectionMap["gestion"]).toEqual([
         "clientes",
-        "proveedores",
         "gastos",
         "finanzas",
         "documentos",
         "reportes",
       ]);
 
-      // 4. Administración: Usuarios/Empleados, Nómina, Roles y permisos, Configuración del negocio
+      // 5. Administración: Usuarios/Empleados, Nómina, Roles y permisos, Configuración del negocio
       expect(sectionMap["administracion"]).toEqual(["usuarios", "nomina", "roles", "configuracion"]);
 
-      // 5. Cuenta: Notificaciones, Mi perfil, Soporte
+      // 6. Cuenta: Notificaciones, Mi perfil, Soporte
       expect(sectionMap["cuenta"]).toEqual(["notificaciones", "perfil", "soporte"]);
     });
 
@@ -184,7 +202,7 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       const ventas = allItems.find((i: AppNavItem) => i.id === "ventas");
       expect(ventas).toBeDefined();
       expect(ventas?.href).toBe(`/workspace/${businessId}/ventas`);
-      expect(ventas?.label).toBe("Ventas");
+      expect(ventas?.label).toBe("Historial");
       expect(ventas?.badge).toBeUndefined();
 
       const dashboard = allItems.find((i: AppNavItem) => i.id === "dashboard");
@@ -225,10 +243,10 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
       const sections = buildWorkspaceNavSections(businessId, { businessType: "restaurant" });
       const allItems: AppNavItem[] = sections.flatMap((s: AppNavSection) => s.items);
 
-      const clientes = allItems.find((i: AppNavItem) => i.id === "clientes");
-      expect(clientes).toBeDefined();
-      expect(clientes?.href).toBe(`/workspace/${businessId}/modulo/clientes`);
-      expect(clientes?.badge).toBeUndefined();
+      const finanzas = allItems.find((i: AppNavItem) => i.id === "finanzas");
+      expect(finanzas).toBeDefined();
+      expect(finanzas?.href).toBe(`/workspace/${businessId}/modulo/finanzas`);
+      expect(finanzas?.badge).toBeUndefined();
     });
 
     it("should isolate businessId in all generated URLs", () => {
@@ -244,11 +262,33 @@ describe("Workspace Navigation Catalog & Architecture (5 Secciones Canónicas)",
 
   describe("getWorkspaceModuleById helper", () => {
     it("should return correct module metadata for valid id", () => {
-      const mod = getWorkspaceModuleById("inventario");
+      const mod = getWorkspaceModuleById("compras");
       expect(mod).toBeDefined();
-      expect(mod?.label).toBe("Inventario");
+      expect(mod?.label).toBe("Compras");
       expect(mod?.group).toBe("catalogo");
-      expect(mod?.status).toBe("under_construction");
+      expect(mod?.status).toBe("implemented");
+
+      const provMod = getWorkspaceModuleById("proveedores");
+      expect(provMod).toBeDefined();
+      expect(provMod?.label).toBe("Proveedores");
+      expect(provMod?.group).toBe("catalogo");
+      expect(provMod?.status).toBe("implemented");
+
+      const recMod = getWorkspaceModuleById("recetas");
+      expect(recMod).toBeDefined();
+      expect(recMod?.label).toBe("Recetas");
+      expect(recMod?.group).toBe("catalogo");
+      expect(recMod?.status).toBe("implemented");
+
+      const invMod = getWorkspaceModuleById("inventario");
+      expect(invMod).toBeDefined();
+      expect(invMod?.label).toBe("Inventario");
+      expect(invMod?.status).toBe("implemented");
+
+      const finMod = getWorkspaceModuleById("finanzas");
+      expect(finMod).toBeDefined();
+      expect(finMod?.group).toBe("gestion");
+      expect(finMod?.status).toBe("under_construction");
     });
 
     it("should return undefined for unknown module id", () => {

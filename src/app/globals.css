@@ -615,3 +615,79 @@
 .brutal-marquee-track:hover {
   animation-play-state: paused;
 }
+
+/* ==========================================================================
+   NEGOVA System Toast (Sonner) Theme Styles
+   ========================================================================== */
+[data-sonner-toaster] [data-sonner-toast] {
+  --normal-bg: #ffffff;
+  --normal-border: #e2e8f0;
+  --normal-text: #0f172a;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  font-family: inherit !important;
+}
+
+.dark [data-sonner-toaster] [data-sonner-toast] {
+  --normal-bg: #0D0F16;
+  --normal-border: rgba(255, 255, 255, 0.08);
+  --normal-text: #F8F9FD;
+  background-color: #0D0F16 !important;
+  color: #F8F9FD !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-title] {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 0.875rem !important;
+}
+
+.dark [data-sonner-toaster] [data-sonner-toast] [data-title] {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: #64748b !important;
+  font-size: 0.75rem !important;
+}
+
+.dark [data-sonner-toaster] [data-sonner-toast] [data-description] {
+  color: #94a3b8 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-button] {
+  background-color: #ED500A !important;
+  color: #ffffff !important;
+  border-radius: 0.75rem !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  padding: 0.5rem 0.875rem !important;
+  border: none !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-button]:hover {
+  background-color: #d94608 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-cancel] {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-radius: 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+.dark [data-sonner-toaster] [data-sonner-toast] [data-cancel] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}

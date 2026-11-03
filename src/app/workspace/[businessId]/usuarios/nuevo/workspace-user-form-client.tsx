@@ -21,10 +21,10 @@ import { UserStatus } from "@/lib/auth/users-service";
 import { RoleDefinitionMeta } from "@/lib/auth/permissions";
 import { createWorkspaceUserAction } from "../actions";
 import {
-  AdminInput,
-  AdminSelect,
-  AdminButton,
-} from "@/components/admin/ui";
+  Input,
+  Select,
+  Button,
+} from "@/components/ui";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
 interface WorkspaceUserFormClientProps {
@@ -138,7 +138,7 @@ export function WorkspaceUserFormClient({
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AdminInput
+            <Input
               label="Nombre(s)"
               required
               placeholder="Ej. Carlos"
@@ -147,7 +147,7 @@ export function WorkspaceUserFormClient({
               leftIcon={<User className="w-4 h-4 text-slate-400" />}
             />
 
-            <AdminInput
+            <Input
               label="Apellido(s)"
               required
               placeholder="Ej. Rodríguez"
@@ -155,7 +155,7 @@ export function WorkspaceUserFormClient({
               onChange={(e) => setLastName(e.target.value)}
             />
 
-            <AdminInput
+            <Input
               label="Correo Electrónico"
               type="email"
               required
@@ -165,7 +165,7 @@ export function WorkspaceUserFormClient({
               leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
             />
 
-            <AdminInput
+            <Input
               label="Teléfono de Contacto (Opcional)"
               type="tel"
               placeholder="300 123 4567"
@@ -222,7 +222,7 @@ export function WorkspaceUserFormClient({
 
           {/* Selector de Estado */}
           <div className="pt-2">
-            <AdminSelect
+            <Select
               label="Estado de la Cuenta"
               value={status}
               onChange={(val) => setStatus(val as UserStatus)}
@@ -280,7 +280,7 @@ export function WorkspaceUserFormClient({
 
           {passwordMode === "custom" && (
             <div className="pt-2">
-              <AdminInput
+              <Input
                 label="Contraseña Temporal"
                 type={showPassword ? "text" : "password"}
                 required
@@ -317,22 +317,22 @@ export function WorkspaceUserFormClient({
 
         {/* Botones de Acción */}
         <div className="flex items-center justify-end gap-3 pt-4">
-          <AdminButton
+          <Button
             variant="ghost"
             size="md"
             disabled={isPending}
             onClick={() => router.push(`/workspace/${businessId}/usuarios`)}
           >
             Cancelar
-          </AdminButton>
-          <AdminButton
+          </Button>
+          <Button
             type="submit"
             variant="primary"
             size="md"
             isLoading={isPending}
           >
             Registrar Empleado
-          </AdminButton>
+          </Button>
         </div>
       </form>
 

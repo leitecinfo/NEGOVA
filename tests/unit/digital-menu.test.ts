@@ -55,10 +55,10 @@ describe("NEGOVA — Módulo de Menú Digital", () => {
       expect(menuMod?.href).toBe("presencia-digital");
       expect(menuMod?.status).toBe("implemented");
       expect(menuMod?.label).toBe("Presencia digital");
-      expect(menuMod?.showInMenu).toBe(true);
+      expect(menuMod?.showInMenu).toBe(false);
     });
 
-    it("el catálogo canónico debe mantener la sección de Catálogo limpia con acceso centralizado a productos y menú", () => {
+    it("el catálogo canónico debe mantener la sección de Productos con acceso a los módulos principales", () => {
       const sections = buildWorkspaceNavSections("biz-123", {
         businessType: "fast_food",
         commercialActivities: ["sell_products"],
@@ -69,7 +69,10 @@ describe("NEGOVA — Módulo de Menú Digital", () => {
 
       const items = catalogoSection?.items.map((i) => i.id);
       expect(items).toContain("productos");
-      expect(items).toContain("menu-digital");
+      expect(items).toContain("inventario");
+      expect(items).toContain("recetas");
+      expect(items).toContain("compras");
+      expect(items).toContain("proveedores");
     });
   });
 

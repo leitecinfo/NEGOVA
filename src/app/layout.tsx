@@ -50,7 +50,7 @@ export default function RootLayout({
         {children}
         <FloatingWrapper />
         <GlobalScrollbar />
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" />
       </body>
     </html>
   );

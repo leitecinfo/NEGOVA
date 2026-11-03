@@ -12,6 +12,7 @@ import {
   CreditCard,
   Info,
   ArrowRight,
+  UtensilsCrossed,
 } from "lucide-react";
 import {
   getWorkspaceNotificationsAction,
@@ -36,6 +37,8 @@ function getRelativeTime(dateString: string): string {
 
 function getNotificationIcon(type: string) {
   switch (type) {
+    case "restaurant_order":
+      return <UtensilsCrossed className="w-4 h-4 text-[#ED500A]" />;
     case "support_interaction":
     case "support_ticket":
     case "support_chat":
@@ -83,9 +86,19 @@ export function WorkspaceNotificationDropdown({
 
   useEffect(() => {
     fetchRecent();
+
+    // Actualización inmediata al detectar nuevo pedido en tiempo real
+    const handleNewOrder = () => {
+      fetchRecent();
+    };
+    window.addEventListener("negova:new_order", handleNewOrder);
+
     // Sondeo periódico ligero cada 30 segundos
     const interval = setInterval(fetchRecent, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener("negova:new_order", handleNewOrder);
+      clearInterval(interval);
+    };
   }, [fetchRecent]);
 
   // Manejador de hover con debounce suave

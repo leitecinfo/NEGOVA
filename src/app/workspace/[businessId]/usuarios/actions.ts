@@ -6,6 +6,7 @@ import { UserListFilters, UserListResult, CreateUserInput, checkBusinessPlanUser
 import { getBusinessesAndRolesOptionsAction } from "@/app/admin/usuarios/actions";
 import { revalidatePath } from "next/cache";
 import { getSupabaseAdminClient } from "@/lib/auth/users-service";
+import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 
 /**
  * SERVER ACTION: OBTENER LISTADO DE USUARIOS DEL NEGOCIO
@@ -265,11 +266,12 @@ export async function createWorkspaceUserAction(
       };
     }
 
-    const capacity = await checkBusinessPlanUserCapacity(businessId);
-    if (!capacity.canAddUser) {
+    // Validación de límites de suscripción en servidor [SUB-001]
+    const planLimit = await checkPlanLimit(businessId, "employees");
+    if (!planLimit.allowed) {
       return {
         success: false,
-        error: `Límite de usuarios alcanzado para tu plan actual (${capacity.planName}). Límite: ${capacity.maxUsers} usuarios.`,
+        error: planLimit.error,
       };
     }
 
@@ -362,5 +364,52 @@ export async function saveUserPermissionsAction(
   } catch (err: any) {
     console.error("[saveUserPermissionsAction Error]:", err);
     return { success: false, error: err.message || "Error al guardar permisos del usuario." };
+  }
+}
+
+/**
+ * SERVER ACTION: ASIGNAR O ACTUALIZAR PIN DE SEGURIDAD DE UN COLABORADOR
+ */
+export async function assignUserPinAction(
+  businessId: string,
+  targetUserId: string,
+  pin: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const actor = await verifyUserPermission("business_users.update", { businessId });
+    const { assignUserSecurityPin } = await import("@/lib/security/pin-service");
+
+    const result = await assignUserSecurityPin(businessId, targetUserId, pin, actor.userId);
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/usuarios`);
+      revalidatePath(`/workspace/${businessId}/usuarios/${targetUserId}`);
+    }
+    return result;
+  } catch (err: any) {
+    console.error("[assignUserPinAction Error]:", err);
+    return { success: false, error: err.message || "Error al asignar PIN de seguridad." };
+  }
+}
+
+/**
+ * SERVER ACTION: ELIMINAR PIN DE SEGURIDAD DE UN COLABORADOR
+ */
+export async function removeUserPinAction(
+  businessId: string,
+  targetUserId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const actor = await verifyUserPermission("business_users.update", { businessId });
+    const { removeUserSecurityPin } = await import("@/lib/security/pin-service");
+
+    const result = await removeUserSecurityPin(businessId, targetUserId, actor.userId);
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/usuarios`);
+      revalidatePath(`/workspace/${businessId}/usuarios/${targetUserId}`);
+    }
+    return result;
+  } catch (err: any) {
+    console.error("[removeUserPinAction Error]:", err);
+    return { success: false, error: err.message || "Error al remover PIN." };
   }
 }

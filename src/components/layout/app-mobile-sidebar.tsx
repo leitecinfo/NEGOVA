@@ -15,15 +15,24 @@ interface AppMobileSidebarProps {
   navSections: AppNavSection[];
   branding: AppBranding;
   userProfile: AppUserProfile;
+  sidebarFooterWidget?: React.ReactNode;
 }
 
-export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userProfile }: AppMobileSidebarProps) {
+export function AppMobileSidebar({
+  isOpen,
+  onClose,
+  navSections,
+  branding,
+  userProfile,
+  sidebarFooterWidget,
+}: AppMobileSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
   const searchParams = useSearchParams();
   const { startNavigation } = useNavigationProgress();
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     operacion: true,
+    ventas: true,
     catalogo: true,
     gestion: true,
     administracion: true,
@@ -265,6 +274,13 @@ export function AppMobileSidebar({ isOpen, onClose, navSections, branding, userP
             );
           })}
         </div>
+
+        {/* Widget de suscripción en móvil [NAV-002] */}
+        {sidebarFooterWidget && (
+          <div className="p-3 border-t border-slate-200 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.02]">
+            {sidebarFooterWidget}
+          </div>
+        )}
       </div>
     </div>
   );

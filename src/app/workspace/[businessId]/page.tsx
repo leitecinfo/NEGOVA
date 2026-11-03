@@ -70,15 +70,26 @@ export default async function WorkspaceDashboardPage({
     }
   };
 
-  const actions = session.isOwner ? (
-    <Link
-      href={`/workspace/${businessId}/configuracion`}
-      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-xs"
-    >
-      <Settings className="w-3.5 h-3.5 text-slate-500" />
-      <span>Configuración</span>
-    </Link>
-  ) : null;
+  const actions = (
+    <div className="flex items-center gap-2">
+      <Link
+        href={`/workspace/${businessId}/dashboard`}
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#ED500A] text-white hover:bg-[#d04508] transition-colors shadow-xs"
+      >
+        <TrendingUp className="w-3.5 h-3.5" />
+        <span>KPIs de Ventas</span>
+      </Link>
+      {session.isOwner && (
+        <Link
+          href={`/workspace/${businessId}/configuracion`}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-xs"
+        >
+          <Settings className="w-3.5 h-3.5 text-slate-500" />
+          <span>Configuración</span>
+        </Link>
+      )}
+    </div>
+  );
 
   return (
     <AppPageContainer

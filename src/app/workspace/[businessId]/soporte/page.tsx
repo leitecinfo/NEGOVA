@@ -1,6 +1,7 @@
 import React from "react";
 import { Metadata } from "next";
-import { Headphones } from "lucide-react";
+import Link from "next/link";
+import { Headphones, HelpCircle } from "lucide-react";
 import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { getBusinessSupportTickets } from "@/lib/support/support-service";
@@ -29,10 +30,19 @@ export default async function WorkspaceSoportePage({
       title="Mesa de Ayuda y Soporte"
       description="Canal directo para solicitar asistencia técnica, resolver dudas operativas y hacer seguimiento a tus casos en NEGOVA."
       badge={
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-[#ED500A] border border-orange-500/20 dark:text-orange-400">
-          <Headphones className="w-3.5 h-3.5" />
-          Atención al Comercio
-        </span>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/workspace/${businessId}/ayuda`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-[#ED500A] text-white hover:bg-[#d64505] transition-all shadow-xs"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>Centro de Ayuda y Guías</span>
+          </Link>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-[#ED500A] border border-orange-500/20 dark:text-orange-400">
+            <Headphones className="w-3.5 h-3.5" />
+            Atención al Comercio
+          </span>
+        </div>
       }
       maxWidth="6xl"
     >

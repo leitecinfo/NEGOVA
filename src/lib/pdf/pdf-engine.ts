@@ -410,31 +410,47 @@ export function generateBusinessSalePdf(data: BusinessSalePdfData): PdfGeneratio
   y += 6;
 
   // Cuadro de Totales
+  const hasDiscount = Boolean(data.discountTotal && data.discountTotal > 0);
+  const hasTax = Boolean(data.taxTotal && data.taxTotal > 0);
+  const extraRows = (hasDiscount ? 1 : 0) + (hasTax ? 1 : 0);
+  const boxHeight = 22 + extraRows * 5;
   const totalBoxWidth = 80;
   const totalBoxX = pageWidth - margin - totalBoxWidth;
+
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(totalBoxX, y, totalBoxWidth, 24, 2, 2, "FD");
+  doc.roundedRect(totalBoxX, y, totalBoxWidth, boxHeight, 2, 2, "FD");
 
   doc.setTextColor(100, 116, 139);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Subtotal:", totalBoxX + 5, y + 7);
-  doc.text(formatCOP(data.subtotal), pageWidth - margin - 5, y + 7, { align: "right" });
+  
+  let currentY = y + 6.5;
+  doc.text("Subtotal:", totalBoxX + 5, currentY);
+  doc.text(formatCOP(data.subtotal), pageWidth - margin - 5, currentY, { align: "right" });
 
-  if (data.discountTotal && data.discountTotal > 0) {
-    doc.text("Descuento:", totalBoxX + 5, y + 13);
-    doc.text(`-${formatCOP(data.discountTotal)}`, pageWidth - margin - 5, y + 13, { align: "right" });
+  if (hasDiscount) {
+    currentY += 5;
+    doc.text("Descuento:", totalBoxX + 5, currentY);
+    doc.text(`-${formatCOP(data.discountTotal || 0)}`, pageWidth - margin - 5, currentY, { align: "right" });
   }
 
-  doc.setDrawColor(203, 213, 225);
-  doc.line(totalBoxX + 5, y + 16, pageWidth - margin - 5, y + 16);
+  if (hasTax) {
+    currentY += 5;
+    doc.text("IVA / Impuestos:", totalBoxX + 5, currentY);
+    doc.text(formatCOP(data.taxTotal || 0), pageWidth - margin - 5, currentY, { align: "right" });
+  }
 
+  currentY += 3.5;
+  doc.setDrawColor(203, 213, 225);
+  doc.line(totalBoxX + 5, currentY, pageWidth - margin - 5, currentY);
+
+  currentY += 5.5;
   doc.setTextColor(brandRgb[0], brandRgb[1], brandRgb[2]);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
-  doc.text("TOTAL A PAGAR:", totalBoxX + 5, y + 21.5);
-  doc.text(formatCOP(data.total), pageWidth - margin - 5, y + 21.5, { align: "right" });
+  doc.text("TOTAL A PAGAR:", totalBoxX + 5, currentY);
+  doc.text(formatCOP(data.total), pageWidth - margin - 5, currentY, { align: "right" });
 
   // Notas / Agradecimiento / Observaciones / Políticas y Términos
   let noteY = y + 7;
