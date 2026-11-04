@@ -259,6 +259,7 @@ export function PosScreenClient({
     address: "",
     deliveryFee: 5000,
   });
+  const [paymentTiming, setPaymentTiming] = useState<"deferred" | "immediate">("deferred");
   const [isCredit, setIsCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "digital">("cash");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
@@ -1513,29 +1514,15 @@ export function PosScreenClient({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={isSubmittingSale || cartItems.length === 0}
-                    onClick={handleSendOrderToKitchen}
-                    className="w-full py-2.5 px-3 rounded-xl border border-emerald-600/40 dark:border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99]"
-                    title="Enviar pedido a cocina con estado pendiente de cobro (Pago contra entrega)"
-                  >
-                    <ChefHat className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>A Cocina (Por cobrar)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isSubmittingSale || cartItems.length === 0}
-                    onClick={() => setIsCheckoutStepActive(true)}
-                    className="w-full py-2.5 px-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs shadow-md shadow-[#ED500A]/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-                    title="Cobrar ahora (Efectivo, tarjeta, transferencia o crédito)"
-                  >
-                    <span>Completar compra</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={cartItems.length === 0}
+                  onClick={() => setIsCheckoutStepActive(true)}
+                  className="w-full py-3 px-4 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                >
+                  <span>Completar compra</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </>
           ) : (
@@ -1761,119 +1748,163 @@ export function PosScreenClient({
                   )}
                 </div>
 
-                {/* BLOQUE C: PAGO (PASO 2) */}
+                {/* BLOQUE C: PAGO / ESTADO DE COBRO (PASO 2) */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
-                      2. Medio de Pago
+                      2. Cobro del Pedido
                     </span>
                     <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-[11px]">
                       <button
                         type="button"
-                        onClick={() => setIsCredit(false)}
-                        className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                          !isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
+                        onClick={() => setPaymentTiming("deferred")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1 ${
+                          paymentTiming === "deferred"
+                            ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                         }`}
                       >
-                        Contado
+                        <Clock className="w-3 h-3" />
+                        <span>Por cobrar (Manual)</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setIsCredit(true)}
-                        className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                          isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
+                        onClick={() => setPaymentTiming("immediate")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1 ${
+                          paymentTiming === "immediate"
+                            ? "bg-white dark:bg-white/[0.1] text-emerald-600 dark:text-emerald-400 shadow-xs"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                         }`}
                       >
-                        Crédito
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Cobrar ahora</span>
                       </button>
                     </div>
                   </div>
 
-                  {!isCredit ? (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-1.5 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("cash")}
-                          className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                            paymentMethod === "cash"
-                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
-                              : "border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400"
-                          }`}
-                        >
-                          <Wallet className="w-4 h-4" />
-                          <span>Efectivo</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("card")}
-                          className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                            paymentMethod === "card"
-                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
-                              : "border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400"
-                          }`}
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          <span>Tarjeta</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("digital")}
-                          className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                            paymentMethod === "digital"
-                              ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300"
-                              : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400"
-                          }`}
-                        >
-                          <Landmark className="w-4 h-4" />
-                          <span>Digital</span>
-                        </button>
+                  {paymentTiming === "deferred" ? (
+                    <div className="p-3 bg-white dark:bg-white/[0.03] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2">
+                      <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>Cobro manual / Contra entrega (Predeterminado)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        El cobro <strong>no se confirma de forma automática</strong>. El pedido se enviará a cocina como <strong>Pendiente de cobro</strong> y la caja no se afectará hasta que confirmes el cobro manualmente al entregar el producto o desde <strong>Tickets Abiertos</strong>.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipo de cobro:</span>
+                        <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => setIsCredit(false)}
+                            className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
+                              !isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
+                            }`}
+                          >
+                            Contado
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsCredit(true)}
+                            className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
+                              isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
+                            }`}
+                          >
+                            Crédito
+                          </button>
+                        </div>
                       </div>
 
-                      {paymentMethod === "cash" && (
-                        <div className="p-3.5 bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                              Monto recibido:
-                            </label>
+                      {!isCredit ? (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-3 gap-1.5 text-xs">
                             <button
                               type="button"
-                              onClick={() => setReceivedAmount(summary.total.toString())}
-                              className="text-[10px] font-bold text-[#ED500A] hover:underline cursor-pointer"
+                              onClick={() => setPaymentMethod("cash")}
+                              className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
+                                paymentMethod === "cash"
+                                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
+                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-400"
+                              }`}
                             >
-                              Pagar exacto ({formatCOP(summary.total)})
+                              <Wallet className="w-4 h-4" />
+                              <span>Efectivo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod("card")}
+                              className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
+                                paymentMethod === "card"
+                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
+                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-400"
+                              }`}
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              <span>Tarjeta</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod("digital")}
+                              className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
+                                paymentMethod === "digital"
+                                  ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300"
+                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400"
+                              }`}
+                            >
+                              <Landmark className="w-4 h-4" />
+                              <span>Digital</span>
                             </button>
                           </div>
-                          <div className="relative flex items-center">
-                            <span className="absolute left-3 text-slate-400 font-bold font-mono text-sm">$</span>
-                            <input
-                              type="number"
-                              placeholder={summary.total.toString()}
-                              value={receivedAmount}
-                              onChange={(e) => setReceivedAmount(e.target.value)}
-                              className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                            />
-                          </div>
-                          {receivedNum > 0 && (
-                            <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
-                              <span className="text-slate-500 dark:text-slate-400">
-                                {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
-                              </span>
-                              <span
-                                className={`font-mono text-sm ${
-                                  changeAmount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
-                                }`}
-                              >
-                                {formatCOP(Math.abs(changeAmount))}
-                              </span>
+
+                          {paymentMethod === "cash" && (
+                            <div className="p-3.5 bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                  Monto recibido:
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => setReceivedAmount(summary.total.toString())}
+                                  className="text-[10px] font-bold text-[#ED500A] hover:underline cursor-pointer"
+                                >
+                                  Pagar exacto ({formatCOP(summary.total)})
+                                </button>
+                              </div>
+                              <div className="relative flex items-center">
+                                <span className="absolute left-3 text-slate-400 font-bold font-mono text-sm">$</span>
+                                <input
+                                  type="number"
+                                  placeholder={summary.total.toString()}
+                                  value={receivedAmount}
+                                  onChange={(e) => setReceivedAmount(e.target.value)}
+                                  className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                                />
+                              </div>
+                              {receivedNum > 0 && (
+                                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
+                                  <span className="text-slate-500 dark:text-slate-400">
+                                    {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
+                                  </span>
+                                  <span
+                                    className={`font-mono text-sm ${
+                                      changeAmount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
+                                    }`}
+                                  >
+                                    {formatCOP(Math.abs(changeAmount))}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
+                      ) : (
+                        <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300">
+                          Venta a crédito asignada a <strong>{selectedCustomer.name}</strong>. Se sumará al saldo pendiente de cobro.
+                        </div>
                       )}
-                    </div>
-                  ) : (
-                    <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300">
-                      Venta a crédito asignada a <strong>{selectedCustomer.name}</strong>. Se sumará al saldo pendiente de cobro.
                     </div>
                   )}
                 </div>
@@ -1934,43 +1965,35 @@ export function PosScreenClient({
               </div>
 
               {/* Pie Fijo del Checkout con Total y Confirmar */}
-              <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/80 dark:bg-white/[0.02] space-y-2">
+              <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/80 dark:bg-white/[0.02] space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total a cobrar:</span>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total:</span>
                   <span className="text-lg font-black text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
 
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={handleConfirmAndPay}
-                    disabled={isSubmittingSale || cartItems.length === 0}
-                    className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-                  >
-                    {isSubmittingSale ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Procesando venta...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Confirmar y cobrar</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSendOrderToKitchen}
-                    disabled={isSubmittingSale || cartItems.length === 0}
-                    className="w-full py-2.5 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    title="Enviar pedido a cocina sin registrar pago en caja (Cobro contra entrega)"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Guardar sin cobrar (Pago contra entrega)</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={paymentTiming === "immediate" ? handleConfirmAndPay : handleSendOrderToKitchen}
+                  disabled={isSubmittingSale || cartItems.length === 0}
+                  className="w-full py-3.5 rounded-xl bg-[#ED500A] hover:bg-[#d94608] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                >
+                  {isSubmittingSale ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Procesando...</span>
+                    </>
+                  ) : paymentTiming === "immediate" ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Confirmar y cobrar</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChefHat className="w-4 h-4" />
+                      <span>Confirmar pedido (Pendiente de cobro)</span>
+                    </>
+                  )}
+                </button>
 
                 <div className="text-center">
                   <button
@@ -2297,31 +2320,18 @@ export function PosScreenClient({
                   <span>Total:</span>
                   <span className="text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={isSubmittingSale || cartItems.length === 0}
-                    onClick={() => {
-                      setIsMobileCartOpen(false);
-                      handleSendOrderToKitchen();
-                    }}
-                    className="w-full py-2.5 rounded-xl border border-emerald-600/40 dark:border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-xs min-h-[44px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <ChefHat className="w-4 h-4" />
-                    <span>A Cocina</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileCartOpen(false);
-                      setIsCheckoutStepActive(true);
-                    }}
-                    className="w-full py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs min-h-[44px] cursor-pointer shadow-lg shadow-[#ED500A]/25 transition active:scale-[0.99] flex items-center justify-center gap-1"
-                  >
-                    <span>Continuar Cobro</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={cartItems.length === 0}
+                  onClick={() => {
+                    setIsMobileCartOpen(false);
+                    setIsCheckoutStepActive(true);
+                  }}
+                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-sm min-h-[44px] cursor-pointer shadow-lg shadow-[#ED500A]/25 transition active:scale-[0.99] flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>Continuar Cobro</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
