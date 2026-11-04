@@ -1752,25 +1752,25 @@ export function PosScreenClient({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
-                      2. Cobro del Pedido
+                      2. Cobro
                     </span>
                     <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-[11px]">
                       <button
                         type="button"
                         onClick={() => setPaymentTiming("deferred")}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5 ${
                           paymentTiming === "deferred"
                             ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                         }`}
                       >
                         <Clock className="w-3 h-3" />
-                        <span>Por cobrar (Manual)</span>
+                        <span>Por cobrar</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setPaymentTiming("immediate")}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5 ${
                           paymentTiming === "immediate"
                             ? "bg-white dark:bg-white/[0.1] text-emerald-600 dark:text-emerald-400 shadow-xs"
                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -1782,17 +1782,7 @@ export function PosScreenClient({
                     </div>
                   </div>
 
-                  {paymentTiming === "deferred" ? (
-                    <div className="p-3 bg-white dark:bg-white/[0.03] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2">
-                      <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
-                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span>Cobro manual / Contra entrega (Predeterminado)</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                        El cobro <strong>no se confirma de forma automática</strong>. El pedido se enviará a cocina como <strong>Pendiente de cobro</strong> y la caja no se afectará hasta que confirmes el cobro manualmente al entregar el producto o desde <strong>Tickets Abiertos</strong>.
-                      </p>
-                    </div>
-                  ) : (
+                  {paymentTiming === "immediate" && (
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipo de cobro:</span>
