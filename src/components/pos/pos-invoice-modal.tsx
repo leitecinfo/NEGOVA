@@ -70,7 +70,7 @@ export function PosInvoiceModal({
           __html: `
           @media print {
             @page {
-              margin: 0 !important;
+              margin: 0mm !important;
               size: 80mm auto !important;
             }
             html, body {
@@ -81,10 +81,7 @@ export function PosInvoiceModal({
               width: 80mm !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
-            }
-            /* Ocultar completamente el árbol de la aplicación */
-            body > * {
-              display: none !important;
+              visibility: hidden !important;
             }
             /* Ocultar elementos de UI no imprimibles */
             .pos-no-print {
@@ -95,19 +92,19 @@ export function PosInvoiceModal({
             #pos-receipt-print-area {
               display: block !important;
               visibility: visible !important;
-              position: absolute !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
               width: 76mm !important;
               max-width: 76mm !important;
               margin: 0 auto !important;
-              padding: 2.5mm !important;
+              padding: 3mm 2mm !important;
               background: #ffffff !important;
               color: #000000 !important;
               font-family: 'Courier New', Courier, monospace !important;
               box-shadow: none !important;
               border: none !important;
-              z-index: 2147483647 !important;
+              z-index: 999999999 !important;
             }
             #pos-receipt-print-area * {
               visibility: visible !important;
@@ -232,8 +229,10 @@ export function PosInvoiceModal({
                 </div>
                 <div className="divide-y divide-dashed divide-slate-300 py-1 space-y-1">
                   {data.items.map((it, idx) => (
-                    <div key={idx} className="flex items-start justify-between pt-1 text-[11px] leading-tight">
-                      <span className="flex-1 min-w-0 pr-2 truncate font-medium">{it.name}</span>
+                    <div key={idx} className="flex items-start justify-between pt-1 text-[11px] leading-tight gap-1">
+                      <span className="flex-1 min-w-0 pr-1 whitespace-normal break-words text-wrap font-medium leading-tight">
+                        {it.name}
+                      </span>
                       <span className="w-10 text-center font-bold shrink-0">{it.quantity}</span>
                       <span className="w-20 text-right font-mono text-slate-700 shrink-0">
                         {formatCOP(it.unitPrice)}

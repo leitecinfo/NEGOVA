@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChefHat, BellRing, Volume2 } from "lucide-react";
+import { ChefHat, BellRing } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   initOrderAudioUnlock,
   playOrderSoundAlert,
   playOrderReadySoundAlert,
-  unlockAudioContextManually,
-  isAudioUnlockedState,
 } from "@/lib/audio/order-sound-player";
 import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
 
@@ -22,42 +20,11 @@ export function WorkspaceRealtimeListener({ businessId }: WorkspaceRealtimeListe
   const router = useRouter();
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
   const processedReadyOrderIdsRef = useRef<Set<string>>(new Set());
-  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(true);
-  const [showAudioPrompt, setShowAudioPrompt] = useState<boolean>(false);
 
-  // Inicializar desbloqueo acústico ante la primera interacción
+  // Inicializar desbloqueo acústico silencioso ante cualquier interacción del operador
   useEffect(() => {
     initOrderAudioUnlock();
-
-    const isUnlocked = isAudioUnlockedState();
-    setAudioUnlocked(isUnlocked);
-
-    // Si aún no está desbloqueado tras 1.5s, mostrar discreto indicador para advertir al operador
-    const timer = setTimeout(() => {
-      if (!isAudioUnlockedState()) {
-        setShowAudioPrompt(true);
-      }
-    }, 1500);
-
-    const handleUnlocked = () => {
-      setAudioUnlocked(true);
-      setShowAudioPrompt(false);
-    };
-
-    window.addEventListener("negova:audio_unlocked", handleUnlocked);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("negova:audio_unlocked", handleUnlocked);
-    };
   }, []);
-
-  const handleManualUnlock = async () => {
-    await unlockAudioContextManually();
-    setAudioUnlocked(true);
-    setShowAudioPrompt(false);
-    toast.success("Alertas sonoras de comandas activadas");
-  };
 
   useEffect(() => {
     if (!businessId) return;
@@ -221,29 +188,6 @@ export function WorkspaceRealtimeListener({ businessId }: WorkspaceRealtimeListe
       supabase.removeChannel(channel);
     };
   }, [businessId, router]);
-
-  // Si el navegador bloquea el audio y el usuario no ha interactuado aún, mostrar recordatorio flotante discreto
-  if (showAudioPrompt && !audioUnlocked) {
-    return (
-      <aside
-        aria-label="Notificación de sonido de pedidos"
-        className="fixed bottom-4 right-4 z-[9990] animate-in fade-in slide-in-from-bottom-3 duration-300 pointer-events-auto"
-      >
-        <button
-          type="button"
-          onClick={handleManualUnlock}
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-slate-900/95 dark:bg-[#121520]/95 text-white text-xs font-semibold shadow-xl border border-white/10 hover:border-[#ED500A]/50 hover:bg-[#1a1e2e] transition-all cursor-pointer backdrop-blur-md group"
-        >
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ED500A] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#ED500A]"></span>
-          </span>
-          <Volume2 className="w-4 h-4 text-[#ED500A] group-hover:scale-110 transition-transform" />
-          <span>Toca aquí para activar sonido de comandas</span>
-        </button>
-      </aside>
-    );
-  }
 
   return null;
 }

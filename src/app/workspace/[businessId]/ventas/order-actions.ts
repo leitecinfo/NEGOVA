@@ -28,7 +28,17 @@ export async function createRestaurantOrderAction(
   }
 
   // 2. Ejecutar creación en el servicio con recálculo en servidor
-  return await createRestaurantOrder(businessId, input, auth.context.userId);
+  const res = await createRestaurantOrder(businessId, input, auth.context.userId);
+  if (res.success) {
+    try {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath(`/workspace/${businessId}/pedidos`);
+      revalidatePath(`/workspace/${businessId}/ventas`);
+      revalidatePath(`/workspace/${businessId}/pos`);
+      revalidatePath(`/workspace/${businessId}/cajas`);
+    } catch {}
+  }
+  return res;
 }
 
 /**

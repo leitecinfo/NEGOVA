@@ -1270,7 +1270,7 @@ export async function createRestaurantOrder(
   for (let idx = 0; idx < input.items.length; idx++) {
     const it = input.items[idx];
     const isCustom = !it.productId || !isUuid(it.productId) || (it as any).isCustom;
-    const product = isCustom ? null : productMap.get(it.productId);
+    const product = isCustom ? null : productMap.get(it.productId!);
 
     if (isCustom) {
       const safeQty = Math.max(1, Math.floor(it.quantity || 1));
@@ -1279,7 +1279,7 @@ export async function createRestaurantOrder(
       calculatedSubtotal += customSubtotal;
 
       preparedItems.push({
-        productId: it.productId || "custom-item",
+        productId: (it.productId && isUuid(it.productId)) ? it.productId : (null as any),
         productName: (it as any).productName || (it as any).name || "Ítem libre",
         quantity: safeQty,
         unitPrice: customUnitPrice,
@@ -1935,7 +1935,7 @@ export async function getRestaurantOrdersList({
   try {
     let query = supabase
       .from("restaurant_orders")
-      .select("*, restaurant_order_items(id, product_name, quantity, unit_price, subtotal, notes, modifiers, variant_id, variant_name)", {
+      .select("*, restaurant_order_items(*)", {
         count: "exact",
       })
       .eq("business_id", businessId);
@@ -2125,13 +2125,16 @@ export async function getRestaurantOrderWithDetails(
 
     let tableName: string | null = null;
     if (order.table_id) {
-      const { data: tableData } = await supabase
-        .from("restaurant_tables")
-        .select("name_or_number")
-        .eq("id", order.table_id)
-        .eq("business_id", businessId)
-        .maybeSingle();
-      tableName = tableData?.name_or_number || "Mesa";
+      try {
+        const { data: tableData } = await supabase
+          .from("restaurant_tables")
+          .select("name_or_number")
+          .eq("id", order.table_id)
+          .maybeSingle();
+        tableName = tableData?.name_or_number || "Mesa";
+      } catch {
+        tableName = "Mesa";
+      }
     }
 
     const items = Array.isArray(order.restaurant_order_items) ? order.restaurant_order_items : [];
@@ -2671,7 +2674,7 @@ export async function registerRestaurantOrderPayment(
     updated_at: new Date().toISOString(),
   };
 
-  if (paymentData.closeTableOrder) {
+  if (paymentData.closeTableOrder || !currentOrder.table_id) {
     orderUpdatePayload.status = "delivered";
   }
 

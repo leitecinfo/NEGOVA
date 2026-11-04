@@ -99,6 +99,7 @@ const createMockSupabase = () => ({
             gte: (col: string, val: any) => chain,
             lte: (col: string, val: any) => chain,
             order: (col: string, o?: any) => chain,
+            limit: (num?: number) => chain,
             range: (from: number, to: number) => {
               return Promise.resolve({
                 data: list.slice(from, to + 1).map((o) => ({
@@ -206,6 +207,7 @@ const createMockSupabase = () => ({
               return chain;
             },
             order: () => chain,
+            limit: () => chain,
             maybeSingle: () => {
               const item = list[0] || null;
               return Promise.resolve({ data: item, error: null });
@@ -262,6 +264,7 @@ const createMockSupabase = () => ({
             gte: () => chain,
             lte: () => chain,
             order: () => chain,
+            limit: () => chain,
             range: (from: number, to: number) =>
               Promise.resolve({
                 data: list.slice(from, to + 1),

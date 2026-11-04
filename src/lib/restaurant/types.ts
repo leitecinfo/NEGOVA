@@ -196,7 +196,7 @@ export interface CreateOrderItemModifierInput {
 }
 
 export interface CreateOrderItemInput {
-  productId: string;
+  productId: string | null;
   variantId?: string | null;
   variantName?: string | null;
   quantity: number;

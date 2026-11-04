@@ -59,7 +59,7 @@ export function PosKitchenTicketModal({
           __html: `
           @media print {
             @page {
-              margin: 0 !important;
+              margin: 0mm !important;
               size: 80mm auto !important;
             }
             html, body {
@@ -70,10 +70,7 @@ export function PosKitchenTicketModal({
               width: 80mm !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
-            }
-            /* Ocultar la interfaz general */
-            body > * {
-              display: none !important;
+              visibility: hidden !important;
             }
             /* Ocultar elementos marcados como no imprimibles */
             .pos-no-print {
@@ -84,19 +81,19 @@ export function PosKitchenTicketModal({
             #pos-kitchen-print-area {
               display: block !important;
               visibility: visible !important;
-              position: absolute !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
               width: 76mm !important;
               max-width: 76mm !important;
               margin: 0 auto !important;
-              padding: 2.5mm !important;
+              padding: 3mm 2mm !important;
               background: #ffffff !important;
               color: #000000 !important;
               font-family: 'Courier New', Courier, monospace !important;
               box-shadow: none !important;
               border: none !important;
-              z-index: 2147483647 !important;
+              z-index: 999999999 !important;
             }
             #pos-kitchen-print-area * {
               visibility: visible !important;
@@ -197,7 +194,7 @@ export function PosKitchenTicketModal({
                       <span className="font-black text-sm w-7 shrink-0 text-center bg-black text-white rounded px-1">
                         {it.quantity}x
                       </span>
-                      <span className="font-bold text-sm flex-1 leading-snug">
+                      <span className="font-bold text-sm flex-1 leading-snug whitespace-normal break-words text-wrap">
                         {it.name}
                       </span>
                     </div>

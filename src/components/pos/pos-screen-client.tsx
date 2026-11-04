@@ -91,6 +91,7 @@ import { PosInvoiceModal, InvoiceData } from "./pos-invoice-modal";
 import { PosOpenTicketsDrawer, OpenTicket } from "./pos-open-tickets-drawer";
 import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
 import { registerRestaurantOrderPaymentAction } from "@/app/workspace/[businessId]/pedidos/actions";
+import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
 import { playOrderSoundAlert, initOrderAudioUnlock } from "@/lib/audio/order-sound-player";
 import type { CreateRestaurantOrderInput, ProcessOrderPaymentInput } from "@/lib/restaurant/types";
 
@@ -649,7 +650,7 @@ export function PosScreenClient({
         notes: orderNotes.trim() || (generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null),
         taxTotal: summary.tax,
         items: cartItems.map((ci) => ({
-          productId: ci.productId,
+          productId: ci.productId && ci.productId !== "custom-item" && !ci.productId.startsWith("custom-") ? ci.productId : null,
           variantId: ci.variantId || null,
           variantName: ci.variantName || null,
           quantity: ci.quantity,
@@ -683,6 +684,7 @@ export function PosScreenClient({
         paymentMethod: paymentMethodKey,
         cashChange: changeAmount > 0 ? changeAmount : 0,
         customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
+        closeTableOrder: true,
         tip: (customTip > 0 || tipPercentage > 0) ? {
           percentage: tipPercentage,
           amount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
@@ -699,6 +701,9 @@ export function PosScreenClient({
         if (payRes.success && payRes.documentNumber) {
           finalDocNumber = payRes.documentNumber;
         }
+        if (payRes.success && paymentMethodKey === "cash") {
+          setCurrentCashBalance((prev) => (typeof prev === "number" ? prev + summary.total : summary.total));
+        }
       } catch (payErr) {
         console.warn("[handleConfirmAndPay] Advertencia al registrar cobro:", payErr);
       }
@@ -708,7 +713,20 @@ export function PosScreenClient({
         playOrderSoundAlert(orderId);
       } catch {}
 
-      // 4. Disparar evento para actualizar instantáneamente Tickets Abiertos, Campana de Notificaciones y Badges
+      // 4. Persistir notificación para la campanita del sistema
+      try {
+        await syncOrderNotificationAction(businessId, {
+          orderId,
+          orderNumber: orderNum,
+          orderType: payload.orderType,
+          customerName: payload.customerName,
+          total: summary.total,
+        });
+      } catch (notifErr) {
+        console.warn("[handleConfirmAndPay] Error sincronizando notificación:", notifErr);
+      }
+
+      // 5. Disparar evento para actualizar instantáneamente Tickets Abiertos y Badges
       try {
         window.dispatchEvent(
           new CustomEvent("negova:new_order", {
@@ -772,6 +790,7 @@ export function PosScreenClient({
       setInvoiceTicketData(iTicket);
       setCartItems([]);
       setIsCheckoutStepActive(false);
+      router.refresh();
       toast.success(`¡Venta #${orderNum} registrada y cobrada con éxito!`);
     } catch (err: any) {
       toast.error(err?.message || "Error al procesar la venta.");
@@ -1401,65 +1420,81 @@ export function PosScreenClient({
                   <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-2">
                     1. Tipo de Servicio
                   </span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <button
                       type="button"
                       onClick={() => setServiceType("TAKEOUT")}
-                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
+                      className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "TAKEOUT"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
                           : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <ShoppingBag className="w-5 h-5 shrink-0" />
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                        serviceType === "TAKEOUT" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}>
+                        <ShoppingBag className="w-4 h-4 shrink-0" />
+                      </div>
                       <div>
-                        <span className="block font-bold text-xs leading-none">Para llevar</span>
-                        <span className="text-[10px] opacity-70 leading-tight">Empacado</span>
+                        <span className="block font-bold text-xs leading-tight">Para llevar</span>
+                        <span className="text-[10px] opacity-75 font-medium leading-tight">Empacado</span>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("DINE_IN")}
-                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
+                      className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DINE_IN"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
                           : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <UtensilsCrossed className="w-5 h-5 shrink-0" />
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                        serviceType === "DINE_IN" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}>
+                        <UtensilsCrossed className="w-4 h-4 shrink-0" />
+                      </div>
                       <div>
-                        <span className="block font-bold text-xs leading-none">Comer aquí</span>
-                        <span className="text-[10px] opacity-70 leading-tight">En mesa</span>
+                        <span className="block font-bold text-xs leading-tight">Comer aquí</span>
+                        <span className="text-[10px] opacity-75 font-medium leading-tight">En mesa</span>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("PICKUP")}
-                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
+                      className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "PICKUP"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
                           : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <Receipt className="w-5 h-5 shrink-0" />
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                        serviceType === "PICKUP" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}>
+                        <Receipt className="w-4 h-4 shrink-0" />
+                      </div>
                       <div>
-                        <span className="block font-bold text-xs leading-none">Para recoger</span>
-                        <span className="text-[10px] opacity-70 leading-tight">Retiro en caja</span>
+                        <span className="block font-bold text-xs leading-tight">Para recoger</span>
+                        <span className="text-[10px] opacity-75 font-medium leading-tight">Retiro en caja</span>
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setServiceType("DELIVERY")}
-                      className={`min-h-[70px] p-2.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition cursor-pointer text-center ${
+                      className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DELIVERY"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
                           : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
-                      <Bike className="w-5 h-5 shrink-0" />
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
+                        serviceType === "DELIVERY" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                      }`}>
+                        <Bike className="w-4 h-4 shrink-0" />
+                      </div>
                       <div>
-                        <span className="block font-bold text-xs leading-none">Domicilio</span>
-                        <span className="text-[10px] opacity-70 leading-tight">Envío con flete</span>
+                        <span className="block font-bold text-xs leading-tight">Domicilio</span>
+                        <span className="text-[10px] opacity-75 font-medium leading-tight">Envío con flete</span>
                       </div>
                     </button>
                   </div>
@@ -1609,7 +1644,7 @@ export function PosScreenClient({
                       </div>
 
                       {paymentMethod === "cash" && (
-                        <div className="p-3 bg-slate-50/70 dark:bg-[#12161F]/60 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
+                        <div className="p-3.5 bg-slate-50/70 dark:bg-white/[0.02] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
                           <div className="flex items-center justify-between">
                             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                               Monto recibido:
@@ -1629,11 +1664,11 @@ export function PosScreenClient({
                               placeholder={summary.total.toString()}
                               value={receivedAmount}
                               onChange={(e) => setReceivedAmount(e.target.value)}
-                              className="w-full h-10 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0E121A] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/40 focus:border-[#ED500A]"
+                              className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                             />
                           </div>
                           {receivedNum > 0 && (
-                            <div className="flex justify-between items-center p-2 rounded-xl bg-white dark:bg-[#0E121A] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
+                            <div className="flex justify-between items-center p-2 rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
                               <span className="text-slate-500 dark:text-slate-400">
                                 {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
                               </span>

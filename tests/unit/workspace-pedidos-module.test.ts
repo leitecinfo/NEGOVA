@@ -104,6 +104,14 @@ const createMockSupabase = () => ({
               return chain;
             },
             order: () => chain,
+            maybeSingle: () => {
+              const item = filtered[0] || null;
+              return Promise.resolve({ data: item, error: null });
+            },
+            single: () => {
+              const item = filtered[0] || null;
+              return Promise.resolve({ data: item, error: item ? null : new Error("Not found") });
+            },
             then: (resolve: any, reject?: any) =>
               Promise.resolve({ data: filtered, error: null }).then(resolve, reject),
           };

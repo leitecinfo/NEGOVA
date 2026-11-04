@@ -85,7 +85,7 @@ export function KitchenCommandTicketModal({
           __html: `
           @media print {
             @page {
-              margin: 0 !important;
+              margin: 0mm !important;
               size: 80mm auto !important;
             }
             html, body {
@@ -96,9 +96,7 @@ export function KitchenCommandTicketModal({
               width: 80mm !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
-            }
-            body > * {
-              display: none !important;
+              visibility: hidden !important;
             }
             .pos-no-print {
               display: none !important;
@@ -107,19 +105,19 @@ export function KitchenCommandTicketModal({
             #kitchen-command-print-area {
               display: block !important;
               visibility: visible !important;
-              position: absolute !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
               width: 76mm !important;
               max-width: 76mm !important;
               margin: 0 auto !important;
-              padding: 2.5mm !important;
+              padding: 3mm 2mm !important;
               background: #ffffff !important;
               color: #000000 !important;
               font-family: 'Courier New', Courier, monospace !important;
               box-shadow: none !important;
               border: none !important;
-              z-index: 2147483647 !important;
+              z-index: 999999999 !important;
             }
             #kitchen-command-print-area * {
               visibility: visible !important;
