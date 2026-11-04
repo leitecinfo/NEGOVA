@@ -122,13 +122,13 @@ export function WorkspaceShell({
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200 text-xs text-slate-600 hover:text-slate-900 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] dark:border-white/[0.08] dark:text-slate-400 dark:hover:text-slate-200 transition-all focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/80 text-xs text-slate-600 hover:text-slate-900 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] dark:border-white/[0.08] dark:text-slate-400 dark:hover:text-slate-200 transition-all focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
             aria-label="Buscar en el workspace (Ctrl+K)"
             title="Buscar en el workspace (Ctrl+K)"
           >
             <Search className="w-3.5 h-3.5 text-slate-400" />
             <span className="hidden md:inline font-body">Buscar...</span>
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-white dark:text-slate-400 dark:bg-white/[0.06] rounded border border-slate-200 dark:border-white/[0.08] shadow-2xs">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-50 dark:text-slate-400 dark:bg-white/[0.06] rounded border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
               <span className="text-[11px]">⌘</span>K
             </kbd>
           </button>

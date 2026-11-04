@@ -11,6 +11,11 @@ import {
   playOrderReadySoundAlert,
 } from "@/lib/audio/order-sound-player";
 import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
+import {
+  registerServiceWorker,
+  requestNotificationPermission,
+  showNativeOrderNotification,
+} from "@/lib/notifications/web-push-client";
 
 interface WorkspaceRealtimeListenerProps {
   businessId: string;
@@ -21,9 +26,25 @@ export function WorkspaceRealtimeListener({ businessId }: WorkspaceRealtimeListe
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
   const processedReadyOrderIdsRef = useRef<Set<string>>(new Set());
 
-  // Inicializar desbloqueo acústico silencioso ante cualquier interacción del operador
+  // Inicializar desbloqueo acústico silencioso y Service Worker de Push Notifications
   useEffect(() => {
     initOrderAudioUnlock();
+    registerServiceWorker();
+
+    // Solicitar permisos de notificación nativa tras la primera interacción
+    const handleFirstInteraction = () => {
+      requestNotificationPermission();
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
+
+    window.addEventListener("click", handleFirstInteraction, { once: true });
+    window.addEventListener("touchstart", handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
   }, []);
 
   useEffect(() => {
@@ -79,6 +100,16 @@ export function WorkspaceRealtimeListener({ businessId }: WorkspaceRealtimeListe
               onClick: () => router.push(`/workspace/${businessId}/pedidos/${newOrder.id}`),
             },
           });
+
+          // Disparar Notificación Push Nativa del Sistema Operativo (Móvil / PWA / Escritorio)
+          showNativeOrderNotification({
+            orderId: newOrder.id,
+            orderNumber: newOrder.order_number,
+            orderType: newOrder.order_type,
+            customerName: newOrder.customer_name,
+            total: Number(newOrder.total),
+            businessId,
+          }).catch(() => {});
 
           // Asegurar persistencia de notificación de forma idempotente
           try {

@@ -2674,7 +2674,7 @@ export async function registerRestaurantOrderPayment(
     updated_at: new Date().toISOString(),
   };
 
-  if (paymentData.closeTableOrder || !currentOrder.table_id) {
+  if (paymentData.closeTableOrder) {
     orderUpdatePayload.status = "delivered";
   }
 

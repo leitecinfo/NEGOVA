@@ -108,7 +108,7 @@ export function WorkspaceHeaderQuickAccess({
   return (
     <Link
       href={activeItem.href}
-      className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 dark:text-slate-200 dark:hover:text-white dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-slate-200/80 dark:border-white/[0.08] transition-colors shadow-2xs group focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+      className="relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 dark:text-slate-200 dark:hover:text-white dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-slate-200/80 dark:border-white/[0.08] transition-colors shadow-2xs group focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
       title={`Acceso rápido a ${activeItem.label}`}
       data-testid="header-quick-access"
       data-module-id={activeItem.id}

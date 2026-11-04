@@ -108,7 +108,7 @@ export function WorkspaceSidebarSubscriptionWidget({
       <div className={`flex justify-center my-1 ${className}`}>
         <Link
           href={upgradeUrl}
-          className="group relative w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 hover:bg-orange-50 dark:bg-white/[0.04] dark:hover:bg-[#ED500A]/10 border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] transition-all focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+          className="group relative w-10 h-10 rounded-xl flex items-center justify-center bg-white hover:bg-orange-50 dark:bg-white/[0.04] dark:hover:bg-[#ED500A]/10 border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] transition-all focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
           title={`Plan ${resolvedPlanName} — ${productPercentage}% productos (${productCount}/${isProductsUnlimited ? "∞" : maxProducts}), ${userPercentage}% empleados (${employeeCount}/${isUsersUnlimited ? "∞" : maxUsers}). Actualizar plan — Mejorar plan`}
           aria-label={`Plan ${resolvedPlanName} — Actualizar plan — Mejorar plan`}
         >
@@ -129,7 +129,7 @@ export function WorkspaceSidebarSubscriptionWidget({
   return (
     <div
       data-testid="workspace-sidebar-subscription-widget"
-      className={`rounded-2xl p-3 bg-slate-100/90 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs space-y-2.5 ${className}`}
+      className={`rounded-2xl p-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs space-y-2.5 ${className}`}
     >
       {/* Cabecera: Nombre del Plan y Badge de Estado */}
       <div className="flex items-center justify-between gap-1.5">
@@ -261,7 +261,7 @@ export function WorkspaceSidebarSubscriptionWidget({
       <div className="pt-0.5">
         <Link
           href={upgradeUrl}
-          className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-orange-50 text-slate-800 hover:text-[#ED500A] dark:bg-white/[0.06] dark:hover:bg-white/[0.1] dark:text-slate-200 dark:hover:text-white border border-slate-200/80 dark:border-white/[0.08] transition-all shadow-2xs group"
+          className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-orange-50 text-slate-800 hover:text-[#ED500A] dark:bg-white/[0.04] dark:hover:bg-white/[0.08] dark:text-slate-200 dark:hover:text-white border border-slate-200/80 dark:border-white/[0.08] transition-all shadow-2xs group"
           title="Ver planes disponibles y cuotas de uso (Actualizar plan)"
           aria-label="Mejorar plan — Actualizar plan"
         >

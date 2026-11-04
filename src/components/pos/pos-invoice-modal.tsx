@@ -70,8 +70,11 @@ export function PosInvoiceModal({
           __html: `
           @media print {
             @page {
-              margin: 0mm !important;
+              margin: 0 !important;
               size: 80mm auto !important;
+            }
+            *, *::before, *::after {
+              box-sizing: border-box !important;
             }
             html, body {
               margin: 0 !important;
@@ -79,32 +82,73 @@ export function PosInvoiceModal({
               background: #ffffff !important;
               color: #000000 !important;
               width: 80mm !important;
+              max-width: 80mm !important;
+              min-width: 80mm !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
-              visibility: hidden !important;
+              overflow: visible !important;
+              height: auto !important;
             }
             /* Ocultar elementos de UI no imprimibles */
             .pos-no-print {
               display: none !important;
-              visibility: hidden !important;
             }
-            /* Renderizar exclusivamente el comprobante térmico */
+            /* Neutralizar contenedores del modal en impresión para no recortar ni ocultar hijos */
+            .pos-print-modal-overlay {
+              position: static !important;
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              inset: auto !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              display: block !important;
+            }
+            .pos-print-modal-card {
+              position: static !important;
+              background: transparent !important;
+              border: none !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              height: auto !important;
+              max-height: none !important;
+              overflow: visible !important;
+              display: block !important;
+            }
+            .pos-print-body-wrapper {
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              overflow: visible !important;
+              height: auto !important;
+              max-height: none !important;
+              display: block !important;
+            }
+            /* Renderizar exclusivamente el comprobante térmico a 80mm */
             #pos-receipt-print-area {
               display: block !important;
               visibility: visible !important;
-              position: fixed !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 76mm !important;
-              max-width: 76mm !important;
-              margin: 0 auto !important;
+              position: relative !important;
+              width: 80mm !important;
+              max-width: 80mm !important;
+              margin: 0 !important;
               padding: 3mm 2mm !important;
               background: #ffffff !important;
               color: #000000 !important;
               font-family: 'Courier New', Courier, monospace !important;
+              font-size: 11px !important;
+              line-height: 1.25 !important;
               box-shadow: none !important;
               border: none !important;
-              z-index: 999999999 !important;
+              border-radius: 0 !important;
+              overflow: visible !important;
             }
             #pos-receipt-print-area * {
               visibility: visible !important;
@@ -119,11 +163,11 @@ export function PosInvoiceModal({
       />
 
       {/* BACKDROP NEUTRAL OSCURO */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150 pos-no-print">
+      <div className="pos-print-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
-          className="relative w-full max-w-md sm:max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+          className="pos-print-modal-card relative w-full max-w-md sm:max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Cabecera del modal */}
@@ -151,7 +195,7 @@ export function PosInvoiceModal({
           </div>
 
           {/* Formato simulado de ticket (Área imprimible) */}
-          <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/70 dark:bg-black/40 flex justify-center">
+          <div className="pos-print-body-wrapper p-4 sm:p-6 overflow-y-auto bg-slate-100/70 dark:bg-black/40 flex justify-center">
             <div
               ref={printAreaRef}
               id="pos-receipt-print-area"
@@ -164,11 +208,11 @@ export function PosInvoiceModal({
                 </div>
 
                 {data.logoUrl ? (
-                  <div className="w-14 h-14 flex items-center justify-center p-1 rounded-xl bg-white border border-slate-200">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden border border-black/15 flex items-center justify-center bg-white shrink-0">
                     <img
                       src={data.logoUrl}
                       alt={data.businessName}
-                      className="max-h-full max-w-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ) : (

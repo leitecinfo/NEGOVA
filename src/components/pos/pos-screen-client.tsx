@@ -92,6 +92,7 @@ import { PosOpenTicketsDrawer, OpenTicket } from "./pos-open-tickets-drawer";
 import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
 import { registerRestaurantOrderPaymentAction } from "@/app/workspace/[businessId]/pedidos/actions";
 import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
+import { showNativeOrderNotification } from "@/lib/notifications/web-push-client";
 import { playOrderSoundAlert, initOrderAudioUnlock } from "@/lib/audio/order-sound-player";
 import type { CreateRestaurantOrderInput, ProcessOrderPaymentInput } from "@/lib/restaurant/types";
 
@@ -684,7 +685,7 @@ export function PosScreenClient({
         paymentMethod: paymentMethodKey,
         cashChange: changeAmount > 0 ? changeAmount : 0,
         customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
-        closeTableOrder: true,
+        closeTableOrder: false, // El pedido debe iniciar en estado recibido/pendiente para el flujo operativo de cocina
         tip: (customTip > 0 || tipPercentage > 0) ? {
           percentage: tipPercentage,
           amount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
@@ -725,6 +726,18 @@ export function PosScreenClient({
       } catch (notifErr) {
         console.warn("[handleConfirmAndPay] Error sincronizando notificación:", notifErr);
       }
+
+      // 5. Disparar Notificación Push Nativa del Sistema Operativo (Móvil / PWA / Escritorio)
+      try {
+        showNativeOrderNotification({
+          orderId,
+          orderNumber: orderNum,
+          orderType: payload.orderType,
+          customerName: payload.customerName,
+          total: summary.total,
+          businessId,
+        });
+      } catch {}
 
       // 5. Disparar evento para actualizar instantáneamente Tickets Abiertos y Badges
       try {
@@ -877,7 +890,7 @@ export function PosScreenClient({
               <button
                 type="button"
                 onClick={() => setIsOpenTicketsDrawerOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.1] border border-slate-200/60 dark:border-white/[0.06] transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] transition cursor-pointer"
                 title="Ver tickets abiertos en operación"
               >
                 <Receipt className="w-3.5 h-3.5 text-[#ED500A]" />
@@ -896,11 +909,11 @@ export function PosScreenClient({
               </button>
 
               {/* Conmutador de Densidad Visual */}
-              <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
+              <div className="flex items-center bg-white dark:bg-[#0D0F16] p-0.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setGridDensity("large")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "large" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "large" ? "bg-slate-100 dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Cuadrícula Grande"
                 >
                   <LayoutGrid className="w-4 h-4" />
@@ -908,7 +921,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("medium")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "medium" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "medium" ? "bg-slate-100 dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Cuadrícula Mediana"
                 >
                   <Grid className="w-4 h-4" />
@@ -916,7 +929,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("compact")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "compact" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "compact" ? "bg-slate-100 dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Compacta"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
@@ -924,7 +937,7 @@ export function PosScreenClient({
                 <button
                   type="button"
                   onClick={() => setGridDensity("list")}
-                  className={`p-1.5 rounded-lg transition ${gridDensity === "list" ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
+                  className={`p-1.5 rounded-lg transition ${gridDensity === "list" ? "bg-slate-100 dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                   title="Vista Lista"
                 >
                   <Rows className="w-4 h-4" />
@@ -941,7 +954,7 @@ export function PosScreenClient({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 selectedCategory === "all"
                   ? "bg-[#ED500A] text-white shadow-xs shadow-[#ED500A]/20"
-                  : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/[0.06]"
+                  : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08]"
               }`}
             >
               Todos ({categoryCounts.all || 0})
@@ -958,7 +971,7 @@ export function PosScreenClient({
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                     isSelected
                       ? "bg-[#ED500A] text-white shadow-xs shadow-[#ED500A]/20"
-                      : "bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/[0.06]"
+                      : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08]"
                   }`}
                 >
                   {cat.name} ({count})
@@ -1128,7 +1141,7 @@ export function PosScreenClient({
             /* VISTA DE CARRITO DE COMPRAS / TU PEDIDO */
             <>
               {/* Cabecera del pedido */}
-              <div className="p-3 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/70 dark:bg-white/[0.02]">
+              <div className="p-3 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-white dark:bg-[#0D0F16]">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Tu pedido - ({summary.itemsCount})
@@ -1147,7 +1160,7 @@ export function PosScreenClient({
               </div>
 
               {/* Fila de Cliente */}
-              <div className="px-3 py-2 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/40 dark:bg-white/[0.01] text-xs">
+              <div className="px-3 py-2 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-white/60 dark:bg-[#0D0F16]/60 text-xs">
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {selectedCustomer.name}
@@ -1332,7 +1345,7 @@ export function PosScreenClient({
               </div>
 
               {/* Pie de Carrito con Total y Botón Completar Compra */}
-              <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] space-y-2.5">
+              <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] space-y-2.5">
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>Total ({summary.itemsCount} unidades)</span>
                   <span className="text-base font-black text-slate-900 dark:text-white font-mono">
@@ -1355,7 +1368,7 @@ export function PosScreenClient({
             /* FLUJO DE COBRO LATERAL EN 2 PASOS [POS-006] */
             <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-200">
               {/* Botón de Retorno al Carrito */}
-              <div className="p-2.5 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/70 dark:bg-white/[0.02]">
+              <div className="p-2.5 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-white dark:bg-[#0D0F16]">
                 <button
                   type="button"
                   onClick={() => setIsCheckoutStepActive(false)}
@@ -1427,11 +1440,11 @@ export function PosScreenClient({
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "TAKEOUT"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
-                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
-                        serviceType === "TAKEOUT" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                        serviceType === "TAKEOUT" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300"
                       }`}>
                         <ShoppingBag className="w-4 h-4 shrink-0" />
                       </div>
@@ -1446,11 +1459,11 @@ export function PosScreenClient({
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DINE_IN"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
-                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
-                        serviceType === "DINE_IN" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                        serviceType === "DINE_IN" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300"
                       }`}>
                         <UtensilsCrossed className="w-4 h-4 shrink-0" />
                       </div>
@@ -1465,11 +1478,11 @@ export function PosScreenClient({
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "PICKUP"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
-                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
-                        serviceType === "PICKUP" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                        serviceType === "PICKUP" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300"
                       }`}>
                         <Receipt className="w-4 h-4 shrink-0" />
                       </div>
@@ -1484,11 +1497,11 @@ export function PosScreenClient({
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DELIVERY"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
-                          : "border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#12161F] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
-                        serviceType === "DELIVERY" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
+                        serviceType === "DELIVERY" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300"
                       }`}>
                         <Bike className="w-4 h-4 shrink-0" />
                       </div>
@@ -1632,10 +1645,10 @@ export function PosScreenClient({
                         <button
                           type="button"
                           onClick={() => setPaymentMethod("digital")}
-                          className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
+                          className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
                             paymentMethod === "digital"
                               ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300"
-                              : "border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400"
+                              : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400"
                           }`}
                         >
                           <Landmark className="w-4 h-4" />
@@ -1644,7 +1657,7 @@ export function PosScreenClient({
                       </div>
 
                       {paymentMethod === "cash" && (
-                        <div className="p-3.5 bg-slate-50/70 dark:bg-white/[0.02] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
+                        <div className="p-3.5 bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
                           <div className="flex items-center justify-between">
                             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                               Monto recibido:
@@ -1664,11 +1677,11 @@ export function PosScreenClient({
                               placeholder={summary.total.toString()}
                               value={receivedAmount}
                               onChange={(e) => setReceivedAmount(e.target.value)}
-                              className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                              className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                             />
                           </div>
                           {receivedNum > 0 && (
-                            <div className="flex justify-between items-center p-2 rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
+                            <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
                               <span className="text-slate-500 dark:text-slate-400">
                                 {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
                               </span>
@@ -1705,10 +1718,10 @@ export function PosScreenClient({
                           setTipPercentage(pct);
                           setCustomTip(0);
                         }}
-                        className={`py-1.5 rounded-lg border font-bold transition cursor-pointer ${
+                        className={`py-2 rounded-xl border font-bold transition cursor-pointer text-xs ${
                           tipPercentage === pct && customTip === 0
                             ? "bg-[#ED500A] text-white border-[#ED500A]"
-                            : "bg-white dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300"
+                            : "bg-white dark:bg-[#0D0F16] border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/[0.15]"
                         }`}
                       >
                         {pct === 0 ? "Sin propina" : `${pct}%`}
@@ -1718,9 +1731,9 @@ export function PosScreenClient({
                 </div>
 
                 {/* BLOQUE E: DESCUENTO Y NOTAS (OPCIONAL) */}
-                <div className="space-y-2 text-xs">
+                <div className="space-y-2.5 text-xs">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-0.5">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                       Descuento general ($)
                     </label>
                     <input
@@ -1728,11 +1741,11 @@ export function PosScreenClient({
                       placeholder="0"
                       value={generalDiscount || ""}
                       onChange={(e) => setGeneralDiscount(parseFloat(e.target.value) || 0)}
-                      className="w-full h-8 px-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono"
+                      className="w-full h-9 px-3 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-0.5">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
                       Nota de la orden
                     </label>
                     <input
@@ -1740,7 +1753,7 @@ export function PosScreenClient({
                       placeholder="Ej. Enviar cubiertos y servilletas extra"
                       value={orderNotes}
                       onChange={(e) => setOrderNotes(e.target.value)}
-                      className="w-full h-8 px-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
+                      className="w-full h-9 px-3 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
                     />
                   </div>
                 </div>
