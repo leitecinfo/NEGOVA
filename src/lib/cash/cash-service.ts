@@ -567,6 +567,20 @@ export async function getCashSessionSummary(
   const session = mapSessionRow(sessionRow);
   const movements = await getCashMovements(businessId, sessionId);
 
+  // Invariante de agregación: Prevenir duplicación si existen transacciones duplicadas para la misma referencia
+  const seenKeys = new Set<string>();
+  const uniqueMovements: typeof movements = [];
+  for (const m of movements) {
+    if (m.referenceId && m.referenceType) {
+      const key = `${m.referenceType}:${m.referenceId}:${m.movementType}`;
+      if (seenKeys.has(key)) {
+        continue;
+      }
+      seenKeys.add(key);
+    }
+    uniqueMovements.push(m);
+  }
+
   let totalSalesCash = 0;
   let totalSalesCard = 0;
   let totalSalesDigital = 0;
@@ -574,7 +588,7 @@ export async function getCashSessionSummary(
   let totalManualEntries = 0;
   let totalWithdrawals = 0;
 
-  for (const m of movements) {
+  for (const m of uniqueMovements) {
     switch (m.movementType) {
       case "sale_cash":
         totalSalesCash += m.amount;

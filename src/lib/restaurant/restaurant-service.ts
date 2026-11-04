@@ -2897,41 +2897,51 @@ export async function registerRestaurantOrderPayment(
   // [POS-003] REGLA ESTRICTA: La venta a crédito NO suma al efectivo del turno.
   try {
     const { getActiveCashSession, recordCashMovement } = await import("@/lib/cash/cash-service");
-    const activeSession = await getActiveCashSession(businessId);
+    const activeSession = await getActiveCashSession(businessId, undefined, userId);
     if (activeSession) {
-      const paymentsToRecord =
-        paymentData.isSplit && paymentData.splitPayments && paymentData.splitPayments.length > 0
-          ? paymentData.splitPayments
-          : [{ method: primaryMethod, amount: netSaleTotal + tipAmount }];
+      // Invariante de Idempotencia: Si ya existen movimientos para esta orden, no duplicar
+      const { data: existingMovs } = await supabase
+        .from("cash_movements")
+        .select("id")
+        .eq("business_id", businessId)
+        .eq("reference_id", orderId)
+        .eq("reference_type", "order");
 
-      for (const p of paymentsToRecord) {
-        const amt = Number(p.amount);
-        if (amt > 0) {
-          const mLower = (p.method || "").toLowerCase();
-          // Criterio 3: La venta a crédito NO genera movimiento de caja de efectivo
-          if (mLower === "credit" || mLower === "a_credito" || mLower === "a crédito") {
-            continue;
+      if (!existingMovs || existingMovs.length === 0) {
+        const paymentsToRecord =
+          paymentData.isSplit && paymentData.splitPayments && paymentData.splitPayments.length > 0
+            ? paymentData.splitPayments
+            : [{ method: primaryMethod, amount: netSaleTotal + tipAmount }];
+
+        for (const p of paymentsToRecord) {
+          const amt = Number(p.amount);
+          if (amt > 0) {
+            const mLower = (p.method || "").toLowerCase();
+            // Criterio 3: La venta a crédito NO genera movimiento de caja de efectivo
+            if (mLower === "credit" || mLower === "a_credito" || mLower === "a crédito") {
+              continue;
+            }
+
+            let mType: "sale_cash" | "sale_card" | "sale_digital" = "sale_digital";
+            if (mLower === "cash" || mLower === "efectivo") {
+              mType = "sale_cash";
+            } else if (mLower === "card" || mLower === "tarjeta" || mLower === "datafono") {
+              mType = "sale_card";
+            }
+
+            await recordCashMovement(
+              businessId,
+              {
+                sessionId: activeSession.id,
+                movementType: mType,
+                amount: amt,
+                referenceId: orderId,
+                referenceType: "order",
+                notes: `Cobro Pedido #${currentOrder.order_number} [${p.method.toUpperCase()}]`,
+              },
+              userId
+            );
           }
-
-          let mType: "sale_cash" | "sale_card" | "sale_digital" = "sale_digital";
-          if (mLower === "cash" || mLower === "efectivo") {
-            mType = "sale_cash";
-          } else if (mLower === "card" || mLower === "tarjeta" || mLower === "datafono") {
-            mType = "sale_card";
-          }
-
-          await recordCashMovement(
-            businessId,
-            {
-              sessionId: activeSession.id,
-              movementType: mType,
-              amount: amt,
-              referenceId: orderId,
-              referenceType: "order",
-              notes: `Cobro Pedido #${currentOrder.order_number} [${p.method.toUpperCase()}]`,
-            },
-            userId
-          );
         }
       }
     }

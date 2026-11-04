@@ -43,6 +43,8 @@ import {
   CreditCard,
   Wallet,
   Loader2,
+  ChefHat,
+  Clock,
 } from "lucide-react";
 import { Product, Category, ProductVariant, isProductAvailableInPos } from "@/lib/products/types";
 import { findProductByBarcode } from "@/lib/products/barcode-service";
@@ -90,7 +92,10 @@ import { PosKitchenTicketModal, KitchenTicketData } from "./pos-kitchen-ticket-m
 import { PosInvoiceModal, InvoiceData } from "./pos-invoice-modal";
 import { PosOpenTicketsDrawer, OpenTicket } from "./pos-open-tickets-drawer";
 import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
-import { registerRestaurantOrderPaymentAction } from "@/app/workspace/[businessId]/pedidos/actions";
+import {
+  registerRestaurantOrderPaymentAction,
+  getRestaurantOrderAction,
+} from "@/app/workspace/[businessId]/pedidos/actions";
 import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
 import { showNativeOrderNotification } from "@/lib/notifications/web-push-client";
 import { playOrderSoundAlert, initOrderAudioUnlock } from "@/lib/audio/order-sound-player";
@@ -812,6 +817,161 @@ export function PosScreenClient({
     }
   };
 
+  // Registrar pedido y enviar a cocina con cobro diferido / contra entrega (NO cobra de inmediato ni afecta turno de caja)
+  const handleSendOrderToKitchen = async () => {
+    if (cartItems.length === 0) {
+      toast.error("El carrito está vacío.");
+      return;
+    }
+
+    if (serviceType === "DELIVERY") {
+      if (!deliveryDetails.phone || !deliveryDetails.name || !deliveryDetails.address) {
+        toast.error("Para servicio a domicilio se requiere Teléfono, Nombre y Dirección completos.");
+        return;
+      }
+    }
+
+    setIsSubmittingSale(true);
+
+    try {
+      const tableName = serviceType === "DINE_IN" ? tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa 1" : undefined;
+      const finalCustomerName = serviceType === "DELIVERY" ? deliveryDetails.name : selectedCustomer.name;
+
+      const orderTypeKey = serviceType === "DINE_IN" ? "dine_in" : serviceType === "DELIVERY" ? "delivery" : "takeout";
+      const payload: CreateRestaurantOrderInput = {
+        orderType: orderTypeKey,
+        channelOrigin: "in_person",
+        tableId: serviceType === "DINE_IN" ? selectedTableId || null : null,
+        customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
+        customerName: finalCustomerName || (serviceType === "DELIVERY" ? "Cliente Domicilio" : "Cliente General"),
+        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : (selectedCustomer.phone || null),
+        deliveryAddress: serviceType === "DELIVERY" ? deliveryDetails.address : null,
+        deliveryFee: serviceType === "DELIVERY" ? (deliveryDetails.deliveryFee || 0) : 0,
+        notes: orderNotes.trim() || (generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null),
+        taxTotal: summary.tax,
+        items: cartItems.map((ci) => ({
+          productId: ci.productId && ci.productId !== "custom-item" && !ci.productId.startsWith("custom-") ? ci.productId : null,
+          variantId: ci.variantId || null,
+          variantName: ci.variantName || null,
+          quantity: ci.quantity,
+          notes: ci.notes,
+          taxPercentage: ci.taxPercentage,
+          taxIncludedInPrice: ci.taxIncludedInPrice,
+          selectedModifiers: (ci.selectedModifiers || []).map((m) => ({
+            groupId: m.groupId,
+            groupName: m.groupName,
+            optionId: m.optionId,
+            optionName: m.optionName,
+            price: m.price,
+          })),
+        })),
+      };
+
+      const res = await createRestaurantOrderAction(businessId, payload);
+      if (!res.success || !res.orderId || !res.orderNumber) {
+        toast.error(res.error || "Ocurrió un error al registrar el pedido.");
+        setIsSubmittingSale(false);
+        return;
+      }
+
+      const orderId = res.orderId;
+      const orderNum = res.orderNumber;
+
+      // Feedback sonoro
+      try {
+        playOrderSoundAlert(orderId);
+      } catch {}
+
+      // Sincronizar notificación en campanita
+      try {
+        await syncOrderNotificationAction(businessId, {
+          orderId,
+          orderNumber: orderNum,
+          orderType: payload.orderType,
+          customerName: payload.customerName,
+          total: summary.total,
+        });
+      } catch (notifErr) {
+        console.warn("[handleSendOrderToKitchen] Error sincronizando notificación:", notifErr);
+      }
+
+      // Notificación push nativa
+      try {
+        showNativeOrderNotification({
+          orderId,
+          orderNumber: orderNum,
+          orderType: payload.orderType,
+          customerName: payload.customerName,
+          total: summary.total,
+          businessId,
+        });
+      } catch {}
+
+      // Evento global para tickets abiertos y KDS
+      try {
+        window.dispatchEvent(
+          new CustomEvent("negova:new_order", {
+            detail: {
+              id: orderId,
+              businessId,
+              orderNumber: orderNum,
+              orderType: payload.orderType,
+              customerName: payload.customerName,
+              total: summary.total,
+              createdAt: new Date().toISOString(),
+            },
+          })
+        );
+      } catch {}
+
+      // Generar y desplegar comanda de cocina térmica
+      const kTicket: KitchenTicketData = {
+        orderNumber: orderNum,
+        referenceName: `REF-${orderNum}`,
+        serviceType: serviceType === "DINE_IN" ? "COMER AQUÍ" : serviceType === "TAKEOUT" ? "PARA LLEVAR" : serviceType === "DELIVERY" ? "DOMICILIO" : "PARA RECOGER",
+        tableName: tableName,
+        cashierName: cashierName || businessName || "Cajero",
+        createdAt: new Date().toISOString(),
+        items: cartItems.map((ci) => ({
+          quantity: ci.quantity,
+          name: ci.productName,
+          modifiers: (ci.selectedModifiers || []).map((m) => `${m.groupName}: ${m.optionName}`),
+          notes: ci.notes,
+        })),
+      };
+
+      setKitchenTicketData(kTicket);
+      setCartItems([]);
+      setGeneralDiscount(0);
+      setTipPercentage(0);
+      setCustomTip(0);
+      setOrderNotes("");
+      setIsCheckoutStepActive(false);
+      router.refresh();
+      toast.success(`¡Pedido #${orderNum} enviado a cocina!`, {
+        description: "Estado: Recibido • Pendiente de cobro (Pago contra entrega)",
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Error al enviar el pedido a cocina.");
+    } finally {
+      setIsSubmittingSale(false);
+    }
+  };
+
+  // Cargar ticket existente desde Tickets Abiertos para cobrarlo
+  const handlePayExistingTicket = async (ticket: OpenTicket) => {
+    try {
+      const res = await getRestaurantOrderAction(businessId, ticket.id);
+      if (res.success && res.order) {
+        setOrderToPay(res.order);
+      } else {
+        toast.error("No se pudo cargar el pedido para cobro.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Error al cargar el pedido.");
+    }
+  };
+
   // Copiar nombre del cliente
   const handleCopyCustomer = () => {
     navigator.clipboard.writeText(selectedCustomer.name);
@@ -866,9 +1026,9 @@ export function PosScreenClient({
               {activeCashSession ? (
                 <button
                   type="button"
-                  onClick={() => setIsOpenCashShiftModalOpen(true)}
+                  onClick={() => setIsCashMovementModalOpen(true)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-100 transition cursor-pointer"
-                  title="Turno de caja activo"
+                  title="Turno de caja activo (Clic para ver arqueo o registrar entrada/salida)"
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <Landmark className="w-3.5 h-3.5" />
@@ -1353,15 +1513,29 @@ export function PosScreenClient({
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={cartItems.length === 0}
-                  onClick={() => setIsCheckoutStepActive(true)}
-                  className="w-full py-3 px-4 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                >
-                  <span>Completar compra</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSubmittingSale || cartItems.length === 0}
+                    onClick={handleSendOrderToKitchen}
+                    className="w-full py-2.5 px-3 rounded-xl border border-emerald-600/40 dark:border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.99]"
+                    title="Enviar pedido a cocina con estado pendiente de cobro (Pago contra entrega)"
+                  >
+                    <ChefHat className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>A Cocina (Por cobrar)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingSale || cartItems.length === 0}
+                    onClick={() => setIsCheckoutStepActive(true)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs shadow-md shadow-[#ED500A]/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
+                    title="Cobrar ahora (Efectivo, tarjeta, transferencia o crédito)"
+                  >
+                    <span>Completar compra</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -1766,24 +1940,37 @@ export function PosScreenClient({
                   <span className="text-lg font-black text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleConfirmAndPay}
-                  disabled={isSubmittingSale || cartItems.length === 0}
-                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
-                >
-                  {isSubmittingSale ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Procesando venta...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Confirmar y cobrar</span>
-                    </>
-                  )}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleConfirmAndPay}
+                    disabled={isSubmittingSale || cartItems.length === 0}
+                    className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99]"
+                  >
+                    {isSubmittingSale ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Procesando venta...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Confirmar y cobrar</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendOrderToKitchen}
+                    disabled={isSubmittingSale || cartItems.length === 0}
+                    className="w-full py-2.5 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    title="Enviar pedido a cocina sin registrar pago en caja (Cobro contra entrega)"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Guardar sin cobrar (Pago contra entrega)</span>
+                  </button>
+                </div>
 
                 <div className="text-center">
                   <button
@@ -1871,7 +2058,51 @@ export function PosScreenClient({
         isOpen={isOpenTicketsDrawerOpen}
         onClose={() => setIsOpenTicketsDrawerOpen(false)}
         businessId={businessId}
+        onPayTicket={handlePayExistingTicket}
       />
+
+      {/* Modal de Apertura de Turno de Caja [POS-001] */}
+      <OpenCashShiftModal
+        isOpen={isOpenCashShiftModalOpen && !activeCashSession}
+        businessId={businessId}
+        registers={cashRegisters}
+        onClose={() => setIsOpenCashShiftModalOpen(false)}
+        onSessionOpened={(session) => {
+          setActiveCashSession(session);
+          setCurrentCashBalance(session.initialAmount);
+          setIsOpenCashShiftModalOpen(false);
+          router.refresh();
+        }}
+      />
+
+      {/* Modal de Cobro de Pedido Abierto [POS-002] */}
+      {orderToPay && (
+        <OrderPaymentModal
+          isOpen={Boolean(orderToPay)}
+          order={orderToPay}
+          paymentMethods={initialPaymentMethods}
+          isSubmitting={isPaymentSubmitting}
+          onClose={() => setOrderToPay(null)}
+          onConfirm={async (data) => {
+            setIsPaymentSubmitting(true);
+            try {
+              const res = await registerRestaurantOrderPaymentAction(businessId, orderToPay.id, data);
+              if (res.success) {
+                toast.success(`¡Pedido #${orderToPay.order_number} cobrado exitosamente!`);
+                setOrderToPay(null);
+                setIsOpenTicketsDrawerOpen(false);
+                router.refresh();
+              } else {
+                toast.error(res.error || "No se pudo registrar el pago.");
+              }
+            } catch (err: any) {
+              toast.error(err?.message || "Error al procesar el pago.");
+            } finally {
+              setIsPaymentSubmitting(false);
+            }
+          }}
+        />
+      )}
 
       {/* Modales Complementarios Existentes */}
       <ModifierSelectionModal
@@ -2066,16 +2297,31 @@ export function PosScreenClient({
                   <span>Total:</span>
                   <span className="text-[#ED500A] font-mono">{formatCOP(summary.total)}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileCartOpen(false);
-                    setIsCheckoutStepActive(true);
-                  }}
-                  className="w-full py-3 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-bold text-xs min-h-[48px] cursor-pointer shadow-lg shadow-[#ED500A]/25 transition active:scale-[0.99]"
-                >
-                  Continuar Cobro
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSubmittingSale || cartItems.length === 0}
+                    onClick={() => {
+                      setIsMobileCartOpen(false);
+                      handleSendOrderToKitchen();
+                    }}
+                    className="w-full py-2.5 rounded-xl border border-emerald-600/40 dark:border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-xs min-h-[44px] flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <ChefHat className="w-4 h-4" />
+                    <span>A Cocina</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileCartOpen(false);
+                      setIsCheckoutStepActive(true);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs min-h-[44px] cursor-pointer shadow-lg shadow-[#ED500A]/25 transition active:scale-[0.99] flex items-center justify-center gap-1"
+                  >
+                    <span>Continuar Cobro</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

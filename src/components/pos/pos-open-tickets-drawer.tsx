@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   X,
@@ -14,9 +14,12 @@ import {
   ShoppingBag,
   Bike,
   UtensilsCrossed,
-  Receipt
+  Receipt,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getRestaurantOrdersListAction } from '@/app/workspace/[businessId]/pedidos/actions';
 
 export interface OpenTicket {
   id: string;
@@ -26,6 +29,7 @@ export interface OpenTicket {
   tableName?: string;
   total: number;
   status: 'PENDING' | 'PREPARING' | 'READY';
+  paymentStatus?: 'pending' | 'paid' | 'credit';
   createdAt: string; // ISO date string or minutes ago
   minutesElapsed: number;
   itemsCount: number;
@@ -37,6 +41,7 @@ interface PosOpenTicketsDrawerProps {
   businessId: string;
   tickets?: OpenTicket[];
   onSelectTicket?: (ticket: OpenTicket) => void;
+  onPayTicket?: (ticket: OpenTicket) => void;
 }
 
 export function PosOpenTicketsDrawer({
@@ -45,58 +50,86 @@ export function PosOpenTicketsDrawer({
   businessId,
   tickets = [],
   onSelectTicket,
+  onPayTicket,
 }: PosOpenTicketsDrawerProps) {
   const [filterOrigin, setFilterOrigin] = useState<string>('TODOS');
   const [filterStatus, setFilterStatus] = useState<string>('TODOS');
   const [filterService, setFilterService] = useState<string>('TODOS');
   const [sortBy, setSortBy] = useState<'time' | 'total'>('time');
+  const [liveTickets, setLiveTickets] = useState<OpenTicket[]>(tickets);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const fetchLiveTickets = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await getRestaurantOrdersListAction(businessId, { pageSize: 50 });
+      if (res.success && res.data?.orders) {
+        const mapped: OpenTicket[] = res.data.orders
+          .filter((o) => o.status !== 'cancelled' && (o.status !== 'delivered' || o.payment_status === 'pending'))
+          .map((o) => {
+            const minElapsed = Math.max(0, Math.floor((Date.now() - new Date(o.created_at).getTime()) / 60000));
+            const sType: OpenTicket['serviceType'] =
+              o.order_type === 'dine_in'
+                ? 'DINE_IN'
+                : o.order_type === 'delivery'
+                ? 'DELIVERY'
+                : 'TAKEOUT';
+
+            const stat: OpenTicket['status'] =
+              o.status === 'ready' ? 'READY' : o.status === 'in_preparation' ? 'PREPARING' : 'PENDING';
+
+            return {
+              id: o.id,
+              orderNumber: `#${o.order_number}`,
+              customerName: o.customer_name || 'Cliente General',
+              serviceType: sType,
+              tableName: o.tableName || (o as any).table_name || undefined,
+              total: Number(o.total || 0),
+              status: stat,
+              paymentStatus: (o.payment_status as any) || 'pending',
+              createdAt: o.created_at,
+              minutesElapsed: minElapsed,
+              itemsCount: o.items?.length || (o as any).restaurant_order_items?.length || 1,
+            };
+          });
+        setLiveTickets(mapped);
+      }
+    } catch (err) {
+      console.warn('[PosOpenTicketsDrawer] Error cargando tickets abiertos:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [businessId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (tickets.length > 0) {
+        setLiveTickets(tickets);
+      } else {
+        fetchLiveTickets();
+      }
+    }
+  }, [isOpen, tickets, fetchLiveTickets]);
+
+  useEffect(() => {
+    const handleNewOrder = () => {
+      if (isOpen) {
+        fetchLiveTickets();
+      }
+    };
+    window.addEventListener('negova:new_order', handleNewOrder);
+    return () => window.removeEventListener('negova:new_order', handleNewOrder);
+  }, [isOpen, fetchLiveTickets]);
 
   if (!isOpen) return null;
 
-  // Si no vienen tickets, creamos datos de muestra realistas para la demostración
-  const sampleTickets: OpenTicket[] = tickets.length > 0 ? tickets : [
-    {
-      id: 'ticket-1',
-      orderNumber: '#104',
-      customerName: 'Carlos Gómez',
-      serviceType: 'DINE_IN',
-      tableName: 'Mesa 4',
-      total: 45000,
-      status: 'PREPARING',
-      createdAt: new Date(Date.now() - 18 * 60000).toISOString(),
-      minutesElapsed: 18,
-      itemsCount: 3,
-    },
-    {
-      id: 'ticket-2',
-      orderNumber: '#105',
-      customerName: 'Cliente General',
-      serviceType: 'TAKEOUT',
-      total: 28000,
-      status: 'PENDING',
-      createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
-      minutesElapsed: 8,
-      itemsCount: 2,
-    },
-    {
-      id: 'ticket-3',
-      orderNumber: '#106',
-      customerName: 'María Rodríguez',
-      serviceType: 'DELIVERY',
-      total: 62000,
-      status: 'READY',
-      createdAt: new Date(Date.now() - 3 * 60000).toISOString(),
-      minutesElapsed: 3,
-      itemsCount: 4,
-    },
-  ];
+  const currentTickets = liveTickets;
+  const totalTickets = currentTickets.length;
+  const totalValue = currentTickets.reduce((acc, t) => acc + t.total, 0);
+  const delayedTickets = currentTickets.filter((t) => t.minutesElapsed >= 5 && t.minutesElapsed < 15).length;
+  const criticalTickets = currentTickets.filter((t) => t.minutesElapsed >= 15).length;
 
-  const totalTickets = sampleTickets.length;
-  const totalValue = sampleTickets.reduce((acc, t) => acc + t.total, 0);
-  const delayedTickets = sampleTickets.filter((t) => t.minutesElapsed >= 5 && t.minutesElapsed < 15).length;
-  const criticalTickets = sampleTickets.filter((t) => t.minutesElapsed >= 15).length;
-
-  const filteredTickets = sampleTickets.filter((ticket) => {
+  const filteredTickets = currentTickets.filter((ticket) => {
     if (filterStatus !== 'TODOS' && ticket.status !== filterStatus) return false;
     if (filterService !== 'TODOS' && ticket.serviceType !== filterService) return false;
     return true;
@@ -150,13 +183,24 @@ export function PosOpenTicketsDrawer({
               Tickets Abiertos
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={fetchLiveTickets}
+              disabled={isLoading}
+              title="Actualizar tickets abiertos"
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#ED500A]' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Métricas 2x2 */}
@@ -307,21 +351,46 @@ export function PosOpenTicketsDrawer({
                       </span>
                     </div>
 
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
-                        ticket.status === 'READY'
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                          ticket.status === 'READY'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : ticket.status === 'PREPARING'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                            : 'bg-slate-100 text-slate-800 dark:bg-white/[0.06] dark:text-slate-300'
+                        }`}
+                      >
+                        {ticket.status === 'READY'
+                          ? 'Listo'
                           : ticket.status === 'PREPARING'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                          : 'bg-slate-100 text-slate-800 dark:bg-white/[0.06] dark:text-slate-300'
-                      }`}
-                    >
-                      {ticket.status === 'READY'
-                        ? 'Listo'
-                        : ticket.status === 'PREPARING'
-                        ? 'En preparación'
-                        : 'Pendiente'}
-                    </span>
+                          ? 'En preparación'
+                          : 'Pendiente'}
+                      </span>
+
+                      {ticket.paymentStatus === 'pending' ? (
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            Por cobrar
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPayTicket?.(ticket);
+                            }}
+                            className="px-2 py-0.5 rounded bg-[#ED500A] hover:bg-[#d94608] active:bg-[#bf3d07] text-white font-bold text-[11px] flex items-center gap-0.5 shadow-xs transition cursor-pointer"
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            <span>Cobrar</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Pagado
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

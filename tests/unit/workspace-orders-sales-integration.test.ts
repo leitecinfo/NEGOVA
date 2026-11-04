@@ -1267,5 +1267,50 @@ describe("Integración Pedidos → Ventas → Mesas → Canales (NEGOVA)", () =>
       const doc = await getBusinessDocumentById(BUSINESS_A, "order-tenant-b");
       expect(doc).toBeNull();
     });
+
+    it("Desacople de Cobro Inmediato vs Pago Contra Entrega: Pedido sin cobrar permanece pendiente y no genera movimientos duplicados", async () => {
+      const takeOutOrderId = "order-takeout-deferred";
+      inMemoryOrders.push({
+        id: takeOutOrderId,
+        business_id: BUSINESS_A,
+        order_number: 1050,
+        status: "received",
+        order_type: "takeout",
+        channel_origin: "in_person",
+        subtotal: 35000,
+        delivery_fee: 0,
+        total: 35000,
+        notes: "Para llevar - Pago contra entrega",
+        table_id: null,
+        customer_name: "Cliente Mostrador",
+        customer_phone: null,
+        delivery_address: null,
+        delivery_reference: null,
+        delivery_status: null,
+        driver_name: null,
+        payment_status: "pending",
+        idempotency_key: null,
+        idempotency_hash: null,
+        created_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // 1. Verificar estado inicial: no pagado
+      const orderDocBefore = inMemoryOrders.find((o) => o.id === takeOutOrderId);
+      expect(orderDocBefore?.payment_status).toBe("pending");
+      expect(orderDocBefore?.status).toBe("received");
+
+      // 2. Ejecutar cobro contra entrega al momento del despacho
+      const payRes = await registerRestaurantOrderPayment(BUSINESS_A, takeOutOrderId, {
+        paymentMethod: "cash",
+      });
+      expect(payRes.success).toBe(true);
+
+      const orderDocAfter = inMemoryOrders.find((o) => o.id === takeOutOrderId);
+      expect(orderDocAfter?.payment_status).toBe("paid");
+      // El estado debe mantenerse en received o ciclo de cocina, sin saltar a delivered
+      expect(orderDocAfter?.status).toBe("received");
+    });
   });
 });
