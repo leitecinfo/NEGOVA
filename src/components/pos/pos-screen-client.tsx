@@ -37,14 +37,14 @@ import {
   ChevronUp,
   ChevronDown,
   Bike,
-  UtensilsCrossed,
   Calendar,
   Check,
-  CreditCard,
+  Banknote,
   Wallet,
   Loader2,
-  ChefHat,
   Clock,
+  User,
+  Store,
 } from "lucide-react";
 import { Product, Category, ProductVariant, isProductAvailableInPos } from "@/lib/products/types";
 import { findProductByBarcode } from "@/lib/products/barcode-service";
@@ -88,10 +88,15 @@ import { PosItemLibreModal } from "./pos-item-libre-modal";
 import { PosDiscountModal } from "./pos-discount-modal";
 import { PosEditPriceModal } from "./pos-edit-price-modal";
 import { PosSelectCustomerModal, PosCustomerItem } from "./pos-select-customer-modal";
+import { PosQuickCreateCustomerModal } from "./pos-quick-create-customer-modal";
 import { PosKitchenTicketModal, KitchenTicketData } from "./pos-kitchen-ticket-modal";
 import { PosInvoiceModal, InvoiceData } from "./pos-invoice-modal";
 import { PosOpenTicketsDrawer, OpenTicket } from "./pos-open-tickets-drawer";
-import { createRestaurantOrderAction } from "@/app/workspace/[businessId]/ventas/order-actions";
+import { PosResponsibleSelector } from "./pos-responsible-selector";
+import {
+  createRestaurantOrderAction,
+  getWorkspaceStaffAction,
+} from "@/app/workspace/[businessId]/ventas/order-actions";
 import {
   registerRestaurantOrderPaymentAction,
   getRestaurantOrderAction,
@@ -99,17 +104,13 @@ import {
 import { syncOrderNotificationAction } from "@/app/workspace/[businessId]/notificaciones/actions";
 import { showNativeOrderNotification } from "@/lib/notifications/web-push-client";
 import { playOrderSoundAlert, initOrderAudioUnlock } from "@/lib/audio/order-sound-player";
-import type { CreateRestaurantOrderInput, ProcessOrderPaymentInput } from "@/lib/restaurant/types";
-
-// Componentes de Ayuda [HELP-002]
-import { ModuleVideoButton } from "@/components/help/module-video-button";
-import { ModuleVideosModal } from "@/components/help/module-videos-modal";
-import { HelpCenterDrawer } from "@/components/help/help-center-drawer";
+import type { CreateRestaurantOrderInput, ProcessOrderPaymentInput, StaffMember } from "@/lib/restaurant/types";
 
 interface PosScreenClientProps {
   businessId: string;
   businessName: string;
   cashierName?: string;
+  currentUserId?: string;
   tradeName?: string;
   logoUrl?: string | null;
   primaryColor?: string;
@@ -122,6 +123,7 @@ interface PosScreenClientProps {
   initialCashBalance?: number;
   initialPaymentMethods?: PublicPaymentMethodDTO[];
   initialQuotation?: Quotation | null;
+  initialStaff?: StaffMember[];
   onSwitchToManualForm?: () => void;
   onOrderReady?: (order: PosOrderSummary) => void;
 }
@@ -130,6 +132,7 @@ export function PosScreenClient({
   businessId,
   businessName,
   cashierName,
+  currentUserId,
   tradeName,
   logoUrl,
   primaryColor = "#ED500A",
@@ -142,6 +145,7 @@ export function PosScreenClient({
   initialCashBalance,
   initialPaymentMethods = [],
   initialQuotation = null,
+  initialStaff = [],
   onSwitchToManualForm,
   onOrderReady,
 }: PosScreenClientProps) {
@@ -233,6 +237,7 @@ export function PosScreenClient({
   const [discountItem, setDiscountItem] = useState<PosCartItem | null>(null);
   const [editPriceItem, setEditPriceItem] = useState<PosCartItem | null>(null);
   const [isSelectCustomerModalOpen, setIsSelectCustomerModalOpen] = useState(false);
+  const [isQuickCreateCustomerModalOpen, setIsQuickCreateCustomerModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{
     id: string;
     name: string;
@@ -241,13 +246,62 @@ export function PosScreenClient({
     address?: string;
   }>({ id: "general", name: "Cliente General" });
 
+  // 5.1 Personal y responsable del pedido (selección por defecto: usuario actual)
+  const [staffList, setStaffList] = useState<StaffMember[]>(initialStaff || []);
+
+  const defaultStaff = useMemo(() => {
+    return (
+      staffList.find((s) => s.isCurrentUser || s.id === currentUserId) ||
+      staffList[0] ||
+      null
+    );
+  }, [staffList, currentUserId]);
+
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(
+    initialStaff?.find((s) => s.isCurrentUser || s.id === currentUserId)?.id ||
+      currentUserId ||
+      null
+  );
+
+  useEffect(() => {
+    if (!selectedStaffId && defaultStaff) {
+      setSelectedStaffId(defaultStaff.id);
+    }
+  }, [defaultStaff, selectedStaffId]);
+
+  const selectedStaff = useMemo(() => {
+    return staffList.find((s) => s.id === selectedStaffId) || defaultStaff || null;
+  }, [staffList, selectedStaffId, defaultStaff]);
+
+  // Carga reactiva de personal si initialStaff llegó vacío
+  useEffect(() => {
+    if (staffList.length === 0) {
+      getWorkspaceStaffAction(businessId)
+        .then((res) => {
+          if (res.success && res.data && res.data.length > 0) {
+            setStaffList(res.data);
+            const current =
+              res.data.find((s) => s.isCurrentUser || s.id === currentUserId) ||
+              res.data[0];
+            if (current && !selectedStaffId) {
+              setSelectedStaffId(current.id);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [businessId, staffList.length, currentUserId, selectedStaffId]);
+
+  // 5.2 Información para pedidos "Para recoger"
+  const [takeoutDetails, setTakeoutDetails] = useState({
+    name: "",
+    phone: "",
+    saveCustomer: false,
+  });
+
   const [isOpenTicketsDrawerOpen, setIsOpenTicketsDrawerOpen] = useState(false);
   const [kitchenTicketData, setKitchenTicketData] = useState<KitchenTicketData | null>(null);
   const [invoiceTicketData, setInvoiceTicketData] = useState<InvoiceData | null>(null);
-
-  // Estados de Ayuda y Videos [HELP-002]
-  const [isModuleVideosModalOpen, setIsModuleVideosModalOpen] = useState(false);
-  const [isHelpCenterDrawerOpen, setIsHelpCenterDrawerOpen] = useState(false);
 
   // 6. Flujo de Cobro Lateral en 2 Pasos
   const [isCheckoutStepActive, setIsCheckoutStepActive] = useState(false);
@@ -259,10 +313,7 @@ export function PosScreenClient({
     address: "",
     deliveryFee: 5000,
   });
-  const [paymentTiming, setPaymentTiming] = useState<"deferred" | "immediate">("deferred");
-  const [isCredit, setIsCredit] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "digital">("cash");
-  const [receivedAmount, setReceivedAmount] = useState<string>("");
+  const [paymentTiming, setPaymentTiming] = useState<"pay_now" | "pay_later">("pay_now");
   const [tipPercentage, setTipPercentage] = useState<number>(0);
   const [customTip, setCustomTip] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState<string>("");
@@ -300,10 +351,6 @@ export function PosScreenClient({
       total: finalTotal,
     };
   }, [cartItems, tipPercentage, customTip, serviceType, deliveryDetails.deliveryFee, generalDiscount]);
-
-  // Monto recibido numérico y cambio
-  const receivedNum = parseFloat(receivedAmount) || 0;
-  const changeAmount = receivedNum > summary.total ? receivedNum - summary.total : 0;
 
   // Productos activos habilitados para el canal POS
   const posChannelProducts = useMemo(() => {
@@ -623,8 +670,9 @@ export function PosScreenClient({
     playBeep: false,
   });
 
-  // Confirmar y cobrar la venta en el Checkout Lateral [POS-006]
-  const handleConfirmAndPay = async () => {
+  // Confirmar y crear el pedido operativo en el Checkout Lateral [POS-006]
+  // La creación NO registra pago ni genera movimiento de caja hasta confirmar el pago expresamente.
+  const handleCreateOrder = async () => {
     if (cartItems.length === 0) {
       toast.error("El carrito está vacío.");
       return;
@@ -637,197 +685,9 @@ export function PosScreenClient({
       }
     }
 
-    setIsSubmittingSale(true);
-
-    try {
-      const tableName = serviceType === "DINE_IN" ? tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa 1" : undefined;
-      const finalCustomerName = serviceType === "DELIVERY" ? deliveryDetails.name : selectedCustomer.name;
-
-      // 1. Construir y persistir pedido con consecutivo secuencial en base de datos
-      const orderTypeKey = serviceType === "DINE_IN" ? "dine_in" : serviceType === "DELIVERY" ? "delivery" : "takeout";
-      const payload: CreateRestaurantOrderInput = {
-        orderType: orderTypeKey,
-        channelOrigin: "in_person",
-        tableId: serviceType === "DINE_IN" ? selectedTableId || null : null,
-        customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
-        customerName: finalCustomerName || (serviceType === "DELIVERY" ? "Cliente Domicilio" : "Cliente General"),
-        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : (selectedCustomer.phone || null),
-        deliveryAddress: serviceType === "DELIVERY" ? deliveryDetails.address : null,
-        deliveryFee: serviceType === "DELIVERY" ? (deliveryDetails.deliveryFee || 0) : 0,
-        notes: orderNotes.trim() || (generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null),
-        taxTotal: summary.tax,
-        items: cartItems.map((ci) => ({
-          productId: ci.productId && ci.productId !== "custom-item" && !ci.productId.startsWith("custom-") ? ci.productId : null,
-          variantId: ci.variantId || null,
-          variantName: ci.variantName || null,
-          quantity: ci.quantity,
-          notes: ci.notes,
-          taxPercentage: ci.taxPercentage,
-          taxIncludedInPrice: ci.taxIncludedInPrice,
-          selectedModifiers: (ci.selectedModifiers || []).map((m) => ({
-            groupId: m.groupId,
-            groupName: m.groupName,
-            optionId: m.optionId,
-            optionName: m.optionName,
-            price: m.price,
-          })),
-        })),
-      };
-
-      const res = await createRestaurantOrderAction(businessId, payload);
-      if (!res.success || !res.orderId || !res.orderNumber) {
-        toast.error(res.error || "Ocurrió un error al registrar el pedido.");
-        setIsSubmittingSale(false);
-        return;
-      }
-
-      const orderId = res.orderId;
-      const orderNum = res.orderNumber;
-      let finalDocNumber = `V-${String(orderNum).padStart(4, "0")}`;
-
-      // 2. Registrar cobro y movimiento en caja
-      const paymentMethodKey = isCredit ? "credit" : paymentMethod === "cash" ? "cash" : paymentMethod === "card" ? "card" : "transfer";
-      const paymentData: ProcessOrderPaymentInput = {
-        paymentMethod: paymentMethodKey,
-        cashChange: changeAmount > 0 ? changeAmount : 0,
-        customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
-        closeTableOrder: false, // El pedido debe iniciar en estado recibido/pendiente para el flujo operativo de cocina
-        tip: (customTip > 0 || tipPercentage > 0) ? {
-          percentage: tipPercentage,
-          amount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
-        } : undefined,
-        discount: generalDiscount > 0 ? {
-          type: "fixed",
-          value: generalDiscount,
-          reason: "Descuento general POS",
-        } : undefined,
-      };
-
-      try {
-        const payRes = await registerRestaurantOrderPaymentAction(businessId, orderId, paymentData);
-        if (payRes.success && payRes.documentNumber) {
-          finalDocNumber = payRes.documentNumber;
-        }
-        if (payRes.success && paymentMethodKey === "cash") {
-          setCurrentCashBalance((prev) => (typeof prev === "number" ? prev + summary.total : summary.total));
-        }
-      } catch (payErr) {
-        console.warn("[handleConfirmAndPay] Advertencia al registrar cobro:", payErr);
-      }
-
-      // 3. Feedback auditivo con Web Audio API
-      try {
-        playOrderSoundAlert(orderId);
-      } catch {}
-
-      // 4. Persistir notificación para la campanita del sistema
-      try {
-        await syncOrderNotificationAction(businessId, {
-          orderId,
-          orderNumber: orderNum,
-          orderType: payload.orderType,
-          customerName: payload.customerName,
-          total: summary.total,
-        });
-      } catch (notifErr) {
-        console.warn("[handleConfirmAndPay] Error sincronizando notificación:", notifErr);
-      }
-
-      // 5. Disparar Notificación Push Nativa del Sistema Operativo (Móvil / PWA / Escritorio)
-      try {
-        showNativeOrderNotification({
-          orderId,
-          orderNumber: orderNum,
-          orderType: payload.orderType,
-          customerName: payload.customerName,
-          total: summary.total,
-          businessId,
-        });
-      } catch {}
-
-      // 5. Disparar evento para actualizar instantáneamente Tickets Abiertos y Badges
-      try {
-        window.dispatchEvent(
-          new CustomEvent("negova:new_order", {
-            detail: {
-              id: orderId,
-              businessId,
-              orderNumber: orderNum,
-              orderType: payload.orderType,
-              customerName: payload.customerName,
-              total: summary.total,
-              createdAt: new Date().toISOString(),
-            },
-          })
-        );
-      } catch {}
-
-      // 5. Generar comanda de cocina térmica
-      const kTicket: KitchenTicketData = {
-        orderNumber: orderNum,
-        referenceName: `REF-${orderNum}`,
-        serviceType: serviceType === "DINE_IN" ? "COMER AQUÍ" : serviceType === "TAKEOUT" ? "PARA LLEVAR" : serviceType === "DELIVERY" ? "DOMICILIO" : "PARA RECOGER",
-        tableName: tableName,
-        cashierName: cashierName || businessName || "Cajero",
-        createdAt: new Date().toISOString(),
-        items: cartItems.map((ci) => ({
-          quantity: ci.quantity,
-          name: ci.productName,
-          modifiers: (ci.selectedModifiers || []).map((m) => `${m.groupName}: ${m.optionName}`),
-          notes: ci.notes,
-        })),
-      };
-
-      // 6. Generar factura de venta térmica con logo e identidad de marca
-      const iTicket: InvoiceData = {
-        orderNumber: orderNum,
-        invoiceFolio: finalDocNumber,
-        businessName: tradeName || businessName || "NEGOVA POS",
-        logoUrl: logoUrl || null,
-        taxRegime: "No responsable de IVA",
-        createdAt: new Date().toLocaleString("es-CO"),
-        customerName: finalCustomerName,
-        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : selectedCustomer.phone,
-        customerAddress: serviceType === "DELIVERY" ? deliveryDetails.address : selectedCustomer.address,
-        serviceType: serviceType === "DINE_IN" ? "Comer Aquí" : serviceType === "TAKEOUT" ? "Para llevar" : serviceType === "DELIVERY" ? "Domicilio" : "Para recoger",
-        saleType: isCredit ? "Crédito" : "Contado",
-        paymentMethodName: isCredit ? "Crédito" : paymentMethod === "cash" ? "Efectivo" : paymentMethod === "card" ? "Tarjeta" : "Digital",
-        items: cartItems.map((ci) => ({
-          name: ci.productName,
-          quantity: ci.quantity,
-          unitPrice: ci.unitPrice,
-          subtotal: ci.lineTotal,
-        })),
-        subtotal: summary.subtotal,
-        deliveryFee: serviceType === "DELIVERY" ? deliveryDetails.deliveryFee : 0,
-        tipAmount: customTip > 0 ? customTip : Math.round((summary.subtotal * tipPercentage) / 100),
-        discountAmount: generalDiscount,
-        total: summary.total,
-      };
-
-      setKitchenTicketData(kTicket);
-      setInvoiceTicketData(iTicket);
-      setCartItems([]);
-      setIsCheckoutStepActive(false);
-      router.refresh();
-      toast.success(`¡Venta #${orderNum} registrada y cobrada con éxito!`);
-    } catch (err: any) {
-      toast.error(err?.message || "Error al procesar la venta.");
-    } finally {
-      setIsSubmittingSale(false);
-    }
-  };
-
-  // Registrar pedido y enviar a cocina con cobro diferido / contra entrega (NO cobra de inmediato ni afecta turno de caja)
-  const handleSendOrderToKitchen = async () => {
-    if (cartItems.length === 0) {
-      toast.error("El carrito está vacío.");
-      return;
-    }
-
-    if (serviceType === "DELIVERY") {
-      if (!deliveryDetails.phone || !deliveryDetails.name || !deliveryDetails.address) {
-        toast.error("Para servicio a domicilio se requiere Teléfono, Nombre y Dirección completos.");
+    if (serviceType === "PICKUP") {
+      if (!takeoutDetails.name.trim() || !takeoutDetails.phone.trim()) {
+        toast.error("Para pedidos para recoger es obligatorio ingresar el Nombre y Teléfono de contacto.");
         return;
       }
     }
@@ -836,20 +696,38 @@ export function PosScreenClient({
 
     try {
       const tableName = serviceType === "DINE_IN" ? tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa 1" : undefined;
-      const finalCustomerName = serviceType === "DELIVERY" ? deliveryDetails.name : selectedCustomer.name;
+      let finalCustomerName = selectedCustomer.name;
+      let finalCustomerPhone = selectedCustomer.phone || null;
+
+      if (serviceType === "DELIVERY") {
+        finalCustomerName = deliveryDetails.name;
+        finalCustomerPhone = deliveryDetails.phone;
+      } else if (serviceType === "PICKUP" && takeoutDetails.name.trim()) {
+        finalCustomerName = takeoutDetails.name.trim();
+        finalCustomerPhone = takeoutDetails.phone.trim() || null;
+      }
 
       const orderTypeKey = serviceType === "DINE_IN" ? "dine_in" : serviceType === "DELIVERY" ? "delivery" : "takeout";
+
+      const rawNotes = orderNotes.trim();
+      const discountTag = generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null;
+      const finalNotes = [rawNotes, discountTag].filter(Boolean).join(" | ");
+
       const payload: CreateRestaurantOrderInput = {
         orderType: orderTypeKey,
         channelOrigin: "in_person",
         tableId: serviceType === "DINE_IN" ? selectedTableId || null : null,
         customerId: selectedCustomer.id && selectedCustomer.id !== "default" ? selectedCustomer.id : null,
         customerName: finalCustomerName || (serviceType === "DELIVERY" ? "Cliente Domicilio" : "Cliente General"),
-        customerPhone: serviceType === "DELIVERY" ? deliveryDetails.phone : (selectedCustomer.phone || null),
+        customerPhone: finalCustomerPhone,
         deliveryAddress: serviceType === "DELIVERY" ? deliveryDetails.address : null,
         deliveryFee: serviceType === "DELIVERY" ? (deliveryDetails.deliveryFee || 0) : 0,
-        notes: orderNotes.trim() || (generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null),
+        notes: finalNotes || null,
         taxTotal: summary.tax,
+        assignedStaffId: selectedStaff?.id || null,
+        assignedStaffName: selectedStaff?.name || cashierName || null,
+        assignedStaffRole: selectedStaff && selectedStaff.roles.length > 0 ? selectedStaff.roles.join(", ") : null,
+        saveCustomerForFuture: serviceType === "PICKUP" ? takeoutDetails.saveCustomer : false,
         items: cartItems.map((ci) => ({
           productId: ci.productId && ci.productId !== "custom-item" && !ci.productId.startsWith("custom-") ? ci.productId : null,
           variantId: ci.variantId || null,
@@ -893,7 +771,7 @@ export function PosScreenClient({
           total: summary.total,
         });
       } catch (notifErr) {
-        console.warn("[handleSendOrderToKitchen] Error sincronizando notificación:", notifErr);
+        console.warn("[handleCreateOrder] Error sincronizando notificación:", notifErr);
       }
 
       // Notificación push nativa
@@ -925,8 +803,9 @@ export function PosScreenClient({
         );
       } catch {}
 
-      // Generar y desplegar comanda de cocina térmica
+      // Generar comanda de cocina térmica
       const kTicket: KitchenTicketData = {
+        orderId,
         orderNumber: orderNum,
         referenceName: `REF-${orderNum}`,
         serviceType: serviceType === "DINE_IN" ? "COMER AQUÍ" : serviceType === "TAKEOUT" ? "PARA LLEVAR" : serviceType === "DELIVERY" ? "DOMICILIO" : "PARA RECOGER",
@@ -941,28 +820,48 @@ export function PosScreenClient({
         })),
       };
 
-      setKitchenTicketData(kTicket);
       setCartItems([]);
       setGeneralDiscount(0);
       setTipPercentage(0);
       setCustomTip(0);
       setOrderNotes("");
+      setTakeoutDetails({ name: "", phone: "", saveCustomer: false });
       setIsCheckoutStepActive(false);
+
+      const pickupCodeNotice = res.pickupCode ? `Código recogida: #${res.pickupCode}` : null;
+
+      if (paymentTiming === "pay_now") {
+        toast.success(
+          pickupCodeNotice
+            ? `Pedido #${orderNum} creado (${pickupCodeNotice}). Abriendo flujo de cobro...`
+            : `Pedido #${orderNum} creado. Abriendo flujo de cobro...`
+        );
+        await handlePayExistingTicketById(orderId);
+      } else {
+        setKitchenTicketData(kTicket);
+        toast.success(`¡Pedido #${orderNum} creado exitosamente!`, {
+          description: pickupCodeNotice
+            ? `${pickupCodeNotice} · Pendiente de pago`
+            : "Estado: Recibido · Pendiente de pago",
+          action: {
+            label: "Confirmar pago",
+            onClick: () => handlePayExistingTicketById(orderId),
+          },
+          duration: 12000,
+        });
+      }
       router.refresh();
-      toast.success(`¡Pedido #${orderNum} enviado a cocina!`, {
-        description: "Estado: Recibido • Pendiente de cobro (Pago contra entrega)",
-      });
     } catch (err: any) {
-      toast.error(err?.message || "Error al enviar el pedido a cocina.");
+      toast.error(err?.message || "Error al registrar el pedido.");
     } finally {
       setIsSubmittingSale(false);
     }
   };
 
-  // Cargar ticket existente desde Tickets Abiertos para cobrarlo
-  const handlePayExistingTicket = async (ticket: OpenTicket) => {
+  // Cargar ticket existente desde Tickets Abiertos o notificación para cobrarlo
+  const handlePayExistingTicketById = async (orderId: string) => {
     try {
-      const res = await getRestaurantOrderAction(businessId, ticket.id);
+      const res = await getRestaurantOrderAction(businessId, orderId);
       if (res.success && res.order) {
         setOrderToPay(res.order);
       } else {
@@ -971,6 +870,10 @@ export function PosScreenClient({
     } catch (err: any) {
       toast.error(err?.message || "Error al cargar el pedido.");
     }
+  };
+
+  const handlePayExistingTicket = async (ticket: OpenTicket | { id: string }) => {
+    return handlePayExistingTicketById(ticket.id);
   };
 
   // Copiar nombre del cliente
@@ -1320,31 +1223,6 @@ export function PosScreenClient({
                 )}
               </div>
 
-              {/* Fila de Cliente */}
-              <div className="px-3 py-2 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between bg-white/60 dark:bg-[#0D0F16]/60 text-xs">
-                <div className="flex items-center gap-1.5 truncate">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                    {selectedCustomer.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyCustomer}
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    title="Copiar datos de cliente"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsSelectCustomerModalOpen(true)}
-                  className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-600 dark:text-slate-300 transition"
-                  title="Seleccionar o crear cliente"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
               {/* Lista de productos en el pedido */}
               <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
                 {cartItems.length === 0 ? (
@@ -1589,6 +1467,54 @@ export function PosScreenClient({
                   )}
                 </div>
 
+                {/* BLOQUE CLIENTE ASIGNADO */}
+                <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl p-2.5 bg-slate-50/70 dark:bg-white/[0.02] text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-[#ED500A]" />
+                      Cliente del pedido
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsSelectCustomerModalOpen(true)}
+                      className="text-[11px] font-bold text-[#ED500A] hover:underline cursor-pointer"
+                    >
+                      {selectedCustomer.id === "general" ? "+ Asignar cliente" : "Cambiar"}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.06]">
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-slate-900 dark:text-white block truncate">
+                        {selectedCustomer.name}
+                      </span>
+                      {selectedCustomer.phone && (
+                        <span className="text-[10px] text-slate-400 font-mono block">
+                          Tel: {selectedCustomer.phone}
+                        </span>
+                      )}
+                    </div>
+                    {selectedCustomer.id !== "general" && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomer({ id: "general", name: "Cliente General" })}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                        title="Restablecer a Cliente General"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* BLOQUE RESPONSABLE DEL PEDIDO */}
+                <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl p-2.5 bg-slate-50/70 dark:bg-white/[0.02]">
+                  <PosResponsibleSelector
+                    staffList={staffList}
+                    selectedStaffId={selectedStaffId}
+                    onSelectStaff={(staff) => setSelectedStaffId(staff.id)}
+                  />
+                </div>
+
                 {/* BLOQUE B: SERVICIO (PASO 1) */}
                 <div>
                   <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-2">
@@ -1626,11 +1552,11 @@ export function PosScreenClient({
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
                         serviceType === "DINE_IN" ? "bg-[#ED500A] text-white shadow-xs" : "bg-slate-50 dark:bg-white/[0.04] text-slate-600 dark:text-slate-300"
                       }`}>
-                        <UtensilsCrossed className="w-4 h-4 shrink-0" />
+                        <Store className="w-4 h-4 shrink-0" />
                       </div>
                       <div>
-                        <span className="block font-bold text-xs leading-tight">Comer aquí</span>
-                        <span className="text-[10px] opacity-75 font-medium leading-tight">En mesa</span>
+                        <span className="block font-bold text-xs leading-tight">En local</span>
+                        <span className="text-[10px] opacity-75 font-medium leading-tight">Atención presencial</span>
                       </div>
                     </button>
                     <button
@@ -1746,157 +1672,104 @@ export function PosScreenClient({
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* BLOQUE C: PAGO / ESTADO DE COBRO (PASO 2) */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
-                      2. Cobro
-                    </span>
-                    <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentTiming("deferred")}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          paymentTiming === "deferred"
-                            ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs"
-                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        <Clock className="w-3 h-3" />
-                        <span>Por cobrar</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentTiming("immediate")}
-                        className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          paymentTiming === "immediate"
-                            ? "bg-white dark:bg-white/[0.1] text-emerald-600 dark:text-emerald-400 shadow-xs"
-                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                        }`}
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Cobrar ahora</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {paymentTiming === "immediate" && (
-                    <div className="space-y-2.5">
+                  {/* Campos obligatorios para Para recoger [POS-008] */}
+                  {serviceType === "PICKUP" && (
+                    <div className="mt-2.5 p-3 bg-amber-500/5 dark:bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs space-y-2.5 animate-in fade-in">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Tipo de cobro:</span>
-                        <div className="flex items-center bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-[11px]">
-                          <button
-                            type="button"
-                            onClick={() => setIsCredit(false)}
-                            className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                              !isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
-                            }`}
-                          >
-                            Contado
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsCredit(true)}
-                            className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
-                              isCredit ? "bg-white dark:bg-white/[0.1] text-[#ED500A] shadow-xs" : "text-slate-500 dark:text-slate-400"
-                            }`}
-                          >
-                            Crédito
-                          </button>
-                        </div>
+                        <span className="font-bold text-amber-800 dark:text-amber-300 text-[11px] flex items-center gap-1.5">
+                          <Receipt className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          Datos de quien recoge el pedido
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                          Obligatorio
+                        </span>
                       </div>
 
-                      {!isCredit ? (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-3 gap-1.5 text-xs">
-                            <button
-                              type="button"
-                              onClick={() => setPaymentMethod("cash")}
-                              className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                                paymentMethod === "cash"
-                                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
-                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-400"
-                              }`}
-                            >
-                              <Wallet className="w-4 h-4" />
-                              <span>Efectivo</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPaymentMethod("card")}
-                              className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                                paymentMethod === "card"
-                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
-                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-400"
-                              }`}
-                            >
-                              <CreditCard className="w-4 h-4" />
-                              <span>Tarjeta</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPaymentMethod("digital")}
-                              className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 font-semibold transition cursor-pointer ${
-                                paymentMethod === "digital"
-                                  ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300"
-                                  : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400"
-                              }`}
-                            >
-                              <Landmark className="w-4 h-4" />
-                              <span>Digital</span>
-                            </button>
-                          </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Nombre de quien recoge *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Nombre completo"
+                          value={takeoutDetails.name}
+                          onChange={(e) => setTakeoutDetails({ ...takeoutDetails, name: e.target.value })}
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                        />
+                      </div>
 
-                          {paymentMethod === "cash" && (
-                            <div className="p-3.5 bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                  Monto recibido:
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => setReceivedAmount(summary.total.toString())}
-                                  className="text-[10px] font-bold text-[#ED500A] hover:underline cursor-pointer"
-                                >
-                                  Pagar exacto ({formatCOP(summary.total)})
-                                </button>
-                              </div>
-                              <div className="relative flex items-center">
-                                <span className="absolute left-3 text-slate-400 font-bold font-mono text-sm">$</span>
-                                <input
-                                  type="number"
-                                  placeholder={summary.total.toString()}
-                                  value={receivedAmount}
-                                  onChange={(e) => setReceivedAmount(e.target.value)}
-                                  className="w-full h-11 pl-7 pr-3 text-sm font-bold font-mono rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                                />
-                              </div>
-                              {receivedNum > 0 && (
-                                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.06] text-xs font-bold">
-                                  <span className="text-slate-500 dark:text-slate-400">
-                                    {changeAmount >= 0 ? "Cambio / Devuelta:" : "Faltante:"}
-                                  </span>
-                                  <span
-                                    className={`font-mono text-sm ${
-                                      changeAmount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
-                                    }`}
-                                  >
-                                    {formatCOP(Math.abs(changeAmount))}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300">
-                          Venta a crédito asignada a <strong>{selectedCustomer.name}</strong>. Se sumará al saldo pendiente de cobro.
-                        </div>
-                      )}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Teléfono de contacto *
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="Ej. 300 123 4567"
+                          value={takeoutDetails.phone}
+                          onChange={(e) => setTakeoutDetails({ ...takeoutDetails, phone: e.target.value })}
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={takeoutDetails.saveCustomer}
+                          onChange={(e) => setTakeoutDetails({ ...takeoutDetails, saveCustomer: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-[#ED500A] focus:ring-[#ED500A] accent-[#ED500A] cursor-pointer"
+                        />
+                        <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                          Guardar este cliente para futuras compras
+                        </span>
+                      </label>
                     </div>
                   )}
+                </div>
+
+                {/* BLOQUE RESPONSABLE: ASIGNACIÓN DE RESPONSABLE (PASO 2) */}
+                <div>
+                  <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-2">
+                    2. Responsable del pedido
+                  </span>
+                  <PosResponsibleSelector
+                    staffList={staffList}
+                    selectedStaffId={selectedStaff?.id || selectedStaffId}
+                    onSelectStaff={(staff) => setSelectedStaffId(staff.id)}
+                  />
+                </div>
+
+                {/* BLOQUE C: CUÁNDO SE COBRA EL PEDIDO (PASO 3) */}
+                <div>
+                  <span className="text-[11px] font-bold uppercase text-slate-400 tracking-wider block mb-2">
+                    3. Cobro del pedido
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentTiming("pay_now")}
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 font-bold transition cursor-pointer min-h-[58px] ${
+                        paymentTiming === "pay_now"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] ring-1 ring-[#ED500A]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                      }`}
+                    >
+                      <Banknote className="w-4 h-4" />
+                      <span>Cobrar ahora</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentTiming("pay_later")}
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 font-bold transition cursor-pointer min-h-[58px] ${
+                        paymentTiming === "pay_later"
+                          ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] ring-1 ring-[#ED500A]"
+                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/[0.15]"
+                      }`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>Dejar pago pendiente</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* BLOQUE D: PROPINA (OPCIONAL) */}
@@ -1963,24 +1836,24 @@ export function PosScreenClient({
 
                 <button
                   type="button"
-                  onClick={paymentTiming === "immediate" ? handleConfirmAndPay : handleSendOrderToKitchen}
+                  onClick={handleCreateOrder}
                   disabled={isSubmittingSale || cartItems.length === 0}
                   className="w-full py-3.5 rounded-xl bg-[#ED500A] hover:bg-[#d94608] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-lg shadow-[#ED500A]/25 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
                   {isSubmittingSale ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Procesando...</span>
+                      <span>Procesando pedido...</span>
                     </>
-                  ) : paymentTiming === "immediate" ? (
+                  ) : paymentTiming === "pay_now" ? (
                     <>
-                      <Check className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4" />
                       <span>Confirmar y cobrar</span>
                     </>
                   ) : (
                     <>
-                      <ChefHat className="w-4 h-4" />
-                      <span>Confirmar pedido (Pendiente de cobro)</span>
+                      <Check className="w-4 h-4" />
+                      <span>Confirmar pedido (Pendiente)</span>
                     </>
                   )}
                 </button>
@@ -2034,7 +1907,7 @@ export function PosScreenClient({
         onClose={() => setIsSelectCustomerModalOpen(false)}
         onCreateNewCustomer={() => {
           setIsSelectCustomerModalOpen(false);
-          router.push(`/workspace/${businessId}/clientes`);
+          setIsQuickCreateCustomerModalOpen(true);
         }}
         onSelectCustomer={(cust: PosCustomerItem) => {
           setSelectedCustomer({
@@ -2043,8 +1916,37 @@ export function PosScreenClient({
             document: cust.documentNumber || undefined,
             phone: cust.phone || undefined,
           });
+          if (cust.name && cust.id !== "general" && cust.id !== "default") {
+            setTakeoutDetails((prev) => ({
+              ...prev,
+              name: cust.name,
+              phone: cust.phone || prev.phone,
+            }));
+          }
           setIsSelectCustomerModalOpen(false);
           toast.success(`Cliente «${cust.name}» asignado.`);
+        }}
+      />
+
+      {/* Modal Rápido de Creación de Cliente desde POS */}
+      <PosQuickCreateCustomerModal
+        isOpen={isQuickCreateCustomerModalOpen}
+        onClose={() => setIsQuickCreateCustomerModalOpen(false)}
+        businessId={businessId}
+        onCustomerCreated={(newCust: PosCustomerItem) => {
+          setSelectedCustomer({
+            id: newCust.id || "general",
+            name: newCust.name,
+            document: newCust.documentNumber || undefined,
+            phone: newCust.phone || undefined,
+          });
+          if (newCust.name && newCust.id !== "general" && newCust.id !== "default") {
+            setTakeoutDetails((prev) => ({
+              ...prev,
+              name: newCust.name,
+              phone: newCust.phone || prev.phone,
+            }));
+          }
         }}
       />
 
@@ -2101,7 +2003,44 @@ export function PosScreenClient({
             try {
               const res = await registerRestaurantOrderPaymentAction(businessId, orderToPay.id, data);
               if (res.success) {
-                toast.success(`¡Pedido #${orderToPay.order_number} cobrado exitosamente!`);
+                toast.success(`¡Pedido #${orderToPay.order_number} pagado exitosamente!`, {
+                  description: "Estado financiero: Pagado",
+                });
+
+                const isCash = typeof data === "string" ? data === "cash" : data.paymentMethod === "cash";
+                if (isCash) {
+                  setCurrentCashBalance((prev) => (typeof prev === "number" ? prev + (orderToPay.total || 0) : orderToPay.total || 0));
+                }
+
+                // Generar datos para modal de factura de venta térmica
+                const finalDocNumber = res.documentNumber || `V-${String(orderToPay.order_number).padStart(4, "0")}`;
+                const iTicket: InvoiceData = {
+                  orderNumber: orderToPay.order_number,
+                  invoiceFolio: finalDocNumber,
+                  businessName: tradeName || businessName || "NEGOVA POS",
+                  logoUrl: logoUrl || null,
+                  taxRegime: "No responsable de IVA",
+                  createdAt: new Date().toLocaleString("es-CO"),
+                  customerName: orderToPay.customer_name || "Cliente General",
+                  customerPhone: orderToPay.customer_phone || undefined,
+                  customerAddress: orderToPay.delivery_address || undefined,
+                  serviceType: orderToPay.order_type === "dine_in" ? "Comer Aquí" : orderToPay.order_type === "takeout" ? "Para llevar" : "Domicilio",
+                  saleType: "Contado",
+                  paymentMethodName: typeof data === "string" ? data : (data.paymentMethod || "Efectivo"),
+                  items: ((orderToPay.items || (orderToPay as any).restaurant_order_items || []) as any[]).map((ci: any) => ({
+                    name: ci.product_name,
+                    quantity: ci.quantity,
+                    unitPrice: ci.unit_price,
+                    subtotal: ci.subtotal,
+                  })),
+                  subtotal: orderToPay.subtotal || orderToPay.total,
+                  deliveryFee: orderToPay.delivery_fee || 0,
+                  tipAmount: typeof data !== "string" && data.tip ? data.tip.amount : 0,
+                  discountAmount: typeof data !== "string" && data.discount ? data.discount.value : 0,
+                  total: orderToPay.total,
+                };
+
+                setInvoiceTicketData(iTicket);
                 setOrderToPay(null);
                 setIsOpenTicketsDrawerOpen(false);
                 router.refresh();
@@ -2171,18 +2110,7 @@ export function PosScreenClient({
         />
       )}
 
-      {/* Modal de Videos del Módulo (Ventas y POS) [HELP-002] */}
-      <ModuleVideosModal
-        isOpen={isModuleVideosModalOpen}
-        onClose={() => setIsModuleVideosModalOpen(false)}
-      />
 
-      {/* Drawer Centro de Ayuda [HELP-002] */}
-      <HelpCenterDrawer
-        isOpen={isHelpCenterDrawerOpen}
-        onClose={() => setIsHelpCenterDrawerOpen(false)}
-        businessId={businessId}
-      />
 
       <BarcodeScannerModal
         isOpen={isBarcodeModalOpen}

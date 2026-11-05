@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Users,
+  User,
+  Building2,
   Plus,
   Phone,
   Mail,
@@ -392,211 +394,80 @@ export function CustomersListClient({
       <div className="space-y-6">
         {/* Sección superior breadcrumb / pill */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300">
-            Tu negocio
-          </span>
+          <Link
+            href={`/workspace/${businessId}`}
+            className="hover:text-slate-900 dark:hover:text-white transition"
+          >
+            Inicio
+          </Link>
           <span>/</span>
           <span className="text-[#ED500A] font-bold">Clientes</span>
         </div>
 
         {/* ============================================================== */}
-        {/* 2. MÉTRICAS Y KPIS DE CLIENTES (2 FILAS)                        */}
+        {/* 2. MÉTRICAS Y KPIS DE CLIENTES (3 COLUMNAS LIMPIAS)            */}
         {/* ============================================================== */}
-        <div className="space-y-3">
-          {/* Fila Superior: Métricas de Adquisición y Ventas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* 1. Clientes registrados */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <Users className="w-3.5 h-3.5 text-blue-500" />
-                  Clientes registrados
-                </span>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                {totalReg}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-medium">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>{activeReg} activos</span>
-                <span className="text-slate-300 dark:text-slate-700">·</span>
-                <span className="text-slate-400">{inactiveReg} inactivos</span>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 1. Clientes registrados */}
+          <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+              <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                <Users className="w-4 h-4 text-blue-500" />
+                Clientes registrados
+              </span>
             </div>
-
-            {/* 2. Ya han comprado */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <ShoppingBag className="w-3.5 h-3.5 text-emerald-500" />
-                  Ya han comprado
-                </span>
-                {totalReg > 0 && (
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-                    {Math.round((hasPurchased / (totalReg || 1)) * 100)}%
-                  </span>
-                )}
-              </div>
-              <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                {hasPurchased}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                {neverPurchased === 1
-                  ? "1 aún no compra"
-                  : `${neverPurchased} aún no compran`}
-              </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-white">
+              {totalReg}
             </div>
-
-            {/* 3. Ventas a clientes */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <DollarSign className="w-3.5 h-3.5 text-[#ED500A]" />
-                  Ventas a clientes
-                </span>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                {formatCOP(totalSalesAmt)}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                Historial total vendido a registrados
-              </div>
-            </div>
-
-            {/* 4. Saldo registrado */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <Wallet className="w-3.5 h-3.5 text-indigo-500" />
-                  Saldo registrado
-                </span>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                {formatCOP(totalBalanceAmt)}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Saldo a favor / balance interno
-              </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1 font-medium">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>{activeReg} activos</span>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <span className="text-slate-400">{inactiveReg} inactivos</span>
             </div>
           </div>
 
-          {/* Fila Inferior: Métricas de Cartera y Crédito */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* 1. Clientes con crédito */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-                  Clientes con crédito
+          {/* 2. Ya han comprado */}
+          <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+              <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                <ShoppingBag className="w-4 h-4 text-emerald-500" />
+                Ya han comprado
+              </span>
+              {totalReg > 0 && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                  {Math.round((hasPurchased / (totalReg || 1)) * 100)}%
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleTabChange("with_credit")}
-                  className="text-[11px] font-bold text-[#ED500A] hover:underline cursor-pointer"
-                >
-                  Ver clientes →
-                </button>
-              </div>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white">
-                {withCreditCount}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Línea de crédito activa (incluye saldados)
-              </div>
+              )}
             </div>
-
-            {/* 2. Por cobrar a clientes */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <Wallet className="w-3.5 h-3.5 text-amber-500" />
-                  Por cobrar a clientes
-                </span>
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
-                  {debtCustomersCount} con deuda
-                </span>
-              </div>
-              <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
-                {formatCOP(totalReceivable)}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Deuda total acumulada por cobrar
-              </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              {hasPurchased}
             </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+              {neverPurchased === 1
+                ? "1 aún no compra"
+                : `${neverPurchased} aún no compran`}
+            </div>
+          </div>
 
-            {/* 3. Créditos vencidos */}
-            <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                  Créditos vencidos
-                </span>
-                {overdueCustomersCount > 0 && (
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 font-bold">
-                    {overdueCustomersCount} vencidos
-                  </span>
-                )}
-              </div>
-              <div className="text-2xl font-bold font-mono text-red-600 dark:text-red-400">
-                {formatCOP(overdueBalance)}
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Cartera morosa con {overdueCustomersCount} clientes vencidos
-              </div>
+          {/* 3. Ventas a clientes */}
+          <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-2xs transition-all hover:border-slate-300 dark:hover:border-white/[0.15]">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+              <span className="font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                <DollarSign className="w-4 h-4 text-[#ED500A]" />
+                Ventas a clientes
+              </span>
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 dark:text-white">
+              {formatCOP(totalSalesAmt)}
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 truncate">
+              Historial total vendido a clientes registrados
             </div>
           </div>
         </div>
 
-        {/* Switcher de Submódulos: Directorio vs Cartera Completa */}
-        <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] w-fit">
-          <button
-            type="button"
-            onClick={() => setMainTab("directory")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              mainTab === "directory"
-                ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Directorio de Clientes</span>
-            <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-slate-200/60 dark:bg-white/[0.08]">
-              {totalCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMainTab("portfolio")}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-              mainTab === "portfolio"
-                ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <CreditCard className="w-4 h-4 text-orange-500" />
-            <span>Gestión de Cartera y Cobranzas</span>
-            {totalReceivable > 0 && (
-              <span className="text-3xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-[#ED500A]">
-                {formatCOP(totalReceivable)}
-              </span>
-            )}
-            {overdueCustomersCount > 0 && (
-              <span className="text-3xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white">
-                {overdueCustomersCount} vencidos
-              </span>
-            )}
-          </button>
-        </div>
-
-        {mainTab === "portfolio" ? (
-          <CustomerPortfolioTab
-            businessId={businessId}
-            initialKpis={creditKpis}
-            onRefreshParent={() => router.refresh()}
-          />
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
             {/* ============================================================== */}
             {/* 3. DIRECTORIO DE CLIENTES: ENCABEZADO Y PESTAÑAS              */}
             {/* ============================================================== */}
@@ -617,30 +488,16 @@ export function CustomersListClient({
                 </div>
               </div>
 
-              {/* Pestañas de filtrado exactas solicitadas */}
+              {/* Pestañas de filtrado del directorio */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {(
                   [
                     { id: "all", label: "Todos" },
                     { id: "active", label: "Activos" },
+                    { id: "individual", label: "Persona natural" },
+                    { id: "business", label: "Empresa" },
                     { id: "inactive", label: "Inactivos" },
-                    { id: "with_discount", label: "Con descuento" },
-                    {
-                      id: "with_credit",
-                      label: "Con crédito",
-                      count: withCreditCount > 0 ? withCreditCount : undefined,
-                    },
-                    {
-                      id: "receivable",
-                      label: "Por cobrar",
-                      count: debtCustomersCount > 0 ? debtCustomersCount : undefined,
-                    },
-                    {
-                      id: "overdue",
-                      label: "Vencidos",
-                      count: overdueCustomersCount > 0 ? overdueCustomersCount : undefined,
-                    },
-                  ] as { id: CustomerDirectoryTab; label: string; count?: number }[]
+                  ] as { id: CustomerDirectoryTab; label: string }[]
                 ).map((tab) => {
                   const isActive = directoryTab === tab.id;
                   return (
@@ -655,17 +512,6 @@ export function CustomersListClient({
                       }`}
                     >
                       <span>{tab.label}</span>
-                      {typeof tab.count === "number" && (
-                        <span
-                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${
-                            isActive
-                              ? "bg-white/20 text-white"
-                              : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
-                          }`}
-                        >
-                          {tab.count}
-                        </span>
-                      )}
                     </button>
                   );
                 })}
@@ -874,6 +720,8 @@ export function CustomersListClient({
                               id: c.id,
                               businessId: c.businessId,
                               fullName: c.fullName,
+                              customerType: c.customerType || "individual",
+                              contactName: c.contactName || null,
                               phone: c.phone,
                               email: c.email,
                               taxId: c.taxId,
@@ -910,11 +758,10 @@ export function CustomersListClient({
                         <tr>
                           <th className="px-3.5 py-3.5 text-center w-12">Top</th>
                           <th className="px-4 py-3.5">Cliente</th>
+                          <th className="px-4 py-3.5">Tipo</th>
                           <th className="px-4 py-3.5">Contacto</th>
                           <th className="px-4 py-3.5">Compras registradas</th>
                           <th className="px-4 py-3.5">Última compra</th>
-                          <th className="px-4 py-3.5">Saldo registrado</th>
-                          <th className="px-4 py-3.5">Créditos</th>
                           <th className="px-3.5 py-3.5 text-center">Estado</th>
                           <th className="px-3.5 py-3.5 text-right w-16">Acciones</th>
                         </tr>
@@ -953,20 +800,45 @@ export function CustomersListClient({
                                   className="group flex items-center gap-2.5 max-w-[220px]"
                                 >
                                   <div className="w-8 h-8 rounded-xl bg-orange-500/10 text-[#ED500A] dark:text-orange-400 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-[#ED500A] group-hover:text-white transition-colors">
-                                    {c.fullName.charAt(0).toUpperCase()}
+                                    {c.customerType === "business" ? (
+                                      <Building2 className="w-4 h-4" />
+                                    ) : (
+                                      c.fullName.charAt(0).toUpperCase()
+                                    )}
                                   </div>
                                   <div className="min-w-0">
                                     <span className="truncate font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors block">
                                       {c.fullName}
                                     </span>
-                                    <span className="text-[11px] text-slate-400 font-mono block truncate">
-                                      {c.taxId ? `NIT/CC: ${c.taxId}` : "Sin documento"}
-                                    </span>
+                                    {c.customerType === "business" && c.contactName ? (
+                                      <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
+                                        Contacto: {c.contactName}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] text-slate-400 font-mono block truncate">
+                                        {c.taxId ? `NIT/CC: ${c.taxId}` : "Sin documento"}
+                                      </span>
+                                    )}
                                   </div>
                                 </Link>
                               </td>
 
-                              {/* 3. Columna Contacto */}
+                              {/* 3. Columna Tipo */}
+                              <td className="px-4 py-3">
+                                {c.customerType === "business" ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
+                                    <Building2 className="w-3 h-3" />
+                                    <span>Empresa</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-white/[0.05] dark:text-slate-300 border border-slate-200/80 dark:border-white/[0.08]">
+                                    <User className="w-3 h-3" />
+                                    <span>Persona natural</span>
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* 4. Columna Contacto */}
                               <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                                 <div className="space-y-0.5 max-w-[190px]">
                                   {c.phone ? (
@@ -988,7 +860,7 @@ export function CustomersListClient({
                                 </div>
                               </td>
 
-                              {/* 4. Columna Compras registradas */}
+                              {/* 5. Columna Compras registradas */}
                               <td className="px-4 py-3 font-mono">
                                 <div>
                                   <span className="font-bold text-slate-900 dark:text-white text-xs block">
@@ -1003,48 +875,9 @@ export function CustomersListClient({
                                 </div>
                               </td>
 
-                              {/* 5. Columna Última compra */}
+                              {/* 6. Columna Última compra */}
                               <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300 text-xs">
                                 {formatDate(c.lastActivityDate)}
-                              </td>
-
-                              {/* 6. Columna Saldo registrado */}
-                              <td className="px-4 py-3 font-mono text-slate-800 dark:text-slate-200 text-xs">
-                                {formatCOP(c.balanceAmount || 0)}
-                              </td>
-
-                              {/* 7. Columna Créditos */}
-                              <td className="px-4 py-3">
-                                {(c.creditLimit || 0) > 0 || (c.creditUsed || 0) > 0 ? (
-                                  <div className="space-y-0.5 font-mono text-[11px]">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-slate-400">Cupo:</span>
-                                      <span className="font-bold text-slate-900 dark:text-white">
-                                        {formatCOP(c.creditLimit || 0)}
-                                      </span>
-                                    </div>
-                                    {(c.creditUsed || 0) > 0 ? (
-                                      <div className="flex items-center gap-1 text-[10px]">
-                                        <span className="text-amber-600 dark:text-amber-400 font-bold">
-                                          Debe: {formatCOP(c.creditUsed)}
-                                        </span>
-                                        {c.hasOverdueReceivables && (
-                                          <span className="px-1 py-0.2 rounded-sm bg-red-500/10 text-red-600 text-[9px] font-bold">
-                                            Vencido
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                                        Al día (disp: {formatCOP(c.creditAvailable || 0)})
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">
-                                    Sin créditos
-                                  </span>
-                                )}
                               </td>
 
                               {/* 8. Columna Estado */}
@@ -1090,6 +923,8 @@ export function CustomersListClient({
                                               id: c.id,
                                               businessId: c.businessId,
                                               fullName: c.fullName,
+                                              customerType: c.customerType || "individual",
+                                              contactName: c.contactName || null,
                                               phone: c.phone,
                                               email: c.email,
                                               taxId: c.taxId,
@@ -1117,6 +952,8 @@ export function CustomersListClient({
                                               id: c.id,
                                               businessId: c.businessId,
                                               fullName: c.fullName,
+                                              customerType: c.customerType || "individual",
+                                              contactName: c.contactName || null,
                                               phone: c.phone,
                                               email: c.email,
                                               taxId: c.taxId,
@@ -1222,7 +1059,6 @@ export function CustomersListClient({
               </div>
             )}
           </div>
-        )}
       </div>
 
       {/* Modal para Crear / Editar Cliente */}

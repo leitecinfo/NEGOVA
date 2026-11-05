@@ -198,7 +198,16 @@ export async function seedDefaultCategoriesForBusiness(
   const { error: insErr } = await supabase.from("categories").insert(rowsToInsert);
 
   if (insErr) {
-    console.error("[seedDefaultCategoriesForBusiness] Error al insertar categorías iniciales:", insErr);
+    // Si el error es de clave duplicada (código 23505), significa que otra petición concurrente (SSR / prefetch)
+    // ya completó la inserción en el mismo instante. Se considera una operación exitosa e idempotente.
+    if ((insErr as any).code === "23505" || insErr.message?.toLowerCase().includes("duplicate key")) {
+      return { seeded: true, count: rowsToInsert.length };
+    }
+
+    console.error(
+      "[seedDefaultCategoriesForBusiness] Error al insertar categorías iniciales:",
+      insErr.message || JSON.stringify(insErr)
+    );
     return { seeded: false, count: 0 };
   }
 
@@ -224,7 +233,7 @@ function attachCategoryParents(cats: Category[]): Category[] {
   });
 }
 
-export async function getCategories(businessId: string, businessType?: string): Promise<Category[]> {
+export async function getCategories(businessId: string, _businessType?: string): Promise<Category[]> {
   const supabase = await getDbClient();
   const { data, error } = await supabase
     .from("categories")
@@ -237,19 +246,6 @@ export async function getCategories(businessId: string, businessType?: string): 
   if (error) {
     console.error("[getCategories] Error:", error);
     throw new Error("No se pudieron cargar las categorías.");
-  }
-
-  // Si no tiene categorías y se pasó el businessType, auto-sembrar plantilla
-  if ((!data || data.length === 0) && businessType) {
-    await seedDefaultCategoriesForBusiness(businessId, businessType);
-    const reload = await supabase
-      .from("categories")
-      .select("*")
-      .eq("business_id", businessId)
-      .neq("status", "archived")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-    return attachCategoryParents((reload.data || []) as Category[]);
   }
 
   return attachCategoryParents((data || []) as Category[]);
@@ -637,14 +633,16 @@ export async function createProduct(
     error &&
     (error.code === "PGRST204" ||
       String(error.message || "").includes("available_in_") ||
-      String(error.message || "").includes("available_online"))
+      String(error.message || "").includes("available_online") ||
+      String(error.message || "").includes("cost_price"))
   ) {
     const {
       available_in_pos: _pos,
       available_in_qr: _qr,
       available_online: _online,
+      cost_price: _cost,
       ...fallbackPayload
-    } = syncedPayload;
+    } = syncedPayload as any;
 
     const retry = await supabase
       .from("products")
@@ -694,14 +692,16 @@ export async function updateProduct(
     error &&
     (error.code === "PGRST204" ||
       String(error.message || "").includes("available_in_") ||
-      String(error.message || "").includes("available_online"))
+      String(error.message || "").includes("available_online") ||
+      String(error.message || "").includes("cost_price"))
   ) {
     const {
       available_in_pos: _pos,
       available_in_qr: _qr,
       available_online: _online,
+      cost_price: _cost,
       ...fallbackPayload
-    } = syncedPayload;
+    } = syncedPayload as any;
 
     const retry = await supabase
       .from("products")

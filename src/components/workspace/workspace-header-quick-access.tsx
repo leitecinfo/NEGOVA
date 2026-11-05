@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { UtensilsCrossed } from "lucide-react";
+import { Package } from "lucide-react";
 import { getRestaurantOrdersSummaryAction } from "@/app/workspace/[businessId]/pedidos/actions";
 import {
   AppNavSection,
@@ -103,7 +103,7 @@ export function WorkspaceHeaderQuickAccess({
 
   if (!activeItem) return null;
 
-  const IconComponent = activeItem.icon || UtensilsCrossed;
+  const IconComponent = activeItem.icon || Package;
 
   return (
     <Link

@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Loader2,
   Store,
-  UtensilsCrossed,
   Truck,
   Globe,
   TrendingUp,
@@ -32,8 +31,6 @@ interface DateRangeClosurePanelProps {
 const STANDARD_METHODS = [
   { method: "cash", label: "Efectivo" },
   { method: "digital", label: "Transferencias" },
-  { method: "card", label: "Tarjetas" },
-  { method: "credit", label: "Crédito" },
   { method: "other", label: "Otros" },
 ];
 
@@ -473,7 +470,7 @@ export function DateRangeClosurePanel({ businessId }: DateRangeClosurePanelProps
               <div className="p-3.5 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs space-y-1">
                 <div className="flex items-center justify-between text-slate-500 text-xs">
                   <span className="text-[11px] font-bold uppercase tracking-wider">Mesas</span>
-                  <UtensilsCrossed className="w-4 h-4 text-emerald-500" />
+                  <Store className="w-4 h-4 text-emerald-500" />
                 </div>
                 <div className="text-base sm:text-lg font-bold font-mono text-slate-900 dark:text-white">
                   {formatCOP(rangeData.metrics.tablesSales)}

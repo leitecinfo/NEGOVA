@@ -16,8 +16,8 @@ describe("[POS-DESIGN] Alineación de Colores y Superficies al Sistema de Diseñ
     const content = fs.readFileSync(posClientPath, "utf-8");
     // Botón Completar compra
     expect(content).toMatch(/bg-\[#ED500A\].*Completar compra/s);
-    // Botón Confirmar y cobrar
-    expect(content).toMatch(/bg-\[#ED500A\].*Confirmar y cobrar/s);
+    // Botón Confirmar pedido
+    expect(content).toMatch(/bg-\[#ED500A\].*(Confirmar pedido|Confirmar y cobrar)/s);
     // Botón móvil Ver Venta
     expect(content).toMatch(/bg-\[#ED500A\].*Ver Venta/s);
     // Botón móvil Continuar Cobro

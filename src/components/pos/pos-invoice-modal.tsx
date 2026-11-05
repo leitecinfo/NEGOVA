@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Receipt, X, Printer, Store, UtensilsCrossed, CheckCircle2 } from "lucide-react";
+import { Receipt, X, Printer, Store, CheckCircle2, Camera, Loader2 } from "lucide-react";
 import { formatCOP } from "@/lib/pos/types";
 import { toast } from "sonner";
+import { printThermalElement } from "@/lib/printing/print-thermal-element";
+import { downloadElementAsImage } from "@/lib/printing/download-invoice-image";
 
 export interface InvoiceData {
   orderNumber: number;
@@ -45,11 +47,33 @@ export function PosInvoiceModal({
 }: PosInvoiceModalProps) {
   const printAreaRef = useRef<HTMLDivElement>(null);
 
+  const [isDownloadingPhoto, setIsDownloadingPhoto] = useState(false);
+
   if (!isOpen || !data) return null;
 
   const handlePrint = () => {
-    window.print();
+    printThermalElement("pos-receipt-print-area", `Factura ${data.invoiceFolio}`);
     toast.success("Enviando comprobante a impresora térmica...");
+  };
+
+  const handleDownloadPhoto = async () => {
+    if (!printAreaRef.current) return;
+    setIsDownloadingPhoto(true);
+    try {
+      const filename = `Factura_${data.invoiceFolio || data.orderNumber}.png`;
+      const result = await downloadElementAsImage(printAreaRef.current, filename);
+      if (result === "shared") {
+        toast.success("Foto de la factura compartida");
+      } else {
+        toast.success("Foto de la factura descargada correctamente");
+      }
+    } catch (err: any) {
+      toast.error("No se pudo generar la foto de la factura", {
+        description: err?.message || "Inténtalo de nuevo.",
+      });
+    } finally {
+      setIsDownloadingPhoto(false);
+    }
   };
 
   const formattedDate =
@@ -90,52 +114,22 @@ export function PosInvoiceModal({
               height: auto !important;
             }
             /* Ocultar elementos de UI no imprimibles */
+            body * {
+              visibility: hidden !important;
+            }
             .pos-no-print {
               display: none !important;
             }
-            /* Neutralizar contenedores del modal en impresión para no recortar ni ocultar hijos */
-            .pos-print-modal-overlay {
-              position: static !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              inset: auto !important;
-              width: 80mm !important;
-              max-width: 80mm !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
-              display: block !important;
+            /* Renderizar exclusivamente el comprobante térmico a 80mm en esquina superior */
+            #pos-receipt-print-area,
+            #pos-receipt-print-area * {
+              visibility: visible !important;
             }
-            .pos-print-modal-card {
-              position: static !important;
-              background: transparent !important;
-              border: none !important;
-              box-shadow: none !important;
-              border-radius: 0 !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              width: 80mm !important;
-              max-width: 80mm !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
-              display: block !important;
-            }
-            .pos-print-body-wrapper {
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              overflow: visible !important;
-              height: auto !important;
-              max-height: none !important;
-              display: block !important;
-            }
-            /* Renderizar exclusivamente el comprobante térmico a 80mm */
             #pos-receipt-print-area {
               display: block !important;
-              visibility: visible !important;
-              position: relative !important;
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
               width: 80mm !important;
               max-width: 80mm !important;
               margin: 0 !important;
@@ -149,9 +143,9 @@ export function PosInvoiceModal({
               border: none !important;
               border-radius: 0 !important;
               overflow: visible !important;
+              z-index: 2147483647 !important;
             }
             #pos-receipt-print-area * {
-              visibility: visible !important;
               color: #000000 !important;
               background: transparent !important;
               text-shadow: none !important;
@@ -356,8 +350,22 @@ export function PosInvoiceModal({
             </button>
             <button
               type="button"
+              onClick={handleDownloadPhoto}
+              disabled={isDownloadingPhoto}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+              title="Descargar o compartir foto de la factura"
+            >
+              {isDownloadingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#ED500A]" />
+              ) : (
+                <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span>Descargar foto</span>
+            </button>
+            <button
+              type="button"
               onClick={handlePrint}
-              className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer hover:opacity-90 active:scale-95 shadow-md"
+              className="px-5 py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer hover:opacity-90 active:scale-95 shadow-md shadow-[#ED500A]/20"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir Ticket (80mm)</span>

@@ -14,7 +14,7 @@ import {
   Split,
   Layers,
   ArrowRight,
-  CreditCard,
+  Wallet,
   Banknote,
   Receipt,
   HelpCircle,
@@ -28,7 +28,7 @@ import { ModalPortal } from "@/components/ui/modal-portal";
 import { PaymentMethodLogo } from "@/components/payments/payment-method-logo";
 import { RestaurantOrderWithDetails, ProcessOrderPaymentInput, SplitPaymentItem, PRESET_TABLE_DISCOUNTS } from "@/lib/restaurant/types";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
-import { searchCustomersForPosAction, getCustomerCreditInfoAction } from "@/app/workspace/[businessId]/clientes/actions";
+import { searchCustomersForPosAction } from "@/app/workspace/[businessId]/clientes/actions";
 import { getCustomerLoyaltyAccountAction } from "@/app/workspace/[businessId]/clientes/loyalty-actions";
 import { toast } from "sonner";
 
@@ -62,7 +62,6 @@ export function parseOrderProposedPayment(notes: string | null | undefined): {
     else if (lower.includes("bre-b") || lower.includes("bre_b") || lower.includes("bre b")) proposedMethodCode = "bre_b";
     else if (lower.includes("davivienda")) proposedMethodCode = "davivienda";
     else if (lower.includes("nu")) proposedMethodCode = "nu";
-    else if (lower.includes("tarjeta") || lower.includes("card")) proposedMethodCode = "card";
     else if (lower.includes("transferencia")) proposedMethodCode = "transfer";
   }
 
@@ -149,6 +148,7 @@ export function OrderPaymentModal({
           ];
 
     for (const m of sourceList) {
+      if (m.code === "card" || m.code === "credit" || m.code === "a_credito") continue;
       list.push({
         code: m.code,
         name: m.name,
@@ -157,22 +157,6 @@ export function OrderPaymentModal({
         accountHolder: m.accountHolder,
         instructions: m.instructions,
         isTransfer: m.code !== "cash",
-      });
-    }
-
-    if (!list.some((it) => it.code === "card")) {
-      list.push({
-        code: "card",
-        name: "Tarjeta / Datáfono",
-        isTransfer: false,
-      });
-    }
-
-    if (!list.some((it) => it.code === "credit")) {
-      list.push({
-        code: "credit",
-        name: "A crédito",
-        isTransfer: false,
       });
     }
 
@@ -210,32 +194,8 @@ export function OrderPaymentModal({
   const [tipSelection, setTipSelection] = useState<"none" | "5" | "10" | "15" | "20" | "custom">("none");
   const [customTipStr, setCustomTipStr] = useState<string>("");
 
-  // Gestión de ventas a crédito [POS-003]
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(order?.customer_id || null);
-  const [customerCreditInfo, setCustomerCreditInfo] = useState<{
-    id: string;
-    fullName: string;
-    phone?: string | null;
-    creditLimit: number;
-    creditUsed: number;
-    creditAvailable: number;
-    hasCredit: boolean;
-  } | null>(null);
-  const [isLoadingCreditInfo, setIsLoadingCreditInfo] = useState<boolean>(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>("");
-  const [customerSearchResults, setCustomerSearchResults] = useState<
-    Array<{
-      id: string;
-      fullName: string;
-      phone: string | null;
-      creditLimit?: number;
-      creditUsed?: number;
-      creditAvailable?: number;
-      hasCredit?: boolean;
-    }>
-  >([]);
-  const [isSearchingCustomers, setIsSearchingCustomers] = useState<boolean>(false);
-  const [creditDueDays, setCreditDueDays] = useState<number>(30);
+  // Cliente del pedido
+  const [selectedCustomerId] = useState<string | null>(order?.customer_id || null);
 
   // Gestión de puntos de fidelización [FID-001]
   const [customerLoyalty, setCustomerLoyalty] = useState<{
@@ -264,36 +224,18 @@ export function OrderPaymentModal({
       setSelectedPresetDiscountId(null);
       setTipSelection("none");
       setCustomTipStr("");
+      const secondMethod = availableOptions.find((o) => o.code !== "cash")?.code || "transfer";
       setSplitLines([
         { id: "line-1", method: "cash", amount: Math.round(order.total / 2) },
-        { id: "line-2", method: "card", amount: Math.round(order.total / 2) },
+        { id: "line-2", method: secondMethod, amount: Math.round(order.total / 2) },
       ]);
 
       const initialCustomerId = order.customer_id || null;
-      setSelectedCustomerId(initialCustomerId);
-      setCustomerSearchQuery("");
-      setCustomerSearchResults([]);
-      setCreditDueDays(30);
       setIsRedeemingPoints(false);
       setRedeemedPointsInput(0);
 
       const businessId = order.business_id;
       if (initialCustomerId && businessId) {
-        setIsLoadingCreditInfo(true);
-        getCustomerCreditInfoAction(businessId, initialCustomerId)
-          .then((res) => {
-            if (res.success && res.customer) {
-              setCustomerCreditInfo({
-                ...res.customer,
-                phone: res.customer.phone || null,
-              });
-            } else {
-              setCustomerCreditInfo(null);
-            }
-          })
-          .catch(() => setCustomerCreditInfo(null))
-          .finally(() => setIsLoadingCreditInfo(false));
-
         getCustomerLoyaltyAccountAction(businessId, initialCustomerId)
           .then((res) => {
             if (res.success && res.account) {
@@ -308,70 +250,10 @@ export function OrderPaymentModal({
           })
           .catch(() => setCustomerLoyalty(null));
       } else {
-        setCustomerCreditInfo(null);
         setCustomerLoyalty(null);
       }
     }
   }, [order, isOpen, proposedInfo]);
-
-  const handleCustomerSearch = async (term: string) => {
-    setCustomerSearchQuery(term);
-    if (!order?.business_id || term.trim().length < 2) {
-      setCustomerSearchResults([]);
-      return;
-    }
-    setIsSearchingCustomers(true);
-    try {
-      const results = await searchCustomersForPosAction(order.business_id, term.trim());
-      setCustomerSearchResults(results);
-    } catch {
-      setCustomerSearchResults([]);
-    } finally {
-      setIsSearchingCustomers(false);
-    }
-  };
-
-  const handleSelectCustomerForCredit = (c: {
-    id: string;
-    fullName: string;
-    phone: string | null;
-    creditLimit?: number;
-    creditUsed?: number;
-    creditAvailable?: number;
-    hasCredit?: boolean;
-  }) => {
-    setSelectedCustomerId(c.id);
-    const limit = Number(c.creditLimit || 0);
-    const used = Number(c.creditUsed || 0);
-    const available = Math.max(0, Number((limit - used).toFixed(2)));
-    setCustomerCreditInfo({
-      id: c.id,
-      fullName: c.fullName,
-      phone: c.phone || null,
-      creditLimit: limit,
-      creditUsed: used,
-      creditAvailable: available,
-      hasCredit: limit > 0,
-    });
-    setCustomerSearchResults([]);
-    setCustomerSearchQuery("");
-
-    if (order?.business_id && c.id) {
-      getCustomerLoyaltyAccountAction(order.business_id, c.id)
-        .then((res) => {
-          if (res.success && res.account) {
-            setCustomerLoyalty({
-              pointsBalance: res.account.pointsBalance,
-              equivalentMoneyValue: res.account.equivalentMoneyValue,
-              canRedeem: res.account.canRedeem,
-            });
-          } else {
-            setCustomerLoyalty(null);
-          }
-        })
-        .catch(() => setCustomerLoyalty(null));
-    }
-  };
 
   // Cálculos matemáticos de la venta
   const baseOrderTotal = order?.total || 0;
@@ -454,12 +336,6 @@ export function OrderPaymentModal({
       if (selectedSingleMethod === "cash") {
         return singleCashReceivedNum >= totalToCollect;
       }
-      if (selectedSingleMethod === "credit") {
-        if (!selectedCustomerId || !customerCreditInfo) return false;
-        if (!customerCreditInfo.hasCredit) return false;
-        if (totalToCollect > customerCreditInfo.creditAvailable) return false;
-        return true;
-      }
       return Boolean(selectedSingleMethod);
     }
     // Si es dividido: debe cubrir el total y las líneas de efectivo deben tener recibido suficiente
@@ -467,12 +343,6 @@ export function OrderPaymentModal({
     if (splitLines.length === 0) return false;
     if (splitCashLine && splitCashLine.receivedAmount !== undefined) {
       if (splitCashLine.receivedAmount < splitCashLine.amount) return false;
-    }
-    const creditLine = splitLines.find((l) => l.method === "credit");
-    if (creditLine) {
-      if (!selectedCustomerId || !customerCreditInfo) return false;
-      if (!customerCreditInfo.hasCredit) return false;
-      if (creditLine.amount > customerCreditInfo.creditAvailable) return false;
     }
     return true;
   }, [
@@ -485,7 +355,6 @@ export function OrderPaymentModal({
     splitLines,
     splitCashLine,
     selectedCustomerId,
-    customerCreditInfo,
   ]);
 
   if (!isOpen || !order) return null;
@@ -518,27 +387,9 @@ export function OrderPaymentModal({
     if (!canConfirm) return;
 
     if (!isSplit) {
-      if (selectedSingleMethod === "credit") {
-        if (!selectedCustomerId || !customerCreditInfo) {
-          toast.error("Debes seleccionar un cliente registrado para la venta a crédito.");
-          return;
-        }
-        if (!customerCreditInfo.hasCredit) {
-          toast.error(`El cliente «${customerCreditInfo.fullName}» no tiene cupo de crédito autorizado.`);
-          return;
-        }
-        if (totalToCollect > customerCreditInfo.creditAvailable) {
-          toast.error(
-            `Cupo de crédito insuficiente. Disponible: ${formatCOP(customerCreditInfo.creditAvailable)}, solicitado: ${formatCOP(totalToCollect)}.`
-          );
-          return;
-        }
-      }
-
       const payload: ProcessOrderPaymentInput = {
         paymentMethod: selectedSingleMethod,
         customerId: selectedCustomerId || undefined,
-        creditDueDays: selectedSingleMethod === "credit" ? creditDueDays : undefined,
         isSplit: false,
         discount: hasDiscount && calculatedDiscountAmount > 0
           ? {
@@ -567,17 +418,10 @@ export function OrderPaymentModal({
         change: l.method === "cash" ? splitCashChange : 0,
       }));
 
-      const hasCreditInSplit = splitLines.some((l) => l.method === "credit");
-      if (hasCreditInSplit && (!selectedCustomerId || !customerCreditInfo)) {
-        toast.error("Debes seleccionar un cliente registrado para la parte a crédito.");
-        return;
-      }
-
       const payload: ProcessOrderPaymentInput = {
         isSplit: true,
         splitPayments: splitItems,
         customerId: selectedCustomerId || undefined,
-        creditDueDays: hasCreditInSplit ? creditDueDays : undefined,
         discount: hasDiscount && calculatedDiscountAmount > 0
           ? {
               type: discountType,
@@ -650,7 +494,7 @@ export function OrderPaymentModal({
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
-                <CreditCard className="w-3.5 h-3.5" />
+                <Wallet className="w-3.5 h-3.5" />
                 <span>Pago único</span>
               </button>
               <button
@@ -658,9 +502,10 @@ export function OrderPaymentModal({
                 onClick={() => {
                   setIsSplit(true);
                   if (splitLines.length === 0) {
+                    const secondMethod = availableOptions.find((o) => o.code !== "cash")?.code || "transfer";
                     setSplitLines([
                       { id: "line-1", method: "cash", amount: Math.round(totalToCollect / 2) },
-                      { id: "line-2", method: "card", amount: Math.round(totalToCollect / 2) },
+                      { id: "line-2", method: secondMethod, amount: Math.round(totalToCollect / 2) },
                     ]);
                   }
                 }}
@@ -1083,7 +928,7 @@ export function OrderPaymentModal({
                   <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Efectivo recibido del cliente:
+                        Paga con:
                       </span>
                       <div className="flex gap-1">
                         <button
@@ -1128,7 +973,7 @@ export function OrderPaymentModal({
                     {singleCashChange > 0 && (
                       <div className="flex items-center justify-between pt-1 border-t border-emerald-200/50 dark:border-emerald-500/20">
                         <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                          Cambio a entregar en efectivo:
+                          Cambio:
                         </span>
                         <span className="text-base font-mono font-black text-emerald-700 dark:text-emerald-400">
                           {formatCOP(singleCashChange)}
@@ -1138,176 +983,6 @@ export function OrderPaymentModal({
                   </div>
                 )}
 
-                {/* [POS-003] SI ES A CRÉDITO: GESTIÓN DE CLIENTE Y CUPO */}
-                {selectedSingleMethod === "credit" && (
-                  <div className="p-3 bg-purple-50/70 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/30 rounded-xl space-y-3 animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                        <CreditCard className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        <span>Venta a Crédito (Cartera de Clientes)</span>
-                      </span>
-                      {selectedCustomerId && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCustomerId(null);
-                            setCustomerCreditInfo(null);
-                            setCustomerSearchQuery("");
-                            setCustomerSearchResults([]);
-                          }}
-                          className="text-[11px] font-semibold text-purple-700 dark:text-purple-400 hover:underline cursor-pointer"
-                        >
-                          Cambiar cliente
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Si no hay cliente seleccionado o se desea buscar otro */}
-                    {!selectedCustomerId ? (
-                      <div className="space-y-2">
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                          Selecciona un cliente con cupo de crédito para cargar esta venta:
-                        </p>
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                          <input
-                            type="text"
-                            value={customerSearchQuery}
-                            onChange={(e) => handleCustomerSearch(e.target.value)}
-                            placeholder="Buscar por nombre o teléfono..."
-                            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-purple-200 dark:border-purple-800/40 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium"
-                          />
-                        </div>
-
-                        {isSearchingCustomers && (
-                          <p className="text-[11px] text-purple-600 dark:text-purple-400 flex items-center gap-1">
-                            <Loader2 className="w-3 h-3 animate-spin" /> Buscando clientes...
-                          </p>
-                        )}
-
-                        {customerSearchResults.length > 0 && (
-                          <div className="divide-y divide-slate-100 dark:divide-white/5 border border-purple-100 dark:border-purple-900/40 rounded-lg overflow-hidden max-h-36 overflow-y-auto bg-white dark:bg-[#12151f]">
-                            {customerSearchResults.map((cust) => (
-                              <button
-                                key={cust.id}
-                                type="button"
-                                onClick={() => handleSelectCustomerForCredit(cust)}
-                                className="w-full text-left p-2 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors flex items-center justify-between text-xs cursor-pointer"
-                              >
-                                <div>
-                                  <p className="font-bold text-slate-900 dark:text-white">{cust.fullName}</p>
-                                  <p className="text-[10px] text-slate-500">{cust.phone || "Sin teléfono"}</p>
-                                </div>
-                                {cust.hasCredit ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300">
-                                    Cupo: {formatCOP(cust.creditAvailable || 0)}
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-white/10 text-slate-500">
-                                    Sin crédito
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {/* Ficha del cliente y estado de crédito */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-white/5 border border-purple-100 dark:border-purple-800/20">
-                          <div>
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">
-                              {customerCreditInfo?.fullName || "Cliente"}
-                            </p>
-                            <p className="text-[10px] text-slate-500">{customerCreditInfo?.phone || "Sin teléfono"}</p>
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              customerCreditInfo?.hasCredit
-                                ? "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300"
-                                : "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300"
-                            }`}
-                          >
-                            {customerCreditInfo?.hasCredit ? "Crédito habilitado" : "Sin crédito"}
-                          </span>
-                        </div>
-
-                        {/* Indicadores de cupo */}
-                        <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <div className="p-1.5 rounded-lg bg-white/80 dark:bg-white/5 border border-purple-100 dark:border-purple-900/30">
-                            <span className="text-[9px] text-slate-500 block uppercase">Cupo total</span>
-                            <span className="text-[11px] font-mono font-bold text-slate-900 dark:text-white">
-                              {formatCOP(customerCreditInfo?.creditLimit || 0)}
-                            </span>
-                          </div>
-                          <div className="p-1.5 rounded-lg bg-white/80 dark:bg-white/5 border border-purple-100 dark:border-purple-900/30">
-                            <span className="text-[9px] text-slate-500 block uppercase">Usado</span>
-                            <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
-                              {formatCOP(customerCreditInfo?.creditUsed || 0)}
-                            </span>
-                          </div>
-                          <div className="p-1.5 rounded-lg bg-purple-100/70 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700/40">
-                            <span className="text-[9px] text-purple-800 dark:text-purple-300 block uppercase font-bold">Disponible</span>
-                            <span className="text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300">
-                              {formatCOP(customerCreditInfo?.creditAvailable || 0)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Criterio 1: Cliente sin crédito autorizado */}
-                        {customerCreditInfo && !customerCreditInfo.hasCredit && (
-                          <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40 flex items-start gap-2 text-rose-800 dark:text-rose-300">
-                            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
-                            <div className="text-[11px]">
-                              <p className="font-bold">Cliente sin crédito habilitado</p>
-                              <p>El cliente «{customerCreditInfo.fullName}» no tiene cupo de crédito autorizado.</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Criterio 2: Cupo insuficiente */}
-                        {customerCreditInfo &&
-                          customerCreditInfo.hasCredit &&
-                          totalToCollect > (customerCreditInfo.creditAvailable || 0) && (
-                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 flex items-start gap-2 text-amber-800 dark:text-amber-300">
-                              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                              <div className="text-[11px]">
-                                <p className="font-bold">Cupo de crédito insuficiente</p>
-                                <p>
-                                  Disponible: {formatCOP(customerCreditInfo.creditAvailable || 0)} | Total venta:{" "}
-                                  {formatCOP(totalToCollect)}.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Selector de plazo */}
-                        <div className="pt-1 flex items-center justify-between text-xs">
-                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                            Plazo de vencimiento:
-                          </span>
-                          <div className="flex gap-1">
-                            {[15, 30, 45, 60].map((days) => (
-                              <button
-                                key={days}
-                                type="button"
-                                onClick={() => setCreditDueDays(days)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                                  creditDueDays === days
-                                    ? "bg-purple-600 text-white shadow-2xs"
-                                    : "bg-white dark:bg-white/5 border border-purple-200 dark:border-purple-800/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100/50"
-                                }`}
-                              >
-                                {days}d
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
@@ -1490,7 +1165,7 @@ export function OrderPaymentModal({
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Confirmar Cobro · {formatCOP(totalToCollect)}</span>
+                    <span>Confirmar pago recibido · {formatCOP(totalToCollect)}</span>
                   </>
                 )}
               </button>

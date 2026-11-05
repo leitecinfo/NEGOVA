@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, User, Phone, Mail, MapPin, FileText, Sparkles } from "lucide-react";
+import { X, User, Building2, Phone, Mail, MapPin, FileText, Sparkles } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Button } from "@/components/ui/button";
 import { createCustomerAction, updateCustomerAction } from "@/app/workspace/[businessId]/clientes/actions";
@@ -25,7 +25,9 @@ export function CustomerModal({
 }: CustomerModalProps) {
   const isEditing = Boolean(customerToEdit);
 
+  const [customerType, setCustomerType] = useState<"individual" | "business">("individual");
   const [fullName, setFullName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [taxId, setTaxId] = useState("");
@@ -38,7 +40,9 @@ export function CustomerModal({
 
   useEffect(() => {
     if (customerToEdit) {
+      setCustomerType(customerToEdit.customerType || "individual");
       setFullName(customerToEdit.fullName || "");
+      setContactName(customerToEdit.contactName || "");
       setPhone(customerToEdit.phone || "");
       setEmail(customerToEdit.email || "");
       setTaxId(customerToEdit.taxId || "");
@@ -46,7 +50,9 @@ export function CustomerModal({
       setAddressLine("");
       setAddressReference("");
     } else {
+      setCustomerType("individual");
       setFullName("");
+      setContactName("");
       setPhone("");
       setEmail("");
       setTaxId("");
@@ -62,7 +68,11 @@ export function CustomerModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      setErrorMessage("Por favor ingresa el nombre del cliente.");
+      setErrorMessage(
+        customerType === "business"
+          ? "Por favor ingresa la razón social o nombre de la empresa."
+          : "Por favor ingresa el nombre completo del cliente."
+      );
       return;
     }
 
@@ -73,6 +83,8 @@ export function CustomerModal({
       if (isEditing && customerToEdit) {
         const res = await updateCustomerAction(businessId, customerToEdit.id, {
           fullName: fullName.trim(),
+          customerType,
+          contactName: customerType === "business" ? contactName.trim() || null : null,
           phone: phone.trim() || null,
           email: email.trim() || null,
           taxId: taxId.trim() || null,
@@ -89,6 +101,8 @@ export function CustomerModal({
       } else {
         const res = await createCustomerAction(businessId, {
           fullName: fullName.trim(),
+          customerType,
+          contactName: customerType === "business" ? contactName.trim() || null : null,
           phone: phone.trim() || null,
           email: email.trim() || null,
           taxId: taxId.trim() || null,
@@ -103,7 +117,11 @@ export function CustomerModal({
           return;
         }
 
-        toast.success("Cliente registrado con éxito");
+        toast.success(
+          customerType === "business"
+            ? "Empresa registrada con éxito"
+            : "Cliente registrado con éxito"
+        );
       }
 
       onSuccess();
@@ -117,17 +135,22 @@ export function CustomerModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
           className="relative w-full max-w-lg max-h-[92vh] flex flex-col bg-white dark:bg-[#0D0F16] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/[0.08] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-orange-500/10 text-[#ED500A]">
-                <User className="w-5 h-5" />
+                {customerType === "business" ? (
+                  <Building2 className="w-5 h-5" />
+                ) : (
+                  <User className="w-5 h-5" />
+                )}
               </div>
               <div>
                 <h3 className="text-base font-bold font-title text-slate-900 dark:text-white">
@@ -136,17 +159,47 @@ export function CustomerModal({
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-body">
                   {isEditing
                     ? "Actualiza los datos de contacto y notas del perfil"
-                    : "Registra un cliente frecuente para ventas y domicilios"}
+                    : "Registra una persona o empresa para compras y domicilios"}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          {/* Selector de Tipo: Persona Natural vs Empresa */}
+          <div className="px-5 pt-4 pb-1">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-white/[0.05] rounded-xl border border-slate-200/80 dark:border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setCustomerType("individual")}
+                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                  customerType === "individual"
+                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>Persona natural</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomerType("business")}
+                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                  customerType === "business"
+                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Empresa</span>
+              </button>
+            </div>
           </div>
 
           {/* Form */}
@@ -157,17 +210,26 @@ export function CustomerModal({
               </div>
             )}
 
-            {/* Nombre completo */}
+            {/* Nombre / Razón Social */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Nombre completo <span className="text-[#ED500A] ml-1">*</span>
+                {customerType === "business" ? "Razón social / Empresa" : "Nombre completo"}
+                <span className="text-[#ED500A] ml-1">*</span>
               </label>
               <div className="relative flex items-center">
-                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                {customerType === "business" ? (
+                  <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                ) : (
+                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                )}
                 <input
                   type="text"
                   required
-                  placeholder="Ej. Andrés Ramírez"
+                  placeholder={
+                    customerType === "business"
+                      ? "Ej. Distribuidora del Norte S.A.S."
+                      : "Ej. Andrés Ramírez"
+                  }
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
@@ -175,7 +237,27 @@ export function CustomerModal({
               </div>
             </div>
 
-            {/* Teléfono y Cédula en 2 columnas */}
+            {/* Persona de Contacto (exclusivo para Empresa) */}
+            {customerType === "business" && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Persona de contacto / Representante{" "}
+                  <span className="text-slate-400 font-normal">(Opcional)</span>
+                </label>
+                <div className="relative flex items-center">
+                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Ej. Carlos Mendoza (Gerente de Compras)"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Teléfono y Documento/NIT en 2 columnas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -195,13 +277,14 @@ export function CustomerModal({
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Cédula / NIT <span className="text-slate-400 font-normal">(Opcional)</span>
+                  {customerType === "business" ? "NIT / RUT" : "Cédula / Documento"}{" "}
+                  <span className="text-slate-400 font-normal">(Opcional)</span>
                 </label>
                 <div className="relative flex items-center">
                   <FileText className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Ej. 1045234890"
+                    placeholder={customerType === "business" ? "Ej. 901234567-1" : "Ej. 1045234890"}
                     value={taxId}
                     onChange={(e) => setTaxId(e.target.value)}
                     className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-mono"
@@ -219,7 +302,7 @@ export function CustomerModal({
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
-                  placeholder="cliente@ejemplo.com"
+                  placeholder="contacto@ejemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
@@ -231,7 +314,7 @@ export function CustomerModal({
             {!isEditing && (
               <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-3">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                  Dirección para Domicilios <span className="text-slate-400 font-normal">(Opcional)</span>
+                  Dirección principal <span className="text-slate-400 font-normal">(Opcional)</span>
                 </span>
 
                 <div className="space-y-1.5">
@@ -239,7 +322,7 @@ export function CustomerModal({
                     <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="Ej. Calle 45 # 12-34 Apto 301"
+                      placeholder="Ej. Calle 45 # 12-34 Oficina 301"
                       value={addressLine}
                       onChange={(e) => setAddressLine(e.target.value)}
                       className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
@@ -250,7 +333,7 @@ export function CustomerModal({
                 <div className="space-y-1.5">
                   <input
                     type="text"
-                    placeholder="Punto de referencia o barrio (ej. Edificio Los Sauces, frente al parque)"
+                    placeholder="Punto de referencia o barrio (ej. Frente al parque, entrada norte)"
                     value={addressReference}
                     onChange={(e) => setAddressReference(e.target.value)}
                     className="w-full h-10 px-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
@@ -262,11 +345,11 @@ export function CustomerModal({
             {/* Notas / Preferencias */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Notas y preferencias <span className="text-slate-400 font-normal">(Opcional)</span>
+                Notas y observaciones <span className="text-slate-400 font-normal">(Opcional)</span>
               </label>
               <textarea
                 rows={2}
-                placeholder="Ej. Prefiere sin cebolla, llamar antes de salir con el domicilio..."
+                placeholder="Observaciones de entrega, preferencias comerciales o detalles clave..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full p-3 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all resize-none"

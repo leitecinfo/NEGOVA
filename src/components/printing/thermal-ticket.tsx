@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Printer, X, Check, FileText, Bike, UtensilsCrossed, ShoppingBag } from "lucide-react";
+import { Printer, X, Check, FileText, Bike, ShoppingBag, Camera, Loader2 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { downloadElementAsImage } from "@/lib/printing/download-invoice-image";
+import { printThermalElement } from "@/lib/printing/print-thermal-element";
+import { toast } from "sonner";
 
 export interface ThermalTicketItem {
   id?: string;
@@ -165,13 +168,31 @@ export function ThermalTicketModal({
     }
   };
 
+  const [isDownloadingPhoto, setIsDownloadingPhoto] = useState(false);
+
+  const handleDownloadPhoto = async () => {
+    const el = document.getElementById("thermal-ticket-printable-root");
+    if (!el) return;
+    setIsDownloadingPhoto(true);
+    try {
+      const filename = `Factura_${documentNumber || "comprobante"}.png`;
+      const result = await downloadElementAsImage(el, filename);
+      if (result === "shared") {
+        toast.success("Foto de la factura compartida");
+      } else {
+        toast.success("Foto de la factura descargada correctamente");
+      }
+    } catch (err: any) {
+      toast.error("No se pudo generar la foto de la factura", {
+        description: err?.message || "Inténtalo de nuevo.",
+      });
+    } finally {
+      setIsDownloadingPhoto(false);
+    }
+  };
+
   const handlePrint = () => {
-    // Establecer variable CSS para ancho de página en impresión
-    document.documentElement.style.setProperty(
-      "--ticket-width",
-      paperWidth === "58mm" ? "58mm" : "80mm"
-    );
-    window.print();
+    printThermalElement("thermal-ticket-printable-root", `Factura ${documentNumber}`);
   };
 
   const is58mm = paperWidth === "58mm";
@@ -598,6 +619,21 @@ export function ThermalTicketModal({
                 className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/[0.08] transition-colors cursor-pointer shrink-0"
               >
                 Cerrar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadPhoto}
+                disabled={isDownloadingPhoto}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.12] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 transition-all cursor-pointer active:scale-[0.98] shrink-0 whitespace-nowrap shadow-xs disabled:opacity-50"
+                title="Descargar o compartir foto del comprobante"
+              >
+                {isDownloadingPhoto ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#ED500A]" />
+                ) : (
+                  <Camera className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                )}
+                <span>Descargar foto</span>
               </button>
 
               <button

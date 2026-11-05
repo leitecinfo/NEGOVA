@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { AppNavSection, AppBranding } from "./navigation-types";
 import { NegovaLogoLoader } from "@/components/ui/negova-logo-loader";
 
@@ -53,50 +54,68 @@ const LOADING_TIPS = [
 ];
 
 /**
- * Pantalla de carga oficial mostrada sobre el área principal mientras
+ * Pantalla de carga oficial mostrada sobre la pantalla mientras
  * se resuelve la navegación entre módulos del Workspace.
  * - Fondo 100% opaco para ocultar la página anterior sin dejar vistas congeladas.
  * - Muestra el logo oficial de NEGOVA animado.
  * - Muestra el nombre del módulo destino.
+ * - isFullPage={true} para garantizar cobertura total de viewport sin recortes por scroll.
+ * - Autodescarte si la ruta ya coincide con el destino o si supera 2 segundos.
  */
 export function ModuleLoadingOverlay({
   isActive,
   navigatingHref,
   navSections,
 }: ModuleLoadingOverlayProps) {
+  const currentPathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+
+  const cleanCurrent = (currentPathname || "").split("?")[0].replace(/\/$/, "");
+  const cleanTarget = (navigatingHref || "").split("?")[0].replace(/\/$/, "");
+  const isAlreadyAtTarget = Boolean(
+    cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))
+  );
 
   const target = useMemo(() => resolveModule(navigatingHref, navSections), [navigatingHref, navSections]);
 
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || isAlreadyAtTarget) {
       setVisible(false);
       setElapsed(0);
       return;
     }
-    // Pequeño retardo para no parpadear si la navegación es instantánea
-    const showTimer = setTimeout(() => setVisible(true), 100);
+
+    // Pequeño retardo de 80ms para no parpadear si la navegación es instantánea
+    const showTimer = setTimeout(() => setVisible(true), 80);
+
+    // Failsafe estricto: un overlay de navegación jamás debe bloquear la interfaz por más de 2000ms
+    const maxSafetyTimer = setTimeout(() => {
+      setVisible(false);
+    }, 2000);
+
     const started = Date.now();
-    const tick = setInterval(() => setElapsed(Date.now() - started), 400);
+    const tick = setInterval(() => setElapsed(Date.now() - started), 300);
+
     return () => {
       clearTimeout(showTimer);
+      clearTimeout(maxSafetyTimer);
       clearInterval(tick);
     };
-  }, [isActive, navigatingHref]);
+  }, [isActive, navigatingHref, isAlreadyAtTarget]);
 
-  if (!isActive || !visible) return null;
+  if (!isActive || !visible || isAlreadyAtTarget) return null;
 
   const label = target?.label;
   const tipIndex = Math.min(LOADING_TIPS.length - 1, Math.floor(elapsed / 1200));
-  const isSlow = elapsed > 4500;
+  const isSlow = elapsed > 3500;
   const subtitle = isSlow ? "La conexión está lenta, seguimos cargando..." : `${LOADING_TIPS[tipIndex]}...`;
 
   return (
     <NegovaLogoLoader
       moduleName={label}
       subtitle={subtitle}
-      isFullPage={false}
+      isFullPage={true}
     />
   );
 }

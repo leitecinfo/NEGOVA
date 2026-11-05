@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ChefHat, Printer, X, DollarSign, Plus } from "lucide-react";
+import { FileText, Printer, X, DollarSign, Plus } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 
 export interface KitchenTicketItem {
@@ -23,6 +23,8 @@ export interface KitchenCommandTicketData {
   items: KitchenTicketItem[];
   total?: number;
 }
+
+import { printThermalElement } from "@/lib/printing/print-thermal-element";
 
 interface KitchenCommandTicketModalProps {
   isOpen: boolean;
@@ -74,7 +76,7 @@ export function KitchenCommandTicketModal({
   });
 
   const handlePrint = () => {
-    window.print();
+    printThermalElement("kitchen-command-print-area", `Comanda #${order.orderNumber}`);
   };
 
   return (
@@ -186,7 +188,7 @@ export function KitchenCommandTicketModal({
           {/* HEADER DEL MODAL */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-white/[0.02] pos-no-print">
             <div className="flex items-center gap-2">
-              <ChefHat className="w-5 h-5 text-[#ED500A]" />
+              <FileText className="w-5 h-5 text-[#ED500A]" />
               <span className="font-bold text-sm text-slate-900 dark:text-white">
                 Comanda de Cocina
               </span>

@@ -13,6 +13,8 @@ import { WorkspaceCommandPalette } from "@/components/workspace/workspace-comman
 import { WorkspaceSidebarSubscriptionWidget } from "@/components/workspace/workspace-sidebar-subscription-widget";
 import { buildWorkspaceNavSections } from "@/config/workspace-navigation";
 import { WorkspaceOpenTicketsFloatingButton } from "@/components/workspace/workspace-open-tickets-floating-button";
+import { ModuleVideoButton } from "@/components/help/module-video-button";
+import { ModuleVideosModal } from "@/components/help/module-videos-modal";
 
 interface WorkspaceShellProps {
   session: WorkspaceUserContext;
@@ -37,6 +39,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isModuleVideosModalOpen, setIsModuleVideosModalOpen] = useState(false);
   const businessId = session.businessId;
 
   // Atajo global de teclado para Cmd+K / Ctrl+K [NAV-001]
@@ -82,6 +85,10 @@ export function WorkspaceShell({
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         userEmail={session.userEmail}
+      />
+      <ModuleVideosModal
+        isOpen={isModuleVideosModalOpen}
+        onClose={() => setIsModuleVideosModalOpen(false)}
       />
     </>
   );
@@ -142,6 +149,12 @@ export function WorkspaceShell({
             canViewOrders={canViewOrders}
           />
           <WorkspaceNotificationDropdown businessId={businessId} />
+
+          {/* Botón Ver Video en Cabecera [HELP-002] */}
+          <ModuleVideoButton
+            onClick={() => setIsModuleVideosModalOpen(true)}
+            className="hidden sm:inline-flex"
+          />
 
           {/* Enlace al Centro de Ayuda en Cabecera */}
           <Link

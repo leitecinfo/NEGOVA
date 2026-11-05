@@ -4,13 +4,14 @@ import React, { useState, useEffect, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   CreateModifierGroupInput,
+  ModifierCommercialType,
   ModifierGroup,
   ModifierOptionInput,
   ModifierSelectionType,
   ModifierStatus,
 } from "@/lib/modifiers/types";
 import { Category, Product } from "@/lib/products/types";
-import { formatCOP } from "@/lib/pos/types";
+import { formatCOP, formatNumberWithDots, parseNumberFromDots } from "@/lib/pos/types";
 import {
   X,
   Layers,
@@ -23,9 +24,13 @@ import {
   Square,
   FolderTree,
   Package,
-  HelpCircle,
   Loader2,
-  DollarSign,
+  ArrowRightLeft,
+  Tag,
+  ChevronUp,
+  ChevronDown,
+  Info,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +40,7 @@ interface ModifierGroupModalProps {
   categories: Category[];
   products: Product[];
   group?: ModifierGroup | null;
+  initialProductId?: string | null;
   onClose: () => void;
   onSave: (data: CreateModifierGroupInput) => Promise<void>;
 }
@@ -45,6 +51,7 @@ export function ModifierGroupModal({
   categories,
   products,
   group,
+  initialProductId,
   onClose,
   onSave,
 }: ModifierGroupModalProps) {
@@ -52,6 +59,8 @@ export function ModifierGroupModal({
 
   // Datos básicos del grupo
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [commercialType, setCommercialType] = useState<ModifierCommercialType>("additional");
   const [required, setRequired] = useState(false);
   const [selectionType, setSelectionType] = useState<ModifierSelectionType>("multiple");
   const [minSelect, setMinSelect] = useState<number>(0);
@@ -63,30 +72,35 @@ export function ModifierGroupModal({
   // Asignación de productos y categorías
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"general" | "options" | "assignment">("general");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Inicializar estado cuando se abre
+  // Inicializar estado cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       if (group) {
         setName(group.name);
+        setDescription(group.description || "");
+        setCommercialType(group.commercial_type || "additional");
         setRequired(group.required);
-        setSelectionType(group.selection_type);
+        setSelectionType(group.selection_type || (group.max_select === 1 ? "single" : "multiple"));
         setMinSelect(group.min_select);
         setMaxSelect(group.max_select);
         setOptions(
-          group.options.map((o) => ({
+          group.options.map((o, idx) => ({
             id: o.id,
             name: o.name,
             price: o.price,
-            status: o.status,
-            sort_order: o.sort_order,
+            status: o.status || "active",
+            sort_order: typeof o.sort_order === "number" ? o.sort_order : idx,
           }))
         );
         setSelectedProductIds(group.applied_product_ids || []);
       } else {
         setName("");
+        setDescription("");
+        setCommercialType("additional");
         setRequired(false);
         setSelectionType("multiple");
         setMinSelect(0);
@@ -94,20 +108,31 @@ export function ModifierGroupModal({
         setOptions([
           { name: "", price: 0, status: "active", sort_order: 0 },
         ]);
-        setSelectedProductIds([]);
+        setSelectedProductIds(initialProductId ? [initialProductId] : []);
       }
       setActiveTab("general");
       setProductSearch("");
+      setSelectedCategoryFilter("all");
     }
-  }, [isOpen, group]);
+  }, [isOpen, group, initialProductId]);
 
-  // Cuando cambia required o selectionType, sincronizar límites
+  // Sincronizar límites al cambiar required o selectionType
   const handleToggleRequired = (val: boolean) => {
     setRequired(val);
     if (val) {
-      if (minSelect < 1) setMinSelect(1);
+      if (selectionType === "single") {
+        setMinSelect(1);
+        setMaxSelect(1);
+      } else {
+        if (minSelect < 1) setMinSelect(1);
+      }
     } else {
-      setMinSelect(0);
+      if (selectionType === "single") {
+        setMinSelect(0);
+        setMaxSelect(1);
+      } else {
+        setMinSelect(0);
+      }
     }
   };
 
@@ -115,33 +140,34 @@ export function ModifierGroupModal({
     setSelectionType(type);
     if (type === "single") {
       setMaxSelect(1);
-      if (required) {
-        setMinSelect(1);
-      } else {
-        setMinSelect(0);
-      }
+      setMinSelect(required ? 1 : 0);
     } else {
       if (maxSelect === 1) {
         setMaxSelect(3);
       }
+      if (!required) {
+        setMinSelect(0);
+      } else if (minSelect < 1) {
+        setMinSelect(1);
+      }
     }
   };
 
-  // Manejadores de opciones
+  // Manejo de Opciones
   const handleAddOption = () => {
-    setOptions([
-      ...options,
+    setOptions((prev) => [
+      ...prev,
       {
         name: "",
         price: 0,
         status: "active",
-        sort_order: options.length,
+        sort_order: prev.length,
       },
     ]);
   };
 
   const handleRemoveOption = (index: number) => {
-    setOptions(options.filter((_, idx) => idx !== index));
+    setOptions((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const handleOptionChange = (
@@ -149,25 +175,46 @@ export function ModifierGroupModal({
     field: keyof ModifierOptionInput,
     value: any
   ) => {
-    const next = [...options];
-    next[index] = { ...next[index], [field]: value };
-    setOptions(next);
+    setOptions((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
-  // Asignación de productos y categorías
+  const handleMoveOption = (index: number, direction: "up" | "down") => {
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === options.length - 1) return;
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    setOptions((prev) => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy.map((o, idx) => ({ ...o, sort_order: idx }));
+    });
+  };
+
+  // Filtrado de productos comerciales (excluye ingredientes puros)
   const commercialProducts = useMemo(() => {
     return products.filter((p) => (p.metadata as any)?.product_type !== "ingredient");
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return commercialProducts;
-    const q = productSearch.toLowerCase().trim();
-    return commercialProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.metadata as any)?.sku?.toLowerCase().includes(q)
-    );
-  }, [commercialProducts, productSearch]);
+    return commercialProducts.filter((p) => {
+      if (selectedCategoryFilter !== "all" && p.category_id !== selectedCategoryFilter) {
+        return false;
+      }
+      if (productSearch.trim()) {
+        const q = productSearch.toLowerCase().trim();
+        const matchesName = p.name.toLowerCase().includes(q);
+        const matchesSku = ((p.metadata as any)?.sku || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesSku) return false;
+      }
+      return true;
+    });
+  }, [commercialProducts, selectedCategoryFilter, productSearch]);
 
   const handleToggleProduct = (productId: string) => {
     if (selectedProductIds.includes(productId)) {
@@ -177,30 +224,17 @@ export function ModifierGroupModal({
     }
   };
 
-  const handleToggleCategory = (categoryId: string) => {
-    const categoryProducts = commercialProducts.filter((p) => p.category_id === categoryId);
-    const categoryProductIds = categoryProducts.map((p) => p.id);
-    const allSelected = categoryProductIds.every((id) => selectedProductIds.includes(id));
-
-    if (allSelected) {
-      // Deseleccionar todos los productos de esta categoría
-      setSelectedProductIds(selectedProductIds.filter((id) => !categoryProductIds.includes(id)));
-    } else {
-      // Seleccionar todos los productos de esta categoría
-      const next = Array.from(new Set([...selectedProductIds, ...categoryProductIds]));
-      setSelectedProductIds(next);
-    }
+  const handleSelectAllFilteredProducts = () => {
+    const filteredIds = filteredProducts.map((p) => p.id);
+    const merged = Array.from(new Set([...selectedProductIds, ...filteredIds]));
+    setSelectedProductIds(merged);
   };
 
-  const handleSelectAllProducts = () => {
-    setSelectedProductIds(commercialProducts.map((p) => p.id));
+  const handleDeselectAllFilteredProducts = () => {
+    const filteredIdsSet = new Set(filteredProducts.map((p) => p.id));
+    setSelectedProductIds(selectedProductIds.filter((id) => !filteredIdsSet.has(id)));
   };
 
-  const handleClearAllProducts = () => {
-    setSelectedProductIds([]);
-  };
-
-  // Guardado
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -211,25 +245,32 @@ export function ModifierGroupModal({
       return;
     }
 
-    if (selectionType === "multiple" && minSelect > maxSelect) {
-      toast.error("La selección mínima no puede ser mayor que la máxima");
-      setActiveTab("general");
-      return;
-    }
-
-    // Validar opciones
     const validOptions = options
       .map((opt, idx) => ({
         ...opt,
         name: opt.name.trim(),
-        price: Number(opt.price ?? 0),
-        sort_order: idx,
+        price: Math.max(0, Number(opt.price) || 0),
+        status: opt.status || "active",
+        sort_order: typeof opt.sort_order === "number" ? opt.sort_order : idx,
       }))
       .filter((opt) => opt.name.length > 0);
 
     if (validOptions.length === 0) {
-      toast.error("Debes agregar al menos una opción válida al grupo");
+      toast.error("Debes agregar al menos una opción con nombre al grupo");
       setActiveTab("options");
+      return;
+    }
+
+    const calculatedMaxSelect = selectionType === "single" ? 1 : Math.max(1, maxSelect);
+    const calculatedMinSelect = required
+      ? selectionType === "single"
+        ? 1
+        : Math.max(1, minSelect)
+      : minSelect;
+
+    if (calculatedMinSelect > calculatedMaxSelect) {
+      toast.error("La cantidad mínima no puede ser mayor que la cantidad máxima");
+      setActiveTab("general");
       return;
     }
 
@@ -237,10 +278,12 @@ export function ModifierGroupModal({
       setIsSubmitting(true);
       await onSave({
         name: trimmedName,
+        description: description.trim() || null,
+        commercial_type: commercialType,
         required,
         selection_type: selectionType,
-        min_select: selectionType === "single" ? (required ? 1 : 0) : minSelect,
-        max_select: selectionType === "single" ? 1 : maxSelect,
+        min_select: calculatedMinSelect,
+        max_select: calculatedMaxSelect,
         sort_order: group?.sort_order ?? 0,
         status: group?.status ?? "active",
         options: validOptions,
@@ -249,7 +292,7 @@ export function ModifierGroupModal({
       });
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Error al guardar el grupo");
+      toast.error(err.message || "Error al guardar el grupo de modificadores");
     } finally {
       setIsSubmitting(false);
     }
@@ -259,12 +302,12 @@ export function ModifierGroupModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-2xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] shrink-0">
+      <div className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-2xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
+          {/* Cabecera */}
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">
                 <Layers className="w-5 h-5" />
               </div>
               <div>
@@ -272,11 +315,12 @@ export function ModifierGroupModal({
                   {isEditing ? "Editar Grupo de Modificadores" : "Nuevo Grupo de Modificadores"}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Configura reglas de personalización, complementos y productos donde aplica
+                  Configura modalidad comercial, reglas de selección y opciones disponibles
                 </p>
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
               disabled={isSubmitting}
               className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
@@ -285,8 +329,8 @@ export function ModifierGroupModal({
             </button>
           </div>
 
-          {/* Sub-tabs */}
-          <div className="flex items-center gap-2 px-4 sm:px-5 pt-3 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.01] shrink-0">
+          {/* Selector de Sección Integrada */}
+          <div className="flex items-center gap-1 px-4 sm:px-5 pt-3 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/30 dark:bg-white/[0.01] shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
@@ -296,7 +340,7 @@ export function ModifierGroupModal({
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
               }`}
             >
-              1. Reglas Generales
+              1. Modalidad y Reglas
             </button>
             <button
               type="button"
@@ -318,420 +362,505 @@ export function ModifierGroupModal({
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
               }`}
             >
-              3. Asignación ({selectedProductIds.length})
+              3. Productos ({selectedProductIds.length})
             </button>
           </div>
 
-          {/* Form Content */}
+          {/* Contenido del Formulario */}
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-            {/* TAB 1: REGLAS GENERALES */}
+            {/* ============================================================ */}
+            {/* SECCIÓN 1: MODALIDAD Y REGLAS */}
+            {/* ============================================================ */}
             {activeTab === "general" && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nombre del grupo *
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="ej: Término de la carne, Salsas, Acompañamiento, Adicionales"
-                    required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-sm text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Este nombre se mostrará en el POS, en el Menú Digital y en la comanda de cocina.
-                  </p>
-                </div>
-
-                {/* Obligatorio / Requerido */}
-                <div className="p-4 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl flex items-center justify-between">
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Nombre y descripción */}
+                <div className="space-y-3">
                   <div>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                      ¿Es obligatorio seleccionar este modificador?
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                      {required
-                        ? "Sí: el cajero o cliente debe elegir obligatoriamente al menos 1 opción para ordenar."
-                        : "No: el cliente puede continuar sin seleccionar ninguna opción de este grupo."}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleRequired(!required)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      required ? "bg-[#ED500A]" : "bg-slate-300 dark:bg-white/20"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                        required ? "translate-x-5" : "translate-x-0"
-                      }`}
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Nombre del grupo *
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ej. Acabados premium, Opciones de presentación, Adicionales"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
                     />
-                  </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                      Descripción o instrucción opcional
+                    </label>
+                    <input
+                      type="text"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Ej. Selecciona las opciones deseadas o añade complementos"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
+                    />
+                  </div>
                 </div>
 
-                {/* Tipo de Selección */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Tipo de selección
+                {/* Modalidad Comercial */}
+                <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Modalidad comercial del grupo *
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label
-                      onClick={() => handleSelectionTypeChange("single")}
-                      className={`p-3.5 border rounded-xl flex items-start gap-3 cursor-pointer transition-all ${
-                        selectionType === "single"
-                          ? "border-[#ED500A] bg-[#ED500A]/5 dark:bg-[#ED500A]/10 text-slate-900 dark:text-white ring-1 ring-[#ED500A]"
-                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                    {/* Opción: Adicional */}
+                    <div
+                      onClick={() => setCommercialType("additional")}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        commercialType === "additional"
+                          ? "border-[#ED500A] bg-[#ED500A]/5 dark:bg-[#ED500A]/10 shadow-xs"
+                          : "border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] hover:border-slate-300"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="selectionType"
-                        checked={selectionType === "single"}
-                        onChange={() => handleSelectionTypeChange("single")}
-                        className="mt-0.5 text-[#ED500A] focus:ring-[#ED500A]"
-                      />
-                      <div>
-                        <span className="text-xs font-bold block text-slate-900 dark:text-white">
-                          Única (Radio, Máx 1)
-                        </span>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          El usuario solo puede elegir una sola opción (ej: Término de carne, Tamaño).
+                      <div className="flex items-center gap-2 mb-1">
+                        <Tag className={`w-4 h-4 ${commercialType === "additional" ? "text-[#ED500A]" : "text-slate-400"}`} />
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          Adicional / Extra
                         </span>
                       </div>
-                    </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Para incorporar componentes, adiciones o extras sumados al producto (ej. empaques, accesorios, complementos).
+                      </p>
+                    </div>
 
-                    <label
-                      onClick={() => handleSelectionTypeChange("multiple")}
-                      className={`p-3.5 border rounded-xl flex items-start gap-3 cursor-pointer transition-all ${
-                        selectionType === "multiple"
-                          ? "border-[#ED500A] bg-[#ED500A]/5 dark:bg-[#ED500A]/10 text-slate-900 dark:text-white ring-1 ring-[#ED500A]"
-                          : "border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                    {/* Opción: Reemplazo */}
+                    <div
+                      onClick={() => setCommercialType("replacement")}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        commercialType === "replacement"
+                          ? "border-[#ED500A] bg-[#ED500A]/5 dark:bg-[#ED500A]/10 shadow-xs"
+                          : "border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] hover:border-slate-300"
                       }`}
                     >
-                      <input
-                        type="radio"
-                        name="selectionType"
-                        checked={selectionType === "multiple"}
-                        onChange={() => handleSelectionTypeChange("multiple")}
-                        className="mt-0.5 text-[#ED500A] focus:ring-[#ED500A]"
-                      />
-                      <div>
-                        <span className="text-xs font-bold block text-slate-900 dark:text-white">
-                          Múltiple (Checkboxes, Máx N)
-                        </span>
-                        <span className="text-[11px] text-slate-500 block mt-0.5">
-                          El usuario puede elegir varias opciones (ej: Adicionales, Salsas, Toppings).
+                      <div className="flex items-center gap-2 mb-1">
+                        <ArrowRightLeft className={`w-4 h-4 ${commercialType === "replacement" ? "text-[#ED500A]" : "text-slate-400"}`} />
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          Reemplazo / Sustitución
                         </span>
                       </div>
-                    </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Para sustituir un componente o especificación base del producto (ej. cambio de material, color o alternativa).
+                      </p>
+                    </div>
                   </div>
+
+                  {commercialType === "size" && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        Este grupo tiene configurada la modalidad histórica <strong>Tamaño</strong>. En NEGOVA las presentaciones comerciales se gestionan preferentemente con el sistema de <strong>Variantes</strong> (con SKU y stock propio).
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Límites de Selección si es Múltiple */}
-                {selectionType === "multiple" && (
-                  <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl">
+                {/* Reglas de Selección */}
+                <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Selección Mínima
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={maxSelect}
-                        value={minSelect}
-                        onChange={(e) => setMinSelect(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                      />
-                      <span className="text-[10px] text-slate-400">0 si es opcional</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 block">
+                        Obligatorio para la venta
+                      </span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Exige al cliente o cajero elegir opciones antes de confirmar el producto.
+                      </p>
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Selección Máxima
-                      </label>
+                    <label className="relative inline-flex items-center cursor-pointer">
                       <input
-                        type="number"
-                        min={Math.max(1, minSelect)}
-                        value={maxSelect}
-                        onChange={(e) => setMaxSelect(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
+                        type="checkbox"
+                        checked={required}
+                        onChange={(e) => handleToggleRequired(e.target.checked)}
+                        className="sr-only peer"
                       />
-                      <span className="text-[10px] text-slate-400">Límite permitido</span>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-white/10 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ED500A]"></div>
+                    </label>
+                  </div>
+
+                  {/* Modo de selección */}
+                  <div className="pt-3 border-t border-slate-200/60 dark:border-white/5 space-y-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Modo de selección
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectionTypeChange("single")}
+                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                          selectionType === "single"
+                            ? "bg-[#ED500A] text-white border-[#ED500A] shadow-xs"
+                            : "bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08] hover:bg-slate-100"
+                        }`}
+                      >
+                        Selección única (Máx. 1)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectionTypeChange("multiple")}
+                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                          selectionType === "multiple"
+                            ? "bg-[#ED500A] text-white border-[#ED500A] shadow-xs"
+                            : "bg-white dark:bg-[#0D0F16] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08] hover:bg-slate-100"
+                        }`}
+                      >
+                        Selección múltiple (Varias)
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Límites de cantidad si es múltiple */}
+                  {selectionType === "multiple" && (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                          Cantidad mínima
+                        </label>
+                        <input
+                          type="number"
+                          min={required ? 1 : 0}
+                          max={maxSelect}
+                          value={minSelect}
+                          onChange={(e) =>
+                            setMinSelect(
+                              Math.max(
+                                required ? 1 : 0,
+                                Math.min(maxSelect, parseInt(e.target.value, 10) || 0)
+                              )
+                            )
+                          }
+                          className="w-full px-3 py-1.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold text-center"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                          Cantidad máxima
+                        </label>
+                        <input
+                          type="number"
+                          min={Math.max(1, minSelect)}
+                          value={maxSelect}
+                          onChange={(e) =>
+                            setMaxSelect(
+                              Math.max(
+                                Math.max(1, minSelect),
+                                parseInt(e.target.value, 10) || 1
+                              )
+                            )
+                          }
+                          className="w-full px-3 py-1.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold text-center"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("options")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#ED500A] text-white rounded-xl text-xs font-bold transition-all hover:bg-[#ED500A]/90 cursor-pointer shadow-xs"
+                  >
+                    <span>Continuar a Opciones</span>
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* TAB 2: OPCIONES DEL GRUPO */}
+            {/* ============================================================ */}
+            {/* SECCIÓN 2: OPCIONES DEL GRUPO */}
+            {/* ============================================================ */}
             {activeTab === "options" && (
-              <div className="space-y-3.5">
+              <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Opciones y Precios
+                      Opciones disponibles en «{name.trim() || "el grupo"}»
                     </h4>
                     <p className="text-[11px] text-slate-500">
-                      Define los elementos que el cliente podrá escoger dentro de este grupo.
+                      {options.length}{" "}
+                      {options.length === 1 ? "opción registrada" : "opciones registradas"}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleAddOption}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Añadir opción</span>
                   </button>
                 </div>
 
-                <div className="space-y-2.5 max-h-[45vh] overflow-y-auto pr-1">
-                  {options.map((opt, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl flex items-center gap-2.5"
-                    >
-                      <span className="text-xs font-mono font-bold text-slate-400 w-5 shrink-0 text-center">
-                        #{idx + 1}
-                      </span>
+                {options.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] rounded-2xl space-y-2">
+                    <Tag className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                    <p className="text-xs text-slate-600 dark:text-slate-400 font-semibold">
+                      No hay opciones registradas en este grupo
+                    </p>
+                    <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                      Haz clic en «Añadir opción» para agregar alternativas, adiciones o especificaciones.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {options.map((opt, idx) => (
+                      <div
+                        key={opt.id || idx}
+                        className="p-3 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl flex items-center gap-2.5 shadow-2xs group"
+                      >
+                        {/* Control de orden */}
+                        <div className="flex flex-col gap-0.5 shrink-0 text-slate-300 group-hover:text-slate-400">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveOption(idx, "up")}
+                            disabled={idx === 0}
+                            className="hover:text-slate-700 dark:hover:text-white disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                            title="Subir opción"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveOption(idx, "down")}
+                            disabled={idx === options.length - 1}
+                            className="hover:text-slate-700 dark:hover:text-white disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                            title="Bajar opción"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                      {/* Nombre */}
-                      <input
-                        type="text"
-                        value={opt.name}
-                        onChange={(e) => handleOptionChange(idx, "name", e.target.value)}
-                        placeholder="Nombre de la opción (ej: Extra Queso)"
-                        required
-                        className="flex-1 px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                      />
+                        {/* Nombre de la opción */}
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={opt.name}
+                            onChange={(e) => handleOptionChange(idx, "name", e.target.value)}
+                            placeholder="Nombre (ej. Queso mozzarella, Salsa BBQ)"
+                            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                          />
+                        </div>
 
-                      {/* Precio */}
-                      <div className="w-28 sm:w-32 relative shrink-0">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="50"
-                          value={opt.price}
-                          onChange={(e) =>
-                            handleOptionChange(idx, "price", Math.max(0, parseFloat(e.target.value) || 0))
+                        {/* Precio adicional formateado */}
+                        <div className="w-28 relative shrink-0">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
+                            +$
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={opt.price ? formatNumberWithDots(opt.price) : ""}
+                            onChange={(e) =>
+                              handleOptionChange(
+                                idx,
+                                "price",
+                                parseNumberFromDots(e.target.value)
+                              )
+                            }
+                            placeholder="0"
+                            className="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                          />
+                        </div>
+
+                        {/* Estado Activo / Inactivo */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOptionChange(
+                              idx,
+                              "status",
+                              opt.status === "inactive" ? "active" : "inactive"
+                            )
                           }
-                          placeholder="0"
-                          title="Ajuste de precio en COP (0 = sin recargo)"
-                          className="w-full pl-6 pr-2 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                        />
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors shrink-0 cursor-pointer ${
+                            opt.status !== "inactive"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                              : "bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10"
+                          }`}
+                          title={opt.status !== "inactive" ? "Opción activa (en venta)" : "Opción suspendida / agotada"}
+                        >
+                          {opt.status !== "inactive" ? "Activa" : "Inactiva"}
+                        </button>
+
+                        {/* Eliminar opción */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(idx)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer"
+                          title="Eliminar opción"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
+                    ))}
+                  </div>
+                )}
 
-                      {/* Estado */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleOptionChange(
-                            idx,
-                            "status",
-                            opt.status === "active" ? "inactive" : "active"
-                          )
-                        }
-                        title={opt.status === "active" ? "Opción activa" : "Opción pausada"}
-                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0 transition-colors cursor-pointer ${
-                          opt.status === "active"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-slate-200 dark:bg-white/10 text-slate-500"
-                        }`}
-                      >
-                        {opt.status === "active" ? "Activa" : "Pausada"}
-                      </button>
-
-                      {/* Eliminar */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOption(idx)}
-                        disabled={options.length <= 1}
-                        title="Eliminar opción"
-                        className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="flex justify-between items-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("general")}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer font-semibold"
+                  >
+                    ← Reglas y Modalidad
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("assignment")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#ED500A] text-white rounded-xl text-xs font-bold transition-all hover:bg-[#ED500A]/90 cursor-pointer shadow-xs"
+                  >
+                    <span>Asignar a Productos</span>
+                    <Package className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: ASIGNACIÓN A PRODUCTOS Y CATEGORÍAS */}
+            {/* ============================================================ */}
+            {/* SECCIÓN 3: ASIGNACIÓN A PRODUCTOS */}
+            {/* ============================================================ */}
             {activeTab === "assignment" && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                    Vincular a Productos y Categorías
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Selecciona en qué productos o categorías completas estará disponible este grupo de modificadores.
-                  </p>
+              <div className="space-y-4 animate-in fade-in duration-150">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      Productos que utilizan este grupo
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      {selectedProductIds.length}{" "}
+                      {selectedProductIds.length === 1 ? "producto vinculado" : "productos vinculados"}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllFilteredProducts}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Seleccionar visibles
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllFilteredProducts}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                    >
+                      Limpiar visibles
+                    </button>
+                  </div>
                 </div>
 
-                {/* Categorías Rápidas */}
-                {categories.length > 0 && (
-                  <div className="p-3 bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-2">
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                      Vincular por Categoría Completa:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {categories.map((cat) => {
-                        const catProducts = commercialProducts.filter((p) => p.category_id === cat.id);
-                        if (catProducts.length === 0) return null;
-                        const allSelected = catProducts.every((p) => selectedProductIds.includes(p.id));
-                        const someSelected =
-                          !allSelected && catProducts.some((p) => selectedProductIds.includes(p.id));
-
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => handleToggleCategory(cat.id)}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                              allSelected
-                                ? "bg-[#ED500A] text-white shadow-2xs"
-                                : someSelected
-                                ? "bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/30"
-                                : "bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                            }`}
-                          >
-                            <FolderTree className="w-3 h-3" />
-                            <span>{cat.name}</span>
-                            <span className="text-[10px] opacity-80">({catProducts.length})</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Barra de Búsqueda y Selección Masiva */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="relative flex-1">
+                {/* Filtro y buscador de productos */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="relative">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
-                      placeholder="Buscar producto por nombre o SKU..."
-                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                      placeholder="Buscar por nombre o SKU..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs text-slate-900 dark:text-white"
                     />
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleSelectAllProducts}
-                      className="px-2.5 py-1 text-xs font-semibold text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Marcar todos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearAllProducts}
-                      className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.04] rounded-lg transition-colors cursor-pointer"
-                    >
-                      Desmarcar
-                    </button>
-                  </div>
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300"
+                  >
+                    <option value="all">Todas las categorías</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Lista de Productos con Checkboxes */}
-                <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl divide-y divide-slate-100 dark:divide-white/[0.04] max-h-60 overflow-y-auto">
-                  {filteredProducts.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-500">
-                      No se encontraron productos coincidentes.
-                    </div>
-                  ) : (
-                    filteredProducts.map((p) => {
+                {/* Lista de productos con checkbox */}
+                {filteredProducts.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] rounded-xl space-y-1">
+                    <p className="text-xs text-slate-500">No se encontraron productos coincidentes.</p>
+                  </div>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-1.5 p-1 border border-slate-200/60 dark:border-white/5 rounded-xl">
+                    {filteredProducts.map((p) => {
                       const isSelected = selectedProductIds.includes(p.id);
                       const cat = categories.find((c) => c.id === p.category_id);
-
                       return (
-                        <label
+                        <div
                           key={p.id}
-                          className={`flex items-center justify-between p-2.5 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] cursor-pointer transition-colors ${
-                            isSelected ? "bg-purple-500/5 dark:bg-purple-500/10" : ""
+                          onClick={() => handleToggleProduct(p.id)}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-[#ED500A]/5 border-[#ED500A]/40 text-slate-900 dark:text-white"
+                              : "bg-white dark:bg-[#0D0F16] border-slate-100 dark:border-white/[0.04] text-slate-700 dark:text-slate-300 hover:border-slate-200"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => handleToggleProduct(p.id)}
-                              className="rounded border-slate-300 text-[#ED500A] focus:ring-[#ED500A] cursor-pointer"
+                              onChange={() => {}} // Manejado por el onClick del contenedor
+                              className="w-4 h-4 text-[#ED500A] rounded border-slate-300 focus:ring-[#ED500A]"
                             />
                             <div className="min-w-0">
-                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                              <span className="text-xs font-bold block truncate">
                                 {p.name}
                               </span>
-                              <span className="text-[10px] text-slate-400 block truncate">
-                                {cat ? cat.name : "Sin categoría"}
-                              </span>
+                              {cat && (
+                                <span className="text-[10px] text-slate-400 block truncate">
+                                  {cat.name}
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <span className="text-xs font-mono font-semibold text-slate-600 dark:text-slate-400 shrink-0">
-                            {formatCOP(p.price)}
+                          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                            {formatCOP(p.price || 0)}
                           </span>
-                        </label>
+                        </div>
                       );
-                    })
-                  )}
-                </div>
-
-                <div className="p-2.5 bg-slate-50 dark:bg-white/[0.02] rounded-xl flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  <span>Productos asignados:</span>
-                  <span className="font-mono text-[#ED500A] font-bold">
-                    {selectedProductIds.length} de {commercialProducts.length} productos
-                  </span>
-                </div>
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-200/80 dark:border-white/[0.08] shrink-0">
-              <span className="text-xs text-slate-500">
-                {activeTab === "general" && "Paso 1 de 3"}
-                {activeTab === "options" && "Paso 2 de 3"}
-                {activeTab === "assignment" && "Paso 3 de 3"}
-              </span>
+            {/* Footer con acciones */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-
-                {activeTab !== "assignment" ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(activeTab === "general" ? "options" : "assignment")}
-                    className="px-4 py-2 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Siguiente
-                  </button>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
-                >
-                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{isEditing ? "Guardar Cambios" : "Crear Grupo"}</span>
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Guardando grupo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isEditing ? "Guardar cambios" : "Crear grupo"}</span>
+                  </>
+                )}
+              </button>
             </div>
           </form>
         </div>

@@ -31,7 +31,6 @@ import {
   AlertTriangle,
   ShieldCheck,
   Apple,
-  Wine,
   Wrench,
   Lock,
 } from "lucide-react";
@@ -827,11 +826,11 @@ export function PurchaseFormModal({
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Wine className={`w-4 h-4 ${triphasicType === "resale" ? "text-blue-500" : "text-muted-foreground"}`} />
-                          <span className="font-bold text-xs text-foreground">Bebida / Reventa</span>
+                          <Package className={`w-4 h-4 ${triphasicType === "resale" ? "text-blue-500" : "text-muted-foreground"}`} />
+                          <span className="font-bold text-xs text-foreground">Producto / Reventa</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
-                          Artículos terminados que se compran y venden sin procesar (gaseosas, cervezas). Suma existencias al POS.
+                          Artículos que se compran y venden directamente sin transformación. Aumenta stock en el inventario.
                         </p>
                       </button>
 

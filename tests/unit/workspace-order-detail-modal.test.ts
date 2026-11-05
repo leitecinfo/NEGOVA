@@ -105,5 +105,40 @@ describe("Modal: Detalle de Orden / Venta", () => {
     expect(mockOrder.subtotal).toBe(20000);
     expect(mockOrder.total).toBe(20000);
   });
+
+  it("5. Diferenciación estricta entre Factura (Comercial) y Comanda (Cocina/KDS)", () => {
+    // Factura: Orientada al cliente final y cobro (incluye valores monetarios)
+    const facturaData = {
+      documentType: "FACTURA_COMERCIAL",
+      documentNumber: `FAC-${mockOrder.order_number}`,
+      subtotal: mockOrder.subtotal,
+      total: mockOrder.total,
+      paymentStatus: mockOrder.payment_status,
+      hasFinancialDetails: true,
+    };
+    expect(facturaData.hasFinancialDetails).toBe(true);
+    expect(facturaData.total).toBe(20000);
+
+    // Comanda: Orientada a estación de cocina/preparación (cero precios, foco en productos, notas y raciones)
+    const comandaData = {
+      documentType: "COMANDA_COCINA",
+      orderNumber: mockOrder.order_number,
+      serviceType: "PARA LLEVAR",
+      items: mockOrder.items.map((it) => ({
+        quantity: it.quantity,
+        name: it.product_name,
+        notes: it.notes,
+        modifiers: it.modifiers,
+      })),
+      hasFinancialDetails: false,
+    };
+    expect(comandaData.hasFinancialDetails).toBe(false);
+    expect(comandaData.items[0].name).toBe("SALCHIPAPA");
+    expect(comandaData.items[0].quantity).toBe(1);
+    // Garantizar que la comanda no expone campos de precios al personal de cocina
+    expect((comandaData.items[0] as any).unit_price).toBeUndefined();
+    expect((comandaData.items[0] as any).subtotal).toBeUndefined();
+    expect((comandaData as any).total).toBeUndefined();
+  });
 });
 

@@ -13,7 +13,6 @@ import {
   ChevronRight,
   ExternalLink,
   Flame,
-  UtensilsCrossed,
   ShoppingBag,
   Bike,
   Store,
@@ -287,7 +286,7 @@ export function WorkspaceOpenTicketsFloatingButton({
         return { label: "POS", icon: Store, color: "text-slate-500" };
       case "tables":
       case "in_person":
-        return { label: "Mesas", icon: UtensilsCrossed, color: "text-emerald-500" };
+        return { label: "En local", icon: Store, color: "text-emerald-500" };
       case "whatsapp":
         return { label: "WhatsApp", icon: MessageSquare, color: "text-emerald-600" };
       case "digital_menu":
@@ -301,7 +300,7 @@ export function WorkspaceOpenTicketsFloatingButton({
   const getServiceLabel = (type: string) => {
     switch (type) {
       case "dine_in":
-        return "Comer aquí";
+        return "En local";
       case "takeout":
         return "Para llevar";
       case "delivery":

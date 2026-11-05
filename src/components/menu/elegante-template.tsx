@@ -2,7 +2,9 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  UtensilsCrossed,
+  ShoppingBag,
+  Package,
+  Images,
   Phone,
   MapPin,
   MessageCircle,
@@ -11,9 +13,8 @@ import {
   Layers,
   Search,
   X,
-  ShoppingBag,
 } from "lucide-react";
-import { Product, Category, ProductVariant } from "@/lib/products/types";
+import { Product, Category, ProductVariant, getProductImages } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
 import {
   filterMenuProducts,
@@ -181,7 +182,7 @@ export function EleganteMenuTemplate({
               className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border border-[#C5A059]/40 shadow-xl mb-3.5 bg-black/60"
               style={{ color: gold }}
             >
-              <UtensilsCrossed className="w-8 h-8" />
+              <ShoppingBag className="w-8 h-8" />
             </div>
           )}
 
@@ -193,12 +194,12 @@ export function EleganteMenuTemplate({
           </h1>
 
           <p className="text-xs sm:text-sm text-stone-400 font-light tracking-wide mt-2 max-w-md mx-auto leading-relaxed">
-            {settings?.bannerSubtitle || "Carta gastronómica & creaciones culinarias"}
+            {settings?.bannerSubtitle || "Catálogo exclusivo & productos seleccionados"}
           </p>
 
           {activeTable && (
             <div className="inline-flex items-center gap-2 mt-3 px-3.5 py-1.5 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/40 text-xs font-semibold text-[#C5A059] shadow-sm animate-in fade-in">
-              <UtensilsCrossed className="w-3.5 h-3.5" />
+              <ShoppingBag className="w-3.5 h-3.5" />
               <span>Mesa asignada: <strong>{activeTable.name_or_number}</strong></span>
             </div>
           )}
@@ -321,17 +322,17 @@ export function EleganteMenuTemplate({
       >
         {groupedProducts.length === 0 ? (
           <div className="text-center py-16 px-4 bg-white/[0.02] border border-[#C5A059]/15 rounded-2xl max-w-md mx-auto shadow-xl">
-            <UtensilsCrossed className="w-10 h-10 mx-auto text-stone-600 mb-2" />
+            <Package className="w-10 h-10 mx-auto text-stone-600 mb-2" />
             <h3
               className="text-base text-stone-300 tracking-wider uppercase"
               style={{ fontFamily: "'Cinzel', serif" }}
             >
-              {search.trim() ? "No encontramos productos con ese nombre" : "Carta en preparación"}
+              {search.trim() ? "No encontramos productos con ese nombre" : "Catálogo en preparación"}
             </h3>
             <p className="text-xs text-stone-500 mt-1">
               {search.trim()
                 ? "No encontramos productos con ese nombre. Intente con otro término o consulte nuestras categorías."
-                : "Las creaciones estarán disponibles en breve."}
+                : "Los productos estarán disponibles en breve."}
             </p>
             {search.trim() && (
               <button
@@ -487,7 +488,9 @@ function EleganteProductCard({
   onOpenModal: (p: Product) => void;
   onAddToCart: (p: Product, variant?: ProductVariant) => void;
 }) {
-  const hasPhoto = showPhotos && !!product.image_url;
+  const allImages = useMemo(() => getProductImages(product), [product]);
+  const hasPhoto = showPhotos && allImages.length > 0;
+  const primaryImage = allImages[0] || product.image_url;
   const isList = layout === "list";
   const isText = layout === "text" || layout === "compact";
 
@@ -568,10 +571,15 @@ function EleganteProductCard({
         {hasPhoto && (
           <div className="w-22 sm:w-24 h-full shrink-0 bg-black/60 relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
+            {allImages.length > 1 && (
+              <span className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-md bg-black/75 backdrop-blur-xs border border-[#C5A059]/30 text-[9px] font-medium text-stone-200">
+                +{allImages.length - 1}
+              </span>
+            )}
           </div>
         )}
 
@@ -626,13 +634,19 @@ function EleganteProductCard({
         {hasPhoto && (
           <div className="aspect-[16/10] w-full bg-black/60 relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
             {hasVariants && (
               <span className="absolute top-2.5 left-2.5 text-stone-200 bg-black/80 font-medium text-[10px] px-2.5 py-0.5 rounded-full border border-[#C5A059]/40">
                 Opciones
+              </span>
+            )}
+            {allImages.length > 1 && (
+              <span className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-[#C5A059]/40 text-[10px] font-medium text-stone-200 flex items-center gap-1.5 shadow-sm">
+                <Images className="w-3 h-3 text-[#C5A059]" />
+                <span>{allImages.length}</span>
               </span>
             )}
           </div>

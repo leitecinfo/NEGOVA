@@ -43,7 +43,7 @@ export default async function WorkspaceCustomersPage({
       : "all";
   const directoryTab: CustomerDirectoryTab =
     typeof sParams.tab === "string" &&
-    ["all", "active", "inactive", "with_discount", "with_credit", "receivable", "overdue"].includes(sParams.tab)
+    ["all", "active", "inactive", "individual", "business", "with_discount", "with_credit", "receivable", "overdue"].includes(sParams.tab)
       ? (sParams.tab as CustomerDirectoryTab)
       : "all";
   const period =

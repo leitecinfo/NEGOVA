@@ -20,9 +20,11 @@ import {
   toggleModifierGroupStatusAction,
   updateModifierGroupAction,
   updateModifierOptionAction,
+  unassignProductFromGroupAction,
 } from "@/app/workspace/[businessId]/productos/modifiers-actions";
 import { ModifierGroupModal } from "./modifier-group-modal";
 import { ModifierOptionModal } from "./modifier-option-modal";
+import { SingleModifierModal } from "./single-modifier-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   Layers,
@@ -46,6 +48,7 @@ import {
   Loader2,
   Tag,
   CheckSquare,
+  ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -73,6 +76,7 @@ export function ModifierGroupsTab({
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [requiredFilter, setRequiredFilter] = useState<"all" | "required" | "optional">("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "single" | "multiple">("all");
+  const [commercialTypeFilter, setCommercialTypeFilter] = useState<"all" | "additional" | "replacement">("all");
 
   // Estado del acordeón (qué grupos están expandidos)
   const [expandedGroupIds, setExpandedGroupIds] = useState<Record<string, boolean>>({});
@@ -80,6 +84,9 @@ export function ModifierGroupsTab({
   // Modales
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ModifierGroup | null>(null);
+
+  const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
+  const [editingSingleModifier, setEditingSingleModifier] = useState<ModifierGroup | null>(null);
 
   const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
@@ -165,24 +172,50 @@ export function ModifierGroupsTab({
         return false;
       }
 
+      // Modalidad comercial
+      if (commercialTypeFilter !== "all" && group.commercial_type !== commercialTypeFilter) {
+        return false;
+      }
+
       return true;
     });
-  }, [groups, search, statusFilter, requiredFilter, typeFilter]);
+  }, [groups, search, statusFilter, requiredFilter, typeFilter, commercialTypeFilter]);
 
   const hasActiveFilters =
     search.trim() !== "" ||
     statusFilter !== "all" ||
     requiredFilter !== "all" ||
-    typeFilter !== "all";
+    typeFilter !== "all" ||
+    commercialTypeFilter !== "all";
 
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
     setRequiredFilter("all");
     setTypeFilter("all");
+    setCommercialTypeFilter("all");
   };
 
-  // Guardar Grupo (Crear o Editar)
+  // Desasignar producto individual rápidamente del grupo
+  const handleUnassignProduct = async (
+    groupId: string,
+    productId: string,
+    productName: string
+  ) => {
+    try {
+      const res = await unassignProductFromGroupAction(businessId, groupId, productId);
+      if (res.success) {
+        toast.success(`Producto «${productName}» retirado del grupo`);
+        await loadData();
+      } else {
+        toast.error(res.error || "No se pudo retirar el producto del grupo");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error al retirar producto");
+    }
+  };
+
+  // Guardar Grupo Completo (Crear o Editar)
   const handleSaveGroup = async (data: CreateModifierGroupInput) => {
     if (editingGroup) {
       const res = await updateModifierGroupAction(businessId, editingGroup.id, data);
@@ -202,6 +235,34 @@ export function ModifierGroupsTab({
         throw new Error(res.error || "No se pudo crear el grupo");
       }
     }
+  };
+
+  // Guardar Modificador Individual (Crear o Editar)
+  const handleSaveSingleModifier = async (data: CreateModifierGroupInput) => {
+    if (editingSingleModifier) {
+      const res = await updateModifierGroupAction(businessId, editingSingleModifier.id, data);
+      if (res.success) {
+        toast.success("Modificador actualizado correctamente");
+        await loadData();
+      } else {
+        throw new Error(res.error || "No se pudo actualizar el modificador");
+      }
+    } else {
+      const res = await createModifierGroupAction(businessId, data);
+      if (res.success && res.data) {
+        toast.success(data.product_ids && data.product_ids.length > 0 ? "Modificador creado y asignado a productos" : "Modificador creado correctamente");
+        setExpandedGroupIds((prev) => ({ ...prev, [res.data!.id]: true }));
+        await loadData();
+      } else {
+        throw new Error(res.error || "No se pudo crear el modificador");
+      }
+    }
+  };
+
+  // Convertir modificador individual a grupo completo
+  const handleConvertToGroup = (group: ModifierGroup) => {
+    setEditingGroup(group);
+    setIsGroupModalOpen(true);
   };
 
   // Confirmar eliminación de grupo
@@ -315,6 +376,53 @@ export function ModifierGroupsTab({
 
   return (
     <div className="space-y-5">
+      {/* 0. CABECERA PRINCIPAL CON ACCIONES DESTACADAS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-[#ED500A]/10 border border-[#ED500A]/20 flex items-center justify-center text-[#ED500A] shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              Modificadores y Personalización
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Crea modificadores individuales o grupos de opciones para personalizar tus productos
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+          {/* Botón 1: Nuevo Modificador (Individual) */}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingSingleModifier(null);
+              setIsSingleModalOpen(true);
+            }}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#ED500A] hover:bg-[#ED500A]/90 active:scale-[0.99] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer"
+            title="Crear un modificador o adicional individual (ej. Queso extra, Tocineta)"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>+ Nuevo modificador</span>
+          </button>
+
+          {/* Botón 2: Nuevo Grupo (Múltiples opciones) */}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingGroup(null);
+              setIsGroupModalOpen(true);
+            }}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.99]"
+            title="Crear un grupo con múltiples opciones (ej. Tamaños, Presentaciones, Opciones de personalización)"
+          >
+            <Layers className="w-4 h-4 text-[#ED500A]" />
+            <span>+ Nuevo grupo</span>
+          </button>
+        </div>
+      </div>
+
       {/* 1. KPIS SUPERIORES */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {/* Total Grupos */}
@@ -363,7 +471,7 @@ export function ModifierGroupsTab({
               {kpis.linkedProductsCount}
             </span>
             <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Platos y productos con extras
+              Productos con modificadores
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">
@@ -383,7 +491,7 @@ export function ModifierGroupsTab({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por grupo u opción (ej: Salsas, Queso)..."
+              placeholder="Buscar por grupo u opción (ej: Tamaño, Extra, Color)..."
               className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
             />
             {search && (
@@ -430,6 +538,17 @@ export function ModifierGroupsTab({
             <option value="multiple">Múltiple (Checkboxes)</option>
           </select>
 
+          {/* Filtro Modalidad */}
+          <select
+            value={commercialTypeFilter}
+            onChange={(e) => setCommercialTypeFilter(e.target.value as any)}
+            className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+          >
+            <option value="all">Todas las modalidades</option>
+            <option value="additional">Adicionales / Extras</option>
+            <option value="replacement">Reemplazos / Sustituciones</option>
+          </select>
+
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -461,15 +580,32 @@ export function ModifierGroupsTab({
             </button>
           </div>
 
+          {/* Botón 1: Nuevo Modificador (Creación individual rápida) */}
           <button
+            type="button"
+            onClick={() => {
+              setEditingSingleModifier(null);
+              setIsSingleModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 active:scale-[0.99] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs cursor-pointer shrink-0"
+            title="Crear un modificador o adicional individual rápidamente (ej. Queso extra, Tocineta)"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>+ Nuevo modificador</span>
+          </button>
+
+          {/* Botón 2: Nuevo Grupo (Creación de grupo con varias opciones) */}
+          <button
+            type="button"
             onClick={() => {
               setEditingGroup(null);
               setIsGroupModalOpen(true);
             }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 active:scale-[0.99]"
+            title="Crear un grupo con múltiples opciones y reglas avanzadas"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Nuevo Grupo</span>
+            <Layers className="w-4 h-4 text-[#ED500A]" />
+            <span>+ Nuevo grupo</span>
           </button>
         </div>
       </div>
@@ -494,20 +630,34 @@ export function ModifierGroupsTab({
             <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
               {hasActiveFilters
                 ? "Intenta modificar el término de búsqueda o limpia los filtros activos."
-                : "Crea grupos como 'Término de la carne', 'Salsas', 'Acompañamiento' o 'Adicionales' para que tus clientes personalicen sus platos."}
+                : "Crea modificadores o grupos de opciones (ej. Tamaños, Adicionales, Variantes) para que tus clientes personalicen sus productos."}
             </p>
           </div>
           {!hasActiveFilters && (
-            <button
-              onClick={() => {
-                setEditingGroup(null);
-                setIsGroupModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer mt-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Crear mi primer grupo</span>
-            </button>
+            <div className="flex items-center justify-center gap-2.5 flex-wrap mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSingleModifier(null);
+                  setIsSingleModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>+ Nuevo modificador</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingGroup(null);
+                  setIsGroupModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                <Layers className="w-4 h-4 text-[#ED500A]" />
+                <span>+ Nuevo grupo</span>
+              </button>
+            </div>
           )}
         </div>
       ) : (
@@ -515,6 +665,8 @@ export function ModifierGroupsTab({
           {filteredGroups.map((group) => {
             const isExpanded = Boolean(expandedGroupIds[group.id]);
             const activeOptionsCount = group.options.filter((o) => o.status === "active").length;
+            const isSingleModifier =
+              group.options.length === 1 && group.max_select === 1 && !group.required;
 
             // Nombres de los productos vinculados
             const linkedProducts = products.filter((p) =>
@@ -556,6 +708,31 @@ export function ModifierGroupsTab({
                           {group.name}
                         </h4>
 
+                        {/* Modalidad Comercial */}
+                        {group.commercial_type === "replacement" ? (
+                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 inline-flex items-center gap-1">
+                            <ArrowRightLeft className="w-2.5 h-2.5" />
+                            <span>Reemplazo</span>
+                          </span>
+                        ) : group.commercial_type === "size" ? (
+                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 inline-flex items-center gap-1">
+                            <span>Tamaño (Legacy)</span>
+                          </span>
+                        ) : (
+                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20 inline-flex items-center gap-1">
+                            <Tag className="w-2.5 h-2.5" />
+                            <span>Adicional</span>
+                          </span>
+                        )}
+
+                        {/* Indicador de Modificador Individual vs Grupo de Opciones */}
+                        {isSingleModifier && (
+                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 inline-flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>Modificador individual</span>
+                          </span>
+                        )}
+
                         {/* Badge de Obligatorio / Opcional */}
                         <span
                           className={`text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
@@ -586,6 +763,12 @@ export function ModifierGroupsTab({
                         </span>
                       </div>
 
+                      {group.description && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                          {group.description}
+                        </p>
+                      )}
+
                       {/* Resumen de opciones y productos vinculados */}
                       <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
                         <span className="inline-flex items-center gap-1 font-medium">
@@ -599,13 +782,22 @@ export function ModifierGroupsTab({
 
                         <span>·</span>
 
-                        <span className="inline-flex items-center gap-1 font-medium">
-                          <Package className="w-3.5 h-3.5 text-[#ED500A]" />
+                        <span
+                          className={`inline-flex items-center gap-1 font-medium ${
+                            linkedProducts.length === 0
+                              ? "text-slate-400 dark:text-slate-500"
+                              : "text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <Package className={`w-3.5 h-3.5 ${linkedProducts.length === 0 ? "text-slate-400" : "text-[#ED500A]"}`} />
                           <span>
-                            {linkedProducts.length}{" "}
-                            {linkedProducts.length === 1
-                              ? "producto vinculado"
-                              : "productos vinculados"}
+                            {linkedProducts.length === 0
+                              ? "Sin productos vinculados"
+                              : `${linkedProducts.length} ${
+                                  linkedProducts.length === 1
+                                    ? "producto vinculado"
+                                    : "productos vinculados"
+                                }`}
                           </span>
                         </span>
                       </div>
@@ -614,29 +806,53 @@ export function ModifierGroupsTab({
 
                   {/* Lado derecho: Acciones del Grupo */}
                   <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTargetGroupId(group.id);
-                        setTargetGroupName(group.name);
-                        setEditingOption(null);
-                        setIsOptionModalOpen(true);
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                      title="Añadir opción rápida a este grupo"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-[#ED500A]" />
-                      <span className="hidden md:inline">Añadir opción</span>
-                    </button>
+                    {/* Botón para convertir modificador individual en grupo */}
+                    {isSingleModifier && (
+                      <button
+                        type="button"
+                        onClick={() => handleConvertToGroup(group)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                        title="Añadir más opciones para convertirlo en un grupo completo de modificadores"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        <span className="hidden md:inline">Convertir en grupo</span>
+                      </button>
+                    )}
+
+                    {!isSingleModifier && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetGroupId(group.id);
+                          setTargetGroupName(group.name);
+                          setEditingOption(null);
+                          setIsOptionModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                        title="Añadir opción rápida a este grupo"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-[#ED500A]" />
+                        <span className="hidden md:inline">Añadir opción</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
                       onClick={() => {
-                        setEditingGroup(group);
-                        setIsGroupModalOpen(true);
+                        if (isSingleModifier) {
+                          setEditingSingleModifier(group);
+                          setIsSingleModalOpen(true);
+                        } else {
+                          setEditingGroup(group);
+                          setIsGroupModalOpen(true);
+                        }
                       }}
                       className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                      title="Editar grupo de modificadores y productos asignados"
+                      title={
+                        isSingleModifier
+                          ? "Editar modificador individual y asignación a productos"
+                          : "Editar grupo de modificadores y productos asignados"
+                      }
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -785,18 +1001,26 @@ export function ModifierGroupsTab({
                           </span>
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {linkedProducts.slice(0, 5).map((p) => (
+                            {linkedProducts.slice(0, 6).map((p) => (
                               <span
                                 key={p.id}
-                                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 rounded-md font-medium"
+                                className="inline-flex items-center gap-1 text-[11px] pl-2 pr-1.5 py-0.5 bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 rounded-md font-medium group/pbadge"
                               >
                                 <Package className="w-3 h-3 text-[#ED500A]" />
                                 <span>{p.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignProduct(group.id, p.id, p.name)}
+                                  className="ml-0.5 text-slate-400 hover:text-rose-500 rounded cursor-pointer"
+                                  title={`Retirar grupo de «${p.name}»`}
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
                               </span>
                             ))}
-                            {linkedProducts.length > 5 && (
+                            {linkedProducts.length > 6 && (
                               <span className="text-[11px] px-2 py-0.5 bg-[#ED500A]/10 text-[#ED500A] rounded-md font-bold">
-                                +{linkedProducts.length - 5} más
+                                +{linkedProducts.length - 6} más
                               </span>
                             )}
                           </div>
@@ -820,6 +1044,20 @@ export function ModifierGroupsTab({
             );
           })}
         </div>
+      )}
+
+      {/* MODAL CREAR / EDITAR MODIFICADOR INDIVIDUAL */}
+      {isSingleModalOpen && (
+        <SingleModifierModal
+          isOpen={isSingleModalOpen}
+          businessId={businessId}
+          categories={categories}
+          products={products}
+          modifier={editingSingleModifier}
+          onClose={() => setIsSingleModalOpen(false)}
+          onSave={handleSaveSingleModifier}
+          onConvertToGroup={handleConvertToGroup}
+        />
       )}
 
       {/* MODAL CREAR / EDITAR GRUPO */}

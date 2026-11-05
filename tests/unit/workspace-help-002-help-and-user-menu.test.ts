@@ -6,6 +6,7 @@ describe("[HELP-002] Componentes de Ayuda y Menú de Usuario", () => {
   const helpDir = path.resolve(__dirname, "../../src/components/help");
   const layoutDir = path.resolve(__dirname, "../../src/components/layout");
   const posPath = path.resolve(__dirname, "../../src/components/pos/pos-screen-client.tsx");
+  const shellPath = path.resolve(__dirname, "../../src/components/workspace/workspace-shell.tsx");
 
   describe("1. Botón: Ver Video (module-video-button.tsx)", () => {
     it("debe existir con contorno de cápsula alargada (pill), destello y texto", () => {
@@ -124,17 +125,18 @@ describe("[HELP-002] Componentes de Ayuda y Menú de Usuario", () => {
     });
   });
 
-  describe("5. Integración en el Sistema POS", () => {
-    it("debe conectar los componentes de ayuda y perfil en pos-screen-client.tsx", () => {
-      const content = fs.readFileSync(posPath, "utf-8");
+  describe("5. Integración en la Cabecera (Header) y POS Limpio", () => {
+    it("debe conectar Ver Video en workspace-shell.tsx y no duplicar usuario/ayuda en pos-screen-client.tsx", () => {
+      const shellContent = fs.readFileSync(shellPath, "utf-8");
+      const posContent = fs.readFileSync(posPath, "utf-8");
 
-      expect(content).toContain("ModuleVideoButton");
-      expect(content).toContain("ModuleVideosModal");
-      expect(content).toContain("HelpCenterDrawer");
-      expect(content).toContain("UserProfileDropdown");
+      // Ver video en el header
+      expect(shellContent).toContain("ModuleVideoButton");
+      expect(shellContent).toContain("ModuleVideosModal");
+      expect(shellContent).toContain("isModuleVideosModalOpen");
 
-      expect(content).toContain("isModuleVideosModalOpen");
-      expect(content).toContain("isHelpCenterDrawerOpen");
+      // En el POS no debe estar duplicado el perfil de usuario ni el drawer redundante
+      expect(posContent).not.toContain("UserProfileDropdown");
     });
   });
 });

@@ -47,8 +47,16 @@ export function ModifierSelectionModal({
     ((product?.metadata as any)?.has_variants || rawVariants.length > 0) && rawVariants.length > 0
   );
 
-  const modifierGroups: ProductModifierGroup[] =
-    (product?.metadata as any)?.modifier_groups || [];
+  const modifierGroups: ProductModifierGroup[] = React.useMemo(() => {
+    const raw: ProductModifierGroup[] = (product?.metadata as any)?.modifier_groups || [];
+    return raw
+      .filter((grp) => grp.status !== "inactive")
+      .map((grp) => ({
+        ...grp,
+        options: (grp.options || []).filter((opt) => opt.status !== "inactive"),
+      }))
+      .filter((grp) => grp.options.length > 0);
+  }, [product]);
 
   // Reset selections when product changes or opens
   useEffect(() => {
@@ -129,6 +137,7 @@ export function ModifierSelectionModal({
             optionId: sId,
             optionName: option.name,
             price: Math.max(0, option.price || 0),
+            commercialType: (grp.commercial_type || grp.type || "additional") as any,
           });
         }
       });
@@ -309,6 +318,13 @@ export function ModifierSelectionModal({
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                           {group.name}
                         </h4>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+                          {group.commercial_type === "replacement" || group.type === "replacement"
+                            ? "Reemplazo"
+                            : group.commercial_type === "size" || group.type === "size"
+                            ? "Tamaño"
+                            : "Adicional"}
+                        </span>
                         {group.required ? (
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400">
                             Obligatorio
@@ -400,7 +416,9 @@ export function ModifierSelectionModal({
                               </span>
                             ) : (
                               <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                Sin costo
+                                {group.commercial_type === "replacement" || group.type === "replacement"
+                                  ? "Sin costo adicional"
+                                  : "Sin costo"}
                               </span>
                             )}
                           </div>

@@ -165,24 +165,42 @@ export async function createIngredient(
     available_online: parsed.availableOnline,
   };
 
-  const { data: productData, error: prodErr } = await supabase
+  const insertPayload: Record<string, any> = {
+    business_id: businessId,
+    category_id: categoryId || null,
+    name: parsed.name.trim(),
+    description: parsed.notes?.trim() || null,
+    price: 0,
+    is_available: true,
+    status: "active",
+    available_in_pos: parsed.availableInPos,
+    available_in_qr: parsed.availableInQr,
+    metadata,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data: productData, error: prodErr } = await supabase
     .from("products")
-    .insert({
-      business_id: businessId,
-      category_id: categoryId || null,
-      name: parsed.name.trim(),
-      description: parsed.notes?.trim() || null,
-      price: 0,
-      is_available: true,
-      status: "active",
-      available_in_pos: parsed.availableInPos,
-      available_in_qr: parsed.availableInQr,
-      metadata,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .insert(insertPayload)
     .select()
     .single();
+
+  if (
+    prodErr &&
+    (prodErr.code === "PGRST204" ||
+      String(prodErr.message || "").includes("available_in_"))
+  ) {
+    delete insertPayload.available_in_pos;
+    delete insertPayload.available_in_qr;
+    const retry = await supabase
+      .from("products")
+      .insert(insertPayload)
+      .select()
+      .single();
+    productData = retry.data;
+    prodErr = retry.error;
+  }
 
   if (prodErr || !productData) {
     console.error("[createIngredient] Error al crear ingrediente en products:", prodErr);
@@ -404,13 +422,31 @@ export async function updateIngredient(
   if (parsed.isAvailable !== undefined) productUpdatePayload.is_available = parsed.isAvailable;
   if (parsed.categoryId) productUpdatePayload.category_id = parsed.categoryId;
 
-  const { data: updatedProd, error: uErr } = await supabase
+  let { data: updatedProd, error: uErr } = await supabase
     .from("products")
     .update(productUpdatePayload)
     .eq("id", ingredientId)
     .eq("business_id", businessId)
     .select()
     .single();
+
+  if (
+    uErr &&
+    (uErr.code === "PGRST204" ||
+      String(uErr.message || "").includes("available_in_"))
+  ) {
+    delete productUpdatePayload.available_in_pos;
+    delete productUpdatePayload.available_in_qr;
+    const retry = await supabase
+      .from("products")
+      .update(productUpdatePayload)
+      .eq("id", ingredientId)
+      .eq("business_id", businessId)
+      .select()
+      .single();
+    updatedProd = retry.data;
+    uErr = retry.error;
+  }
 
   if (uErr) {
     throw new Error(`Error al actualizar ingrediente: ${uErr.message}`);
@@ -1463,6 +1499,8 @@ export async function deductRecipeIngredientsForSale(
 
   // 4. FASE 2: Deducción de inventario y registro en Kardex
   const deductedResults: IngredientDeductionResult[] = [];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const validReferenceId = referenceId && uuidRegex.test(referenceId) ? referenceId : null;
 
   for (const req of Array.from(requiredMap.values())) {
     await recordInventoryMovement(
@@ -1473,9 +1511,9 @@ export async function deductRecipeIngredientsForSale(
         movementType: "sale",
         quantity: req.requiredQty,
         unitCost: req.unitCost,
-        referenceId,
+        referenceId: validReferenceId,
         referenceType: "sale",
-        notes: `Descuento por receta (pedido #${orderNumber || referenceId.slice(0, 6)})`,
+        notes: `Descuento por receta (pedido #${orderNumber || referenceId.slice(0, 8)})`,
       },
       userId
     );

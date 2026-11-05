@@ -11,9 +11,9 @@ import {
   Search,
   X,
   ShoppingBag,
-  UtensilsCrossed,
+  Images,
 } from "lucide-react";
-import { Product, Category, ProductVariant } from "@/lib/products/types";
+import { Product, Category, ProductVariant, getProductImages } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
 import {
   filterMenuProducts,
@@ -201,7 +201,7 @@ export function UrbanaMenuTemplate({
             className="inline-flex items-center gap-2 mt-3 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white border shadow-md animate-in fade-in"
             style={{ backgroundColor: `${primary}30`, borderColor: primary }}
           >
-            <UtensilsCrossed className="w-3.5 h-3.5" style={{ color: primary }} />
+            <ShoppingBag className="w-3.5 h-3.5" style={{ color: primary }} />
             <span>Mesa asignada: <strong>{activeTable.name_or_number}</strong></span>
           </div>
         )}
@@ -514,7 +514,9 @@ function UrbanaProductCard({
   onOpenModal: (p: Product) => void;
   onAddToCart: (p: Product, variant?: ProductVariant) => void;
 }) {
-  const hasPhoto = showPhotos && !!product.image_url;
+  const allImages = useMemo(() => getProductImages(product), [product]);
+  const hasPhoto = showPhotos && allImages.length > 0;
+  const primaryImage = allImages[0] || product.image_url;
   const isList = layout === "list";
   const isText = layout === "text" || layout === "compact";
 
@@ -599,10 +601,15 @@ function UrbanaProductCard({
         {hasPhoto && (
           <div className="w-24 sm:w-28 h-full shrink-0 bg-black/60 relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
+            {allImages.length > 1 && (
+              <span className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-sm bg-black/80 text-[9px] font-black text-white border border-white/20">
+                +{allImages.length - 1}
+              </span>
+            )}
           </div>
         )}
 
@@ -661,7 +668,7 @@ function UrbanaProductCard({
         {hasPhoto && (
           <div className="aspect-[16/10] w-full bg-black/50 relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -674,6 +681,19 @@ function UrbanaProductCard({
                 }}
               >
                 Opciones
+              </span>
+            )}
+            {allImages.length > 1 && (
+              <span
+                className="absolute bottom-2.5 right-2.5 px-2 py-0.5 text-white font-black text-[10px] uppercase shadow-md flex items-center gap-1"
+                style={{
+                  backgroundColor: "#111111",
+                  border: `1px solid ${primaryColor}`,
+                  transform: "skewX(-10deg)",
+                }}
+              >
+                <Images className="w-3 h-3" />
+                <span>{allImages.length}</span>
               </span>
             )}
           </div>

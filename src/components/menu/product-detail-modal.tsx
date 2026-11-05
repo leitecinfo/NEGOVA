@@ -9,12 +9,13 @@ import {
   Sparkles,
   AlertCircle,
   Check,
-  Utensils,
   Flame,
   Info,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Product, ProductVariant, ProductModifierGroup } from "@/lib/products/types";
+import { Product, ProductVariant, ProductModifierGroup, getProductImages } from "@/lib/products/types";
+import { ProductImageGallery } from "./product-image-gallery";
 import { validateModifierGroupSelection, validateAllModifierGroups } from "@/lib/pos/types";
 import { DigitalMenuPublicBusiness } from "@/lib/menu/types";
 
@@ -65,11 +66,21 @@ export function ProductDetailModal({
     return [];
   }, [product]);
 
+  const productImages: string[] = useMemo(() => {
+    return getProductImages(product);
+  }, [product]);
+
   const modifierGroups: ProductModifierGroup[] = useMemo(() => {
     if (!product) return [];
     const meta = product.metadata as any;
     if (Array.isArray(meta?.modifier_groups)) {
-      return meta.modifier_groups;
+      return (meta.modifier_groups as ProductModifierGroup[])
+        .filter((g) => g.status !== "inactive")
+        .map((g) => ({
+          ...g,
+          options: (g.options || []).filter((opt) => opt.status !== "inactive"),
+        }))
+        .filter((g) => g.options.length > 0);
     }
     return [];
   }, [product]);
@@ -277,47 +288,35 @@ export function ProductDetailModal({
             : "bg-white text-slate-900 border-slate-200"
         }`}
       >
-        {/* Cabecera con Imagen o Fondo */}
+        {/* Cabecera con Galería de Fotografías */}
         <div className="relative">
-          {product.image_url ? (
-            <div className="h-56 sm:h-64 w-full bg-black/20 overflow-hidden relative">
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
-              <div
-                className={`absolute inset-0 bg-gradient-to-t ${
-                  isDark ? "from-[#12141C] via-transparent to-transparent" : "from-white via-transparent to-transparent"
-                }`}
-              />
-            </div>
-          ) : (
-            <div
-              className={`h-24 w-full flex items-center justify-center border-b ${
-                isDark ? "bg-[#181B26] border-white/10" : "bg-slate-100 border-slate-200"
-              }`}
-            >
-              <Utensils className={`w-8 h-8 opacity-40`} />
-            </div>
-          )}
+          <ProductImageGallery
+            images={productImages}
+            productName={product.name}
+            theme={theme}
+            primaryColor={primaryColor}
+          />
 
           {/* Botón Cerrar flotante */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-all shadow-md z-20"
+            className="absolute top-3 right-3 p-2 rounded-full bg-black/65 hover:bg-black/85 text-white backdrop-blur-md transition-all shadow-md z-30 cursor-pointer"
             aria-label="Cerrar modal"
           >
             <X className="w-4 h-4" />
           </button>
 
-          {/* Badge de Precio Flotante */}
-          <div
-            className="absolute bottom-3 right-4 px-3.5 py-1 rounded-xl text-xs sm:text-sm font-black text-white shadow-lg backdrop-blur-sm"
-            style={{ backgroundColor: primaryColor }}
-          >
-            {formatPrice(unitTotal)}
-          </div>
+          {/* Badge de Precio Flotante (cuando hay foto cargada) */}
+          {productImages.length > 0 && (
+            <div
+              className={`absolute right-4 px-3.5 py-1 rounded-xl text-xs sm:text-sm font-black text-white shadow-lg backdrop-blur-sm z-20 ${
+                productImages.length > 1 ? "bottom-16 sm:bottom-18" : "bottom-3"
+              }`}
+              style={{ backgroundColor: primaryColor }}
+            >
+              {formatPrice(unitTotal)}
+            </div>
+          )}
         </div>
 
         {/* Cuerpo del Modal con Scroll */}
@@ -347,7 +346,7 @@ export function ProductDetailModal({
               }`}
             >
               <div className="flex items-center gap-1.5 font-bold mb-1 opacity-80">
-                <Utensils className="w-3.5 h-3.5" />
+                <Info className="w-3.5 h-3.5" />
                 <span>Ingredientes:</span>
               </div>
               <p>{ingredients}</p>
@@ -467,6 +466,13 @@ export function ProductDetailModal({
                         <span className="text-xs font-black uppercase tracking-wider truncate">
                           {group.name}
                         </span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/10 text-slate-300 shrink-0">
+                          {group.commercial_type === "replacement" || group.type === "replacement"
+                            ? "Reemplazo"
+                            : group.commercial_type === "size" || group.type === "size"
+                            ? "Tamaño"
+                            : "Adicional"}
+                        </span>
                         {group.required ? (
                           <span
                             className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md shrink-0 ${
@@ -551,9 +557,15 @@ export function ProductDetailModal({
                               </span>
                             </div>
 
-                            {opt.price > 0 && (
+                            {opt.price > 0 ? (
                               <span className="font-bold opacity-90 text-[11px]">
                                 +{formatPrice(opt.price)}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] opacity-75 font-medium">
+                                {group.commercial_type === "replacement" || group.type === "replacement"
+                                  ? "Sin costo adicional"
+                                  : "Sin costo"}
                               </span>
                             )}
                           </button>

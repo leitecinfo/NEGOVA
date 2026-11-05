@@ -31,10 +31,10 @@ interface UserProfileDropdownProps {
 export function UserProfileDropdown({
   businessId,
   userProfile = {
-    initial: 'U',
-    name: 'Usuario',
-    email: 'usuario@negova.com',
-    role: 'Operador',
+    initial: 'J',
+    name: 'JJCOMIDA',
+    email: 'xigenap350@playfine.com',
+    role: 'ADMINISTRADOR',
   },
   onOpenHelp,
   className = '',

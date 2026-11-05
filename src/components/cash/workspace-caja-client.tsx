@@ -521,7 +521,7 @@ export function WorkspaceCajaClient({
               {formatCop(data.kpis.totalSalesInOpenSessions)}
             </span>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Efectivo + tarjetas en sesiones activas
+              Efectivo + transferencias en sesiones activas
             </p>
           </div>
         </div>
@@ -794,7 +794,7 @@ export function WorkspaceCajaClient({
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                  <span>Venta tarjeta/digital:</span>
+                  <span>Ventas Digitales / Transferencias:</span>
                   <span className="font-mono text-foreground">
                     {formatCop(
                       (activeRegisterWithSession.sessionSummary?.totalSalesCard || 0) +
@@ -1007,8 +1007,7 @@ export function WorkspaceCajaClient({
                   <option value="entry">Entradas Manuales</option>
                   <option value="expense">Gastos de Caja</option>
                   <option value="withdrawal">Retiros de Efectivo</option>
-                  <option value="sale_card">Ventas Tarjeta</option>
-                  <option value="sale_digital">Ventas Digitales</option>
+                  <option value="sale_digital">Ventas Digitales / Transferencias</option>
                 </select>
 
                 {/* Filtro por Caja */}

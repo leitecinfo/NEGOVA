@@ -412,6 +412,36 @@ Componente universal de usuario:
 - Si el usuario cuenta con foto real (`src`), renderiza la imagen con `object-cover`.
 - Si no tiene imagen o si la URL externa falla, delega determinísticamente en `Avvvatars` con el estilo `"shape"` o `"character"` (iniciales) y un radio squircle de 9px (`radius=9`).
 
+### 12.3 Principio de Neutralidad Multivertical en Iconografía y Vocabulario
+
+NEGOVA es una plataforma de gestión comercial y administrativa multivertical (tiendas, minimercados, ferreterías, farmacias, tiendas de ropa, papelerías, barberías, servicios y establecimientos gastronómicos). **No debe transmitir visualmente que es un software exclusivo de restaurantes.**
+
+- **Prohibición de Iconos Gastronómicos en Módulos Compartidos y Transversales:**
+  - Queda terminantemente prohibido utilizar cubiertos (`Utensils`, `UtensilsCrossed`), gorros de chef (`ChefHat`), copas de vino (`Wine`), alimentos (`Apple`, `Pizza`, `Coffee`) o campanas de servicio en áreas transversales como:
+    - Encabezados de workspace, barra superior (`AppTopbar`), notificaciones toast y centro de notificaciones.
+    - Menú de navegación principal (`workspace-navigation.ts`).
+    - Formularios de producto, modales de asignación y tarjetas de modificadores.
+    - Módulo de pedidos, estados de comanda, tablas y vistas Kanban.
+    - Módulo de compras, recepción de mercancías e inventario.
+    - Módulo de clientes, historial de órdenes y caja/arqueos de ventas.
+- **Catálogo Canónico de Iconos Neutros de Sustitución:**
+  - **Pedidos y Órdenes:** `ShoppingBag` (bolsa comercial) o `ClipboardList`.
+  - **Alistamiento / En Preparación:** `Boxes` (cajas/empaque en alistamiento) o `Package`.
+  - **Modificadores y Personalización:** `SlidersHorizontal` (controles de configuración) o `Layers`.
+  - **Modalidad Elaborada / Bajo Demanda:** `Layers` (capas de elaboración; descripción: *"Elaborado al momento bajo demanda. Sin stock de producto terminado"*).
+  - **Mercancía para Reventa:** `Package` ("Producto comercial / Reventa").
+  - **Insumos y Materias Primas:** `Boxes` ("Insumo / Material").
+  - **Atención en Local / Presencial:** `Store` o `Building2`.
+  - **Tiques Operativos de Preparación:** `FileText` ("Tique operativo").
+  - **Estados Vacíos:** `Inbox` o `PackageOpen`.
+- **Excepciones Exclusivas por Vertical:**
+  - Los módulos nativos exclusivos del vertical gastronómico (`/workspace/[businessId]/cocina` - KDS, `/workspace/[businessId]/mesas` - Plano de mesas y salón, `/workspace/[businessId]/recetas` - Fichas técnicas de recetas) pueden conservar su terminología e iconografía técnica cuando dicho vertical esté expresamente activo.
+
+### 12.4 Criterio de Sobriedad Iconográfica y Prohibición de Emojis
+
+1. **Reducción de Iconografía Superflua:** No reemplazar cada icono retirado por otro innecesario. La prioridad es simplificar, priorizando la tipografía, espaciado, jerarquía visual y texto descriptivo. Si un icono no aporta valor funcional ni diferenciador, se omite.
+2. **Prohibición Absoluta de Emojis:** Queda terminantemente prohibido el uso de emojis (ej. 🍕, 🍔, 📦, 🏷️) en la interfaz como sustitutos de iconos o viñetas.
+
 ---
 
 ## 13. Formularios y Flujos Operativos
@@ -451,6 +481,25 @@ Ubicación: `src/components/menu/*`
   3. **Elegante:** Bistrós, vinos y gastronomía fina, con acentos dorados champagne (`#D4AF37`) y tipografía clásica.
   4. **Visual:** Fotografía culinaria a gran escala en formato lookbook.
 - **Integración WhatsApp:** Carrito lateral `MenuCartDrawer` que genera el enlace `https://wa.me/...` formateando los platos, cantidades y total sin fricción.
+
+### 14.3 Patrón de Tarjetas de Acción Cuadradas para Modificadores y Personalización
+
+En la sección de personalización del formulario de productos (`product-form-modal.tsx`) y en el módulo de modificadores (`modifier-groups-tab.tsx`):
+- **Estructura visual:** Se descartan los botones alargados o apretados en una sola fila. Se adopta una cuadrícula responsive de 3 tarjetas tipo cuadro (`grid grid-cols-1 sm:grid-cols-3 gap-3`).
+- **Composición de cada tarjeta:**
+  - Badge cuadrado superior centrado (`w-9 h-9 rounded-xl`) con icono alusivo y fondo semántico suave (`bg-[#ED500A]/10`, `bg-purple-500/10`, `bg-blue-500/10`).
+  - Título en negrita conciso (`text-xs font-bold text-slate-900 dark:text-white`).
+  - Subtítulo explicativo de una línea (`text-[10px] text-slate-400 mt-0.5`).
+  - Micro-interacción: escala suave del icono en hover (`group-hover:scale-110`) y feedback al presionar (`active:scale-[0.98]`).
+- **Las tres acciones canónicas:**
+  1. **Nuevo modificador:** Adición individual rápida (crea internamente un grupo mono-opción y lo enlaza).
+  2. **Nuevo grupo:** Múltiples opciones y reglas de selección avanzadas (mínimo, máximo, obligatorio).
+  3. **Asignar existentes:** Reutilización de modificadores desde el catálogo del negocio.
+
+### 14.4 Formateo Monetario Estricto en Entradas Numéricas (Precios y Costos)
+
+- **Regla de Formateo en Vivo:** Todo campo de entrada que capture valores monetarios (Precio de Venta, Costo de Adquisición, Costo Unitario, Descuentos) debe utilizar `type="text"` con `inputMode="numeric"` y aplicar en tiempo real el formateo con puntos separadores de miles (`formatNumberWithDots`), persistiendo el valor entero limpio mediante `parseNumberFromDots`.
+- **Prohibición:** Prohibido usar `<input type="number">` directo para montos monetarios, ya que no admite separadores de miles y muestra flechas de incremento/decremento nativas incompatibles con divisas.
 
 ---
 

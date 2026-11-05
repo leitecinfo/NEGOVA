@@ -7,6 +7,7 @@ import { getRestaurantTables } from "@/lib/restaurant/restaurant-service";
 import { getPosCashContext } from "@/lib/cash/cash-service";
 import { getPublicBusinessPaymentMethods } from "@/lib/payments/payment-methods-service";
 import { getQuotationById } from "@/lib/quotations/quotations-service";
+import { getWorkspaceStaff } from "@/lib/restaurant/staff-service";
 import { PosScreenClient } from "@/components/pos/pos-screen-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,8 +37,8 @@ export default async function WorkspacePosPage({
     session = await requireWorkspaceSession(businessId, "orders.create");
   }
 
-  // 2. Obtener configuración comercial, catálogo de productos activos en canal POS, categorías, mesas, métodos de pago, contexto de caja y cotización opcional en paralelo
-  const [config, products, categories, tables, paymentMethods, cashContext, initialQuotation] = await Promise.all([
+  // 2. Obtener configuración comercial, catálogo de productos activos en canal POS, categorías, mesas, métodos de pago, contexto de caja, cotización opcional y personal del negocio en paralelo
+  const [config, products, categories, tables, paymentMethods, cashContext, initialQuotation, staff] = await Promise.all([
     getBusinessDocumentConfig(businessId),
     getProducts(businessId, { status: "active", channel: "pos" }),
     getCategories(businessId),
@@ -45,6 +46,7 @@ export default async function WorkspacePosPage({
     getPublicBusinessPaymentMethods(businessId).catch(() => []),
     getPosCashContext(businessId, session.userId),
     initialQuotationId ? getQuotationById(businessId, initialQuotationId).catch(() => null) : Promise.resolve(null),
+    getWorkspaceStaff(businessId, session.userId).catch(() => []),
   ]);
 
   return (
@@ -52,6 +54,8 @@ export default async function WorkspacePosPage({
       businessId={businessId}
       businessName={session.businessName}
       cashierName={session.userEmail ? session.userEmail.split("@")[0] : session.businessName}
+      currentUserId={session.userId}
+      initialStaff={staff}
       tradeName={config.tradeName}
       logoUrl={config.logoUrl}
       primaryColor={config.primaryColor}

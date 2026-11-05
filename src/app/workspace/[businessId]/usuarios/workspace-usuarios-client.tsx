@@ -28,7 +28,11 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Briefcase,
+  Plus,
 } from "lucide-react";
+import { CargoBadge } from "@/components/usuarios/cargo-badge";
+import { AssignCargosModal } from "@/components/usuarios/assign-cargos-modal";
 import { toast } from "sonner";
 import {
   UserModel,
@@ -125,6 +129,15 @@ export function WorkspaceUsuariosClient({
     description: "",
     confirmLabel: "",
     variant: "destructive",
+  });
+
+  // Estado para el modal de asignación de cargos operativos [CARGOS-001]
+  const [assignCargosModal, setAssignCargosModal] = useState<{
+    isOpen: boolean;
+    user: UserModel | null;
+  }>({
+    isOpen: false,
+    user: null,
   });
 
   // Menú contextual flotante de 3 puntos (Portal)
@@ -513,6 +526,35 @@ export function WorkspaceUsuariosClient({
             ),
           },
           {
+            header: "Cargo(s) Operativo(s)",
+            headerClassName: "whitespace-nowrap",
+            className: "whitespace-nowrap",
+            render: (user) => {
+              const cargos = user.cargos || [];
+              return (
+                <div className="flex items-center gap-1.5 flex-wrap max-w-[240px]">
+                  {cargos.length > 0 ? (
+                    cargos.map((cargo) => (
+                      <CargoBadge key={cargo} cargo={cargo} size="sm" />
+                    ))
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAssignCargosModal({ isOpen: true, user });
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Asignar cargo</span>
+                    </button>
+                  )}
+                </div>
+              );
+            },
+          },
+          {
             header: "Estado",
             headerClassName: "whitespace-nowrap",
             className: "whitespace-nowrap",
@@ -786,6 +828,20 @@ export function WorkspaceUsuariosClient({
               <span>Gestionar Permisos</span>
             </button>
 
+            {/* Asignar o Modificar Cargos Operativos [CARGOS-001] */}
+            <button
+              type="button"
+              onClick={() => {
+                const u = menuAnchor.user;
+                setMenuAnchor(null);
+                setAssignCargosModal({ isOpen: true, user: u });
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors cursor-pointer"
+            >
+              <Briefcase className="w-4 h-4 text-orange-500" />
+              <span>Modificar Cargos</span>
+            </button>
+
             {/* Restablecer Contraseña */}
             <button
               type="button"
@@ -871,6 +927,26 @@ export function WorkspaceUsuariosClient({
           </div>,
           document.body
         )}
+
+      {/* Modal de Asignación de Cargos Operativos [CARGOS-001] */}
+      {assignCargosModal.isOpen && assignCargosModal.user && (
+        <AssignCargosModal
+          isOpen={assignCargosModal.isOpen}
+          onClose={() => setAssignCargosModal({ isOpen: false, user: null })}
+          businessId={businessId}
+          userId={assignCargosModal.user.id}
+          userName={assignCargosModal.user.fullName}
+          initialCargos={assignCargosModal.user.cargos || []}
+          onCargosUpdated={(updated) => {
+            setData((prev) => ({
+              ...prev,
+              users: prev.users.map((u) =>
+                u.id === assignCargosModal.user?.id ? { ...u, cargos: updated } : u
+              ),
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }

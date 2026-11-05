@@ -9,6 +9,7 @@ import {
   fromDbUserStatus,
 } from "./users-service";
 import { PLATFORM_ROLES_CATALOG, BUSINESS_ROLES_CATALOG } from "./permissions";
+import { getBusinessEmployeeCargos } from "./cargos-service";
 
 async function getSupabaseAdminClient() {
   const { createClient: createAdminClient } = await import("@supabase/supabase-js");
@@ -135,6 +136,9 @@ export async function getWorkspaceUsersList(businessId: string, filters: UserLis
   const { data: authData } = await adminClient.auth.admin.listUsers();
   const authUsersMap = new Map((authData?.users || []).map((au) => [au.id, au]));
 
+  // 5.5 Consultar cargos operativos asignados a los usuarios del negocio [CARGOS-001]
+  const cargosMap = await getBusinessEmployeeCargos(businessId, userIdsInBusiness);
+
   // 6. Mapear y clasificar
   let mappedUsers: UserModel[] = (dbUsers || []).map((u) => {
     const profile = profileMap.get(u.id);
@@ -165,6 +169,7 @@ export async function getWorkspaceUsersList(businessId: string, filters: UserLis
       createdAt: u.created_at || authUser?.created_at || new Date().toISOString(),
       updatedAt: u.updated_at || authUser?.updated_at || new Date().toISOString(),
       businessMemberships: memberships,
+      cargos: cargosMap[u.id] || [],
       primaryRole: {
         code: primaryRoleCode,
         name: roleMeta.name,

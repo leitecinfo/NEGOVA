@@ -11,6 +11,8 @@ import {
   KeyRound,
   ShieldCheck,
   Lock,
+  Briefcase,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UserModel } from "@/lib/auth/users-service";
@@ -19,6 +21,8 @@ import { saveUserPermissionsAction, assignUserPinAction } from "../actions";
 import { StatusBadge, Button } from "@/components/ui";
 import { UserPermissionsMatrixEditor } from "@/components/permissions/user-permissions-matrix-editor";
 import { PinAssignModal } from "@/components/security/pin-assign-modal";
+import { CargoBadge } from "@/components/usuarios/cargo-badge";
+import { AssignCargosModal } from "@/components/usuarios/assign-cargos-modal";
 
 interface WorkspaceUserDetailClientProps {
   user: UserModel;
@@ -40,6 +44,8 @@ export function WorkspaceUserDetailClient({
   );
   const [hasPin, setHasPin] = useState(Boolean(user.hasSecurityPin));
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [userCargos, setUserCargos] = useState<string[]>(user.cargos || []);
+  const [isCargosModalOpen, setIsCargosModalOpen] = useState(false);
 
   const handleSavePermissions = async (granted: string[], revoked: string[]) => {
     const res = await saveUserPermissionsAction(businessId, user.id, granted, revoked);
@@ -111,6 +117,46 @@ export function WorkspaceUserDetailClient({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Sección: Cargos y Funciones Operativas [CARGOS-001] */}
+        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-[#ED500A]" />
+              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-900 dark:text-white">
+                Cargos y Funciones Operativas
+              </h3>
+              <span className="text-[10px] text-slate-400 font-mono">
+                ({userCargos.length} asignado{userCargos.length === 1 ? "" : "s"})
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+              Etiquetas de la función diaria que desempeña en el comercio (ej. Cajero, Mesero). No condicionan los permisos de acceso ni aumentan el consumo de cupos del plan.
+            </p>
+
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              {userCargos.length > 0 ? (
+                userCargos.map((cargo) => (
+                  <CargoBadge key={cargo} cargo={cargo} size="md" />
+                ))
+              ) : (
+                <span className="text-xs text-slate-400 italic">
+                  Sin cargos operativos asignados
+                </span>
+              )}
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            leftIcon={<Briefcase className="w-3.5 h-3.5" />}
+            onClick={() => setIsCargosModalOpen(true)}
+          >
+            {userCargos.length > 0 ? "Modificar Cargos" : "Asignar Cargos"}
+          </Button>
         </div>
 
         {/* Sección: PIN de Seguridad y Autorizaciones [EMP-002] */}
@@ -190,6 +236,17 @@ export function WorkspaceUserDetailClient({
         employeeName={user.fullName}
         hasExistingPin={hasPin}
         onSavePin={(pin) => assignUserPinAction(businessId, user.id, pin)}
+      />
+
+      {/* Modal para Asignar / Modificar Cargos Operativos [CARGOS-001] */}
+      <AssignCargosModal
+        isOpen={isCargosModalOpen}
+        onClose={() => setIsCargosModalOpen(false)}
+        businessId={businessId}
+        userId={user.id}
+        userName={user.fullName}
+        initialCargos={userCargos}
+        onCargosUpdated={(updated) => setUserCargos(updated)}
       />
     </div>
   );

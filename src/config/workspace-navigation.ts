@@ -33,6 +33,7 @@ import {
   Scale,
   HelpCircle,
   type LucideIcon,
+  ShoppingBag,
 } from "lucide-react";
 import { AppNavSection, AppNavItem } from "../components/layout/navigation-types";
 import {
@@ -177,7 +178,7 @@ export const WORKSPACE_MODULES_CATALOG: WorkspaceModuleDefinition[] = [
     shortDescription: "Consultar y gestionar el ciclo operativo de pedidos.",
     group: "operacion",
     groupLabel: "Operación",
-    icon: UtensilsCrossed,
+    icon: ShoppingBag,
     href: "pedidos",
     level: "specific",
     status: "implemented",

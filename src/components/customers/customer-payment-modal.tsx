@@ -326,8 +326,6 @@ export function CustomerPaymentModal({
                 >
                   <option value="cash">Efectivo</option>
                   <option value="transfer">Transferencia Bancaria</option>
-                  <option value="debit_card">Tarjeta Débito</option>
-                  <option value="credit_card">Tarjeta Crédito</option>
                   <option value="check">Cheque</option>
                   <option value="other">Otro</option>
                 </select>

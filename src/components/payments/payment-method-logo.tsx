@@ -83,7 +83,7 @@ export function PaymentMethodLogo({
 
   // Fallback visual neutro y accesible (ej. Davivienda o fallo de carga)
   const getFallbackIcon = () => {
-    if (code === "card") return <CreditCard className={iconSizes} />;
+    if (code === "card") return <Wallet className={iconSizes} />;
     if (code === "other") return <Landmark className={iconSizes} />;
     switch (meta?.category) {
       case "bank":
@@ -93,7 +93,7 @@ export function PaymentMethodLogo({
       case "key":
         return <KeyRound className={iconSizes} />;
       default:
-        return <CreditCard className={iconSizes} />;
+        return <Wallet className={iconSizes} />;
     }
   };
 

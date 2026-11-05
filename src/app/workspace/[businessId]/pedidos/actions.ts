@@ -260,4 +260,82 @@ export async function downloadOrderPdfAction(
   }
 }
 
+/**
+ * Server Action: Confirmar la recogida física de un pedido "Para recoger" mediante código de 4 dígitos [POS-RECOGIDA]
+ */
+export async function verifyAndConfirmPickupAction(
+  businessId: string,
+  orderId: string,
+  code: string
+): Promise<{ success: boolean; error?: string; remainingAttempts?: number; isConfirmed?: boolean }> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.manage");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para confirmar la entrega de pedidos." };
+  }
+
+  try {
+    const { verifyAndConfirmPickup } = await import("@/lib/orders/pickup-verification-service");
+    const result = await verifyAndConfirmPickup(
+      businessId,
+      orderId,
+      code,
+      auth.context.userId,
+      auth.context.userEmail?.split("@")[0] || "Personal"
+    );
+
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/pedidos`);
+      revalidatePath(`/workspace/${businessId}/pos`);
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error("[verifyAndConfirmPickupAction] Error:", err);
+    return { success: false, error: err?.message || "Error al validar el código de recogida." };
+  }
+}
+
+/**
+ * Server Action: Consultar código de recogida para personal autorizado [POS-RECOGIDA]
+ */
+export async function getPickupCodeAction(
+  businessId: string,
+  orderId: string
+): Promise<{ success: boolean; code?: string | null; attempts?: number; isLocked?: boolean; isConfirmed?: boolean; error?: string }> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.manage");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para consultar este pedido." };
+  }
+
+  try {
+    const { getRestaurantOrderWithDetails } = await import("@/lib/restaurant/restaurant-service");
+    const { extractPickupVerificationDetails } = await import("@/lib/orders/pickup-verification-service");
+
+    const order = await getRestaurantOrderWithDetails(businessId, orderId);
+    if (!order) {
+      return { success: false, error: "Pedido no encontrado." };
+    }
+
+    const details = extractPickupVerificationDetails(order);
+    return {
+      success: true,
+      code: details.code,
+      attempts: details.attempts,
+      isLocked: details.isLocked,
+      isConfirmed: details.isConfirmed,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al consultar código de recogida." };
+  }
+}
+
+
 

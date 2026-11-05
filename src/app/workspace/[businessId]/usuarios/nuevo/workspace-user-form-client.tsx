@@ -15,11 +15,16 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  Briefcase,
+  Plus,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UserStatus } from "@/lib/auth/users-service";
 import { RoleDefinitionMeta } from "@/lib/auth/permissions";
-import { createWorkspaceUserAction } from "../actions";
+import { createWorkspaceUserAction, getBusinessCargosAction, addCustomCargoAction } from "../actions";
+import { DEFAULT_PRESET_CARGOS, getCargoBadgeStyles } from "@/lib/auth/cargos-service";
+import { CargoBadge } from "@/components/usuarios/cargo-badge";
 import {
   Input,
   Select,
@@ -50,6 +55,55 @@ export function WorkspaceUserFormClient({
     businessRoles.find((r) => r.code === "auxiliar")?.code || businessRoles[0]?.code || "auxiliar"
   );
   const [status, setStatus] = useState<UserStatus>("active");
+
+  // Cargos Operativos [CARGOS-001]
+  const [selectedCargos, setSelectedCargos] = useState<string[]>([]);
+  const [availableCargos, setAvailableCargos] = useState<string[]>(DEFAULT_PRESET_CARGOS);
+  const [newCargoInput, setNewCargoInput] = useState("");
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+
+  React.useEffect(() => {
+    getBusinessCargosAction(businessId).then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        setAvailableCargos(res.data);
+      }
+    });
+  }, [businessId]);
+
+  const handleToggleCargo = (cargo: string) => {
+    setSelectedCargos((prev) =>
+      prev.includes(cargo) ? prev.filter((c) => c !== cargo) : [...prev, cargo]
+    );
+  };
+
+  const handleAddCustomCargo = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = newCargoInput.trim();
+    if (!clean) return;
+
+    if (availableCargos.map((c) => c.toLowerCase()).includes(clean.toLowerCase())) {
+      if (!selectedCargos.includes(clean)) {
+        setSelectedCargos((prev) => [...prev, clean]);
+      }
+      setNewCargoInput("");
+      return;
+    }
+
+    setIsAddingCustom(true);
+    try {
+      const res = await addCustomCargoAction(businessId, clean);
+      if (res.success && res.cargo) {
+        setAvailableCargos((prev) => Array.from(new Set([...prev, res.cargo!])));
+        setSelectedCargos((prev) => Array.from(new Set([...prev, res.cargo!])));
+        setNewCargoInput("");
+        toast.success(`Cargo «${res.cargo}» agregado.`);
+      } else {
+        toast.error(res.error || "No fue posible agregar el cargo.");
+      }
+    } finally {
+      setIsAddingCustom(false);
+    }
+  };
 
   // Modo de Contraseña
   const [passwordMode, setPasswordMode] = useState<"generate" | "custom">("generate");
@@ -101,6 +155,7 @@ export function WorkspaceUserFormClient({
         roleCode: selectedRoleCode,
         password: passwordMode === "custom" ? customPassword : undefined,
         mustChangePassword,
+        cargos: selectedCargos,
       });
 
       if (res.success && res.user) {
@@ -234,10 +289,91 @@ export function WorkspaceUserFormClient({
           </div>
         </div>
 
-        {/* Bloque C: Seguridad y Contraseña */}
+        {/* Bloque C: Cargos Operativos del Negocio [CARGOS-001] */}
+        <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-[#ED500A]" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
+                  3. Cargos y Funciones Operativas (Opcional)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Etiquetas organizativas para describir qué hace en el día a día (Cajero, Mesero, Cocinero, etc.). No definen permisos de acceso ni consumen cupos adicionales.
+              </p>
+            </div>
+            {selectedCargos.length > 0 && (
+              <span className="px-2.5 py-1 rounded-lg bg-[#ED500A]/10 text-[#ED500A] text-xs font-mono font-bold shrink-0">
+                {selectedCargos.length} asignado(s)
+              </span>
+            )}
+          </div>
+
+          {/* Chips de Selección Rápida */}
+          <div className="space-y-2">
+            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Seleccionar del Catálogo
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableCargos.map((cargo) => {
+                const isSelected = selectedCargos.includes(cargo);
+                const { dotColor } = getCargoBadgeStyles(cargo);
+                return (
+                  <button
+                    key={cargo}
+                    type="button"
+                    onClick={() => handleToggleCargo(cargo)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#ED500A] text-white border-[#ED500A] shadow-xs"
+                        : "bg-slate-50/50 dark:bg-white/[0.02] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08] hover:border-[#ED500A]/40"
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isSelected ? "bg-white" : dotColor
+                      }`}
+                    />
+                    <span>{cargo}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 ml-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Agregar otro cargo al vuelo */}
+          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Otro cargo (ej. Repartidor, Barista, Auxiliar de cocina)..."
+              value={newCargoInput}
+              onChange={(e) => setNewCargoInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddCustomCargo();
+                }
+              }}
+              className="flex-1 h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
+            />
+            <button
+              type="button"
+              onClick={() => handleAddCustomCargo()}
+              disabled={!newCargoInput.trim() || isAddingCustom}
+              className="h-9 px-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Agregar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bloque D: Seguridad y Contraseña */}
         <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-title">
-            3. Seguridad y Credenciales de Acceso
+            4. Seguridad y Credenciales de Acceso
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

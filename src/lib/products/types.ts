@@ -1,4 +1,15 @@
 import { z } from "zod";
+import {
+  BusinessType,
+  BusinessCategory,
+  BUSINESS_TYPE_LABELS,
+} from "../businesses/types";
+import {
+  CommercialActivity,
+  getDefaultActivitiesForBusinessType,
+  hasCommercialActivity,
+} from "@/config/commercial-activities";
+import { isGastronomyBusinessType } from "../auth/permissions";
 
 // ==========================================
 // MODIFICADORES Y COMPLEMENTOS GASTRONÓMICOS
@@ -9,6 +20,8 @@ export const ProductModifierOptionSchema = z.object({
   name: z.string().trim().min(1, "El nombre de la opción es requerido"),
   price: z.coerce.number().min(0, "El precio adicional no puede ser negativo").finite("El precio adicional debe ser un número válido"),
   is_available: z.boolean().default(true),
+  status: z.enum(["active", "inactive"]).default("active").optional(),
+  sort_order: z.number().int().default(0).optional(),
 });
 
 export type ProductModifierOption = z.infer<typeof ProductModifierOptionSchema>;
@@ -17,10 +30,15 @@ export const ProductModifierGroupSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().trim().min(1, "El nombre del grupo es requerido"),
+    description: z.string().trim().nullable().optional(),
     type: z.enum(["additional", "size", "replacement"]).default("additional").optional(),
+    commercial_type: z.enum(["additional", "size", "replacement"]).default("additional").optional(),
     required: z.boolean().default(false),
+    selection_type: z.enum(["single", "multiple"]).default("multiple").optional(),
     min_select: z.coerce.number().int().min(0, "La cantidad mínima debe ser 0 o superior").optional(),
     max_select: z.coerce.number().int().min(1, "La cantidad máxima debe ser al menos 1").optional(),
+    status: z.enum(["active", "inactive"]).default("active").optional(),
+    sort_order: z.number().int().default(0).optional(),
     options: z.array(ProductModifierOptionSchema).default([]),
   })
   .refine(
@@ -278,6 +296,31 @@ export function resolveProductChannels(product?: Partial<Product> | Record<strin
   };
 }
 
+/**
+ * Extrae de forma unificada y segura la lista completa de imágenes de un producto (máximo 3).
+ * La primera imagen corresponde a la imagen principal (product.image_url).
+ * Las imágenes adicionales corresponden a metadata.gallery_images.
+ * Garantiza compatibilidad retroactiva, eliminación de duplicados y filtrado de valores vacíos.
+ */
+export function getProductImages(
+  product?: Partial<Product> | Record<string, any> | null
+): string[] {
+  if (!product) return [];
+  const list: string[] = [];
+  if (typeof product.image_url === "string" && product.image_url.trim()) {
+    list.push(product.image_url.trim());
+  }
+  const meta = (product as any).metadata;
+  if (Array.isArray(meta?.gallery_images)) {
+    for (const img of meta.gallery_images) {
+      if (typeof img === "string" && img.trim() && !list.includes(img.trim()) && list.length < 3) {
+        list.push(img.trim());
+      }
+    }
+  }
+  return list;
+}
+
 // DTOs for creation/updates
 export const CreateCategorySchema = CategorySchema.omit({
   id: true,
@@ -295,4 +338,188 @@ export const CreateProductSchema = ProductSchema.omit({
   updated_at: true,
 });
 export type CreateProductDTO = z.input<typeof CreateProductSchema>;
+
+// ==========================================
+// CONTEXTO VERTICAL Y CANALES DE VENTA
+// ==========================================
+
+export type ProductKind = "stock" | "prepared" | "service";
+export type RealSalesChannel = "pos" | "qr";
+
+export interface ProductVerticalContext {
+  category: BusinessCategory;
+  isGastronomy: boolean;
+  canSellProducts: boolean;
+  canProvideServices: boolean;
+  availableKinds: ProductKind[];
+  availableChannels: RealSalesChannel[];
+}
+
+/**
+ * Resuelve la categoría macro del negocio de manera robusta y canónica,
+ * evaluando tanto el tipo de negocio como las actividades comerciales configuradas.
+ */
+export function resolveBusinessCategory(
+  businessType?: string | null,
+  commercialActivities?: CommercialActivity[] | null
+): BusinessCategory {
+  const b = (businessType || "").trim().toLowerCase();
+
+  // 1. Coincidencia directa en el catálogo canónico de tipos de negocio
+  if (b in BUSINESS_TYPE_LABELS) {
+    return BUSINESS_TYPE_LABELS[b as BusinessType].category;
+  }
+
+  // 2. Gastronomía (restaurantes, cafés, bares, panaderías, pizzerías, comidas rápidas)
+  if (
+    isGastronomyBusinessType(b) ||
+    b.includes("rest") ||
+    b.includes("food") ||
+    b.includes("comida") ||
+    b.includes("gastronom") ||
+    b.includes("cafe") ||
+    b === "bar" ||
+    b.includes("gastrobar") ||
+    b.includes("pizz") ||
+    b.includes("baker") ||
+    b.includes("panad") ||
+    b.includes("helad") ||
+    b.includes("ice_cream") ||
+    b.includes("liquor")
+  ) {
+    return "gastronomicos";
+  }
+
+  // 3. Servicios (barberías, peluquerías, spas, consultorías, salud, talleres)
+  if (
+    b.includes("barber") ||
+    b.includes("peluquer") ||
+    b.includes("salon") ||
+    b.includes("spa") ||
+    b.includes("odontol") ||
+    b.includes("dentist") ||
+    b.includes("estetic") ||
+    b.includes("belleza") ||
+    b.includes("health") ||
+    b.includes("salud") ||
+    b.includes("consult") ||
+    b.includes("technical_service") ||
+    b.includes("talleres") ||
+    b.includes("automotive") ||
+    b.includes("laundry") ||
+    b.includes("gym") ||
+    b.includes("veterin") ||
+    b === "service" ||
+    b.startsWith("service_")
+  ) {
+    return "servicios";
+  }
+
+  // 4. Mercados y Comercio minorista / Retail
+  if (
+    b.includes("minimarket") ||
+    b.includes("supermarket") ||
+    b.includes("mercado") ||
+    b.includes("tienda") ||
+    b.includes("retail") ||
+    b.includes("comercio") ||
+    b.includes("ferret") ||
+    b.includes("hardware") ||
+    b.includes("moda") ||
+    b.includes("fashion") ||
+    b.includes("ropa") ||
+    b.includes("calzado") ||
+    b.includes("pharmacy") ||
+    b.includes("farmacia") ||
+    b.includes("droguer") ||
+    b.includes("stationery") ||
+    b.includes("papeler") ||
+    b.includes("tecnolog") ||
+    b.includes("technology") ||
+    b.includes("pets") ||
+    b.includes("mascotas")
+  ) {
+    return "comercios";
+  }
+
+  // 5. Inferencia por actividades comerciales configuradas cuando no hay tipo específico
+  if (commercialActivities && commercialActivities.length > 0) {
+    const hasServices =
+      commercialActivities.includes("provide_services") ||
+      commercialActivities.includes("manage_appointments");
+    const hasProducts = commercialActivities.includes("sell_products");
+
+    if (hasServices && !hasProducts) {
+      return "servicios";
+    }
+    if (hasProducts && !hasServices) {
+      return "comercios";
+    }
+  }
+
+  // Fallback general seguro: comercio minorista estándar
+  return "comercios";
+}
+
+/**
+ * Determina automáticamente las modalidades de producto y canales de venta visibles
+ * según la actividad comercial y tipo de negocio registrado en NEGOVA.
+ */
+export function resolveProductVerticalContext(
+  businessType?: string | null,
+  commercialActivities?: CommercialActivity[] | null,
+  existingProductKind?: ProductKind | null
+): ProductVerticalContext {
+  const bType = (businessType || "").trim().toLowerCase();
+  const category = resolveBusinessCategory(bType, commercialActivities);
+  const isGastronomy = category === "gastronomicos" || isGastronomyBusinessType(bType);
+
+  const activities =
+    commercialActivities && commercialActivities.length > 0
+      ? commercialActivities
+      : getDefaultActivitiesForBusinessType(bType);
+
+  const canSellProducts = hasCommercialActivity(activities, "sell_products");
+  const canProvideServices = hasCommercialActivity(activities, "provide_services");
+
+  // 1. Modalidades de comportamiento del producto según el vertical del negocio:
+  const kinds: ProductKind[] = [];
+
+  // Con existencias: siempre disponible en todos los verticales
+  kinds.push("stock");
+
+  if (isGastronomy) {
+    // Gastronomía (restaurantes, cafeterías, comidas rápidas): mostrar las tres modalidades
+    kinds.push("prepared");
+    kinds.push("service");
+  } else if (category === "servicios" || canProvideServices) {
+    // Servicios (barberías, peluquerías, consultorías): mostrar «Con existencias» y «Servicio / Sin stock»
+    kinds.push("service");
+  }
+  // Comercio y retail (minimercados, tiendas de ropa, farmacias, ferreterías): mostrar únicamente «Con existencias» (solo 'stock')
+
+  // Garantía de preservación: Si se edita un producto existente cuya modalidad previa
+  // no está en la lista estándar del vertical, se añade para no alterar datos históricos ni bloquearlo.
+  if (existingProductKind && !kinds.includes(existingProductKind)) {
+    kinds.push(existingProductKind);
+  }
+
+  // 2. Canales de venta realmente implementados:
+  // POS / Caja está disponible para todos los verticales
+  const channels: RealSalesChannel[] = ["pos"];
+  // Menú QR está disponible únicamente para gastronomía / restaurantes
+  if (isGastronomy) {
+    channels.push("qr");
+  }
+  // Tienda Online NO se incluye para ningún vertical porque NEGOVA no ofrece una tienda online transaccional activa
+
+  return {
+    category,
+    isGastronomy,
+    canSellProducts,
+    canProvideServices,
+    availableKinds: kinds,
+    availableChannels: channels,
+  };
+}
 

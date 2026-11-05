@@ -296,6 +296,8 @@ export async function listBusinessCustomers(params: CustomerFilterParams): Promi
       id: c.id,
       businessId: c.business_id,
       fullName: c.full_name,
+      customerType: c.customer_type || "individual",
+      contactName: c.contact_name || null,
       phone: c.phone || null,
       email: c.email || null,
       taxId: c.tax_id || null,
@@ -332,6 +334,12 @@ export async function listBusinessCustomers(params: CustomerFilterParams): Promi
 
   if (isOverdueTab) {
     customers = customers.filter((c) => c.hasOverdueReceivables);
+  }
+
+  if (params.directoryTab === "individual") {
+    customers = customers.filter((c) => (c.customerType || "individual") === "individual");
+  } else if (params.directoryTab === "business") {
+    customers = customers.filter((c) => c.customerType === "business");
   }
 
   // Ordenamiento personalizado si fue solicitado
@@ -682,6 +690,8 @@ export async function getCustomerById(
     id: customerRow.id,
     businessId: customerRow.business_id,
     fullName: customerRow.full_name,
+    customerType: customerRow.customer_type || "individual",
+    contactName: customerRow.contact_name || null,
     phone: customerRow.phone || null,
     normalizedPhone: customerRow.normalized_phone || null,
     email: customerRow.email || null,
@@ -852,6 +862,8 @@ export async function createCustomer(
   const insertPayload = {
     business_id: businessId,
     full_name: input.fullName.trim(),
+    customer_type: input.customerType || "individual",
+    contact_name: input.contactName?.trim() ? input.contactName.trim() : null,
     phone: cleanPhoneStr,
     normalized_phone: finalNormalizedPhone,
     email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
@@ -889,6 +901,8 @@ export async function createCustomer(
       id: newCustomer.id,
       businessId: newCustomer.business_id,
       fullName: newCustomer.full_name,
+      customerType: newCustomer.customer_type || "individual",
+      contactName: newCustomer.contact_name || null,
       phone: newCustomer.phone,
       normalizedPhone: newCustomer.normalized_phone,
       email: newCustomer.email,
@@ -970,6 +984,12 @@ export async function updateCustomer(
   if (input.taxId !== undefined) {
     updateData.tax_id = input.taxId ? input.taxId.trim() : null;
   }
+  if (input.customerType !== undefined) {
+    updateData.customer_type = input.customerType;
+  }
+  if (input.contactName !== undefined) {
+    updateData.contact_name = input.contactName?.trim() ? input.contactName.trim() : null;
+  }
   if (input.notes !== undefined) {
     updateData.notes = input.notes ? input.notes.trim() : null;
   }
@@ -996,6 +1016,8 @@ export async function updateCustomer(
       id: updated.id,
       businessId: updated.business_id,
       fullName: updated.full_name,
+      customerType: updated.customer_type || "individual",
+      contactName: updated.contact_name || null,
       phone: updated.phone,
       normalizedPhone: updated.normalized_phone,
       email: updated.email,
@@ -1270,6 +1292,8 @@ export async function setCustomerCreditLimit(
       id: updated.id,
       businessId: updated.business_id,
       fullName: updated.full_name,
+      customerType: updated.customer_type || "individual",
+      contactName: updated.contact_name || null,
       phone: updated.phone,
       normalizedPhone: updated.normalized_phone,
       email: updated.email,

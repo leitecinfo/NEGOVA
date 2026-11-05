@@ -233,7 +233,7 @@ export const resolveWorkspaceSessionBase = cache(
       redirect("/login?error=business_inactive");
     }
 
-    const businessType = business.business_type || "fast_food";
+    const businessType = business.business_type || "";
     const commercialActivities = normalizeCommercialActivities(
       business.commercial_activities || getDefaultActivitiesForBusinessType(businessType)
     );
@@ -487,7 +487,7 @@ export async function verifyWorkspaceAction(
       };
     }
 
-    const businessType = business.business_type || "fast_food";
+    const businessType = business.business_type || "";
     const commercialActivities = normalizeCommercialActivities(
       business.commercial_activities || getDefaultActivitiesForBusinessType(businessType)
     );

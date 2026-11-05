@@ -112,6 +112,63 @@ export function calculatePlanPricing(
 }
 
 /**
+ * LÍMITES CENTRALIZADOS DE EMPLEADOS POR PLAN [CENTRALIZED_PLAN_EMPLOYEE_LIMITS]
+ * 
+ * ÚNICA FUENTE DE VERDAD para el conteo y asignación de cupos de usuarios/empleados en NEGOVA.
+ * 
+ * Reglas de negocio y contabilización:
+ * 1. El propietario (owner) del comercio consume 1 cupo.
+ * 2. Cada empleado o colaborador adicional (auxiliar) consume 1 cupo.
+ * 3. Total de integrantes consumidos = 1 (Propietario) + N (Empleados).
+ * 4. Independencia de Cargos: Los cargos operativos (Cajero, Mesero, Cocinero, etc.)
+ *    son etiquetas funcionales y NO consumen cupos independientes.
+ * 
+ * Modificar ÚNICAMENTE este objeto para actualizar la escala en todo el sistema.
+ */
+export interface PlanEmployeeLimitConfig {
+  maxMembers: number; // Cupo total: Propietario (1) + Empleados (maxMembers - 1)
+  maxAuxiliares: number; // Empleados adicionales permitidos
+  planName: string;
+  description: string;
+}
+
+export const CENTRALIZED_PLAN_EMPLOYEE_LIMITS: Record<PlanId, PlanEmployeeLimitConfig> = {
+  inicio: {
+    maxMembers: 2, // 1 Propietario + 1 Empleado
+    maxAuxiliares: 1,
+    planName: "Plan Inicio",
+    description: "Hasta 2 usuarios (1 Propietario + 1 Colaborador)",
+  },
+  crece: {
+    maxMembers: 3, // 1 Propietario + 2 Empleados
+    maxAuxiliares: 2,
+    planName: "Plan Crece",
+    description: "Hasta 3 usuarios (1 Propietario + 2 Colaboradores)",
+  },
+  negocio: {
+    maxMembers: 6, // 1 Propietario + 5 Empleados
+    maxAuxiliares: 5,
+    planName: "Plan Negocio",
+    description: "Hasta 6 usuarios (1 Propietario + 5 Colaboradores)",
+  },
+};
+
+/**
+ * Obtiene el límite máximo de miembros (propietario + empleados) para un plan dado.
+ */
+export function getPlanMaxEmployees(planKey: string | PlanId | null | undefined): number {
+  if (!planKey) return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers;
+  const key = planKey.toLowerCase();
+  if (key.includes("crece") || key.includes("pro")) {
+    return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers;
+  }
+  if (key.includes("negocio") || key.includes("enterprise")) {
+    return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers;
+  }
+  return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers;
+}
+
+/**
  * Catálogo Canónico de Planes Oficiales de NEGOVA (Precios Base)
  */
 export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
@@ -124,7 +181,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
     description: "Para pequeños comercios y negocios que quieren dejar atrás los cuadernos y organizar su operación diaria.",
     pricing: calculatePlanPricing(29900),
     limits: {
-      maxUsers: 2,
+      maxUsers: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers,
       maxProducts: 200,
       maxBranches: 1,
       canUsePos: true,
@@ -143,7 +200,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Ventas y caja",
         items: [
-          "Hasta 2 usuarios de acceso (Dueño y 1 colaborador)",
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers} usuarios de acceso (Dueño y ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxAuxiliares} colaborador)`,
           "Registro rápido de ventas",
           "Registro de gastos diarios",
           "Control básico de apertura y cierre de caja",
@@ -178,7 +235,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
     description: "Para negocios con movimiento constante que necesitan control de fiados, compras y estadísticas claras.",
     pricing: calculatePlanPricing(59900),
     limits: {
-      maxUsers: 3,
+      maxUsers: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
       maxProducts: 1000,
       maxBranches: 1,
       canUsePos: true,
@@ -197,7 +254,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Todo lo de Inicio, más:",
         items: [
-          "Hasta 3 usuarios de acceso",
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers} usuarios de acceso`,
           "Catálogo ampliado de hasta 1.000 productos",
           "Inventario con variantes y categorías",
           "Control de fiados y cuentas por cobrar a clientes",
@@ -227,7 +284,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
     description: "Para comercios consolidados con varios colaboradores que requieren roles, permisos y métricas avanzadas.",
     pricing: calculatePlanPricing(99900),
     limits: {
-      maxUsers: 6,
+      maxUsers: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers,
       maxProducts: 3000,
       maxBranches: 1,
       canUsePos: true,
@@ -244,7 +301,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Todo lo de Crece, más:",
         items: [
-          "Hasta 6 colaboradores con roles y permisos específicos",
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers} colaboradores con roles y permisos específicos`,
           "Catálogo extendido de hasta 3.000 productos",
           "Múltiples turnos y puntos de cobro dentro del local",
           "Reportes avanzados de márgenes y rentabilidad",

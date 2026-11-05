@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { UtensilsCrossed } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { getRestaurantOrdersSummaryAction } from "@/app/workspace/[businessId]/pedidos/actions";
 
 interface Props {
@@ -59,7 +59,7 @@ export function WorkspaceOrdersHeaderBadge({ businessId, canViewOrders }: Props)
       className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.06] transition-colors flex items-center justify-center"
       title="Acceso rápido a Pedidos"
     >
-      <UtensilsCrossed className="w-5 h-5" />
+      <ShoppingBag className="w-5 h-5" />
       {typeof pendingCount === "number" && pendingCount > 0 && (
         <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#ED500A] text-white text-[10px] font-black flex items-center justify-center animate-in zoom-in-50 shadow-xs">
           {pendingCount > 99 ? "99+" : pendingCount}

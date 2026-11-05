@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getPublicDigitalMenu } from "@/lib/menu/menu-service";
 import { TemplateRenderer } from "@/components/menu/template-renderer";
 import {
-  UtensilsCrossed,
+  ShoppingBag,
   Phone,
   MessageCircle,
   MapPin,
@@ -70,7 +70,7 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 mb-4 shadow-xl">
-          <UtensilsCrossed className="w-8 h-8" />
+          <ShoppingBag className="w-8 h-8" />
         </div>
         <h1 className="text-2xl font-black text-white">Menú no encontrado</h1>
         <p className="text-sm text-slate-400 mt-2 max-w-sm">

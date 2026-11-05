@@ -4,12 +4,13 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  UtensilsCrossed,
   ArrowLeft,
   Clock,
-  ChefHat,
   CheckCircle2,
   PackageCheck,
+  Boxes,
+  PackageOpen,
+  ClipboardList,
   XCircle,
   Calendar,
   Store,
@@ -29,6 +30,7 @@ import {
   Loader2,
   X,
   ChevronLeft,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
@@ -42,6 +44,7 @@ import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 import { OrderPaymentModal } from "@/components/payments/order-payment-modal";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
+import { PosKitchenTicketModal } from "@/components/pos/pos-kitchen-ticket-modal";
 import {
   updateRestaurantOrderStatusAction,
   cancelRestaurantOrderAction,
@@ -79,6 +82,7 @@ export function OrderDetailClient({
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
@@ -139,16 +143,16 @@ export function OrderDetailClient({
       case "in_preparation":
         return {
           label: "En preparación",
-          icon: ChefHat,
+          icon: Boxes,
           color: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
-          description: "La orden se encuentra actualmente en cocina o barra de elaboración.",
+          description: "La orden se encuentra actualmente en alistamiento o preparación.",
         };
       case "ready":
         return {
           label: "Listo",
           icon: CheckCircle2,
           color: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
-          description: "La orden está cocinada y lista para ser servida en mesa o empacada.",
+          description: "El pedido está listo para entrega o despacho.",
         };
       case "delivered":
         return {
@@ -162,7 +166,7 @@ export function OrderDetailClient({
           label: "Cancelado",
           icon: XCircle,
           color: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
-          description: "Esta comanda fue anulada operativamente.",
+          description: "Este pedido fue anulado operativamente.",
         };
       default:
         return {
@@ -178,8 +182,8 @@ export function OrderDetailClient({
     switch (type) {
       case "dine_in":
         return {
-          label: tableName ? `Consumo en Mesa: ${tableName}` : "Consumo en Mesa",
-          icon: UtensilsCrossed,
+          label: tableName ? `Consumo en local: ${tableName}` : "Consumo en local",
+          icon: Store,
           color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20",
         };
       case "takeout":
@@ -197,7 +201,7 @@ export function OrderDetailClient({
       default:
         return {
           label: type,
-          icon: UtensilsCrossed,
+          icon: Package,
           color: "text-slate-600 bg-slate-50 border-slate-200",
         };
     }
@@ -304,12 +308,22 @@ export function OrderDetailClient({
 
           <button
             type="button"
+            onClick={() => setIsKitchenModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/20 transition-colors cursor-pointer"
+            title="Visualizar e imprimir tiquete operativo de preparación"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Tique Operativo</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsTicketModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 transition-colors cursor-pointer"
-            title="Imprimir tiquete térmico"
+            title="Imprimir factura / tiquete comercial de venta"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Imprimir Tiquete</span>
+            <span className="hidden sm:inline">Factura / Tiquete</span>
           </button>
         </div>
       }
@@ -357,9 +371,9 @@ export function OrderDetailClient({
                       {order.status === "ready" ? (
                         <ChevronLeft className="w-4 h-4" />
                       ) : (
-                        <ChefHat className="w-4 h-4" />
+                        <PackageCheck className="w-4 h-4" />
                       )}
-                      <span>{order.status === "ready" ? "Regresar a Cocina" : "Confirmar Pedido (A Cocina)"}</span>
+                      <span>{order.status === "ready" ? "Regresar a Preparación" : "Pasar a Preparación"}</span>
                     </button>
 
                     {canCancelOrder && order.status === "received" && (
@@ -431,11 +445,11 @@ export function OrderDetailClient({
               <div className="p-4 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold">
-                    <UtensilsCrossed className="w-4 h-4" />
+                    <ShoppingBag className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Artículos de la Comanda
+                      Artículos del Pedido
                     </h4>
                     <span className="text-[11px] text-slate-400 font-mono">
                       {order.items?.length || 0} líneas registradas
@@ -536,7 +550,7 @@ export function OrderDetailClient({
                 {order.order_type === "dine_in" && (
                   <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5">
                     <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                      <UtensilsCrossed className="w-4 h-4" />
+                      <Store className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block font-mono">Ubicación asignada</span>
@@ -705,6 +719,42 @@ export function OrderDetailClient({
         />
 
         {/* MODAL DE TIQUETE TÉRMICO (58mm / 80mm) */}
+        {/* MODAL DE COMANDA DE COCINA OPERATIVA (EXCLUSIVAMENTE ÍTEMS, NOTAS Y CANTIDADES PARA PREPARACIÓN - CERO PRECIOS NI TOTALES) */}
+        <PosKitchenTicketModal
+          isOpen={isKitchenModalOpen}
+          onClose={() => setIsKitchenModalOpen(false)}
+          data={{
+            orderId: order.id,
+            orderNumber: order.order_number,
+            referenceName: order.customer_name || null,
+            serviceType:
+              order.order_type === "dine_in"
+                ? "COMER EN MESA"
+                : order.order_type === "delivery"
+                ? "DOMICILIO"
+                : "PARA LLEVAR",
+            tableName: order.tableName || null,
+            cashierName: (order as any).assigned_staff_name || (order as any).cashier_name || (order as any).waiter_name || null,
+            dinersCount: (order as any).diners_count || (order as any).diners || undefined,
+            createdAt: order.created_at,
+            generalNotes: order.notes || null,
+            items: (order.items || []).map((it) => ({
+              quantity: it.quantity,
+              name: it.product_name,
+              notes: it.notes,
+              modifiers: Array.isArray(it.modifiers)
+                ? it.modifiers.map((m: any) => {
+                    if (typeof m === "string") return m;
+                    if (m && typeof m === "object") {
+                      return m.optionName || m.name || m.label || Object.values(m).join(" ");
+                    }
+                    return String(m);
+                  })
+                : [],
+            })),
+          }}
+        />
+
         <ThermalTicketModal
           documentNumber={`ORD-${order.order_number}`}
           issuedAt={order.created_at}

@@ -1,4 +1,5 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { CENTRALIZED_PLAN_EMPLOYEE_LIMITS, getPlanMaxEmployees } from "@/config/plans";
 // Dynamic import of createClient inside getSupabase to avoid next/headers leakage
 
 export type LimitedResource =
@@ -37,7 +38,7 @@ export const RESOURCE_LABELS: Record<LimitedResource, string> = {
 export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   starter: {
     products: 50,
-    employees: 3,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers,
     locations: 1,
     registers: 1,
     recipes: 20,
@@ -46,7 +47,7 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   },
   inicio: {
     products: 50,
-    employees: 3,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers,
     locations: 1,
     registers: 1,
     recipes: 20,
@@ -55,7 +56,7 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   },
   professional: {
     products: 500,
-    employees: 15,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
     locations: 3,
     registers: 5,
     recipes: 200,
@@ -64,7 +65,7 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   },
   crece: {
     products: 500,
-    employees: 15,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
     locations: 3,
     registers: 5,
     recipes: 200,
@@ -73,7 +74,7 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   },
   enterprise: {
     products: -1,
-    employees: -1,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers,
     locations: -1,
     registers: -1,
     recipes: -1,
@@ -81,22 +82,22 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
     customers: -1,
   },
   negocio: {
-    products: -1,
-    employees: -1,
-    locations: -1,
-    registers: -1,
-    recipes: -1,
-    sales: -1,
-    customers: -1,
+    products: 3000,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers,
+    locations: 1,
+    registers: 10,
+    recipes: 500,
+    sales: 10000,
+    customers: 5000,
   },
   pro: {
-    products: -1,
-    employees: -1,
-    locations: -1,
-    registers: -1,
-    recipes: -1,
-    sales: -1,
-    customers: -1,
+    products: 3000,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers,
+    locations: 1,
+    registers: 10,
+    recipes: 500,
+    sales: 10000,
+    customers: 5000,
   },
 };
 
@@ -267,7 +268,7 @@ export async function getResourceCurrentCount(
 
     case "employees":
       return countRows(supabase, "business_users", (q) =>
-        q.eq("business_id", businessId).eq("status", "active")
+        q.eq("business_id", businessId).neq("status", "inactive")
       );
 
     case "locations":

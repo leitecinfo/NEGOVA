@@ -11,6 +11,8 @@ export type CustomerDirectoryTab =
   | "all"
   | "active"
   | "inactive"
+  | "individual"
+  | "business"
   | "with_discount"
   | "with_credit"
   | "receivable"
@@ -35,6 +37,8 @@ export interface Customer {
   id: string;
   businessId: string;
   fullName: string;
+  customerType?: "individual" | "business";
+  contactName?: string | null;
   phone?: string | null;
   normalizedPhone?: string | null;
   email?: string | null;
@@ -64,6 +68,8 @@ export interface CustomerSummaryItem {
   id: string;
   businessId: string;
   fullName: string;
+  customerType?: "individual" | "business";
+  contactName?: string | null;
   phone: string | null;
   email: string | null;
   taxId: string | null;
@@ -218,6 +224,8 @@ export interface CustomerFilterParams {
 
 export interface CreateCustomerInput {
   fullName: string;
+  customerType?: "individual" | "business";
+  contactName?: string | null;
   phone?: string | null;
   email?: string | null;
   taxId?: string | null;
@@ -229,6 +237,8 @@ export interface CreateCustomerInput {
 
 export interface UpdateCustomerInput {
   fullName?: string;
+  customerType?: "individual" | "business";
+  contactName?: string | null;
   phone?: string | null;
   email?: string | null;
   taxId?: string | null;

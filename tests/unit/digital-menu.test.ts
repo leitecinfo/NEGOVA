@@ -170,4 +170,60 @@ describe("NEGOVA — Módulo de Menú Digital", () => {
       expect(removedFiles.length).toBe(0);
     });
   });
+
+  describe("4. Galería de Imágenes Multivertical de Productos para Menú QR", () => {
+    it("debe extraer correctamente la lista unificada de imágenes con getProductImages", async () => {
+      const { getProductImages } = await import("@/lib/products/types");
+
+      // Caso 1: Sin imágenes
+      expect(getProductImages(null)).toEqual([]);
+      expect(getProductImages({})).toEqual([]);
+      expect(getProductImages({ image_url: "" })).toEqual([]);
+
+      // Caso 2: Producto histórico con 1 sola imagen
+      const singleImgProduct = {
+        name: "Camisa Oxford",
+        image_url: "https://ejemplo.com/camisa.jpg",
+      };
+      expect(getProductImages(singleImgProduct)).toEqual(["https://ejemplo.com/camisa.jpg"]);
+
+      // Caso 3: Producto con imagen principal y fotos secundarias
+      const multiImgProduct = {
+        name: "Taladro Percutor",
+        image_url: "https://ejemplo.com/taladro-frente.jpg",
+        metadata: {
+          gallery_images: [
+            "https://ejemplo.com/taladro-lateral.jpg",
+            "https://ejemplo.com/taladro-caja.jpg",
+          ],
+        },
+      };
+      const images = getProductImages(multiImgProduct);
+      expect(images).toHaveLength(3);
+      expect(images[0]).toBe("https://ejemplo.com/taladro-frente.jpg");
+      expect(images[1]).toBe("https://ejemplo.com/taladro-lateral.jpg");
+      expect(images[2]).toBe("https://ejemplo.com/taladro-caja.jpg");
+
+      // Caso 4: Deduplicación y tope máximo de 3 imágenes
+      const overflowProduct = {
+        name: "Lámpara de Mesa",
+        image_url: "https://ejemplo.com/lampara-1.jpg",
+        metadata: {
+          gallery_images: [
+            "https://ejemplo.com/lampara-1.jpg", // Duplicado de principal
+            "https://ejemplo.com/lampara-2.jpg",
+            "https://ejemplo.com/lampara-3.jpg",
+            "https://ejemplo.com/lampara-4.jpg", // Excede el límite de 3
+          ],
+        },
+      };
+      const cappedImages = getProductImages(overflowProduct);
+      expect(cappedImages).toHaveLength(3);
+      expect(cappedImages).toEqual([
+        "https://ejemplo.com/lampara-1.jpg",
+        "https://ejemplo.com/lampara-2.jpg",
+        "https://ejemplo.com/lampara-3.jpg",
+      ]);
+    });
+  });
 });

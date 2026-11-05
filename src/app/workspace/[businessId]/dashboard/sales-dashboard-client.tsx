@@ -11,7 +11,6 @@ import {
   Clock,
   ArrowRight,
   Store,
-  UtensilsCrossed,
   Bike,
   QrCode,
   Award,
@@ -143,7 +142,7 @@ export function SalesDashboardClient({
 
   const channelIcons: Record<SalesChannelType, React.ReactNode> = {
     mostrador: <Store className="w-4 h-4 text-blue-500" />,
-    mesa: <UtensilsCrossed className="w-4 h-4 text-amber-500" />,
+    mesa: <Store className="w-4 h-4 text-amber-500" />,
     domicilio: <Bike className="w-4 h-4 text-indigo-500" />,
     digital_menu: <QrCode className="w-4 h-4 text-purple-500" />,
   };

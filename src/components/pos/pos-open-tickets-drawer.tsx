@@ -13,10 +13,10 @@ import {
   Filter,
   ShoppingBag,
   Bike,
-  UtensilsCrossed,
   Receipt,
   Loader2,
   RefreshCw,
+  Store,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRestaurantOrdersListAction } from '@/app/workspace/[businessId]/pedidos/actions';
@@ -143,7 +143,7 @@ export function PosOpenTicketsDrawer({
       case 'DINE_IN':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            <UtensilsCrossed className="w-3 h-3" /> Mesa
+            <Store className="w-3 h-3" /> Mesa
           </span>
         );
       case 'TAKEOUT':
@@ -365,13 +365,13 @@ export function PosOpenTicketsDrawer({
                           ? 'Listo'
                           : ticket.status === 'PREPARING'
                           ? 'En preparación'
-                          : 'Pendiente'}
+                          : 'Por preparar'}
                       </span>
 
                       {ticket.paymentStatus === 'pending' ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            Por cobrar
+                            Pendiente de pago
                           </span>
                           <button
                             type="button"
@@ -379,14 +379,14 @@ export function PosOpenTicketsDrawer({
                               e.stopPropagation();
                               onPayTicket?.(ticket);
                             }}
-                            className="px-2 py-0.5 rounded bg-[#ED500A] hover:bg-[#d94608] active:bg-[#bf3d07] text-white font-bold text-[11px] flex items-center gap-0.5 shadow-xs transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#ED500A] hover:bg-[#d94608] active:bg-[#bf3d07] text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
                           >
-                            <DollarSign className="w-3 h-3" />
-                            <span>Cobrar</span>
+                            <DollarSign className="w-3.5 h-3.5" />
+                            <span>Confirmar pago</span>
                           </button>
                         </div>
                       ) : (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           Pagado
                         </span>
                       )}

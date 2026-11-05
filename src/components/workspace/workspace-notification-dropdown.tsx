@@ -12,7 +12,7 @@ import {
   CreditCard,
   Info,
   ArrowRight,
-  UtensilsCrossed,
+  ShoppingBag,
 } from "lucide-react";
 import {
   getWorkspaceNotificationsAction,
@@ -38,7 +38,7 @@ function getRelativeTime(dateString: string): string {
 function getNotificationIcon(type: string) {
   switch (type) {
     case "restaurant_order":
-      return <UtensilsCrossed className="w-4 h-4 text-[#ED500A]" />;
+      return <ShoppingBag className="w-4 h-4 text-[#ED500A]" />;
     case "support_interaction":
     case "support_ticket":
     case "support_chat":

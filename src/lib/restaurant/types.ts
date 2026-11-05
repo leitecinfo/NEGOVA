@@ -31,6 +31,22 @@ export interface RestaurantRoomWithTables extends RestaurantRoom {
   occupiedTablesCount: number;
 }
 
+// Shapes & Floor Plan Presets
+export type TableShape = "round" | "square" | "rectangle" | "bar";
+export type RoomShapePreset = "rectangle" | "square" | "l_shape" | "terrace";
+
+export interface TableLayoutPosition {
+  x: number; // percentage (0 - 100)
+  y: number; // percentage (0 - 100)
+  shape?: TableShape;
+  rotation?: number; // 0, 90, 180, 270
+}
+
+export interface RoomFloorPlanConfig {
+  roomShapePreset: RoomShapePreset;
+  tables: Record<string, TableLayoutPosition>; // key: tableId
+}
+
 // Tables
 export const RestaurantTableSchema = z.object({
   id: z.string().uuid(),
@@ -89,6 +105,7 @@ export interface CreateTableInput {
   room_id?: string | null;
   capacity?: number;
   sort_order?: number;
+  shape?: TableShape;
 }
 
 export interface UpdateTableInput {
@@ -96,6 +113,7 @@ export interface UpdateTableInput {
   room_id?: string | null;
   capacity?: number;
   sort_order?: number;
+  shape?: TableShape;
 }
 
 export interface TransferRestaurantTableInput {
@@ -132,6 +150,13 @@ export const RestaurantOrderSchema = z.object({
   driver_name: z.string().nullable().optional(),
   delivery_verification_code: z.string().nullable().optional(),
   delivery_verification_attempts: z.number().default(0).optional(),
+  assigned_staff_id: z.string().uuid().nullable().optional(),
+  assigned_staff_name: z.string().nullable().optional(),
+  assigned_staff_role: z.string().nullable().optional(),
+  pickup_code: z.string().nullable().optional(),
+  pickup_attempts: z.number().default(0).optional(),
+  pickup_confirmed_at: z.string().nullable().optional(),
+  pickup_confirmed_by: z.string().uuid().nullable().optional(),
   payment_status: PaymentStatusEnum.default("pending"),
   idempotency_key: z.string().nullable().optional(),
   idempotency_hash: z.string().nullable().optional(),
@@ -223,6 +248,10 @@ export interface CreateRestaurantOrderInput {
   driverId?: string | null;
   waiterName?: string | null;
   waiterId?: string | null;
+  assignedStaffId?: string | null;
+  assignedStaffName?: string | null;
+  assignedStaffRole?: string | null;
+  saveCustomerForFuture?: boolean;
   items: CreateOrderItemInput[];
   idempotencyKey?: string | null;
 }
@@ -259,6 +288,25 @@ export interface RestaurantOrderWithDetails extends RestaurantOrder {
   items?: RestaurantOrderItem[];
   deliveryVerificationCode?: string | null;
   deliveryVerificationAttempts?: number;
+  assignedStaffId?: string | null;
+  assignedStaffName?: string | null;
+  assignedStaffRole?: string | null;
+  pickupCode?: string | null;
+  pickupAttempts?: number;
+  pickupConfirmedAt?: string | null;
+  pickupConfirmedBy?: string | null;
+}
+
+export interface StaffMember {
+  id: string; // employee UUID o user UUID
+  userId?: string | null;
+  employeeId?: string | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  avatarUrl?: string | null;
+  roles: string[]; // Cargos asignados reales (ej. ["Cajero"], ["Mesero", "Domiciliario"])
+  isCurrentUser?: boolean;
 }
 
 export interface RestaurantOrdersListResult {

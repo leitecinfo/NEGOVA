@@ -28,8 +28,6 @@ import {
   Store,
   QrCode,
   Globe,
-  Apple,
-  ChefHat,
   Barcode,
   Pencil,
   Power,
@@ -42,6 +40,7 @@ import {
   List,
   X,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/scanner/barcode-scanner-modal";
 import {
@@ -51,6 +50,7 @@ import {
   isProductAvailableInPos,
   isProductAvailableInQr,
   isProductAvailableOnline,
+  resolveProductVerticalContext,
 } from "@/lib/products/types";
 import { formatCOP } from "@/lib/pos/types";
 import {
@@ -58,19 +58,12 @@ import {
   broadcastProductDelete,
   subscribeToCatalogUpdates,
 } from "@/lib/products/channel-sync";
-import { Location } from "@/lib/inventory/types";
 import { CommercialActivity } from "@/config/commercial-activities";
 import { ProductFormModal } from "./product-form-modal";
 import { CategoryManagerModal } from "./category-manager-modal";
 import { CategoriesTab } from "./categories-tab";
 import { ModifierGroupsTab } from "@/components/products/modifiers/modifier-groups-tab";
-import { CatalogInventoryTab } from "./catalog-inventory-tab";
 import { ProductImportModal } from "./product-import-modal";
-import { SpoilageTab } from "./spoilage-tab";
-import { IngredientsTab } from "../recetas/ingredients-tab";
-import { RecipesTab } from "../recetas/recipes-tab";
-import { InventoryMovementModal } from "./inventory-movement-modal";
-import { getInventoryLocationsAction } from "./inventory-actions";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   EmptyState,
@@ -114,20 +107,8 @@ export function ProductsManagerClient({
     handleRefreshCategories();
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"products" | "categories" | "modifiers" | "ingredients" | "recipes" | "inventory" | "spoilage">("products");
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [locations, setLocations] = useState<Location[]>([]);
-
-  const handleRefreshLocations = async () => {
-    const res = await getInventoryLocationsAction(businessId);
-    if (res.success && res.data) {
-      setLocations(res.data);
-    }
-  };
-
-  React.useEffect(() => {
-    handleRefreshLocations();
-  }, [businessId]);
+  // Únicamente las 3 pestañas autorizadas para el módulo de Productos
+  const [activeTab, setActiveTab] = useState<"products" | "categories" | "modifiers">("products");
 
   // Suscripción en tiempo real para cambios de productos y canales (CAT-005)
   React.useEffect(() => {
@@ -153,12 +134,15 @@ export function ProductsManagerClient({
     return unsubscribe;
   }, [businessId]);
 
+  const verticalCtx = useMemo(
+    () => resolveProductVerticalContext(businessType, commercialActivities),
+    [businessType, commercialActivities]
+  );
+
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "simple" | "recipe" | "service">("all");
   const [variantsFilter, setVariantsFilter] = useState<"all" | "with_variants" | "without_variants">("all");
-  const [recipeFilter, setRecipeFilter] = useState<"all" | "with_recipe" | "without_recipe">("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -364,12 +348,27 @@ export function ProductsManagerClient({
   const kpiStockBajo = useMemo(() => {
     return commercialProducts.filter((p) => {
       const meta = (p.metadata || {}) as Record<string, any>;
-      if (!meta.track_stock) return false;
+      // Solo productos que controlan stock físico directo y no sean de tipo servicio
+      if (!meta.track_stock || meta.product_type === "service") return false;
       const stock = Number(meta.stock_quantity ?? 0);
       const minStock = typeof meta.min_stock === "number" ? meta.min_stock : 5;
       return stock <= minStock;
     }).length;
   }, [commercialProducts]);
+
+  const handleDuplicateProduct = (product: Product) => {
+    const meta = { ...((product.metadata || {}) as Record<string, any>) };
+    delete meta.sku;
+    delete meta.barcode;
+    const duplicatedProduct: Product = {
+      ...product,
+      id: "", // Cadena vacía para indicar que es un nuevo producto al guardar
+      name: `${product.name} (Copia)`,
+      metadata: meta as any,
+    };
+    setEditingProduct(duplicatedProduct);
+    setIsProductModalOpen(true);
+  };
 
   const filteredProducts = useMemo(() => {
     return commercialProducts.filter((p) => {
@@ -412,28 +411,11 @@ export function ProductsManagerClient({
         if (p.is_available && p.status !== "inactive") return false;
       }
 
-      // 4. Tipo de producto
-      const isService = meta.product_type === "service";
-      const hasRecipe = Boolean(
-        meta.has_recipe ||
-        meta.recipe_id ||
-        meta.product_type === "recipe" ||
-        meta.product_type === "composite"
-      );
-
-      if (typeFilter === "service" && !isService) return false;
-      if (typeFilter === "recipe" && !hasRecipe) return false;
-      if (typeFilter === "simple" && (isService || hasRecipe)) return false;
-
-      // 5. Variantes
+      // 4. Variantes
       const pVariants = Array.isArray(meta.variants) ? meta.variants : [];
       const hasVariants = Boolean(meta.has_variants || pVariants.length > 0);
       if (variantsFilter === "with_variants" && !hasVariants) return false;
       if (variantsFilter === "without_variants" && hasVariants) return false;
-
-      // 6. Botones Con receta / Sin receta
-      if (recipeFilter === "with_recipe" && !hasRecipe) return false;
-      if (recipeFilter === "without_recipe" && hasRecipe) return false;
 
       return true;
     });
@@ -442,9 +424,7 @@ export function ProductsManagerClient({
     search,
     selectedCategory,
     statusFilter,
-    typeFilter,
     variantsFilter,
-    recipeFilter,
     categories,
   ]);
 
@@ -452,18 +432,14 @@ export function ProductsManagerClient({
     search.trim() !== "" ||
     selectedCategory !== "all" ||
     statusFilter !== "all" ||
-    typeFilter !== "all" ||
-    variantsFilter !== "all" ||
-    recipeFilter !== "all"
+    variantsFilter !== "all"
   );
 
   const handleResetFilters = () => {
     setSearch("");
     setSelectedCategory("all");
     setStatusFilter("all");
-    setTypeFilter("all");
     setVariantsFilter("all");
-    setRecipeFilter("all");
     setCurrentPage(1);
   };
 
@@ -566,18 +542,18 @@ export function ProductsManagerClient({
 
   return (
     <div className="space-y-6">
-      {/* PESTAÑAS PRINCIPALES DEL MÓDULO (CATÁLOGO / INVENTARIO / MERMAS) */}
+      {/* PESTAÑAS PRINCIPALES DEL MÓDULO (PRODUCTOS / CATEGORÍAS / MODIFICADORES) */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-1 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab("products")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             activeTab === "products"
               ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20"
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
           }`}
         >
           <Package className="w-4 h-4" />
-          <span>Productos ({filteredProducts.length})</span>
+          <span>Productos</span>
           <span className="ml-1 text-2xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 font-bold">
             {filteredProducts.length}
           </span>
@@ -599,18 +575,6 @@ export function ProductsManagerClient({
         </button>
 
         <button
-          onClick={() => setActiveTab("inventory")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
-            activeTab === "inventory"
-              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-          }`}
-        >
-          <Boxes className="w-4 h-4 text-[#ED500A]" />
-          <span>Inventario</span>
-        </button>
-
-        <button
           onClick={() => setActiveTab("modifiers")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             activeTab === "modifiers"
@@ -621,42 +585,6 @@ export function ProductsManagerClient({
           <Layers className="w-4 h-4 text-purple-500" />
           <span>Modificadores</span>
         </button>
-
-        <button
-          onClick={() => setActiveTab("ingredients")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "ingredients"
-              ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-          }`}
-        >
-          <Apple className="w-4 h-4 text-emerald-500" />
-          <span>Ingredientes e Insumos</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("recipes")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "recipes"
-              ? "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-          }`}
-        >
-          <ChefHat className="w-4 h-4 text-amber-500" />
-          <span>Recetas y Escandallos</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("spoilage")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "spoilage"
-              ? "bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4 text-rose-500" />
-          <span>Mermas</span>
-        </button>
       </div>
 
       {activeTab === "categories" ? (
@@ -666,25 +594,12 @@ export function ProductsManagerClient({
           products={products}
           onCategoriesChange={handleRefreshCategories}
         />
-      ) : activeTab === "inventory" ? (
-        <CatalogInventoryTab
-          businessId={businessId}
-          products={products}
-          categories={categories}
-          onRefresh={handleRefreshCategories}
-        />
       ) : activeTab === "modifiers" ? (
         <ModifierGroupsTab
           businessId={businessId}
           categories={categories}
           products={products}
         />
-      ) : activeTab === "ingredients" ? (
-        <IngredientsTab businessId={businessId} locations={locations} />
-      ) : activeTab === "recipes" ? (
-        <RecipesTab businessId={businessId} locations={locations} />
-      ) : activeTab === "spoilage" ? (
-        <SpoilageTab businessId={businessId} products={products} />
       ) : (
         <div className="space-y-5">
           {/* 1. KPIS SUPERIORES */}
@@ -802,14 +717,6 @@ export function ProductsManagerClient({
               </button>
 
               <button
-                onClick={() => setActiveTab("categories")}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-              >
-                <FolderKanban className="w-3.5 h-3.5 text-[#ED500A]" />
-                <span>Categorías</span>
-              </button>
-
-              <button
                 onClick={() => {
                   setEditingProduct(null);
                   setIsProductModalOpen(true);
@@ -894,21 +801,6 @@ export function ProductsManagerClient({
                 <option value="inactive">Inactivos ({kpiInactivos})</option>
               </select>
 
-              {/* Tipo */}
-              <select
-                value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value as any);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden cursor-pointer"
-              >
-                <option value="all">Todos los tipos</option>
-                <option value="simple">Simple / Estándar</option>
-                <option value="recipe">Con receta (Compuesto)</option>
-                <option value="service">Servicio</option>
-              </select>
-
               {/* Variantes */}
               <select
                 value={variantsFilter}
@@ -922,52 +814,13 @@ export function ProductsManagerClient({
                 <option value="with_variants">Con variantes</option>
                 <option value="without_variants">Sin variantes</option>
               </select>
-            </div>
-
-            {/* Fila de Botones: 'Con receta', 'Sin receta', 'Limpiar filtros' */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.04] flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-400 mr-1">Filtros rápidos:</span>
-
-              {/* Botón 'Con receta' */}
-              <button
-                type="button"
-                onClick={() => {
-                  setRecipeFilter((prev) => (prev === "with_recipe" ? "all" : "with_recipe"));
-                  setCurrentPage(1);
-                }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  recipeFilter === "with_recipe"
-                    ? "bg-amber-500 text-white shadow-2xs font-bold"
-                    : "bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-white/[0.06]"
-                }`}
-              >
-                <ChefHat className="w-3.5 h-3.5" />
-                <span>Con receta</span>
-              </button>
-
-              {/* Botón 'Sin receta' */}
-              <button
-                type="button"
-                onClick={() => {
-                  setRecipeFilter((prev) => (prev === "without_recipe" ? "all" : "without_recipe"));
-                  setCurrentPage(1);
-                }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  recipeFilter === "without_recipe"
-                    ? "bg-amber-500 text-white shadow-2xs font-bold"
-                    : "bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-white/[0.06]"
-                }`}
-              >
-                <Package className="w-3.5 h-3.5" />
-                <span>Sin receta</span>
-              </button>
 
               {/* Botón 'Limpiar filtros' */}
               {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors ml-auto cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 border border-rose-200/60 dark:border-rose-500/20 transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Limpiar filtros</span>
@@ -1029,10 +882,11 @@ export function ProductsManagerClient({
                 handleRefreshCategories();
                 setActiveTab("categories");
               }}
-              className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 border border-dashed border-slate-300 dark:border-white/[0.12] text-slate-500 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] rounded-xl text-xs font-medium hover:border-[#ED500A]/40 transition-colors cursor-pointer"
+              title="Administrar categorías del catálogo"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-slate-300 dark:border-white/[0.12] text-slate-500 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] rounded-xl text-xs font-medium hover:border-[#ED500A]/40 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Gestionar</span>
+              <FolderKanban className="w-3.5 h-3.5" />
+              <span>Administrar categorías</span>
             </button>
           </div>
 
@@ -1075,7 +929,6 @@ export function ProductsManagerClient({
                       <th className="py-3 px-4 min-w-[220px]">Nombre</th>
                       <th className="py-3 px-3">SKU</th>
                       <th className="py-3 px-3">Categoría</th>
-                      <th className="py-3 px-3">Tipo</th>
                       <th className="py-3 px-3">Variantes</th>
                       <th className="py-3 px-3">Stock</th>
                       <th className="py-3 px-3 text-right">Costo</th>
@@ -1094,13 +947,7 @@ export function ProductsManagerClient({
                         ? Math.min(...productVariants.map((v: any) => Number(v.price) || 0))
                         : null;
 
-                      const isService = meta.product_type === "service";
-                      const hasRecipe = Boolean(
-                        meta.has_recipe ||
-                        meta.recipe_id ||
-                        meta.product_type === "recipe" ||
-                        meta.product_type === "composite"
-                      );
+                      const hasRecipe = Boolean(meta.has_recipe || meta.recipe_id);
 
                       const rawCost = Number(meta.cost ?? meta.average_cost ?? (product as any).cost_price ?? 0);
                       const orderNumber = (safeCurrentPage - 1) * pageSize + idx + 1;
@@ -1199,27 +1046,7 @@ export function ProductsManagerClient({
                             </span>
                           </td>
 
-                          {/* 5. Tipo */}
-                          <td className="py-3 px-3">
-                            {isService ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                                <Sparkles className="w-2.5 h-2.5" />
-                                <span>Servicio</span>
-                              </span>
-                            ) : hasRecipe ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                <ChefHat className="w-2.5 h-2.5" />
-                                <span>Con receta</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-white/[0.06]">
-                                <Package className="w-2.5 h-2.5" />
-                                <span>Simple</span>
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 6. Variantes */}
+                          {/* 5. Variantes */}
                           <td className="py-3 px-3">
                             {hasVariants ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-orange-50 dark:orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200/60 dark:border-orange-500/20">
@@ -1324,6 +1151,16 @@ export function ProductsManagerClient({
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
 
+                              {/* Duplicar */}
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateProduct(product)}
+                                title="Duplicar producto"
+                                className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+
                               {/* Desactivar / Activar */}
                               <button
                                 type="button"
@@ -1400,6 +1237,13 @@ export function ProductsManagerClient({
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            onClick={() => handleDuplicateProduct(product)}
+                            className="p-1.5 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
+                            title="Duplicar producto"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
 
@@ -1466,14 +1310,15 @@ export function ProductsManagerClient({
                         )}
                       </div>
 
-                      {/* Canales */}
+                      {/* Canales de Venta (Contextuales al Vertical) */}
                       <div className="mt-3 pt-2.5 border-t border-slate-100/80 dark:border-white/[0.04] flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Canales:</span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleToggleChannel(product, "pos", isProductAvailableInPos(product))}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                            title={isProductAvailableInPos(product) ? "Disponible en POS / Caja" : "Oculto en POS / Caja"}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
                               isProductAvailableInPos(product)
                                 ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A]/30"
                                 : "bg-slate-100 dark:bg-white/[0.03] text-slate-400 line-through opacity-70"
@@ -1481,28 +1326,20 @@ export function ProductsManagerClient({
                           >
                             POS
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleChannel(product, "qr", isProductAvailableInQr(product))}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
-                              isProductAvailableInQr(product)
-                                ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A]/30"
-                                : "bg-slate-100 dark:bg-white/[0.03] text-slate-400 line-through opacity-70"
-                            }`}
-                          >
-                            QR
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleChannel(product, "online", isProductAvailableOnline(product))}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
-                              isProductAvailableOnline(product)
-                                ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A]/30"
-                                : "bg-slate-100 dark:bg-white/[0.03] text-slate-400 line-through opacity-70"
-                            }`}
-                          >
-                            WEB
-                          </button>
+                          {verticalCtx.availableChannels.includes("qr") && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleChannel(product, "qr", isProductAvailableInQr(product))}
+                              title={isProductAvailableInQr(product) ? "Visible en Menú QR" : "Oculto en Menú QR"}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                                isProductAvailableInQr(product)
+                                  ? "bg-[#ED500A]/10 text-[#ED500A] border-[#ED500A]/30"
+                                  : "bg-slate-100 dark:bg-white/[0.03] text-slate-400 line-through opacity-70"
+                              }`}
+                            >
+                              QR
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1698,19 +1535,6 @@ export function ProductsManagerClient({
           handleRefreshCategories();
           router.refresh();
         }}
-      />
-
-      {/* Modal de Movimiento de Inventario Manual */}
-      <InventoryMovementModal
-        businessId={businessId}
-        isOpen={isMovementModalOpen}
-        onClose={() => setIsMovementModalOpen(false)}
-        onSuccess={() => {
-          handleRefreshLocations();
-          router.refresh();
-        }}
-        products={products}
-        locations={locations}
       />
 
       {/* Modal de Confirmación para Archivar Producto */}

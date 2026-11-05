@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Receipt, Users, Award, Boxes, TrendingDown, Flame, Bike, ChefHat } from "lucide-react";
+import { BarChart3, Receipt, Users, Award, Boxes, TrendingDown, Flame, Bike, FileSpreadsheet } from "lucide-react";
 
 interface ReportNavTabsProps {
   businessId: string;
@@ -65,7 +65,7 @@ export function ReportNavTabs({ businessId }: ReportNavTabsProps) {
     {
       id: "recetas",
       label: "Recetas y Costos",
-      icon: ChefHat,
+      icon: FileSpreadsheet,
       href: `/workspace/${businessId}/reportes/recetas`,
       active: pathname.includes("/reportes/recetas"),
     },

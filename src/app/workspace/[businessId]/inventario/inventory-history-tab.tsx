@@ -10,7 +10,6 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ShoppingCart,
-  UtensilsCrossed,
   Bike,
   RotateCcw,
   Layers,
@@ -23,6 +22,7 @@ import {
   FileText,
   Tag,
   Warehouse,
+  Store,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -163,7 +163,7 @@ export function InventoryHistoryTab({
           label: "Mesa",
           badgeClass:
             "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
-          icon: <UtensilsCrossed className="w-3 h-3 text-amber-500 shrink-0" />,
+          icon: <Store className="w-3 h-3 text-amber-500 shrink-0" />,
         };
       case "Domicilio":
         return {

@@ -211,17 +211,10 @@ export function CloseCashShiftModal({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-                      <span>Ventas Tarjeta:</span>
-                      <span className="font-mono font-semibold">
-                        {formatCop(summary?.totalSalesCard || 0)}
-                      </span>
-                    </div>
-
                     <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400">
-                      <span>Ventas Digitales:</span>
+                      <span>Ventas Digitales / Transferencias:</span>
                       <span className="font-mono font-semibold">
-                        {formatCop(summary?.totalSalesDigital || 0)}
+                        {formatCop((summary?.totalSalesCard || 0) + (summary?.totalSalesDigital || 0))}
                       </span>
                     </div>
 

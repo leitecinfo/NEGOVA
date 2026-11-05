@@ -142,6 +142,8 @@ async function buildModifierGroups(
       id: g.id,
       business_id: g.business_id,
       name: g.name,
+      description: g.description || null,
+      commercial_type: (g.commercial_type as any) || "additional",
       required: Boolean(g.required),
       selection_type: selectionType,
       min_select: minSelect,
@@ -197,18 +199,42 @@ export async function createModifierGroup(
   const minSelect = parsed.required ? Math.max(1, parsed.min_select) : parsed.min_select;
 
   // 1. Insertar el grupo en product_option_groups
-  const { data: newGroup, error: groupError } = await supabase
+  const groupPayload: Record<string, any> = {
+    business_id: businessId,
+    name: parsed.name,
+    required: parsed.required,
+    min_selections: minSelect,
+    max_selections: maxSelect,
+    sort_order: parsed.sort_order ?? 0,
+    commercial_type: parsed.commercial_type || "additional",
+  };
+  if (parsed.description) {
+    groupPayload.description = parsed.description;
+  }
+
+  let newGroup: any = null;
+  let groupError: any = null;
+
+  const initialInsert = await supabase
     .from("product_option_groups")
-    .insert({
-      business_id: businessId,
-      name: parsed.name,
-      required: parsed.required,
-      min_selections: minSelect,
-      max_selections: maxSelect,
-      sort_order: parsed.sort_order ?? 0,
-    })
+    .insert(groupPayload)
     .select()
     .single();
+
+  if (initialInsert.error && (initialInsert.error.message?.includes("column") || initialInsert.error.code === "42703")) {
+    delete groupPayload.commercial_type;
+    delete groupPayload.description;
+    const fallbackInsert = await supabase
+      .from("product_option_groups")
+      .insert(groupPayload)
+      .select()
+      .single();
+    newGroup = fallbackInsert.data;
+    groupError = fallbackInsert.error;
+  } else {
+    newGroup = initialInsert.data;
+    groupError = initialInsert.error;
+  }
 
   if (groupError || !newGroup) {
     console.error("[createModifierGroup] Error al insertar grupo:", groupError);
@@ -297,16 +323,29 @@ export async function updateModifierGroup(
 
   if (input.name !== undefined) updates.name = input.name;
   if (input.required !== undefined) updates.required = input.required;
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.commercial_type !== undefined) updates.commercial_type = input.commercial_type;
   if (minSelect !== undefined) updates.min_selections = minSelect;
   if (maxSelect !== undefined) updates.max_selections = maxSelect;
   if (input.sort_order !== undefined) updates.sort_order = input.sort_order;
 
   // 1. Actualizar grupo
-  const { error: updateError } = await supabase
+  let { error: updateError } = await supabase
     .from("product_option_groups")
     .update(updates)
     .eq("id", groupId)
     .eq("business_id", businessId);
+
+  if (updateError && (updateError.message?.includes("column") || updateError.code === "42703")) {
+    delete updates.description;
+    delete updates.commercial_type;
+    const retry = await supabase
+      .from("product_option_groups")
+      .update(updates)
+      .eq("id", groupId)
+      .eq("business_id", businessId);
+    updateError = retry.error;
+  }
 
   if (updateError) {
     throw new Error(`Error al actualizar el grupo de modificadores: ${updateError.message}`);
@@ -667,14 +706,22 @@ export async function syncProductMetadataModifierGroups(
     const snapshot = assignedGroups.map((g) => ({
       id: g.id,
       name: g.name,
+      description: g.description || null,
+      commercial_type: g.commercial_type || "additional",
+      type: g.commercial_type || "additional",
       required: g.required,
+      selection_type: g.selection_type,
       min_select: g.min_select,
       max_select: g.max_select,
+      status: g.status,
+      sort_order: g.sort_order ?? 0,
       options: g.options.map((opt) => ({
         id: opt.id,
         name: opt.name,
         price: opt.price,
+        status: opt.status || "active",
         is_available: opt.status === "active",
+        sort_order: opt.sort_order ?? 0,
       })),
     }));
 
@@ -706,6 +753,118 @@ export async function syncProductMetadataModifierGroups(
 }
 
 /**
+ * Asigna una lista de productos a un grupo de modificadores existente.
+ */
+export async function assignProductsToGroup(
+  businessId: string,
+  groupId: string,
+  productIds: string[]
+): Promise<void> {
+  const supabase = await getSupabase();
+  const uniqueProductIds = Array.from(new Set(productIds));
+  if (uniqueProductIds.length === 0) return;
+
+  // Consultar vínculos ya existentes para no duplicar
+  const { data: existingLinks } = await supabase
+    .from("product_option_groups_products")
+    .select("product_id")
+    .eq("option_group_id", groupId)
+    .eq("business_id", businessId);
+
+  const existingSet = new Set((existingLinks || []).map((l: any) => l.product_id));
+  const toAdd = uniqueProductIds.filter((pId) => !existingSet.has(pId));
+
+  if (toAdd.length > 0) {
+    const rows = toAdd.map((pId) => ({
+      product_id: pId,
+      option_group_id: groupId,
+      business_id: businessId,
+    }));
+    await supabase.from("product_option_groups_products").insert(rows);
+  }
+
+  await syncProductMetadataModifierGroups(businessId, toAdd);
+}
+
+/**
+ * Retira la asignación de un producto de un grupo de modificadores
+ * sin eliminar la configuración del grupo ni sus opciones.
+ */
+export async function unassignProductFromGroup(
+  businessId: string,
+  groupId: string,
+  productId: string
+): Promise<void> {
+  const supabase = await getSupabase();
+  await supabase
+    .from("product_option_groups_products")
+    .delete()
+    .eq("option_group_id", groupId)
+    .eq("product_id", productId)
+    .eq("business_id", businessId);
+
+  await syncProductMetadataModifierGroups(businessId, [productId]);
+}
+
+/**
+ * Sincroniza los grupos de modificadores asignados a un producto específico.
+ * Crea los vínculos relacionales faltantes y elimina los que ya no están asignados,
+ * asegurando la fuente de verdad en product_option_groups_products y sincronizando metadata.
+ */
+export async function syncProductModifierGroupLinks(
+  businessId: string,
+  productId: string,
+  groupIds: string[]
+): Promise<void> {
+  const supabase = await getSupabase();
+  const validGroupIds = Array.from(new Set(groupIds.filter(Boolean)));
+
+  // Consultar vínculos actuales para este producto
+  const { data: currentLinks } = await supabase
+    .from("product_option_groups_products")
+    .select("option_group_id")
+    .eq("product_id", productId)
+    .eq("business_id", businessId);
+
+  const currentGroupSet = new Set((currentLinks || []).map((l: any) => l.option_group_id));
+  const targetGroupSet = new Set(validGroupIds);
+
+  // Vínculos a eliminar
+  const toDelete = Array.from(currentGroupSet).filter((gId) => !targetGroupSet.has(gId));
+  if (toDelete.length > 0) {
+    await supabase
+      .from("product_option_groups_products")
+      .delete()
+      .eq("product_id", productId)
+      .eq("business_id", businessId)
+      .in("option_group_id", toDelete);
+  }
+
+  // Vínculos a añadir
+  const toAdd = validGroupIds.filter((gId) => !currentGroupSet.has(gId));
+  if (toAdd.length > 0) {
+    const { data: existingGroups } = await supabase
+      .from("product_option_groups")
+      .select("id")
+      .eq("business_id", businessId)
+      .in("id", toAdd);
+
+    const validIdsToAdd = (existingGroups || []).map((g: any) => g.id);
+    if (validIdsToAdd.length > 0) {
+      const rows = validIdsToAdd.map((gId) => ({
+        product_id: productId,
+        option_group_id: gId,
+        business_id: businessId,
+      }));
+      await supabase.from("product_option_groups_products").insert(rows);
+    }
+  }
+
+  await syncProductMetadataModifierGroups(businessId, [productId]);
+}
+
+
+/**
  * Si el comercio tenía modificadores configurados individualmente en la metadata de sus productos
  * pero aún no los tenía en las tablas normalizadas, este asistente los detecta e importa automáticamente.
  */
@@ -725,6 +884,8 @@ async function autoMigrateProductMetadataModifiers(businessId: string): Promise<
       string,
       {
         name: string;
+        description?: string | null;
+        commercial_type: string;
         required: boolean;
         min_select: number;
         max_select: number;
@@ -745,6 +906,8 @@ async function autoMigrateProductMetadataModifiers(businessId: string): Promise<
         if (!groupEntry) {
           groupEntry = {
             name: g.name.trim(),
+            description: g.description || null,
+            commercial_type: g.commercial_type || g.type || "additional",
             required: Boolean(g.required),
             min_select: Number(g.min_select ?? (g.required ? 1 : 0)),
             max_select: Number(g.max_select ?? 1),
@@ -775,18 +938,33 @@ async function autoMigrateProductMetadataModifiers(businessId: string): Promise<
 
     // Insertar los grupos encontrados
     for (const groupData of groupMap.values()) {
-      const { data: insertedGroup } = await supabase
+      const insertData: Record<string, any> = {
+        business_id: businessId,
+        name: groupData.name,
+        required: groupData.required,
+        min_selections: groupData.min_select,
+        max_selections: groupData.max_select,
+        commercial_type: groupData.commercial_type || "additional",
+      };
+      if (groupData.description) insertData.description = groupData.description;
+
+      let insertedGroupRes = await supabase
         .from("product_option_groups")
-        .insert({
-          business_id: businessId,
-          name: groupData.name,
-          required: groupData.required,
-          min_selections: groupData.min_select,
-          max_selections: groupData.max_select,
-        })
+        .insert(insertData)
         .select()
         .single();
 
+      if (insertedGroupRes.error) {
+        delete insertData.commercial_type;
+        delete insertData.description;
+        insertedGroupRes = await supabase
+          .from("product_option_groups")
+          .insert(insertData)
+          .select()
+          .single();
+      }
+
+      const insertedGroup = insertedGroupRes.data;
       if (!insertedGroup) continue;
 
       // Insertar opciones

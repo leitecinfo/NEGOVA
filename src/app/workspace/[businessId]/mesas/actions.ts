@@ -21,6 +21,7 @@ import {
   getTableSalesAndTipsReport,
 } from "@/lib/restaurant/restaurant-service";
 import type {
+  RestaurantTable,
   RestaurantTableWithOrder,
   RestaurantTablesSummary,
   CreateTableInput,
@@ -86,7 +87,7 @@ export async function getRestaurantTablesWithOrdersAction(
 export async function createRestaurantTableAction(
   businessId: string,
   input: CreateTableInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; table?: RestaurantTable; error?: string }> {
   let auth = await verifyWorkspaceAction(businessId, "tables.create");
   if (!auth.success) {
     auth = await verifyWorkspaceAction(businessId, "tables.manage");
@@ -109,7 +110,7 @@ export async function createRestaurantTableAction(
     revalidatePath(`/workspace/${businessId}/pos`);
   }
 
-  return { success: res.success, error: res.error };
+  return { success: res.success, table: res.table, error: res.error };
 }
 
 /**
@@ -119,7 +120,7 @@ export async function updateRestaurantTableAction(
   businessId: string,
   tableId: string,
   input: UpdateTableInput
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; table?: RestaurantTable; error?: string }> {
   let auth = await verifyWorkspaceAction(businessId, "tables.update");
   if (!auth.success) {
     auth = await verifyWorkspaceAction(businessId, "tables.manage");
@@ -142,7 +143,7 @@ export async function updateRestaurantTableAction(
     revalidatePath(`/workspace/${businessId}/pos`);
   }
 
-  return { success: res.success, error: res.error };
+  return { success: res.success, table: res.table, error: res.error };
 }
 
 /**

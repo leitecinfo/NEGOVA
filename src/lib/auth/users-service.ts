@@ -17,7 +17,7 @@ import {
   RoleScope,
   PlatformRoleCode,
 } from "./permissions";
-import { NEGOVA_PLANS, PlanId } from "@/config/plans";
+import { NEGOVA_PLANS, PlanId, CENTRALIZED_PLAN_EMPLOYEE_LIMITS, getPlanMaxEmployees } from "@/config/plans";
 import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
 
 export type UserType = "platform" | "business";
@@ -86,6 +86,7 @@ export interface UserModel {
   effectivePermissions?: string[];
   hasSecurityPin?: boolean;
   securityPinUpdatedAt?: string | null;
+  cargos?: string[];
 }
 
 export interface UserListFilters {
@@ -123,6 +124,7 @@ export interface CreateUserInput {
   businessId?: string;
   password?: string;
   mustChangePassword?: boolean;
+  cargos?: string[];
 }
 
 /**
@@ -474,6 +476,17 @@ export async function getUserDetail(userId: string): Promise<{
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // 5.5 Consultar cargos operativos asignados si pertenece a un negocio [CARGOS-001]
+  let userCargos: string[] = [];
+  if (memberships.length > 0) {
+    try {
+      const { getUserCargos } = await import("./cargos-service");
+      userCargos = await getUserCargos(memberships[0].businessId, userId);
+    } catch (e) {
+      console.warn("[getUserDetail Cargos Warning]:", e);
+    }
+  }
+
   const userModel: UserModel = {
     id: dbUser.id,
     email: dbUser.email || authUser?.email || "",
@@ -489,6 +502,7 @@ export async function getUserDetail(userId: string): Promise<{
     createdAt: dbUser.created_at || authUser?.created_at || new Date().toISOString(),
     updatedAt: dbUser.updated_at || authUser?.updated_at || new Date().toISOString(),
     businessMemberships: memberships,
+    cargos: userCargos,
     primaryRole: {
       code: primaryRoleCode,
       name: roleMeta.name,
@@ -536,29 +550,29 @@ export async function checkBusinessPlanUserCapacity(businessId: string): Promise
     .limit(1)
     .maybeSingle();
 
-  // 2. Determinar plan y límites desde la fuente central de verdad (src/config/plans.ts)
+  // 2. Determinar plan y límites desde la fuente centralizada de verdad (CENTRALIZED_PLAN_EMPLOYEE_LIMITS)
   let planKey: PlanId = "inicio";
-  let planName = "Plan Inicio";
-  let maxUsers = NEGOVA_PLANS.inicio.limits.maxUsers;
+  let planName = CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.planName;
+  let maxUsers = CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers;
 
   if (subscription?.plans) {
     const planObj = subscription.plans as any;
     const codeLower = (planObj.code || "").toLowerCase();
     if (codeLower.includes("crece")) {
       planKey = "crece";
-    } else if (codeLower.includes("negocio")) {
+    } else if (codeLower.includes("negocio") || codeLower.includes("enterprise")) {
       planKey = "negocio";
     } else {
       planKey = "inicio";
     }
-    const configPlan = NEGOVA_PLANS[planKey];
-    planName = configPlan?.name || planObj.name || "Inicio";
-    maxUsers = configPlan?.limits?.maxUsers || (planObj.limits?.maxUsers ?? 2);
+    const configPlan = CENTRALIZED_PLAN_EMPLOYEE_LIMITS[planKey];
+    planName = configPlan?.planName || planObj.name || "Inicio";
+    maxUsers = getPlanMaxEmployees(planKey);
   } else {
     // Si no tiene suscripción registrada, aplica tier base (Inicio)
-    const basePlan = NEGOVA_PLANS.inicio;
-    planName = basePlan.name;
-    maxUsers = basePlan.limits.maxUsers;
+    const basePlan = CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio;
+    planName = basePlan.planName;
+    maxUsers = basePlan.maxMembers;
   }
 
   // 3. Contar miembros actuales en el negocio
@@ -674,7 +688,16 @@ export async function createUser(
           };
         }
 
+        // Asignar cargos operativos al vincular usuario existente [CARGOS-001]
+        if (input.cargos && input.cargos.length > 0) {
+          const { saveUserCargos } = await import("@/lib/auth/cargos-service");
+          await saveUserCargos(input.businessId, existingUser.id, input.cargos);
+        }
+
         const detail = await getUserDetail(existingUser.id);
+        if (detail.user && input.cargos) {
+          detail.user.cargos = input.cargos;
+        }
         return {
           success: true,
           user: detail.user,
@@ -809,6 +832,12 @@ export async function createUser(
           success: false,
           error: assignResult.error || "No fue posible asociar el usuario al comercio especificado.",
         };
+      }
+
+      // Asignar cargos operativos si fueron indicados [CARGOS-001]
+      if (input.cargos && input.cargos.length > 0) {
+        const { saveUserCargos } = await import("@/lib/auth/cargos-service");
+        await saveUserCargos(input.businessId, newUserId, input.cargos);
       }
     }
 

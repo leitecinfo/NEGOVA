@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   X,
@@ -12,8 +12,8 @@ import {
   Calendar,
   Package,
   Download,
+  Camera,
   Receipt,
-  UtensilsCrossed,
   ShoppingBag,
   Bike,
   Store,
@@ -24,12 +24,19 @@ import {
   Clock,
   Phone,
   MapPin,
+  UserCheck,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RestaurantOrderWithDetails } from "@/lib/restaurant/types";
 import { formatCOP } from "@/config/plans";
 import { downloadOrderPdfAction } from "./actions";
+import { downloadElementAsImage } from "@/lib/printing/download-invoice-image";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
+import { PosKitchenTicketModal } from "@/components/pos/pos-kitchen-ticket-modal";
+import { ConfirmPickupModal } from "@/components/pedidos/confirm-pickup-modal";
+import { getCargoBadgeColor } from "@/components/pos/pos-responsible-selector";
 import Link from "next/link";
 
 interface OrderDetailModalProps {
@@ -120,6 +127,10 @@ export function OrderDetailModal({
   updatingOrderId = null,
 }: OrderDetailModalProps) {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingPhoto, setIsDownloadingPhoto] = useState(false);
+  const [isKitchenTicketOpen, setIsKitchenTicketOpen] = useState(false);
+  const [isPickupConfirmModalOpen, setIsPickupConfirmModalOpen] = useState(false);
+  const receiptCaptureRef = useRef<HTMLDivElement>(null);
   const [ticketModalConfig, setTicketModalConfig] = useState<{
     isOpen: boolean;
     orderType: string;
@@ -198,41 +209,24 @@ export function OrderDetailModal({
   // Cantidad total de ítems
   const itemsCount = order.items?.length || order.itemsCount || 0;
 
-  // Descarga de PDF con server action
-  const handleDownloadPdf = async () => {
-    setIsDownloadingPdf(true);
+  // Descarga / Compartir foto de la factura
+  const handleDownloadPhoto = async () => {
+    if (!receiptCaptureRef.current) return;
+    setIsDownloadingPhoto(true);
     try {
-      const res = await downloadOrderPdfAction(businessId, order.id);
-      if (!res.success || !res.base64) {
-        toast.error("Error al descargar PDF", {
-          description: res.error || "No se pudo generar el documento PDF.",
-        });
-        return;
+      const filename = `Factura_${order.order_number}.png`;
+      const result = await downloadElementAsImage(receiptCaptureRef.current, filename);
+      if (result === "shared") {
+        toast.success("Foto de la factura compartida con éxito");
+      } else {
+        toast.success("Foto de la factura descargada correctamente");
       }
-
-      const byteCharacters = atob(res.base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = res.filename || `Orden_${order.order_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("PDF descargado correctamente");
     } catch (err: any) {
-      toast.error("Error al descargar el PDF", {
-        description: err?.message || "Ocurrió un error inesperado.",
+      toast.error("Error al generar la foto de la factura", {
+        description: err?.message || "Ocurrió un error inesperado al capturar la imagen.",
       });
     } finally {
-      setIsDownloadingPdf(false);
+      setIsDownloadingPhoto(false);
     }
   };
 
@@ -404,6 +398,101 @@ export function OrderDetailModal({
                     </span>
                     <CornerDecorativeDots />
                   </div>
+
+                  {/* Tarjeta 5 (Responsable del Pedido) */}
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <UserCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        RESPONSABLE
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                      {order.assigned_staff_name || "Sin asignar"}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {order.assigned_staff_role ? (
+                        order.assigned_staff_role.split(",").map((r, i) => (
+                          <span
+                            key={i}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getCargoBadgeColor(r)}`}
+                          >
+                            {r.trim()}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {order.created_by ? "Usuario creador" : "Personal general"}
+                        </span>
+                      )}
+                    </div>
+                    <CornerDecorativeDots />
+                  </div>
+
+                  {/* Tarjeta 6 (Código de Recogida - Para modalidad Para recoger) */}
+                  {order.order_type === "takeout" && (
+                    <div className="relative p-3.5 sm:p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 overflow-hidden">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                            CÓDIGO DE RECOGIDA
+                          </span>
+                        </div>
+                        {order.pickup_code && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(order.pickup_code || "");
+                              toast.success("Código copiado al portapapeles.");
+                            }}
+                            className="p-1 text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                            title="Copiar código"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-300 tracking-wider">
+                          {order.pickup_code ? `#${order.pickup_code}` : "Sin código"}
+                        </span>
+                      </div>
+
+                      {order.status === "delivered" || order.pickup_confirmed_at ? (
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Entregado / Recogido</span>
+                        </div>
+                      ) : order.status === "cancelled" ? (
+                        <span className="text-[11px] text-rose-500 font-bold block mt-1.5">
+                          Pedido cancelado
+                        </span>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsPickupConfirmModalOpen(true)}
+                            className="w-full py-1.5 px-3 rounded-xl bg-[#ED500A] hover:bg-[#d94608] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                            <span>Confirmar recogida</span>
+                          </button>
+                          {(order.pickup_attempts ?? 0) > 0 && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 block text-center font-medium">
+                              Intentos: {order.pickup_attempts ?? 0}/5
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <CornerDecorativeDots />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -440,7 +529,7 @@ export function OrderDetailModal({
                                 className="w-full h-full object-cover rounded-xl"
                               />
                             ) : (
-                              <UtensilsCrossed className="w-5 h-5 text-slate-400" />
+                              <Package className="w-5 h-5 text-slate-400" />
                             )}
                             <span className="absolute -bottom-1 -right-1 min-w-4 h-4 px-1 rounded-md bg-[#ED500A] text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
                               {item.quantity}
@@ -527,38 +616,31 @@ export function OrderDetailModal({
                       <span>Factura</span>
                     </button>
 
-                    {/* Botón 2: Descargar PDF */}
+                    {/* Botón 2: Descargar foto de factura */}
                     <button
                       type="button"
-                      disabled={isDownloadingPdf}
-                      onClick={handleDownloadPdf}
+                      disabled={isDownloadingPhoto}
+                      onClick={handleDownloadPhoto}
                       className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer disabled:opacity-50"
-                      title="Descargar comprobante en formato PDF"
+                      title="Descargar o compartir foto de la factura"
                     >
-                      {isDownloadingPdf ? (
+                      {isDownloadingPhoto ? (
                         <Loader2 className="w-4 h-4 animate-spin text-[#ED500A]" />
                       ) : (
-                        <Download className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <Camera className="w-4 h-4 text-emerald-500 shrink-0" />
                       )}
-                      <span>Descargar PDF</span>
+                      <span>Descargar foto</span>
                     </button>
 
-                    {/* Botón 3: Ver comanda */}
+                    {/* Botón 3: Tique operativo */}
                     <button
                       type="button"
-                      onClick={() =>
-                        setTicketModalConfig({
-                          isOpen: true,
-                          orderType: order.order_type || "takeout",
-                          documentTitle: "COMANDA OPERATIVA DE COCINA",
-                          documentNumber: `CMD-${order.order_number}`,
-                        })
-                      }
+                      onClick={() => setIsKitchenTicketOpen(true)}
                       className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer"
-                      title="Visualizar tiquete de comanda para cocina"
+                      title="Visualizar tiquete operativo de preparación y despacho"
                     >
-                      <Receipt className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span>Ver comanda</span>
+                      <FileText className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>Tique operativo</span>
                     </button>
                   </div>
                 </div>
@@ -614,7 +696,7 @@ export function OrderDetailModal({
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 transition-colors cursor-pointer"
                       >
                         <DollarSign className="w-3.5 h-3.5" />
-                        <span>Cobrar</span>
+                        <span>Confirmar pago</span>
                       </button>
                     )}
 
@@ -681,9 +763,9 @@ export function OrderDetailModal({
         </div>
       </ModalPortal>
 
-      {/* MODAL DE TIQUETE TÉRMICO PARA 'FACTURA' O 'VER COMANDA' */}
+      {/* MODAL DE TIQUETE TÉRMICO / FACTURA COMERCIAL */}
       <ThermalTicketModal
-        documentNumber={ticketModalConfig.documentNumber || `ORD-${order.order_number}`}
+        documentNumber={ticketModalConfig.documentNumber || `FAC-${order.order_number}`}
         issuedAt={order.created_at}
         business={{
           name: businessName,
@@ -715,6 +797,226 @@ export function OrderDetailModal({
         notes={order.notes}
         isOpen={ticketModalConfig.isOpen}
         onClose={() => setTicketModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* MODAL DE COMANDA DE COCINA OPERATIVA (EXCLUSIVAMENTE ÍTEMS, NOTAS Y CANTIDADES PARA PREPARACIÓN - CERO PRECIOS NI TOTALES) */}
+      <PosKitchenTicketModal
+        isOpen={isKitchenTicketOpen}
+        onClose={() => setIsKitchenTicketOpen(false)}
+        data={{
+          orderId: order.id,
+          orderNumber: order.order_number,
+          referenceName: order.customer_name || null,
+          serviceType:
+            order.order_type === "dine_in"
+              ? "COMER EN MESA"
+              : order.order_type === "delivery"
+              ? "DOMICILIO"
+              : "PARA LLEVAR",
+          tableName: order.tableName || null,
+          cashierName: order.assigned_staff_name || (order as any).cashier_name || (order as any).waiter_name || null,
+          dinersCount: (order as any).diners_count || (order as any).diners || undefined,
+          createdAt: order.created_at,
+          generalNotes: order.notes || null,
+          items: (order.items || []).map((it) => ({
+            quantity: it.quantity,
+            name: it.product_name,
+            notes: it.notes,
+            modifiers: Array.isArray(it.modifiers)
+              ? it.modifiers.map((m: any) => {
+                  if (typeof m === "string") return m;
+                  if (m && typeof m === "object") {
+                    return m.optionName || m.name || m.label || Object.values(m).join(" ");
+                  }
+                  return String(m);
+                })
+              : [],
+          })),
+        }}
+      />
+
+      {/* CONTENEDOR OCULTO PARA CAPTURA DE FOTO DE FACTURA */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: "-9999px",
+          width: "380px",
+          overflow: "hidden",
+          zIndex: -9999,
+          pointerEvents: "none",
+        }}
+        aria-hidden="true"
+      >
+        <div
+          ref={receiptCaptureRef}
+          style={{
+            width: "380px",
+            backgroundColor: "#ffffff",
+            color: "#000000",
+            fontFamily: "'Courier New', Courier, monospace",
+            padding: "24px 20px",
+            lineHeight: "1.35",
+            boxSizing: "border-box",
+          }}
+          className="space-y-3 text-[12px]"
+        >
+          {/* Cabecera */}
+          <div className="flex flex-col items-center justify-center text-center space-y-2">
+            <div className="inline-flex items-center justify-center min-w-[56px] h-9 px-4 rounded-full border-2 border-black text-base font-black tracking-wide">
+              #{order.order_number}
+            </div>
+            <div className="font-black text-sm uppercase tracking-wider">
+              {businessName}
+            </div>
+            <div className="text-[11px] text-gray-600">
+              COMPROBANTE DE FACTURA / VENTA
+            </div>
+          </div>
+
+          <hr style={{ borderTop: "1px dashed #000000", margin: "8px 0" }} />
+
+          {/* Datos del Comprobante */}
+          <div className="space-y-1 text-[11px]">
+            <div className="flex justify-between">
+              <span className="font-bold">Factura:</span>
+              <span className="font-semibold">FAC-{order.order_number}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-bold">Fecha:</span>
+              <span>
+                {new Date(order.created_at).toLocaleString("es-CO", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-bold">Cliente:</span>
+              <span className="truncate max-w-[200px] text-right font-medium">
+                {order.customer_name || "Cliente General"}
+              </span>
+            </div>
+            {order.customer_phone && (
+              <div className="flex justify-between">
+                <span className="font-bold">Teléfono:</span>
+                <span>{order.customer_phone}</span>
+              </div>
+            )}
+            {order.delivery_address && (
+              <div className="flex justify-between">
+                <span className="font-bold">Dirección:</span>
+                <span className="truncate max-w-[200px] text-right">
+                  {order.delivery_address}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="font-bold">Servicio:</span>
+              <span>
+                {order.order_type === "takeout"
+                  ? "Para Llevar"
+                  : order.order_type === "dine_in"
+                  ? order.tableName
+                    ? `Mesa: ${order.tableName}`
+                    : "Comer en mesa"
+                  : "Domicilio"}
+              </span>
+            </div>
+          </div>
+
+          <hr style={{ borderTop: "1px dashed #000000", margin: "8px 0" }} />
+
+          {/* Tabla de Productos */}
+          <div>
+            <div className="flex items-center justify-between font-bold text-[11px] pb-1 border-b border-black">
+              <span className="flex-1 min-w-0 pr-2">Producto</span>
+              <span className="w-10 text-center shrink-0">Cant</span>
+              <span className="w-20 text-right shrink-0">Precio</span>
+              <span className="w-20 text-right shrink-0">Total</span>
+            </div>
+            <div className="divide-y divide-dashed divide-gray-300 py-1 space-y-1">
+              {order.items?.map((it, idx) => (
+                <div key={idx} className="pt-1">
+                  <div className="flex items-start justify-between text-[11px] leading-tight gap-1">
+                    <span className="flex-1 min-w-0 pr-1 whitespace-normal break-words font-medium">
+                      {it.product_name}
+                    </span>
+                    <span className="w-10 text-center font-bold shrink-0">{it.quantity}</span>
+                    <span className="w-20 text-right text-gray-700 shrink-0 font-mono">
+                      {formatCOP(it.unit_price)}
+                    </span>
+                    <span className="w-20 text-right font-bold font-mono shrink-0">
+                      {formatCOP(it.subtotal)}
+                    </span>
+                  </div>
+                  {it.notes && (
+                    <p className="text-[10px] text-gray-600 italic pl-1 pt-0.5">
+                      Nota: {it.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Totales */}
+          <div className="pt-2 border-t border-black space-y-1 text-right text-[11px]">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span className="font-bold font-mono">{formatCOP(order.subtotal)}</span>
+            </div>
+            {Boolean(order.delivery_fee && order.delivery_fee > 0) && (
+              <div className="flex justify-between text-gray-700">
+                <span>Domicilio:</span>
+                <span className="font-mono">+{formatCOP(order.delivery_fee)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-black text-sm pt-1.5 border-t-2 border-black">
+              <span>TOTAL A PAGAR:</span>
+              <span className="font-mono">{formatCOP(order.total)}</span>
+            </div>
+          </div>
+
+          <hr style={{ borderTop: "1px dashed #000000", margin: "8px 0" }} />
+
+          {/* Estado de Pago */}
+          <div className="flex justify-between text-[11px] items-center">
+            <span className="font-bold">Estado del Pago:</span>
+            <span className="font-black uppercase tracking-wider">
+              {order.payment_status === "paid"
+                ? "PAGADO"
+                : order.payment_status === "partial"
+                ? "ABONO PARCIAL"
+                : "PAGO PENDIENTE"}
+            </span>
+          </div>
+
+          {/* Despedida */}
+          <div className="text-center font-bold text-xs pt-3 border-t border-black border-dashed">
+            ¡Gracias por su compra!
+          </div>
+          <div className="text-center text-[9px] text-gray-400">
+            NEGOVA • Sistema POS y Gestión Comercial
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de Confirmación de Recogida con PIN [POS-008] */}
+      <ConfirmPickupModal
+        businessId={businessId}
+        isOpen={isPickupConfirmModalOpen}
+        order={order}
+        onClose={() => setIsPickupConfirmModalOpen(false)}
+        onSuccess={() => {
+          setIsPickupConfirmModalOpen(false);
+          if (onStatusTransition && order) {
+            onStatusTransition(order, "delivered");
+          }
+        }}
       />
     </>
   );

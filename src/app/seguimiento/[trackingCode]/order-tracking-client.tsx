@@ -4,7 +4,7 @@ import React, { useState, useEffect, useTransition, useCallback } from "react";
 import {
   CheckCircle2,
   Clock,
-  ChefHat,
+  Boxes,
   Bike,
   PackageCheck,
   XCircle,
@@ -115,7 +115,7 @@ export function OrderTrackingClient({ initialTracking }: Props) {
       case "confirmed":
         return <CheckCircle2 className="w-5 h-5" />;
       case "preparing":
-        return <ChefHat className="w-5 h-5" />;
+        return <Boxes className="w-5 h-5" />;
       case "in_transit":
         return <Bike className="w-5 h-5" />;
       case "delivered":

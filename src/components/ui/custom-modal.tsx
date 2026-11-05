@@ -15,6 +15,7 @@ interface CustomModalProps {
   showConfirmButton?: boolean;
   children?: React.ReactNode;
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
+  zIndex?: string;
 }
 
 export function CustomModal({
@@ -28,6 +29,7 @@ export function CustomModal({
   showConfirmButton = true,
   children,
   maxWidth = "md",
+  zIndex = "z-[9999]",
 }: CustomModalProps) {
   if (!isOpen) return null;
 
@@ -51,7 +53,7 @@ export function CustomModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className={`fixed inset-0 m-0 p-4 ${zIndex} flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200`}>
         <div className={`w-full ${maxWidthClasses[maxWidth] || "max-w-md"} bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">

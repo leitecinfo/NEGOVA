@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { User, X, Search, Phone, CreditCard, Plus, UserCheck } from "lucide-react";
+import { User, X, Search, Phone, FileText, Plus, UserCheck } from "lucide-react";
 import { searchCustomersForPosAction } from "@/app/workspace/[businessId]/clientes/actions";
 
 export interface PosCustomerItem {
@@ -65,7 +65,7 @@ export function PosSelectCustomerModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -181,7 +181,7 @@ export function PosSelectCustomerModal({
                         )}
                         {c.documentNumber && (
                           <span className="flex items-center gap-1 font-mono">
-                            <CreditCard className="w-3 h-3" />
+                            <FileText className="w-3 h-3" />
                             {c.documentNumber}
                           </span>
                         )}
@@ -207,7 +207,7 @@ export function PosSelectCustomerModal({
               className="w-full py-2.5 px-4 rounded-xl border border-dashed border-[#ED500A] text-[#ED500A] hover:bg-orange-500/5 font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Crear Nuevo Cliente</span>
+              <span>Crear nuevo cliente</span>
             </button>
           </div>
         </div>

@@ -13,7 +13,7 @@ import {
   isProductAvailableInQr,
   isProductAvailableOnline,
 } from "@/lib/products/types";
-import { DEFAULT_MODIFIER_TEMPLATES } from "@/app/workspace/[businessId]/productos/product-form-modal";
+import * as ProductFormModalModule from "@/app/workspace/[businessId]/productos/product-form-modal";
 
 describe("Modal Integral de Creación / Edición de Producto", () => {
   describe("1. Campos Base y Unidades de Medida", () => {
@@ -235,25 +235,8 @@ describe("Modal Integral de Creación / Edición de Producto", () => {
       expect(replacementGroup.options[1].price).toBe(2500);
     });
 
-    it("valida que las plantillas por defecto contengan grupos listos para asignar con tipos correctos", () => {
-      expect(DEFAULT_MODIFIER_TEMPLATES.length).toBeGreaterThanOrEqual(4);
-
-      const additionalTpl = DEFAULT_MODIFIER_TEMPLATES.find((t) => t.type === "additional");
-      const sizeTpl = DEFAULT_MODIFIER_TEMPLATES.find((t) => t.type === "size");
-      const replacementTpl = DEFAULT_MODIFIER_TEMPLATES.find((t) => t.type === "replacement");
-
-      expect(additionalTpl).toBeDefined();
-      expect(sizeTpl).toBeDefined();
-      expect(replacementTpl).toBeDefined();
-
-      for (const tpl of DEFAULT_MODIFIER_TEMPLATES) {
-        expect(tpl.name).toBeTruthy();
-        expect(tpl.options.length).toBeGreaterThan(0);
-        for (const opt of tpl.options) {
-          expect(opt.name).toBeTruthy();
-          expect(opt.price).toBeGreaterThanOrEqual(0);
-        }
-      }
+    it("garantiza que no existan plantillas hardcodeadas predeterminadas (DEFAULT_MODIFIER_TEMPLATES eliminado)", () => {
+      expect((ProductFormModalModule as any).DEFAULT_MODIFIER_TEMPLATES).toBeUndefined();
     });
 
     it("valida que min_select no sea superior a max_select", () => {

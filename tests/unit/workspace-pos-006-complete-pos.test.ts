@@ -117,14 +117,11 @@ describe("[POS-006] Sistema POS Integral - Especificación, Componentes y Lógic
       expect(content).toContain("Comer aquí");
       expect(content).toContain("Para recoger");
       expect(content).toContain("Domicilio");
-      expect(content).toContain("Medio de Pago");
-      expect(content).toContain("Contado");
-      expect(content).toContain("Crédito");
-      expect(content).toContain("Efectivo");
-      expect(content).toContain("Tarjeta");
-      expect(content).toContain("Digital");
+      expect(content).toContain("Cobro del pedido");
+      expect(content).toContain("Cobrar ahora");
+      expect(content).toContain("Dejar pago pendiente");
       expect(content).toContain("Propina (Opcional)");
-      expect(content).toContain("Confirmar y cobrar");
+      expect(content).toMatch(/Confirmar pedido|Confirmar y cobrar/);
     });
 
     it("debe cumplir con la regla estricta de NO usar alertas nativas (window.alert)", () => {

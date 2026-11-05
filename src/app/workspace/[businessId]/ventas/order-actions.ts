@@ -4,9 +4,11 @@ import { verifyWorkspaceAction } from "@/lib/auth/workspace-context";
 import {
   createRestaurantOrder,
   getRestaurantTables,
+  confirmRestaurantOrderPickup,
   CreateOrderResult,
 } from "@/lib/restaurant/restaurant-service";
-import { CreateRestaurantOrderInput, RestaurantTable } from "@/lib/restaurant/types";
+import { CreateRestaurantOrderInput, RestaurantTable, StaffMember } from "@/lib/restaurant/types";
+import { getWorkspaceStaff } from "@/lib/restaurant/staff-service";
 
 /**
  * Server Action: Registrar un nuevo pedido / comanda en el POS (Etapa 3).
@@ -101,5 +103,80 @@ export async function getActiveWaitersAction(
   } catch (err: any) {
     console.error("[getActiveWaitersAction Error]:", err);
     return { success: false, error: err.message || "Error al consultar camareros del negocio." };
+  }
+}
+
+/**
+ * Server Action: Consultar todo el personal operativo y usuarios del negocio para asignación de responsables [POS-STAFF]
+ */
+export async function getWorkspaceStaffAction(
+  businessId: string
+): Promise<{ success: boolean; data?: StaffMember[]; currentUserId?: string; error?: string }> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.view");
+  }
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.create");
+  }
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.create");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: "No tienes autorización para consultar personal del negocio." };
+  }
+
+  try {
+    const staff = await getWorkspaceStaff(businessId, auth.context.userId);
+    return { success: true, data: staff, currentUserId: auth.context.userId };
+  } catch (err: any) {
+    console.error("[getWorkspaceStaffAction Error]:", err);
+    return { success: false, error: err.message || "Error al consultar personal del negocio." };
+  }
+}
+
+/**
+ * Server Action: Validar código numérico de 4 dígitos y confirmar la recogida de un pedido "takeout" [POS-RECOGIDA]
+ */
+export async function confirmOrderPickupAction(
+  businessId: string,
+  orderId: string,
+  code: string
+): Promise<{ success: boolean; error?: string; remainingAttempts?: number; isLocked?: boolean }> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.manage");
+  }
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "sales.create");
+  }
+
+  if (!auth.success || !auth.context) {
+    return { success: false, error: "No tienes autorización para confirmar entregas o pedidos." };
+  }
+
+  try {
+    const res = await confirmRestaurantOrderPickup(
+      businessId,
+      orderId,
+      code,
+      auth.context.userId,
+      auth.context.userEmail || "Personal"
+    );
+
+    if (res.success) {
+      try {
+        const { revalidatePath } = await import("next/cache");
+        revalidatePath(`/workspace/${businessId}/pedidos`);
+        revalidatePath(`/workspace/${businessId}/ventas`);
+        revalidatePath(`/workspace/${businessId}/cocina`);
+      } catch {}
+    }
+
+    return res;
+  } catch (err: any) {
+    console.error("[confirmOrderPickupAction Error]:", err);
+    return { success: false, error: err.message || "Error al validar código de recogida." };
   }
 }

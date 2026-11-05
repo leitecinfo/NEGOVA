@@ -10,6 +10,7 @@ export interface PosSelectedModifier {
   optionId: string;
   optionName: string;
   price: number; // Precio adicional en COP (0 para gratuitas)
+  commercialType?: "additional" | "replacement" | "size";
 }
 
 export interface PosCartItem {
@@ -258,27 +259,57 @@ export function validateModifierGroupSelection(
   group: ProductModifierGroup,
   selectedOptionIds: string[]
 ): { isValid: boolean; error?: string } {
-  const count = (selectedOptionIds || []).length;
-  const minRequired = group.required ? Math.max(1, group.min_select || 1) : (group.min_select || 0);
-  const maxAllowed = group.max_select ?? (group.required && !group.max_select ? 1 : Infinity);
+  // Grupos inactivos no participan en la validación activa
+  if (group.status === "inactive") {
+    return { isValid: true };
+  }
 
-  if (count < minRequired) {
-    if (minRequired === 1 && group.required) {
-      return {
-        isValid: false,
-        error: `Debes seleccionar al menos una opción en «${group.name}».`,
-      };
-    }
+  // Filtrar solo las opciones que existen y están activas dentro del grupo
+  const activeOptions = (group.options || []).filter(
+    (o) => o.status !== "inactive" && o.is_available !== false
+  );
+  const activeOptionIds = new Set(activeOptions.map((o) => o.id || o.name));
+
+  const validSelections = (selectedOptionIds || []).filter((id) =>
+    activeOptionIds.has(id)
+  );
+  const count = validSelections.length;
+
+  const isSingle = group.selection_type === "single" || group.max_select === 1;
+  const minRequired = group.required
+    ? Math.max(1, group.min_select ?? 1)
+    : (group.min_select ?? 0);
+  const maxAllowed = isSingle ? 1 : (group.max_select ?? (group.required ? 1 : Infinity));
+
+  // Validación de grupo obligatorio sin selección
+  if (group.required && count === 0) {
     return {
       isValid: false,
-      error: `Debes seleccionar al menos ${minRequired} opciones en «${group.name}» (has seleccionado ${count}).`,
+      error: isSingle
+        ? `Debes seleccionar una opción en «${group.name}».`
+        : `Debes seleccionar al menos ${minRequired} ${
+            minRequired === 1 ? "opción" : "opciones"
+          } en «${group.name}».`,
     };
   }
 
+  // Validación de mínimo de opciones
+  if (count < minRequired) {
+    return {
+      isValid: false,
+      error: `Debes seleccionar al menos ${minRequired} ${
+        minRequired === 1 ? "opción" : "opciones"
+      } en «${group.name}» (has seleccionado ${count}).`,
+    };
+  }
+
+  // Validación de máximo de opciones
   if (count > maxAllowed) {
     return {
       isValid: false,
-      error: `Puedes seleccionar como máximo ${maxAllowed} opciones en «${group.name}» (has seleccionado ${count}).`,
+      error: `Puedes seleccionar como máximo ${maxAllowed} ${
+        maxAllowed === 1 ? "opción" : "opciones"
+      } en «${group.name}» (has seleccionado ${count}).`,
     };
   }
 

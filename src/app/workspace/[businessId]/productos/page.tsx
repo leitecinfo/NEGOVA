@@ -2,7 +2,7 @@ import React from "react";
 import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { getProducts, getCategories } from "@/lib/products/products-service";
 import { ProductsManagerClient } from "./products-manager-client";
-import { Store, UtensilsCrossed } from "lucide-react";
+import { Package } from "lucide-react";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { getCatalogModuleLabel } from "@/config/commercial-activities";
 
@@ -23,30 +23,23 @@ export default async function ProductsPage({
   ]);
 
   const pageTitle = getCatalogModuleLabel(session.commercialActivities, session.businessType);
-  const isFood = (session.businessType || "").toLowerCase().includes("food") ||
-    (session.businessType || "").toLowerCase().includes("rest") ||
-    (session.businessType || "").toLowerCase().includes("comida");
 
   const badge = (
     <div className="p-1.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-      {isFood ? <UtensilsCrossed className="w-4 h-4" /> : <Store className="w-4 h-4" />}
+      <Package className="w-4 h-4" />
     </div>
   );
 
   return (
     <AppPageContainer
       title={pageTitle}
-      description={
-        isFood
-          ? "Administra tu menú, preparaciones, variantes, adicionales y disponibilidad para el punto de venta."
-          : "Administra tu catálogo comercial, precios y disponibilidad en tiempo real."
-      }
+      description="Administra tu catálogo comercial, precios y disponibilidad en tiempo real."
       badge={badge}
       maxWidth="7xl"
     >
       <ProductsManagerClient 
         businessId={businessId} 
-        businessType={session.businessType || "fast_food"}
+        businessType={session.businessType || ""}
         commercialActivities={session.commercialActivities}
         initialProducts={products} 
         initialCategories={categories} 

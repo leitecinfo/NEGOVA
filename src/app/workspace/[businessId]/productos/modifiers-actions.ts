@@ -11,6 +11,9 @@ import {
   toggleModifierGroupStatus,
   updateModifierGroup,
   updateModifierOption,
+  assignProductsToGroup,
+  unassignProductFromGroup,
+  syncProductModifierGroupLinks,
 } from "@/lib/modifiers/modifiers-service";
 import {
   CreateModifierGroupInput,
@@ -186,6 +189,70 @@ export async function toggleModifierGroupStatusAction(
     return {
       success: false,
       error: err.message || "Error al cambiar el estado del grupo",
+    };
+  }
+}
+
+export async function assignProductsToGroupAction(
+  businessId: string,
+  groupId: string,
+  productIds: string[]
+): Promise<ModifiersActionResult<null>> {
+  try {
+    await assignProductsToGroup(businessId, groupId, productIds);
+    revalidatePath(`/workspace/${businessId}/productos`);
+    return {
+      success: true,
+      data: null,
+    };
+  } catch (err: any) {
+    console.error("[assignProductsToGroupAction] Error:", err);
+    return {
+      success: false,
+      error: err.message || "Error al asignar productos al grupo",
+    };
+  }
+}
+
+export async function unassignProductFromGroupAction(
+  businessId: string,
+  groupId: string,
+  productId: string
+): Promise<ModifiersActionResult<null>> {
+  try {
+    await unassignProductFromGroup(businessId, groupId, productId);
+    revalidatePath(`/workspace/${businessId}/productos`);
+    return {
+      success: true,
+      data: null,
+    };
+  } catch (err: any) {
+    console.error("[unassignProductFromGroupAction] Error:", err);
+    return {
+      success: false,
+      error: err.message || "Error al desvincular producto del grupo",
+    };
+  }
+}
+
+
+export async function syncProductModifierGroupLinksAction(
+  businessId: string,
+  productId: string,
+  groupIds: string[]
+): Promise<ModifiersActionResult<null>> {
+  try {
+    await syncProductModifierGroupLinks(businessId, productId, groupIds);
+    revalidatePath(`/workspace/${businessId}/productos`);
+    return {
+      success: true,
+      data: null,
+    };
+  } catch (err: any) {
+    console.error("[syncProductModifierGroupLinksAction] Error:", err);
+    return {
+      success: false,
+      error: err.message || "Error al sincronizar modificadores del producto",
     };
   }
 }

@@ -413,3 +413,84 @@ export async function removeUserPinAction(
     return { success: false, error: err.message || "Error al remover PIN." };
   }
 }
+
+/**
+ * SERVER ACTION: CONSULTAR CATÁLOGO DE CARGOS DISPONIBLES EN EL NEGOCIO [CARGOS-001]
+ */
+export async function getBusinessCargosAction(
+  businessId: string
+): Promise<{ success: boolean; data?: string[]; error?: string }> {
+  try {
+    await verifyUserPermission("business_users.view", { businessId });
+    const { getBusinessAvailableCargos } = await import("@/lib/auth/cargos-service");
+    const cargos = await getBusinessAvailableCargos(businessId);
+    return { success: true, data: cargos };
+  } catch (err: any) {
+    console.error("[getBusinessCargosAction Error]:", err);
+    return { success: false, error: err.message || "Error al consultar cargos del comercio." };
+  }
+}
+
+/**
+ * SERVER ACTION: ASIGNAR O MODIFICAR CARGOS OPERATIVOS DE UN EMPLEADO [CARGOS-001]
+ */
+export async function updateUserCargosAction(
+  businessId: string,
+  userId: string,
+  cargos: string[]
+): Promise<{ success: boolean; cargos?: string[]; error?: string }> {
+  try {
+    const actor = await verifyUserPermission("business_users.update", { businessId });
+    const { saveUserCargos } = await import("@/lib/auth/cargos-service");
+
+    const result = await saveUserCargos(businessId, userId, cargos);
+    if (result.success) {
+      // Registrar auditoría forense
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId,
+        userId: actor.userId,
+        action: "update",
+        entityType: "user",
+        entityId: userId,
+        newData: { cargos: result.cargos },
+        metadata: {
+          original_action: "update_user_cargos",
+          event: "employee.cargos_updated",
+          assigned_cargos: result.cargos,
+        },
+      });
+
+      revalidatePath(`/workspace/${businessId}/usuarios`);
+      revalidatePath(`/workspace/${businessId}/usuarios/${userId}`);
+      return { success: true, cargos: result.cargos };
+    }
+
+    return { success: false, error: result.error || "No fue posible actualizar los cargos." };
+  } catch (err: any) {
+    console.error("[updateUserCargosAction Error]:", err);
+    return { success: false, error: err.message || "Error al actualizar cargos del empleado." };
+  }
+}
+
+/**
+ * SERVER ACTION: REGISTRAR UN NUEVO CARGO PERSONALIZADO EN EL CATÁLOGO [CARGOS-001]
+ */
+export async function addCustomCargoAction(
+  businessId: string,
+  cargoName: string
+): Promise<{ success: boolean; cargo?: string; error?: string }> {
+  try {
+    await verifyUserPermission("business_users.update", { businessId });
+    const { addBusinessCustomCargo } = await import("@/lib/auth/cargos-service");
+    const result = await addBusinessCustomCargo(businessId, cargoName);
+    if (result.success) {
+      revalidatePath(`/workspace/${businessId}/usuarios`);
+    }
+    return result;
+  } catch (err: any) {
+    console.error("[addCustomCargoAction Error]:", err);
+    return { success: false, error: err.message || "Error al agregar el cargo personalizado." };
+  }
+}
+

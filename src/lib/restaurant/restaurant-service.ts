@@ -1142,6 +1142,81 @@ export async function validateTableQrAccess(
 // PEDIDOS (restaurant_orders & restaurant_order_items)
 // ==========================================
 
+export interface PickupVerificationInfo {
+  code: string | null;
+  attempts: number;
+  cleanNotes: string | null;
+  isLocked: boolean;
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+}
+
+/**
+ * Extrae el código de recogida de 4 dígitos y los intentos desde notas o columnas
+ * Tag: [PICKUP_PIN:1234:0]
+ */
+export function extractPickupVerification(notes?: string | null, row?: any): PickupVerificationInfo {
+  let code = row?.pickup_code || null;
+  let attempts = typeof row?.pickup_attempts === "number" ? row.pickup_attempts : 0;
+  const confirmedAt = row?.pickup_confirmed_at || null;
+  const confirmedBy = row?.pickup_confirmed_by || null;
+
+  if (!notes) {
+    return {
+      code,
+      attempts,
+      cleanNotes: null,
+      isLocked: attempts >= 5,
+      confirmedAt,
+      confirmedBy,
+    };
+  }
+
+  const pinMatch = notes.match(/\[PICKUP_PIN:([0-9]{4,6})(?::(\d+))?\]/i);
+  if (pinMatch) {
+    if (!code) code = pinMatch[1];
+    if (pinMatch[2]) attempts = parseInt(pinMatch[2], 10);
+  }
+
+  const cleanNotes = notes.replace(/\[PICKUP_PIN:[0-9]{4,6}(?::\d+)?\]/gi, "").trim() || null;
+  const isLocked = attempts >= 5;
+
+  return { code, attempts, cleanNotes, isLocked, confirmedAt, confirmedBy };
+}
+
+/**
+ * Codifica el código de recogida de 4 dígitos y sus intentos en el texto de notas
+ */
+export function encodePickupVerification(
+  baseNotes: string | null | undefined,
+  code: string,
+  attempts: number = 0
+): string {
+  const clean = baseNotes ? baseNotes.replace(/\[PICKUP_PIN:[0-9]{4,6}(?::\d+)?\]/gi, "").trim() : "";
+  const tag = `[PICKUP_PIN:${code}:${attempts}]`;
+  return clean ? `${clean} ${tag}` : tag;
+}
+
+/**
+ * Extrae la información de snapshot del responsable asignado
+ */
+export function extractResponsibleStaff(notes?: string | null, row?: any) {
+  let assignedStaffId = row?.assigned_staff_id || null;
+  let assignedStaffName = row?.assigned_staff_name || null;
+  let assignedStaffRole = row?.assigned_staff_role || null;
+
+  if (notes) {
+    const match = notes.match(/\[RESPONSABLE:([^:]+):([^:]+)(?::([^\]]+))?\]/i);
+    if (match) {
+      if (!assignedStaffId) assignedStaffId = match[1];
+      if (!assignedStaffName) assignedStaffName = match[2];
+      if (!assignedStaffRole && match[3]) assignedStaffRole = match[3];
+    }
+  }
+
+  return { assignedStaffId, assignedStaffName, assignedStaffRole };
+}
+
 export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
@@ -1149,6 +1224,7 @@ export interface CreateOrderResult {
   total?: number;
   deliveryPin?: string | null;
   trackingCode?: string | null;
+  pickupCode?: string | null;
   error?: string;
 }
 
@@ -1204,6 +1280,15 @@ export async function createRestaurantOrder(
       if (!input.idempotencyKey) {
         return { success: false, error: "La mesa seleccionada ya se encuentra ocupada." };
       }
+    }
+  }
+
+  if (input.orderType === "takeout") {
+    if (!input.customerName?.trim() || !input.customerPhone?.trim()) {
+      return {
+        success: false,
+        error: "Para pedidos para recoger debes ingresar el Nombre y Teléfono de contacto.",
+      };
     }
   }
 
@@ -1509,6 +1594,8 @@ export async function createRestaurantOrder(
   let finalNotes = input.notes?.trim() || null;
   let generatedDeliveryPin: string | null = null;
   let generatedTrackingCode: string | null = null;
+  let generatedPickupPin: string | null = null;
+
   if (input.orderType === "delivery") {
     const crypto = await import("crypto");
     const pinNumber = crypto.randomInt(0, 10000);
@@ -1522,9 +1609,22 @@ export async function createRestaurantOrder(
     const driverTag = input.driverName?.trim() ? `[DOMICILIARIO:${input.driverName.trim()}]` : "";
     
     finalNotes = [finalNotes, pinTag, trkTag, driverTag].filter(Boolean).join(" ");
+  } else if (input.orderType === "takeout") {
+    const crypto = await import("crypto");
+    const pinNumber = crypto.randomInt(1000, 10000);
+    generatedPickupPin = pinNumber.toString();
+    const pickupTag = `[PICKUP_PIN:${generatedPickupPin}:0]`;
+    finalNotes = finalNotes ? `${finalNotes} ${pickupTag}` : pickupTag;
   } else if (input.waiterName?.trim()) {
     const waiterTag = `[CAMARERO:${input.waiterName.trim()}]`;
     finalNotes = finalNotes ? `${finalNotes} ${waiterTag}` : waiterTag;
+  }
+
+  if (input.assignedStaffId) {
+    const staffName = input.assignedStaffName?.trim() || "Responsable";
+    const staffRole = input.assignedStaffRole?.trim() || "";
+    const respTag = `[RESPONSABLE:${input.assignedStaffId}:${staffName}:${staffRole}]`;
+    finalNotes = finalNotes ? `${finalNotes} ${respTag}` : respTag;
   }
 
   // 6. Inserción verdaderamente transaccional vía PostgreSQL RPC
@@ -1785,6 +1885,7 @@ export async function createRestaurantOrder(
   // descuento de inventario ni descuento sin pedido por caídas de red intermedias.
 
   // Si el pedido es a domicilio, inicializar delivery_status (o assigned si tiene conductor) y persistir tracking_code [DOM-004]
+  // Si el pedido es a domicilio, inicializar delivery_status (o assigned si tiene conductor) y persistir tracking_code [DOM-004]
   if (input.orderType === "delivery") {
     try {
       const orderQuery = supabase.from("restaurant_orders");
@@ -1817,6 +1918,49 @@ export async function createRestaurantOrder(
       }
     } catch (wErr) {
       console.warn("[createRestaurantOrder] Advertencia al asociar camarero en comanda:", wErr);
+    }
+  }
+
+  // Persistir responsable y código de recogida en las columnas de restaurant_orders [POS-STAFF / POS-RECOGIDA]
+  try {
+    const updateFields: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (input.assignedStaffId) {
+      updateFields.assigned_staff_id = input.assignedStaffId;
+      updateFields.assigned_staff_name = input.assignedStaffName || null;
+      updateFields.assigned_staff_role = input.assignedStaffRole || null;
+    }
+    if (input.orderType === "takeout" && generatedPickupPin) {
+      updateFields.pickup_code = generatedPickupPin;
+      updateFields.pickup_attempts = 0;
+    }
+    await supabase
+      .from("restaurant_orders")
+      .update(updateFields)
+      .eq("id", rpcData.order_id)
+      .eq("business_id", businessId);
+  } catch (updStaffErr) {
+    console.warn("[createRestaurantOrder] Advertencia al actualizar responsable o pickup_code:", updStaffErr);
+  }
+
+  // Guardar cliente permanente si se activó la opción [POS-RECOGIDA]
+  if (input.orderType === "takeout" && input.saveCustomerForFuture && input.customerPhone) {
+    try {
+      const { createCustomer } = await import("@/lib/customers/customers-service");
+      const custRes = await createCustomer(businessId, {
+        fullName: input.customerName?.trim() || "Cliente Para Recoger",
+        phone: input.customerPhone.trim(),
+      });
+      if (custRes.success && custRes.customer) {
+        await supabase
+          .from("restaurant_orders")
+          .update({ customer_id: custRes.customer.id })
+          .eq("id", rpcData.order_id)
+          .eq("business_id", businessId);
+      }
+    } catch (saveCustErr) {
+      console.warn("[createRestaurantOrder] Advertencia al guardar cliente para futuras compras:", saveCustErr);
     }
   }
 
@@ -1889,6 +2033,7 @@ export async function createRestaurantOrder(
     total: Number(rpcData.total),
     deliveryPin: generatedDeliveryPin,
     trackingCode: generatedTrackingCode,
+    pickupCode: generatedPickupPin,
   };
 }
 
@@ -2010,6 +2155,12 @@ export async function getRestaurantOrdersList({
       const items = Array.isArray(row.restaurant_order_items) ? row.restaurant_order_items : [];
       const tableName = row.table_id ? tableMap.get(row.table_id) || "Mesa" : null;
       const verification = extractDeliveryVerification(row.notes);
+      const pickupVerification = extractPickupVerification(row.notes, row);
+      const staffInfo = extractResponsibleStaff(row.notes, row);
+
+      const cleanNotes = (pickupVerification.cleanNotes || verification.cleanNotes || row.notes || "")
+        .replace(/\[RESPONSABLE:[^\]]+\]/gi, "")
+        .trim() || null;
 
       return {
         id: row.id,
@@ -2021,7 +2172,7 @@ export async function getRestaurantOrdersList({
         subtotal: Number(row.subtotal || 0),
         delivery_fee: Number(row.delivery_fee || 0),
         total: Number(row.total || 0),
-        notes: verification.cleanNotes,
+        notes: cleanNotes,
         table_id: row.table_id || null,
         tableName,
         customer_name: row.customer_name || null,
@@ -2032,6 +2183,20 @@ export async function getRestaurantOrdersList({
         driver_name: row.driver_name || null,
         delivery_verification_code: verification.code,
         delivery_verification_attempts: verification.attempts,
+        assigned_staff_id: staffInfo.assignedStaffId,
+        assigned_staff_name: staffInfo.assignedStaffName,
+        assigned_staff_role: staffInfo.assignedStaffRole,
+        assignedStaffId: staffInfo.assignedStaffId,
+        assignedStaffName: staffInfo.assignedStaffName,
+        assignedStaffRole: staffInfo.assignedStaffRole,
+        pickup_code: pickupVerification.code,
+        pickup_attempts: pickupVerification.attempts,
+        pickup_confirmed_at: pickupVerification.confirmedAt,
+        pickup_confirmed_by: pickupVerification.confirmedBy,
+        pickupCode: pickupVerification.code,
+        pickupAttempts: pickupVerification.attempts,
+        pickupConfirmedAt: pickupVerification.confirmedAt,
+        pickupConfirmedBy: pickupVerification.confirmedBy,
         payment_status: row.payment_status || "pending",
         idempotency_key: row.idempotency_key || null,
         idempotency_hash: row.idempotency_hash || null,
@@ -2139,6 +2304,12 @@ export async function getRestaurantOrderWithDetails(
 
     const items = Array.isArray(order.restaurant_order_items) ? order.restaurant_order_items : [];
     const verification = extractDeliveryVerification(order.notes);
+    const pickupVerification = extractPickupVerification(order.notes, order);
+    const staffInfo = extractResponsibleStaff(order.notes, order);
+
+    const cleanNotes = (pickupVerification.cleanNotes || verification.cleanNotes || order.notes || "")
+      .replace(/\[RESPONSABLE:[^\]]+\]/gi, "")
+      .trim() || null;
 
     return {
       id: order.id,
@@ -2150,7 +2321,7 @@ export async function getRestaurantOrderWithDetails(
       subtotal: Number(order.subtotal || 0),
       delivery_fee: Number(order.delivery_fee || 0),
       total: Number(order.total || 0),
-      notes: verification.cleanNotes,
+      notes: cleanNotes,
       table_id: order.table_id || null,
       tableName,
       customer_id: order.customer_id || null,
@@ -2162,6 +2333,20 @@ export async function getRestaurantOrderWithDetails(
       driver_name: order.driver_name || null,
       delivery_verification_code: verification.code,
       delivery_verification_attempts: verification.attempts,
+      assigned_staff_id: staffInfo.assignedStaffId,
+      assigned_staff_name: staffInfo.assignedStaffName,
+      assigned_staff_role: staffInfo.assignedStaffRole,
+      assignedStaffId: staffInfo.assignedStaffId,
+      assignedStaffName: staffInfo.assignedStaffName,
+      assignedStaffRole: staffInfo.assignedStaffRole,
+      pickup_code: pickupVerification.code,
+      pickup_attempts: pickupVerification.attempts,
+      pickup_confirmed_at: pickupVerification.confirmedAt,
+      pickup_confirmed_by: pickupVerification.confirmedBy,
+      pickupCode: pickupVerification.code,
+      pickupAttempts: pickupVerification.attempts,
+      pickupConfirmedAt: pickupVerification.confirmedAt,
+      pickupConfirmedBy: pickupVerification.confirmedBy,
       payment_status: order.payment_status || "pending",
       idempotency_key: order.idempotency_key || null,
       idempotency_hash: order.idempotency_hash || null,
@@ -2177,6 +2362,142 @@ export async function getRestaurantOrderWithDetails(
     console.error("[getRestaurantOrderWithDetails] Error:", err);
     return null;
   }
+}
+
+/**
+ * Confirma la recogida física de un pedido "takeout" mediante el código de 4 dígitos [POS-RECOGIDA].
+ * Reglas estrictas:
+ * 1. El pedido debe ser de modalidad "takeout".
+ * 2. No se puede confirmar un pedido cancelado.
+ * 3. Máximo 5 intentos fallidos (protección contra fuerza bruta con bloqueo).
+ * 4. De un solo uso (no permite confirmaciones duplicadas).
+ * 5. Registra el actor y la marca de tiempo de recogida.
+ * 6. SEPARACIÓN DE ESTADOS: NO altera el payment_status del pedido.
+ */
+export async function confirmRestaurantOrderPickup(
+  businessId: string,
+  orderId: string,
+  enteredCode: string,
+  actorId: string,
+  actorName?: string
+): Promise<{ success: boolean; error?: string; remainingAttempts?: number; isLocked?: boolean }> {
+  const supabase = await getDbClient();
+
+  const { data: order, error: orderErr } = await supabase
+    .from("restaurant_orders")
+    .select("id, business_id, order_number, order_type, status, notes, payment_status, pickup_code, pickup_attempts, pickup_confirmed_at")
+    .eq("id", orderId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (orderErr || !order) {
+    return { success: false, error: "Pedido no encontrado o no pertenece a este negocio." };
+  }
+
+  if (order.order_type !== "takeout") {
+    return { success: false, error: "Esta orden no corresponde a la modalidad Para recoger." };
+  }
+
+  if (order.status === "cancelled") {
+    return { success: false, error: "No es posible confirmar la recogida de un pedido cancelado." };
+  }
+
+  if (order.status === "delivered" || order.pickup_confirmed_at) {
+    return { success: false, error: "Este pedido ya fue entregado y confirmado anteriormente." };
+  }
+
+  const verification = extractPickupVerification(order.notes, order);
+
+  if (!verification.code) {
+    return { success: false, error: "El pedido no cuenta con un código de recogida asignado." };
+  }
+
+  if (verification.isLocked) {
+    return {
+      success: false,
+      error: "Se ha superado el límite de intentos (5). Comunícate con un administrador para autorizar la entrega.",
+      isLocked: true,
+      remainingAttempts: 0,
+    };
+  }
+
+  const cleanInput = enteredCode.trim();
+  if (cleanInput !== verification.code) {
+    const newAttempts = verification.attempts + 1;
+    const isNowLocked = newAttempts >= 5;
+    const updatedNotes = encodePickupVerification(verification.cleanNotes, verification.code, newAttempts);
+
+    await supabase
+      .from("restaurant_orders")
+      .update({
+        notes: updatedNotes,
+        pickup_attempts: newAttempts,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+      .eq("business_id", businessId);
+
+    const remaining = Math.max(0, 5 - newAttempts);
+
+    try {
+      const { logAuditAction } = await import("@/lib/audit/audit-service");
+      await logAuditAction({
+        businessId,
+        userId: actorId,
+        action: "verify_failed",
+        entityType: "order_pickup",
+        entityId: orderId,
+        description: `Intento fallido de validación de recogida en pedido #${order.order_number} (${newAttempts}/5)`,
+        metadata: { orderId, attempt: newAttempts, actorName },
+      });
+    } catch {}
+
+    return {
+      success: false,
+      error: isNowLocked
+        ? "Se ha superado el límite de intentos (5). El código de recogida ha sido bloqueado."
+        : `Código de recogida incorrecto. ${remaining === 1 ? "Queda 1 intento." : `Quedan ${remaining} intentos.`}`,
+      remainingAttempts: remaining,
+      isLocked: isNowLocked,
+    };
+  }
+
+  // Código correcto: se marca entregado conservando estrictamente el estado del pago independiente
+  const finalNotes = verification.cleanNotes
+    ? `${verification.cleanNotes} | Recogido con código verificado`
+    : "Recogido con código verificado";
+
+  const { error: updateErr } = await supabase
+    .from("restaurant_orders")
+    .update({
+      status: "delivered",
+      pickup_confirmed_at: new Date().toISOString(),
+      pickup_confirmed_by: actorId,
+      pickup_attempts: verification.attempts,
+      notes: finalNotes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .eq("business_id", businessId);
+
+  if (updateErr) {
+    return { success: false, error: "No se pudo registrar la confirmación de recogida." };
+  }
+
+  try {
+    const { logAuditAction } = await import("@/lib/audit/audit-service");
+    await logAuditAction({
+      businessId,
+      userId: actorId,
+      action: "deliver",
+      entityType: "order_pickup",
+      entityId: orderId,
+      description: `Pedido #${order.order_number} retirado y verificado con código por ${actorName || "personal"}`,
+      metadata: { orderId, code: verification.code, actorName },
+    });
+  } catch {}
+
+  return { success: true };
 }
 
 /**

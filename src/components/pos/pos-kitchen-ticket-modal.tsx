@@ -2,10 +2,12 @@
 
 import React, { useRef } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { UtensilsCrossed, X, Printer, Clock, User, Users, Check } from "lucide-react";
+import { FileText, X, Printer, Clock, User, Users, Check } from "lucide-react";
 import { toast } from "sonner";
+import { printThermalElement } from "@/lib/printing/print-thermal-element";
 
 export interface KitchenTicketData {
+  orderId?: string;
   orderNumber: number;
   referenceName?: string | null;
   serviceType: string; // ej: "COMER AQUÍ", "PARA LLEVAR", "DOMICILIO"
@@ -13,6 +15,7 @@ export interface KitchenTicketData {
   cashierName?: string | null;
   dinersCount?: number;
   createdAt?: string;
+  generalNotes?: string | null;
   items: Array<{
     quantity: number;
     name: string;
@@ -36,18 +39,25 @@ export function PosKitchenTicketModal({
 
   if (!isOpen || !data) return null;
 
-  const nowFormatted =
-    data.createdAt ||
-    new Date().toLocaleString("es-CO", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const nowFormatted = (() => {
+    try {
+      const d = data.createdAt ? new Date(data.createdAt) : new Date();
+      if (isNaN(d.getTime())) return data.createdAt || "Fecha no registrada";
+      return d.toLocaleString("es-CO", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return data.createdAt || "Fecha no registrada";
+    }
+  })();
 
   const handlePrint = () => {
-    window.print();
+    printThermalElement("pos-kitchen-print-area", `Comanda #${data.orderNumber}`);
     toast.success("Enviando comanda a impresora de cocina...");
   };
 
@@ -78,53 +88,23 @@ export function PosKitchenTicketModal({
               overflow: visible !important;
               height: auto !important;
             }
-            /* Ocultar elementos marcados como no imprimibles */
+            /* Ocultar toda la página y elementos de fondo */
+            body * {
+              visibility: hidden !important;
+            }
             .pos-no-print {
               display: none !important;
             }
-            /* Neutralizar contenedores del modal en impresión */
-            .pos-print-modal-overlay {
-              position: static !important;
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              inset: auto !important;
-              width: 80mm !important;
-              max-width: 80mm !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
-              display: block !important;
+            /* Mostrar exclusivamente la comanda de cocina a 80mm en la esquina superior */
+            #pos-kitchen-print-area,
+            #pos-kitchen-print-area * {
+              visibility: visible !important;
             }
-            .pos-print-modal-card {
-              position: static !important;
-              background: transparent !important;
-              border: none !important;
-              box-shadow: none !important;
-              border-radius: 0 !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              width: 80mm !important;
-              max-width: 80mm !important;
-              height: auto !important;
-              max-height: none !important;
-              overflow: visible !important;
-              display: block !important;
-            }
-            .pos-print-body-wrapper {
-              background: transparent !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              overflow: visible !important;
-              height: auto !important;
-              max-height: none !important;
-              display: block !important;
-            }
-            /* Mostrar exclusivamente la comanda de cocina a 80mm */
             #pos-kitchen-print-area {
               display: block !important;
-              visibility: visible !important;
-              position: relative !important;
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
               width: 80mm !important;
               max-width: 80mm !important;
               margin: 0 !important;
@@ -138,9 +118,9 @@ export function PosKitchenTicketModal({
               border: none !important;
               border-radius: 0 !important;
               overflow: visible !important;
+              z-index: 2147483647 !important;
             }
             #pos-kitchen-print-area * {
-              visibility: visible !important;
               color: #000000 !important;
               background: transparent !important;
               text-shadow: none !important;
@@ -163,7 +143,7 @@ export function PosKitchenTicketModal({
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] pos-no-print">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center font-bold">
-                <UtensilsCrossed className="w-4 h-4" />
+                <FileText className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
@@ -262,6 +242,14 @@ export function PosKitchenTicketModal({
                 ))}
               </div>
 
+              {/* Notas generales de la orden si existen */}
+              {data.generalNotes && (
+                <div className="p-2 border-2 border-dashed border-black bg-slate-50 text-[11px] font-black uppercase text-center space-y-0.5">
+                  <span className="text-red-600 block">*** NOTA GENERAL ***</span>
+                  <span className="text-black block text-xs">{data.generalNotes}</span>
+                </div>
+              )}
+
               {/* Pie de comanda */}
               <div className="pt-2 text-center text-[10px] font-bold border-t border-black">
                 *** FIN DE COMANDA ***
@@ -281,7 +269,7 @@ export function PosKitchenTicketModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer hover:opacity-90 active:scale-95 shadow-md"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer hover:opacity-90 active:scale-95 shadow-md"
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir Comanda (80mm)</span>

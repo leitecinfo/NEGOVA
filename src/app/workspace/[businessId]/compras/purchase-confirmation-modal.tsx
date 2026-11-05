@@ -14,8 +14,6 @@ import {
   Boxes,
   Package,
   Store,
-  Apple,
-  Wine,
   ArrowRight,
   Plus,
   Check,
@@ -284,13 +282,13 @@ export function PurchaseConfirmationModal({
                         <div className="flex items-center gap-2">
                           {item.itemCategory === "ingredient" ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                              <Apple className="w-2.5 h-2.5" />
-                              Insumo / Ingrediente
+                              <Boxes className="w-2.5 h-2.5" />
+                              Insumo / Material
                             </span>
                           ) : item.itemCategory === "resale" ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
-                              <Wine className="w-2.5 h-2.5" />
-                              Bebida / Reventa Directa
+                              <Package className="w-2.5 h-2.5" />
+                              Producto para Reventa
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-3xs font-semibold bg-slate-500/10 text-slate-700 dark:text-slate-400 border border-slate-500/20">

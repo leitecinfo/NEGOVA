@@ -9,6 +9,7 @@ import {
 import {
   getModifierGroupKPIs,
   createModifierGroup,
+  updateModifierGroup,
   getModifierGroups,
   addModifierOption,
   updateModifierOption,
@@ -564,6 +565,113 @@ describe("Módulo Completo de Grupos de Modificadores y Opciones", () => {
       const burger = inMemoryProducts.find((p) => p.id === "prod-hamburguesa");
       const remainingGroups = burger.metadata.modifier_groups || [];
       expect(remainingGroups.find((g: any) => g.name === "Salsas Temporales")).toBeUndefined();
+    });
+
+    it("debe crear un modificador individual independiente y reflejarlo en el producto", async () => {
+      // Simula el flujo de «Nuevo modificador»
+      const singleModifier = await createModifierGroup(BIZ_1, {
+        name: "Queso mozzarella extra",
+        commercial_type: "additional",
+        required: false,
+        selection_type: "single",
+        min_select: 0,
+        max_select: 1,
+        status: "active",
+        options: [
+          {
+            name: "Queso mozzarella extra",
+            price: 3500,
+            status: "active",
+            sort_order: 0,
+          },
+        ],
+        product_ids: ["prod-hamburguesa"],
+      });
+
+      expect(singleModifier.name).toBe("Queso mozzarella extra");
+      expect(singleModifier.options).toHaveLength(1);
+      expect(singleModifier.options[0].price).toBe(3500);
+      expect(singleModifier.max_select).toBe(1);
+      expect(singleModifier.required).toBe(false);
+
+      // Snapshot sincronizado en el producto
+      const burger = inMemoryProducts.find((p) => p.id === "prod-hamburguesa");
+      const snapshotGroup = burger.metadata.modifier_groups.find(
+        (g: any) => g.name === "Queso mozzarella extra"
+      );
+      expect(snapshotGroup).toBeDefined();
+      expect(snapshotGroup.options[0].price).toBe(3500);
+      expect(snapshotGroup.commercial_type).toBe("additional");
+    });
+
+    it("debe actualizar un modificador individual y permitir convertirlo a grupo múltiple", async () => {
+      // Crear modificador individual
+      const single = await createModifierGroup(BIZ_1, {
+        name: "Tocineta",
+        commercial_type: "additional",
+        required: false,
+        selection_type: "single",
+        min_select: 0,
+        max_select: 1,
+        status: "active",
+        options: [{ name: "Tocineta", price: 4000, status: "active" }],
+        product_ids: ["prod-hamburguesa"],
+      });
+
+      // Convertir a grupo con múltiples opciones (ej. Tocineta regular y Tocineta ahumada premium)
+      const converted = await updateModifierGroup(BIZ_1, single.id, {
+        name: "Selección de Tocinetas",
+        selection_type: "multiple",
+        required: false,
+        min_select: 0,
+        max_select: 2,
+        options: [
+          { id: single.options[0].id, name: "Tocineta Tradicional", price: 4000, status: "active" },
+          { name: "Tocineta Ahumada en Madera", price: 5500, status: "active" },
+        ],
+        product_ids: ["prod-hamburguesa"],
+      });
+
+      expect(converted.name).toBe("Selección de Tocinetas");
+      expect(converted.options).toHaveLength(2);
+      expect(converted.max_select).toBe(2);
+
+      // Verificar snapshot en producto
+      const burger = inMemoryProducts.find((p) => p.id === "prod-hamburguesa");
+      const synced = burger.metadata.modifier_groups.find((g: any) => g.name === "Selección de Tocinetas");
+      expect(synced).toBeDefined();
+      expect(synced.options).toHaveLength(2);
+    });
+    it("debe permitir crear un modificador sin asignar a ningún producto (0 productos)", async () => {
+      const independentMod = await createModifierGroup(BIZ_1, {
+        name: "Queso Costeño Extra",
+        commercial_type: "additional",
+        required: false,
+        selection_type: "single",
+        min_select: 0,
+        max_select: 1,
+        status: "active",
+        options: [{ name: "Queso Costeño Extra", price: 3000, status: "active" }],
+        product_ids: [],
+      });
+
+      expect(independentMod).toBeDefined();
+      expect(independentMod.name).toBe("Queso Costeño Extra");
+      expect(independentMod.applied_product_ids).toEqual([]);
+
+      // Verificar que aparece en el listado de grupos del negocio
+      const allGroups = await getModifierGroups(BIZ_1);
+      const found = allGroups.find((g) => g.name === "Queso Costeño Extra");
+      expect(found).toBeDefined();
+      expect(found?.applied_product_ids).toHaveLength(0);
+
+      // Verificar que ningún producto tiene este modificador en su metadata snapshot
+      for (const prod of inMemoryProducts.filter((p) => p.business_id === BIZ_1)) {
+        const hasIt = (prod.metadata?.modifier_groups || []).some(
+          (g) => g.name === "Queso Costeño Extra"
+        );
+        expect(hasIt).toBe(false);
+      }
     });
   });
 });

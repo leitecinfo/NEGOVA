@@ -73,10 +73,68 @@ export async function createSpoilageRecord(
     targetLocationId = defaultLoc.id;
   }
 
-  // 2. Calcular costo total de la merma
-  const totalCost = Number((parsed.quantity * parsed.unitCost).toFixed(2));
+  // 2. Pre-validación de existencias y reglas de negocio para productos e ingredientes [MER-001]
+  let prodToUpdate: any = null;
+  let unitCost = parsed.unitCost;
+  let currentQty = 0;
+  let minStock = 0;
+  let cost = parsed.unitCost;
 
-  // 3. Insertar el registro en spoilage_records
+  if (parsed.itemType === "product" || parsed.itemType === "ingredient") {
+    const { data: prod, error: prodErr } = await supabase
+      .from("products")
+      .select("id, name, metadata")
+      .eq("id", parsed.itemId)
+      .eq("business_id", businessId)
+      .single();
+
+    if (prodErr || !prod) {
+      throw new Error("El artículo indicado para la merma no existe o no pertenece a este comercio.");
+    }
+
+    prodToUpdate = prod;
+    const meta = (prod.metadata || {}) as any;
+
+    // Regla de Negocio: No se registran mermas sobre productos preparados o sin control de existencias físicas
+    if (meta.product_type === "prepared" || meta.track_stock === false) {
+      throw new Error(
+        `No se pueden registrar mermas sobre unidades terminadas de «${prod.name}» ya que es un producto preparado o sin control de existencias físicas.`
+      );
+    }
+
+    // Consultar existencias disponibles en la ubicación
+    const stockList = await getInventoryStock(businessId, {
+      productId: parsed.itemId,
+      locationId: targetLocationId,
+    });
+
+    if (stockList && stockList.length > 0) {
+      currentQty = Number(stockList[0].quantity || 0);
+      minStock = Number(stockList[0].minStock || 0);
+      cost = Number(stockList[0].cost || parsed.unitCost);
+      if (stockList[0].cost && stockList[0].cost > 0 && (!unitCost || unitCost === 0)) {
+        unitCost = Number(stockList[0].cost);
+      }
+    } else {
+      currentQty = Number(meta.stock_quantity || 0);
+      minStock = Number(meta.min_stock || 0);
+      cost = Number(meta.cost ?? meta.cost_per_unit ?? parsed.unitCost);
+      if (meta.cost && (!unitCost || unitCost === 0)) {
+        unitCost = Number(meta.cost);
+      }
+    }
+
+    if (parsed.quantity > currentQty) {
+      throw new Error(
+        `Existencias insuficientes para «${prod.name}». Stock disponible actual: ${currentQty}, solicitado para merma: ${parsed.quantity}.`
+      );
+    }
+  }
+
+  // 3. Calcular costo total de la merma
+  const totalCost = Number((parsed.quantity * unitCost).toFixed(2));
+
+  // 4. Insertar el registro en spoilage_records
   const { data: recordData, error: recordError } = await supabase
     .from("spoilage_records")
     .insert({
@@ -87,7 +145,7 @@ export async function createSpoilageRecord(
       item_name: parsed.itemName,
       cause: parsed.cause,
       quantity: parsed.quantity,
-      unit_cost: parsed.unitCost,
+      unit_cost: unitCost,
       total_cost: totalCost,
       notes: parsed.notes || null,
       registered_by: userId || null,
@@ -104,90 +162,55 @@ export async function createSpoilageRecord(
 
   const createdSpoilage = mapSpoilageRow(recordData);
 
-  // 4. Si el ítem es un producto o ingrediente en el catálogo, realizar descuento de inventario y kardex
-  if (parsed.itemType === "product" || parsed.itemType === "ingredient") {
-    try {
-      // a. Verificar si el ítem existe en la tabla products
-      const { data: prodToUpdate } = await supabase
-        .from("products")
-        .select("id, name, metadata")
-        .eq("id", parsed.itemId)
-        .eq("business_id", businessId)
-        .single();
+  // 5. Descontar de existencias físicas y registrar en Kardex de forma atómica
+  if (prodToUpdate) {
+    const meta = (prodToUpdate.metadata || {}) as any;
+    const newQty = Math.max(0, currentQty - parsed.quantity);
 
-      if (prodToUpdate) {
-        // b. Obtener stock actual en la ubicación
-        const stockList = await getInventoryStock(businessId, {
-          productId: parsed.itemId,
-          locationId: targetLocationId,
-        });
+    // a. Actualizar inventory_stock normalizado
+    await upsertInventoryStock(businessId, {
+      productId: parsed.itemId,
+      locationId: targetLocationId,
+      quantity: newQty,
+      minStock,
+      cost,
+    });
 
-        let currentQty = 0;
-        let minStock = 0;
-        let cost = parsed.unitCost;
+    // b. Actualizar metadata del producto/ingrediente para backward compatibility
+    await supabase
+      .from("products")
+      .update({
+        metadata: {
+          ...meta,
+          stock_quantity: newQty,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", parsed.itemId)
+      .eq("business_id", businessId);
 
-        if (stockList && stockList.length > 0) {
-          currentQty = stockList[0].quantity;
-          minStock = stockList[0].minStock;
-          cost = stockList[0].cost || parsed.unitCost;
-        } else {
-          // Fallback a metadata si no existía registro en inventory_stock
-          const meta = (prodToUpdate.metadata || {}) as any;
-          currentQty = Number(meta.stock_quantity || 0);
-          cost = Number(meta.cost ?? meta.cost_per_unit ?? parsed.unitCost);
-        }
+    // c. Registrar movimiento de inventario tipo 'spoilage' en Kardex
+    const causeLabel = SPOILAGE_CAUSE_LABELS[parsed.cause] || parsed.cause;
+    const notesFormatted = parsed.notes
+      ? `Merma (${causeLabel}): ${parsed.notes}`
+      : `Merma registrada (${causeLabel})`;
 
-        const newQty = Math.max(0, currentQty - parsed.quantity);
-
-        // c. Actualizar inventory_stock normalizado
-        await upsertInventoryStock(businessId, {
-          productId: parsed.itemId,
-          locationId: targetLocationId,
-          quantity: newQty,
-          minStock,
-          cost,
-        });
-
-        // d. Actualizar metadata del producto/ingrediente para backward compatibility
-        const meta = (prodToUpdate.metadata || {}) as any;
-        await supabase
-          .from("products")
-          .update({
-            metadata: {
-              ...meta,
-              stock_quantity: newQty,
-            },
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", parsed.itemId)
-          .eq("business_id", businessId);
-
-        // e. Registrar movimiento de inventario tipo 'spoilage'
-        const causeLabel = SPOILAGE_CAUSE_LABELS[parsed.cause] || parsed.cause;
-        const notesFormatted = parsed.notes
-          ? `Merma (${causeLabel}): ${parsed.notes}`
-          : `Merma registrada (${causeLabel})`;
-
-        await recordInventoryMovement(
-          businessId,
-          {
-            productId: parsed.itemId,
-            locationId: targetLocationId,
-            movementType: "spoilage",
-            quantity: parsed.quantity,
-            unitCost: parsed.unitCost,
-            totalCost: totalCost,
-            referenceId: createdSpoilage.id,
-            referenceType: "spoilage",
-            notes: notesFormatted,
-          },
-          userId
-        );
-      }
-    } catch (stockErr: any) {
-      console.warn("[createSpoilageRecord] Advertencia al actualizar stock/kardex:", stockErr);
-      // No anulamos la merma si falló un paso secundario de sincronización pero informamos
-    }
+    await recordInventoryMovement(
+      businessId,
+      {
+        productId: parsed.itemId,
+        locationId: targetLocationId,
+        movementType: "spoilage",
+        quantity: parsed.quantity,
+        unitCost,
+        totalCost,
+        referenceId: createdSpoilage.id,
+        referenceType: "adjustment",
+        notes: notesFormatted,
+      },
+      userId,
+      { skipStockUpdate: true }
+    );
   }
 
   return createdSpoilage;

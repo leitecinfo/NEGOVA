@@ -4,17 +4,17 @@ import React, { useState } from "react";
 import {
   Printer,
   Receipt,
-  UtensilsCrossed,
+  FileText,
   Clock,
   User,
   Users,
   MapPin,
   Building2,
   Phone,
-  FileText,
   AlertTriangle,
   Sparkles,
 } from "lucide-react";
+import { printThermalElement } from "@/lib/printing/print-thermal-element";
 import {
   TicketTemplateConfig,
   KitchenCommandTemplateConfig,
@@ -81,7 +81,7 @@ export function TicketLivePreview({
       : businessMaster.logoUrl;
 
   const handlePrintSample = () => {
-    window.print();
+    printThermalElement("ticket-preview-paper", "Muestra Térmica NEGOVA");
   };
 
   return (
@@ -111,8 +111,8 @@ export function TicketLivePreview({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            <UtensilsCrossed className="w-3.5 h-3.5" />
-            <span>Comanda Cocina</span>
+            <FileText className="w-3.5 h-3.5" />
+            <span>Tique Preparación</span>
           </button>
         </div>
 

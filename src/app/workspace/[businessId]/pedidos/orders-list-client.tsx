@@ -4,9 +4,7 @@ import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  UtensilsCrossed,
   Clock,
-  ChefHat,
   CheckCircle2,
   PackageCheck,
   XCircle,
@@ -40,9 +38,16 @@ import {
   Flame,
   AlertTriangle,
   SlidersHorizontal,
+  UserCheck,
+  KeyRound,
+  Boxes,
+  ClipboardList,
+  Inbox,
+  PackageOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
+import { ConfirmPickupModal } from "@/components/pedidos/confirm-pickup-modal";
 import {
   DataTable,
   TableToolbar,
@@ -226,6 +231,15 @@ export function OrdersListClient({
     isSubmitting: false,
   });
 
+  // Modal para confirmar recogida de pedido con PIN [POS-008]
+  const [pickupModal, setPickupModal] = useState<{
+    isOpen: boolean;
+    order: RestaurantOrderWithDetails | null;
+  }>({
+    isOpen: false,
+    order: null,
+  });
+
   const applyFilters = (newParams: Record<string, string>) => {
     startTransition(() => {
       const params = new URLSearchParams();
@@ -378,7 +392,7 @@ export function OrdersListClient({
       case "in_preparation":
         return {
           label: "En preparación",
-          icon: ChefHat,
+          icon: Boxes,
           color: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
           headerColor: "border-t-amber-500",
           nextAction: { targetStatus: "ready", label: "Marcar Listo", icon: CheckCircle2 },
@@ -423,8 +437,8 @@ export function OrdersListClient({
     switch (type) {
       case "dine_in":
         return {
-          label: tableName ? (tableName.toLowerCase().startsWith("mesa") ? tableName : `Mesa ${tableName}`) : "Mesa",
-          icon: UtensilsCrossed,
+          label: tableName ? (tableName.toLowerCase().startsWith("mesa") ? tableName : `Mesa ${tableName}`) : "En local",
+          icon: Store,
           color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20",
         };
       case "takeout":
@@ -469,17 +483,20 @@ export function OrdersListClient({
         return {
           label: "Pagado",
           color: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+          icon: CheckCircle2,
         };
       case "partial":
         return {
-          label: "Parcial",
+          label: "Pago parcial",
           color: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+          icon: Clock,
         };
       case "pending":
       default:
         return {
-          label: "Pendiente",
-          color: "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/[0.08]",
+          label: "Pago pendiente",
+          color: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+          icon: AlertCircle,
         };
     }
   };
@@ -696,7 +713,7 @@ export function OrdersListClient({
     {
       id: "in_preparation",
       title: "En Preparación",
-      icon: ChefHat,
+      icon: Boxes,
       count: ordersByStatus.in_preparation.length,
       orders: ordersByStatus.in_preparation,
       badgeColor: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
@@ -731,6 +748,7 @@ export function OrdersListClient({
     const channelBadge = getChannelBadge(order.channel_origin);
     const ChannelIcon = channelBadge.icon;
     const payBadge = getPaymentStatusBadge(order.payment_status);
+    const PayIcon = payBadge.icon;
     const isThisOrderUpdating = updatingOrderId === order.id;
     const isBeingDragged = draggingOrderId === order.id;
     const isDraggable = canUpdateOrder && order.status !== "cancelled";
@@ -795,6 +813,16 @@ export function OrdersListClient({
               <TypeIcon className="w-3 h-3 shrink-0" />
               <span className="truncate">{typeBadge.label}</span>
             </span>
+
+            {order.order_type === "takeout" && order.pickup_code && (
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                title={`Código de recogida: #${order.pickup_code}`}
+              >
+                <KeyRound className="w-2.5 h-2.5" />
+                <span>#{order.pickup_code}</span>
+              </span>
+            )}
           </div>
 
           {/* Derecha: Badge de Tiempo o Alerta */}
@@ -832,13 +860,28 @@ export function OrdersListClient({
           </div>
         </div>
 
-        {/* 2. CLIENTE (Solo si tiene nombre registrado para evitar duplicar el nombre de la mesa) */}
-        {order.customer_name && (
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 min-w-0">
-            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="truncate">{order.customer_name}</span>
-          </div>
-        )}
+        {/* 2. CLIENTE Y RESPONSABLE */}
+        <div className="space-y-0.5">
+          {order.customer_name && (
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 min-w-0">
+              <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{order.customer_name}</span>
+            </div>
+          )}
+          {order.assigned_staff_name && (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+              <UserCheck className="w-3 h-3 text-[#ED500A] shrink-0" />
+              <span className="truncate">
+                Resp: <strong className="font-semibold text-slate-700 dark:text-slate-300">{order.assigned_staff_name}</strong>
+              </span>
+              {order.assigned_staff_role && (
+                <span className="text-[9px] px-1 py-0.2 rounded font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 truncate">
+                  {order.assigned_staff_role.split(",")[0]}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 3. RESUMEN DE PLATOS (Sin tablas ni cajas oscuras sofocadas) */}
         <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
@@ -868,35 +911,78 @@ export function OrdersListClient({
         </div>
 
         {/* 4. TOTAL Y ESTADO DE PAGO */}
-        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
-          <span className="text-base font-mono font-black text-slate-900 dark:text-white">
-            {formatCOP(order.total)}
-          </span>
+        <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-base font-mono font-black text-slate-900 dark:text-white">
+              {formatCOP(order.total)}
+            </span>
 
-          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {order.payment_status === "pending" && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPaymentModal({
-                    isOpen: true,
-                    order,
-                    isSubmitting: false,
-                  });
-                }}
-                className="h-6 px-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                title="Registrar Cobro rápido"
-              >
-                <DollarSign className="w-3 h-3" />
-                <span>Cobrar</span>
-              </button>
-            )}
-
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${payBadge.color} shrink-0`}>
-              {payBadge.label}
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${payBadge.color} shrink-0`}>
+              <PayIcon className="w-3 h-3 shrink-0" />
+              <span>{payBadge.label}</span>
             </span>
           </div>
+
+          {/* Acción rápida de Recogida para modalidad Para recoger */}
+          {order.order_type === "takeout" && order.status !== "delivered" && !isCancelled && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPickupModal({ isOpen: true, order });
+              }}
+              className="w-full py-1.5 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+              title="Confirmar entrega de recogida con PIN"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Confirmar recogida {order.pickup_code ? `(#${order.pickup_code})` : ""}</span>
+            </button>
+          )}
+
+          {order.order_type === "takeout" && (order.status === "delivered" || order.pickup_confirmed_at) && (
+            <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+              <PackageCheck className="w-3 h-3" />
+              <span>Recogida confirmada</span>
+            </div>
+          )}
+
+          {order.payment_status === "pending" && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPaymentModal({
+                  isOpen: true,
+                  order,
+                  isSubmitting: false,
+                });
+              }}
+              className="w-full py-1.5 px-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+              title="Registrar y confirmar pago de este pedido"
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Confirmar pago</span>
+            </button>
+          )}
+
+          {order.payment_status === "partial" && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPaymentModal({
+                  isOpen: true,
+                  order,
+                  isSubmitting: false,
+                });
+              }}
+              className="w-full py-1.5 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+              title="Registrar saldo pendiente del pedido"
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Cobrar saldo pendiente</span>
+            </button>
+          )}
         </div>
 
         {/* 5. ACCIONES DIRECTAS Y RÁPIDAS DE MOVIMIENTO (SOLO MÓVIL / TABLET; EN PC SE USA DRAG & DROP) */}
@@ -1058,11 +1144,11 @@ export function OrdersListClient({
   return (
     <AppPageContainer
       title="Gestión de Pedidos"
-      description={`Control operativo de comandas, preparación y despacho en ${businessName}.`}
+      description={`Control operativo, preparación y despacho de pedidos en ${businessName}.`}
       badge={
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
-          <UtensilsCrossed className="w-3.5 h-3.5" />
-          Operación de Cocina & Salón
+          <ClipboardList className="w-3.5 h-3.5" />
+          Control Operativo y Despacho
         </span>
       }
       actions={
@@ -1070,8 +1156,8 @@ export function OrdersListClient({
           href={`/workspace/${businessId}/cocina`}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#ED500A] hover:bg-[#ED500A]/90 text-white shadow-xs transition-all active:scale-[0.98]"
         >
-          <ChefHat className="w-4 h-4" />
-          <span>Monitor Cocina (KDS)</span>
+          <ClipboardList className="w-4 h-4" />
+          <span>Monitor Operativo / KDS</span>
         </Link>
       }
       maxWidth="7xl"
@@ -1082,8 +1168,8 @@ export function OrdersListClient({
           <KpiCard
             title="Total Pedidos"
             value={summary.total}
-            subtext="Comandas registradas"
-            icon={<UtensilsCrossed className="w-4 h-4" />}
+            subtext="Pedidos registrados"
+            icon={<ShoppingBag className="w-4 h-4" />}
             variant="blue"
             isSelected={status === "all"}
             onClick={() => {
@@ -1108,8 +1194,8 @@ export function OrdersListClient({
           <KpiCard
             title="En Preparación"
             value={summary.inPreparation}
-            subtext="En cocina o barra"
-            icon={<ChefHat className="w-4 h-4" />}
+            subtext="En alistamiento"
+            icon={<Boxes className="w-4 h-4" />}
             variant="amber"
             isSelected={status === "in_preparation"}
             onClick={() => {
@@ -1426,7 +1512,7 @@ export function OrdersListClient({
                     <div className="space-y-3 flex-1 overflow-y-auto pr-1 py-1 focus:outline-none">
                       {col.orders.length === 0 ? (
                         <div className="h-full min-h-[180px] flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-200 dark:border-white/[0.08] text-slate-400 text-xs">
-                          <UtensilsCrossed className="w-7 h-7 text-slate-300 dark:text-slate-600 mb-2 opacity-50" />
+                          <Inbox className="w-7 h-7 text-slate-300 dark:text-slate-600 mb-2 opacity-50" />
                           <span className="font-semibold">Sin pedidos en {col.title.toLowerCase()}</span>
                           <span className="text-[11px] text-slate-400 mt-0.5">
                             Los pedidos aparecerán aquí según avancen en el flujo.
@@ -1553,7 +1639,7 @@ export function OrdersListClient({
                     >
                       {col.orders.length === 0 ? (
                         <div className="h-full min-h-[160px] flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-slate-200 dark:border-white/[0.08] text-slate-400 text-xs">
-                          <UtensilsCrossed className="w-6 h-6 text-slate-300 dark:text-slate-600 mb-2 opacity-60" />
+                          <Inbox className="w-6 h-6 text-slate-300 dark:text-slate-600 mb-2 opacity-60" />
                           <span>Sin pedidos en este estado</span>
                         </div>
                       ) : (
@@ -1608,7 +1694,7 @@ export function OrdersListClient({
                 render: (order) => (
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-white/10 dark:to-white/5 border border-slate-200 dark:border-white/[0.08] flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
-                      <UtensilsCrossed className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                      <ShoppingBag className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                     </div>
                     <div className="space-y-0.5 min-w-0">
                       <Link
@@ -1721,9 +1807,11 @@ export function OrdersListClient({
                 className: "whitespace-nowrap",
                 render: (order) => {
                   const payBadge = getPaymentStatusBadge(order.payment_status);
+                  const PayIcon = payBadge.icon;
                   return (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium border ${payBadge.color}`}>
-                      {payBadge.label}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium border ${payBadge.color}`}>
+                      <PayIcon className="w-3 h-3 shrink-0" />
+                      <span>{payBadge.label}</span>
                     </span>
                   );
                 },
@@ -1773,11 +1861,11 @@ export function OrdersListClient({
             keyExtractor={(order) => order.id}
             onRowClick={(order) => router.push(`/workspace/${businessId}/pedidos/${order.id}`)}
             emptyState={{
-              icon: UtensilsCrossed,
+              icon: PackageOpen,
               title: hasActiveFilters ? "Sin resultados para estos filtros" : "No hay pedidos registrados todavía",
               description: hasActiveFilters
-                ? "Prueba cambiando o limpiando los criterios de búsqueda para visualizar comandas."
-                : "Las órdenes generadas desde el Punto de venta (POS) aparecerán aquí de forma automática para el seguimiento operativo de cocina y entrega.",
+                ? "Prueba cambiando o limpiando los criterios de búsqueda para visualizar pedidos."
+                : "Las órdenes generadas desde el Punto de venta (POS) o canales de venta aparecerán aquí de forma automática para el seguimiento operativo de preparación y entrega.",
               onReset: hasActiveFilters ? handleClearFilters : undefined,
               resetLabel: hasActiveFilters ? "Limpiar Filtros" : undefined,
             }}
@@ -1892,21 +1980,21 @@ export function OrdersListClient({
                         {
                           id: "in_preparation",
                           label: "En Preparación",
-                          desc: "Cocina elaborando los platos",
-                          icon: ChefHat,
+                          desc: "En proceso de alistamiento o preparación",
+                          icon: Boxes,
                           color: "hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-500/10",
                         },
                         {
                           id: "ready",
                           label: "Listo para Entrega",
-                          desc: "Platos terminados esperando despacho",
+                          desc: "Artículos listos esperando despacho o entrega",
                           icon: CheckCircle2,
                           color: "hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-500/10",
                         },
                         {
                           id: "delivered",
                           label: "Entregado",
-                          desc: "Despachado a mesa o cliente",
+                          desc: "Despachado y entregado al cliente",
                           icon: PackageCheck,
                           color: "hover:border-slate-500 hover:bg-slate-50/50 dark:hover:bg-white/5",
                         },
@@ -1997,6 +2085,28 @@ export function OrdersListClient({
           }}
           isUpdatingStatus={isPending}
           updatingOrderId={updatingOrderId}
+        />
+
+        {/* 8. MODAL PARA CONFIRMAR RECOGIDA CON PIN [POS-008] */}
+        <ConfirmPickupModal
+          businessId={businessId}
+          isOpen={pickupModal.isOpen}
+          order={pickupModal.order}
+          onClose={() => setPickupModal({ isOpen: false, order: null })}
+          onSuccess={(orderId) => {
+            setLocalOrders((prev) =>
+              prev.map((o) =>
+                o.id === orderId
+                  ? {
+                      ...o,
+                      status: "delivered",
+                      pickup_confirmed_at: new Date().toISOString(),
+                    }
+                  : o
+              )
+            );
+            router.refresh();
+          }}
         />
       </div>
     </AppPageContainer>

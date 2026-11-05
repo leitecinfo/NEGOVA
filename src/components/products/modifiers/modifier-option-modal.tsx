@@ -77,7 +77,7 @@ export function ModifierOptionModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[10100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
         <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08]">

@@ -12,9 +12,10 @@ import {
   Search,
   X,
   Plus,
-  UtensilsCrossed,
+  Package,
+  Images,
 } from "lucide-react";
-import { Product, Category, ProductVariant } from "@/lib/products/types";
+import { Product, Category, ProductVariant, getProductImages } from "@/lib/products/types";
 import { DigitalMenuCustomSettings, DigitalMenuPublicBusiness } from "@/lib/menu/types";
 import {
   filterMenuProducts,
@@ -280,7 +281,7 @@ export function VisualMenuTemplate({
 
         {activeTable && (
           <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 bg-[#FFD60A] border-[2px] border-[#111111] shadow-[2px_2px_0_#111111] text-xs font-black uppercase text-[#111111]">
-            <UtensilsCrossed className="w-3.5 h-3.5" />
+            <ShoppingBag className="w-3.5 h-3.5" />
             <span>Mesa: <strong>{activeTable.name_or_number}</strong></span>
           </div>
         )}
@@ -543,7 +544,9 @@ function BrutalProductCard({
   onOpenModal: (p: Product) => void;
   onAddToCart: (p: Product, variant?: ProductVariant) => void;
 }) {
-  const hasPhoto = showPhotos && !!product.image_url;
+  const allImages = useMemo(() => getProductImages(product), [product]);
+  const hasPhoto = showPhotos && allImages.length > 0;
+  const primaryImage = allImages[0] || product.image_url;
   const isList = layout === "list";
   const isText = layout === "text" || layout === "compact";
 
@@ -622,14 +625,19 @@ function BrutalProductCard({
         {hasPhoto ? (
           <div className="w-22 sm:w-24 h-full shrink-0 border-r-[3px] border-[#111111] bg-[#FFD60A] relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover"
             />
+            {allImages.length > 1 && (
+              <span className="absolute bottom-1 right-1 bg-white border-[1.5px] border-[#111111] shadow-[1px_1px_0_#111111] px-1 py-0.2 text-[9px] font-black text-[#111111]">
+                +{allImages.length - 1}
+              </span>
+            )}
           </div>
         ) : (
-          <div className="w-20 h-full shrink-0 border-r-[3px] border-[#111111] bg-[#FFD60A] flex items-center justify-center font-black text-lg">
-            🍔
+          <div className="w-20 h-full shrink-0 border-r-[3px] border-[#111111] bg-[#FFD60A] flex items-center justify-center text-slate-900">
+            <Package className="w-6 h-6 opacity-40" />
           </div>
         )}
 
@@ -679,7 +687,7 @@ function BrutalProductCard({
         {hasPhoto ? (
           <div className="h-44 sm:h-48 w-full border-b-[3px] border-[#111111] bg-[#FFD60A] relative overflow-hidden">
             <img
-              src={product.image_url!}
+              src={primaryImage!}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -688,10 +696,16 @@ function BrutalProductCard({
                 Opciones disponibles
               </span>
             )}
+            {allImages.length > 1 && (
+              <span className="absolute bottom-2.5 right-2.5 bg-white border-[2px] border-[#111111] shadow-[2px_2px_0_#111111] px-2 py-0.5 font-black text-[10px] text-[#111111] uppercase flex items-center gap-1.5">
+                <Images className="w-3 h-3 text-[#FF3B30]" />
+                <span>{allImages.length} fotos</span>
+              </span>
+            )}
           </div>
         ) : (
-          <div className="h-32 w-full border-b-[3px] border-[#111111] bg-gradient-to-tr from-[#FFD60A] to-[#FF3B30] flex items-center justify-center text-4xl">
-            🍔
+          <div className="h-32 w-full border-b-[3px] border-[#111111] bg-gradient-to-tr from-[#FFD60A] to-[#FF3B30] flex items-center justify-center text-slate-900">
+            <Package className="w-10 h-10 opacity-30" />
           </div>
         )}
 

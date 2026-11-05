@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  UtensilsCrossed,
   ShoppingBag,
   Bike,
   User,
@@ -17,6 +16,7 @@ import {
   Layers,
   Sparkles,
   Search,
+  Store,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { PosCartItem, PosOrderSummary, formatCOP } from "@/lib/pos/types";
@@ -450,7 +450,7 @@ export function OrderDestinationModal({
                   {
                     id: "dine_in",
                     label: "Mesa",
-                    icon: UtensilsCrossed,
+                    icon: Store,
                     desc: "Consumo en local",
                   },
                   {
@@ -498,7 +498,7 @@ export function OrderDestinationModal({
               <div className="p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <UtensilsCrossed className="w-3.5 h-3.5 text-[#ED500A]" />
+                    <Store className="w-3.5 h-3.5 text-[#ED500A]" />
                     <span>2. Seleccionar Mesa para Consumo en Salón *</span>
                   </label>
                   {tables.length > 0 && (

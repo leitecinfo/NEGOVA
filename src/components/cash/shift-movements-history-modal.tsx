@@ -121,7 +121,7 @@ export function ShiftMovementsHistoryModal({
           icon: ShoppingCart,
           color: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20",
           sign: "+",
-          label: type === "sale_card" ? "Venta Tarjeta" : "Venta Digital",
+          label: "Venta Digital / Transferencia",
           affectsCash: false,
         };
       case "entry":

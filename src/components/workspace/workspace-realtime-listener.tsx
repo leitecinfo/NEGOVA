@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChefHat, BellRing } from "lucide-react";
+import { BellRing, ShoppingBag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   initOrderAudioUnlock,
@@ -92,7 +92,7 @@ export function WorkspaceRealtimeListener({ businessId }: WorkspaceRealtimeListe
           const clientName = newOrder.customer_name ? ` • ${newOrder.customer_name}` : "";
 
           toast(`Nuevo pedido ${orderNum}`, {
-            icon: <ChefHat className="w-5 h-5 text-[#ED500A]" />,
+            icon: <ShoppingBag className="w-5 h-5 text-[#ED500A]" />,
             description: `${modalityLabel} • Total: ${formattedTotal}${clientName}`,
             duration: 8000,
             action: {
