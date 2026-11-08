@@ -5,6 +5,7 @@ import { AppPageContainer } from "@/components/layout/app-page-container";
 import { ChefHat } from "lucide-react";
 import { RecetasManagerClient } from "./recetas-manager-client";
 import { getMeasurementUnits } from "@/lib/units/units-service";
+import { getCategories } from "@/lib/products/products-service";
 
 interface PageProps {
   params: Promise<{ businessId: string }>;
@@ -20,23 +21,35 @@ export default async function RecetasPage({ params, searchParams }: PageProps) {
   // Validar permisos de acceso al módulo de recetas e ingredientes
   await requireWorkspaceSession(businessId, "recipes.view");
 
-  let locations = await getBusinessLocations(businessId);
-  if (!locations || locations.length === 0) {
-    await ensureDefaultLocation(businessId);
-    locations = await getBusinessLocations(businessId);
+  // Cargar datos concurrentemente en paralelo para velocidad óptima de navegación
+  const [locationsRes, categoriesRes, unitsRes] = await Promise.allSettled([
+    getBusinessLocations(businessId),
+    getCategories(businessId, undefined, "all"),
+    getMeasurementUnits(businessId),
+  ]);
+
+  let locations = locationsRes.status === "fulfilled" && locationsRes.value ? locationsRes.value : [];
+  if (locations.length === 0) {
+    try {
+      await ensureDefaultLocation(businessId);
+      locations = await getBusinessLocations(businessId);
+    } catch {
+      locations = [];
+    }
   }
 
-  // Cargar unidades de medida configuradas del negocio [CONF-001]
-  let businessUnits: { value: string; label: string }[] = [];
-  try {
-    const rawUnits = await getMeasurementUnits(businessId);
-    businessUnits = rawUnits.map((u) => ({
-      value: u.abbreviation,
-      label: `${u.name} (${u.abbreviation})`,
-    }));
-  } catch {
-    businessUnits = [];
-  }
+  // Unidades de medida
+  const rawUnits = unitsRes.status === "fulfilled" && unitsRes.value ? unitsRes.value : [];
+  const businessUnits = rawUnits.map((u) => ({
+    value: u.abbreviation,
+    label: `${u.name} (${u.abbreviation})`,
+  }));
+
+  // Categorías disponibles filtradas en memoria sin round-trips adicionales
+  const allCats = categoriesRes.status === "fulfilled" && categoriesRes.value ? categoriesRes.value : [];
+  const internalCats = allCats.filter((c: any) => c.scope === "internal");
+  const filteredCats = internalCats.length > 0 ? internalCats : allCats;
+  const categories = filteredCats.map((c: any) => ({ id: c.id, name: c.name }));
 
   const badge = (
     <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -56,6 +69,7 @@ export default async function RecetasPage({ params, searchParams }: PageProps) {
         locations={locations}
         initialTab={initialTab}
         availableUnits={businessUnits}
+        categories={categories}
       />
     </AppPageContainer>
   );

@@ -36,20 +36,8 @@ DROP POLICY IF EXISTS "suppliers_tenant_isolation" ON public.suppliers;
 CREATE POLICY "suppliers_tenant_isolation"
 ON public.suppliers
 FOR ALL
-USING (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-)
-WITH CHECK (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-);
+USING (user_has_business_access(business_id))
+WITH CHECK (user_has_business_access(business_id));
 
 DROP POLICY IF EXISTS "service_role_all_suppliers" ON public.suppliers;
 CREATE POLICY "service_role_all_suppliers"
@@ -132,20 +120,8 @@ DROP POLICY IF EXISTS "purchases_tenant_isolation" ON public.purchases;
 CREATE POLICY "purchases_tenant_isolation"
 ON public.purchases
 FOR ALL
-USING (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-)
-WITH CHECK (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-);
+USING (user_has_business_access(business_id))
+WITH CHECK (user_has_business_access(business_id));
 
 DROP POLICY IF EXISTS "service_role_all_purchases" ON public.purchases;
 CREATE POLICY "service_role_all_purchases"
@@ -180,20 +156,8 @@ DROP POLICY IF EXISTS "purchase_items_tenant_isolation" ON public.purchase_items
 CREATE POLICY "purchase_items_tenant_isolation"
 ON public.purchase_items
 FOR ALL
-USING (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-)
-WITH CHECK (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-);
+USING (user_has_business_access(business_id))
+WITH CHECK (user_has_business_access(business_id));
 
 DROP POLICY IF EXISTS "service_role_all_purchase_items" ON public.purchase_items;
 CREATE POLICY "service_role_all_purchase_items"
@@ -229,20 +193,8 @@ DROP POLICY IF EXISTS "accounts_payable_tenant_isolation" ON public.accounts_pay
 CREATE POLICY "accounts_payable_tenant_isolation"
 ON public.accounts_payable
 FOR ALL
-USING (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-)
-WITH CHECK (
-    business_id IN (
-        SELECT bu.business_id 
-        FROM public.business_users bu 
-        WHERE bu.user_id = auth.uid() AND bu.is_active = true
-    )
-);
+USING (user_has_business_access(business_id))
+WITH CHECK (user_has_business_access(business_id));
 
 DROP POLICY IF EXISTS "service_role_all_accounts_payable" ON public.accounts_payable;
 CREATE POLICY "service_role_all_accounts_payable"

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { AccountsPayableWithDetails, AccountPayablePayment } from "@/lib/purchases/types";
 import { registerAccountPayablePaymentAction, getAccountPayableDetailsAction } from "./actions";
 import { formatCOP } from "@/config/plans";
@@ -144,8 +145,8 @@ export function PaymentModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-[#0E131F] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8 flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8 flex flex-col max-h-[90vh]">
           {/* ENCABEZADO */}
           <div className="flex items-center justify-between p-5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
@@ -210,7 +211,7 @@ export function PaymentModal({
                       Pagar saldo total ({formatCOP(currentBalance)})
                     </button>
                   </div>
-                  <input
+                  <Input
                     type="number"
                     step="0.01"
                     min="1"
@@ -219,7 +220,8 @@ export function PaymentModal({
                     value={amountInput}
                     onChange={(e) => setAmountInput(e.target.value)}
                     disabled={isPending}
-                    className="w-full text-base font-bold px-3 py-2 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121826] text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    inputSize="md"
+                    className="font-bold text-base"
                   />
                 </div>
 
@@ -229,17 +231,17 @@ export function PaymentModal({
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Medio de Pago
                     </label>
-                    <select
+                    <Select
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                       disabled={isPending}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121826] text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      selectSize="sm"
                     >
                       <option value="cash">Efectivo</option>
                       <option value="transfer">Transferencia Bancaria</option>
                       <option value="card">Tarjeta Débito / Crédito</option>
                       <option value="other">Otro Medio</option>
-                    </select>
+                    </Select>
                   </div>
 
                   {/* Fecha de abono */}
@@ -247,12 +249,12 @@ export function PaymentModal({
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Fecha del Pago
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={paymentDate}
                       onChange={(e) => setPaymentDate(e.target.value)}
                       disabled={isPending}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121826] text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      inputSize="sm"
                     />
                   </div>
                 </div>
@@ -262,13 +264,13 @@ export function PaymentModal({
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Comprobante / Referencia Bancaria (opcional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     placeholder="p. ej. Transf. #948271 o Recibo de Caja #12"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
                     disabled={isPending}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121826] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    inputSize="sm"
                   />
                 </div>
 
@@ -277,13 +279,13 @@ export function PaymentModal({
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Notas u Observaciones (opcional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     placeholder="Abono a cuenta corriente, liquidación de factura..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     disabled={isPending}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 dark:border-white/[0.12] bg-white dark:bg-[#121826] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    inputSize="sm"
                   />
                 </div>
               </form>

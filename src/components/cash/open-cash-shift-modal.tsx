@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { Landmark, X, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { CashRegisterWithSession, CashSession } from "@/lib/cash/types";
 import { openCashSessionAction } from "@/app/workspace/[businessId]/cajas/actions";
@@ -110,7 +111,7 @@ export function OpenCashShiftModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -152,20 +153,14 @@ export function OpenCashShiftModal({
 
             {/* SELECTOR DE CAJA */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="cash-register-select"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Caja Registradora
-              </label>
-              <select
+              <Select
+                label="Caja Registradora"
                 id="cash-register-select"
                 value={selectedRegisterId}
-                onChange={(e) => {
-                  setSelectedRegisterId(e.target.value);
+                onChange={(val) => {
+                  setSelectedRegisterId(val);
                   setError(null);
                 }}
-                className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
               >
                 {registersWithSessions.map((rw) => {
                   const isOpen = Boolean(rw.activeSession);
@@ -179,7 +174,7 @@ export function OpenCashShiftModal({
                     </option>
                   );
                 })}
-              </select>
+              </Select>
               {isTargetAlreadyOpen && (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                   ⚠️ Esta caja ya posee un turno abierto activo.
@@ -189,22 +184,15 @@ export function OpenCashShiftModal({
 
             {/* BASE INICIAL */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Base Inicial en Efectivo ($ COP)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold">
-                  $
-                </div>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={formattedDisplayAmount}
-                  onChange={handleAmountChange}
-                  placeholder="0"
-                  className="w-full pl-8 pr-3 py-2.5 text-lg font-bold font-mono rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                />
-              </div>
+              <Input
+                label="Base Inicial en Efectivo ($ COP)"
+                inputMode="numeric"
+                value={formattedDisplayAmount}
+                onChange={handleAmountChange}
+                placeholder="0"
+                startAdornment={<span className="text-slate-400 font-bold">$</span>}
+                className="text-lg font-bold font-mono"
+              />
 
               {/* BOTONES RÁPIDOS */}
               <div className="grid grid-cols-4 gap-1.5 pt-1">
@@ -229,22 +217,13 @@ export function OpenCashShiftModal({
             </div>
 
             {/* NOTAS */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="open-shift-notes"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Observaciones de apertura (Opcional)
-              </label>
-              <input
-                id="open-shift-notes"
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ej. Billetes de $20k y $10k, turno de la mañana..."
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-              />
-            </div>
+            <Input
+              label="Observaciones de apertura (Opcional)"
+              id="open-shift-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ej. Billetes de $20k y $10k, turno de la mañana..."
+            />
 
             {/* BOTONES DE ACCIÓN */}
             <div className="pt-2 flex items-center justify-end gap-2.5">

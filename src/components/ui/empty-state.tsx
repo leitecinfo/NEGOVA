@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { LucideIcon, Inbox } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface EmptyStateProps {
   icon?: LucideIcon;
@@ -13,6 +13,7 @@ export interface EmptyStateProps {
   onAction?: () => void;
   resetLabel?: string;
   onReset?: () => void;
+  className?: string;
 }
 
 export function EmptyState({
@@ -24,9 +25,10 @@ export function EmptyState({
   onAction,
   resetLabel,
   onReset,
+  className = "",
 }: EmptyStateProps) {
   return (
-    <div className="p-12 text-center rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3 font-body">
+    <div className={`p-12 text-center rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3 font-body ${className}`}>
       <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/[0.04] text-slate-400 flex items-center justify-center mx-auto">
         <Icon className="w-6 h-6" />
       </div>
@@ -40,32 +42,26 @@ export function EmptyState({
       {(onReset || actionLabel) && (
         <div className="flex items-center justify-center gap-2 pt-2">
           {onReset && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={onReset}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.1] text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
             >
               {resetLabel || "Limpiar Filtros"}
-            </button>
+            </Button>
           )}
 
-          {actionHref && actionLabel && (
-            <Link
-              href={actionHref}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ED500A] hover:bg-[#D44405] text-white text-xs font-semibold shadow-xs transition-all"
-            >
-              <span>{actionLabel}</span>
-            </Link>
-          )}
-
-          {!actionHref && onAction && actionLabel && (
-            <button
+          {actionLabel && (
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
+              href={actionHref}
               onClick={onAction}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ED500A] hover:bg-[#D44405] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
             >
-              <span>{actionLabel}</span>
-            </button>
+              {actionLabel}
+            </Button>
           )}
         </div>
       )}

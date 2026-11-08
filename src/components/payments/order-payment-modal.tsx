@@ -25,6 +25,7 @@ import {
   Award,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { PaymentMethodLogo } from "@/components/payments/payment-method-logo";
 import { RestaurantOrderWithDetails, ProcessOrderPaymentInput, SplitPaymentItem, PRESET_TABLE_DISCOUNTS } from "@/lib/restaurant/types";
 import { PublicPaymentMethodDTO } from "@/lib/payments/types";
@@ -446,7 +447,7 @@ export function OrderPaymentModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -680,38 +681,36 @@ export function OrderPaymentModal({
                       </button>
                     </div>
 
-                    <div className="flex gap-1.5">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={
-                            discountType === "percentage"
-                              ? discountValueStr
-                              : discountValueStr
-                              ? new Intl.NumberFormat("es-CO").format(Number(discountValueStr.replace(/\D/g, "")) || 0)
-                              : ""
-                          }
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, "");
-                            setDiscountValueStr(raw);
-                            setSelectedPresetDiscountId(null);
-                          }}
-                          placeholder={discountType === "percentage" ? "Ej. 10%" : "Ej. $5.000"}
-                          className="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
-                        />
-                      </div>
-                    </div>
+                    <div className="space-y-1.5">
+                      <Input
+                        type="text"
+                        value={
+                          discountType === "percentage"
+                            ? discountValueStr
+                            : discountValueStr
+                            ? new Intl.NumberFormat("es-CO").format(Number(discountValueStr.replace(/\D/g, "")) || 0)
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, "");
+                          setDiscountValueStr(raw);
+                          setSelectedPresetDiscountId(null);
+                        }}
+                        placeholder={discountType === "percentage" ? "Ej. 10%" : "Ej. $5.000"}
+                        inputSize="sm"
+                      />
 
-                    <input
-                      type="text"
-                      value={discountReason}
-                      onChange={(e) => {
-                        setDiscountReason(e.target.value);
-                        setSelectedPresetDiscountId(null);
-                      }}
-                      placeholder="Motivo (ej. Adulto Mayor 10%, Estudiante 15%)"
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
-                    />
+                      <Input
+                        type="text"
+                        value={discountReason}
+                        onChange={(e) => {
+                          setDiscountReason(e.target.value);
+                          setSelectedPresetDiscountId(null);
+                        }}
+                        placeholder="Motivo (ej. Adulto Mayor 10%, Estudiante 15%)"
+                        inputSize="sm"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -849,7 +848,7 @@ export function OrderPaymentModal({
 
                 {tipSelection === "custom" && (
                   <div className="pt-1 animate-in fade-in duration-150">
-                    <input
+                    <Input
                       type="text"
                       value={
                         customTipStr
@@ -858,7 +857,8 @@ export function OrderPaymentModal({
                       }
                       onChange={(e) => setCustomTipStr(e.target.value.replace(/\D/g, ""))}
                       placeholder="Monto voluntario ($ COP)"
-                      className="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      startAdornment={<span className="font-bold text-slate-400">$</span>}
+                      inputSize="sm"
                     />
                   </div>
                 )}
@@ -953,22 +953,19 @@ export function OrderPaymentModal({
                       </div>
                     </div>
 
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold">
-                        $
-                      </div>
-                      <input
-                        type="text"
-                        value={
-                          singleCashReceivedStr
-                            ? new Intl.NumberFormat("es-CO").format(Number(singleCashReceivedStr.replace(/\D/g, "")) || 0)
-                            : ""
-                        }
-                        onChange={(e) => setSingleCashReceivedStr(e.target.value.replace(/\D/g, ""))}
-                        placeholder="Monto entregado"
-                        className="w-full pl-7 pr-3 py-1.5 text-base font-mono font-bold text-slate-900 dark:text-white rounded-lg border border-emerald-300 dark:border-emerald-500/30 bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
+                    <Input
+                      type="text"
+                      value={
+                        singleCashReceivedStr
+                          ? new Intl.NumberFormat("es-CO").format(Number(singleCashReceivedStr.replace(/\D/g, "")) || 0)
+                          : ""
+                      }
+                      onChange={(e) => setSingleCashReceivedStr(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Monto entregado"
+                      startAdornment={<span className="font-bold text-slate-400">$</span>}
+                      inputSize="lg"
+                      className="font-mono font-bold text-base"
+                    />
 
                     {singleCashChange > 0 && (
                       <div className="flex items-center justify-between pt-1 border-t border-emerald-200/50 dark:border-emerald-500/20">
@@ -1028,25 +1025,22 @@ export function OrderPaymentModal({
                         <div className="flex items-center gap-2">
                           {/* SELECTOR DE MÉTODO */}
                           <div className="w-44 shrink-0">
-                            <select
+                            <Select
                               value={line.method}
                               onChange={(e) => handleUpdateSplitLine(line.id, { method: e.target.value })}
-                              className="w-full px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                              selectSize="sm"
                             >
                               {availableOptions.map((opt) => (
                                 <option key={opt.code} value={opt.code}>
                                   {opt.name}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                           </div>
 
                           {/* MONTO ASIGNADO AL MÉTODO */}
-                          <div className="relative flex-1">
-                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                              $
-                            </div>
-                            <input
+                          <div className="flex-1">
+                            <Input
                               type="text"
                               value={
                                 line.amount
@@ -1058,7 +1052,8 @@ export function OrderPaymentModal({
                                 handleUpdateSplitLine(line.id, { amount: raw });
                               }}
                               placeholder="0"
-                              className="w-full pl-6 pr-2 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
+                              startAdornment={<span className="font-bold text-slate-400 text-xs">$</span>}
+                              inputSize="sm"
                             />
                           </div>
 
@@ -1080,7 +1075,7 @@ export function OrderPaymentModal({
                           <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs gap-2">
                             <span className="text-[11px] text-slate-500">Paga en efectivo con:</span>
                             <div className="flex items-center gap-2">
-                              <input
+                              <Input
                                 type="text"
                                 value={
                                   line.receivedAmount
@@ -1092,7 +1087,9 @@ export function OrderPaymentModal({
                                   handleUpdateSplitLine(line.id, { receivedAmount: raw });
                                 }}
                                 placeholder={formatCOP(line.amount)}
-                                className="w-28 px-2 py-1 text-xs font-mono font-bold rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white"
+                                startAdornment={<span className="font-bold text-slate-400 text-xs">$</span>}
+                                inputSize="sm"
+                                className="w-32"
                               />
                               {line.receivedAmount && line.receivedAmount > line.amount && (
                                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">

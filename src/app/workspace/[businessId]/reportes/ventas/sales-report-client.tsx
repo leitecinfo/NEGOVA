@@ -36,6 +36,9 @@ import {
   KpiCard,
   KpiGrid,
   EmptyState,
+  Select,
+  Input,
+  SearchInput,
 } from "@/components/ui";
 import {
   SalesReportData,
@@ -395,12 +398,12 @@ export function SalesReportClient({
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 Desde:
               </label>
-              <input
+              <Input
                 type="date"
                 required
                 value={filters.startDate || ""}
                 onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs font-body text-slate-800 dark:text-white"
+                inputSize="sm"
               />
             </div>
 
@@ -408,12 +411,12 @@ export function SalesReportClient({
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 Hasta:
               </label>
-              <input
+              <Input
                 type="date"
                 required
                 value={filters.endDate || ""}
                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                className="h-8 px-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs font-body text-slate-800 dark:text-white"
+                inputSize="sm"
               />
             </div>
 
@@ -430,17 +433,16 @@ export function SalesReportClient({
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Canal de Venta
             </label>
-            <select
+            <Select
               value={filters.channel || "all"}
               onChange={(e) => handleFilterChange("channel", e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
             >
               <option value="all">Todos los canales</option>
               <option value="mostrador">Mostrador (POS)</option>
               <option value="mesa">Salón / Mesas</option>
               <option value="domicilio">Domicilios</option>
               <option value="digital_menu">Menú QR</option>
-            </select>
+            </Select>
           </div>
 
           {/* Método de Pago */}
@@ -448,10 +450,9 @@ export function SalesReportClient({
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Método de Pago
             </label>
-            <select
+            <Select
               value={filters.paymentMethod || "all"}
               onChange={(e) => handleFilterChange("paymentMethod", e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
             >
               <option value="all">Todos los métodos</option>
               <option value="cash">Efectivo</option>
@@ -459,7 +460,7 @@ export function SalesReportClient({
               <option value="transfer">Transferencia</option>
               <option value="credit">A Crédito</option>
               <option value="split">Pago Mixto</option>
-            </select>
+            </Select>
           </div>
 
           {/* Estado */}
@@ -467,15 +468,14 @@ export function SalesReportClient({
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Estado de la Venta
             </label>
-            <select
+            <Select
               value={filters.status || "all"}
               onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
             >
               <option value="all">Todos los estados</option>
               <option value="completed">Completadas / Pagadas</option>
               <option value="cancelled">Anuladas / Canceladas</option>
-            </select>
+            </Select>
           </div>
 
           {/* Empleado */}
@@ -483,10 +483,9 @@ export function SalesReportClient({
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Empleado / Cajero
             </label>
-            <select
+            <Select
               value={filters.employeeId || "all"}
               onChange={(e) => handleFilterChange("employeeId", e.target.value)}
-              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
             >
               <option value="all">Todos los colaboradores</option>
               {data.employees.map((emp) => (
@@ -494,7 +493,7 @@ export function SalesReportClient({
                   {emp.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Búsqueda */}
@@ -502,25 +501,12 @@ export function SalesReportClient({
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block">
               Búsqueda Rápida
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={filters.search || ""}
-                onChange={(e) => handleFilterChange("search", e.target.value)}
-                placeholder="# Doc, cliente o motivo..."
-                className="w-full h-9 pl-9 pr-7 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-              />
-              {filters.search && (
-                <button
-                  type="button"
-                  onClick={() => handleFilterChange("search", "")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={filters.search || ""}
+              onChange={(e) => handleFilterChange("search", e.target.value)}
+              onClear={() => handleFilterChange("search", "")}
+              placeholder="Buscar..."
+            />
           </div>
         </div>
       </div>

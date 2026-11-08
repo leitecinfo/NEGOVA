@@ -29,6 +29,8 @@ import {
 import { toast } from "sonner";
 import { AdminBadge } from "@/components/ui/badge";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 import {
   HELP_ARTICLES,
   HELP_FAQS,
@@ -273,59 +275,17 @@ export function WorkspaceHelpClient({
       </div>
 
       {/* ─── PESTAÑAS PRINCIPALES DE NAVEGACIÓN ─────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setActiveTab("guias")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "guias"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>Guías Rápidas ({HELP_ARTICLES.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("faqs")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "faqs"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <FileQuestion className="w-4 h-4" />
-          <span>Preguntas Frecuentes ({HELP_FAQS.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("videos")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "videos"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <Video className="w-4 h-4" />
-          <span>Videos Tutoriales ({HELP_VIDEOS.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("contacto")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 cursor-pointer ${
-            activeTab === "contacto"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          <span>Contactar Soporte</span>
-        </button>
-      </div>
+      <Tabs<TabId>
+        variant="underline"
+        tabs={[
+          { id: "guias", label: `Guías Rápidas (${HELP_ARTICLES.length})`, icon: <BookOpen className="w-4 h-4" /> },
+          { id: "faqs", label: `Preguntas Frecuentes (${HELP_FAQS.length})`, icon: <FileQuestion className="w-4 h-4" /> },
+          { id: "videos", label: `Videos Tutoriales (${HELP_VIDEOS.length})`, icon: <Video className="w-4 h-4" /> },
+          { id: "contacto", label: "Contactar Soporte", icon: <Send className="w-4 h-4" /> },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* ══════════════════════════════════════════════════════════════════════
            TAB 1: GUÍAS RÁPIDAS PASO A PASO
@@ -671,13 +631,10 @@ export function WorkspaceHelpClient({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Módulo Afectado */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Módulo o Área
-                    </label>
-                    <select
+                    <Select
+                      label="Módulo o Área"
                       value={ticketCategory}
                       onChange={(e) => setTicketCategory(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-[#ED500A] focus:outline-hidden"
                     >
                       <option value="pos">Punto de Venta (POS)</option>
                       <option value="caja">Caja y Arqueos</option>
@@ -688,24 +645,21 @@ export function WorkspaceHelpClient({
                       <option value="facturacion">Facturación / Comprobantes</option>
                       <option value="impresion">Impresoras Térmicas</option>
                       <option value="general">Otro / Consulta General</option>
-                    </select>
+                    </Select>
                   </div>
 
                   {/* Prioridad */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Nivel de Urgencia
-                    </label>
-                    <select
+                    <Select
+                      label="Nivel de Urgencia"
                       value={ticketPriority}
                       onChange={(e) => setTicketPriority(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-[#ED500A] focus:outline-hidden"
                     >
                       <option value="low">Baja — Duda general o sugerencia</option>
                       <option value="medium">Media — Funcionalidad con alternativa</option>
                       <option value="high">Alta — Afecta la operación del día</option>
                       <option value="urgent">Urgente — Operación detenida por completo</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -772,7 +726,7 @@ export function WorkspaceHelpClient({
       {/* ─── MODAL DE REPRODUCTOR DE VIDEO ─────────────────────────────── */}
       {activeVideo && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden space-y-4">
               <div className="flex items-center justify-between p-4 border-b border-slate-800">
                 <div className="flex items-center gap-2">

@@ -27,6 +27,7 @@ import {
   MEASUREMENT_UNIT_TYPES,
   MEASUREMENT_UNIT_TYPE_LABELS,
 } from "@/lib/units/types";
+import { Tabs, SearchInput } from "@/components/ui";
 import { UnitFormModal } from "./unit-form-modal";
 import { deleteMeasurementUnitAction, checkUnitUsageAction } from "./actions";
 
@@ -237,31 +238,20 @@ export function UnitsConfigClient({ businessId, initialUnits, canManage }: Props
       {/* Barra de Filtros y Acciones */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] shadow-sm">
         {/* Pestañas por Magnitud */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              activeTab === "all"
-                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-            }`}
-          >
-            Todas ({units.length})
-          </button>
-          {MEASUREMENT_UNIT_TYPES.map((t) => (
-            <button
-              key={t}
-              onClick={() => setActiveTab(t)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === t
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-              }`}
-            >
-              {MEASUREMENT_UNIT_TYPE_LABELS[t]} (
-              {units.filter((u) => u.type === t).length})
-            </button>
-          ))}
+        <div className="overflow-x-auto pb-1 sm:pb-0">
+          <Tabs
+            tabs={[
+              { id: "all", label: "Todas", count: units.length },
+              ...MEASUREMENT_UNIT_TYPES.map((t) => ({
+                id: t,
+                label: MEASUREMENT_UNIT_TYPE_LABELS[t],
+                count: units.filter((u) => u.type === t).length,
+              })),
+            ]}
+            activeTab={activeTab}
+            onChange={(id: string) => setActiveTab(id as any)}
+            size="sm"
+          />
         </div>
 
         {/* Buscador y Botón Crear */}
@@ -457,7 +447,7 @@ export function UnitsConfigClient({ businessId, initialUnits, canManage }: Props
       {/* Modal de Confirmación de Eliminación Accesible (PROHIBIDO ALERTAS NATIVAS) */}
       {unitToDelete && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 space-y-4">
               <div className="flex items-start gap-3">
                 <div className="p-3 rounded-2xl bg-red-500/10 text-red-600 shrink-0">

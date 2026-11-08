@@ -14,23 +14,24 @@ import path from "path";
 
 describe("Límites Centralizados de Empleados por Plan", () => {
   it("CENTRALIZED_PLAN_EMPLOYEE_LIMITS debe ser la única fuente de la verdad para todos los planes", () => {
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers).toBe(2);
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers).toBe(3);
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers).toBe(6);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers).toBe(4);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers).toBe(6);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers).toBe(10);
 
     // Contabilización: 1 Propietario + N Auxiliares
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxAuxiliares).toBe(1);
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxAuxiliares).toBe(2);
-    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxAuxiliares).toBe(5);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxAuxiliares).toBe(3);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxAuxiliares).toBe(5);
+    expect(CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxAuxiliares).toBe(9);
   });
 
   it("getPlanMaxEmployees debe resolver correctamente el límite según la clave o código del plan", () => {
-    expect(getPlanMaxEmployees("inicio")).toBe(2);
-    expect(getPlanMaxEmployees("starter")).toBe(2);
-    expect(getPlanMaxEmployees("crece")).toBe(3);
-    expect(getPlanMaxEmployees("professional")).toBe(3);
-    expect(getPlanMaxEmployees("negocio")).toBe(6);
-    expect(getPlanMaxEmployees("enterprise")).toBe(6);
+    expect(getPlanMaxEmployees("inicio")).toBe(4);
+    expect(getPlanMaxEmployees("starter")).toBe(4);
+    expect(getPlanMaxEmployees("crece")).toBe(6);
+    expect(getPlanMaxEmployees("avanzado")).toBe(6);
+    expect(getPlanMaxEmployees("professional")).toBe(6);
+    expect(getPlanMaxEmployees("negocio")).toBe(10);
+    expect(getPlanMaxEmployees("enterprise")).toBe(10);
   });
 
   it("NEGOVA_PLANS y PLAN_RESOURCE_LIMITS deben sincronizarse exactamente con la definición centralizada", () => {
@@ -44,9 +45,9 @@ describe("Límites Centralizados de Empleados por Plan", () => {
       CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers
     );
 
-    expect(PLAN_RESOURCE_LIMITS.inicio.employees).toBe(2);
-    expect(PLAN_RESOURCE_LIMITS.crece.employees).toBe(3);
-    expect(PLAN_RESOURCE_LIMITS.negocio.employees).toBe(6);
+    expect(PLAN_RESOURCE_LIMITS.inicio.employees).toBe(4);
+    expect(PLAN_RESOURCE_LIMITS.crece.employees).toBe(6);
+    expect(PLAN_RESOURCE_LIMITS.negocio.employees).toBe(10);
   });
 });
 

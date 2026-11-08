@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { CustomModal } from "@/components/ui/custom-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Input, Select, SearchInput } from "@/components/ui";
 import { Category } from "@/lib/products/types";
 import {
   createCategoryAction,
@@ -248,14 +249,12 @@ export function CategoryManagerModal({
         <div className="space-y-4 mt-2">
           {/* Barra de herramientas: Búsqueda y Botón Nueva Categoría */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
+            <div className="flex-1">
+              <SearchInput
                 placeholder="Buscar categoría..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
+                onChange={setSearch}
+                onClear={() => setSearch("")}
               />
             </div>
 
@@ -289,40 +288,32 @@ export function CategoryManagerModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                    Nombre de la categoría *
-                  </label>
-                  <input
-                    type="text"
+                  <Input
+                    label="Nombre de la categoría *"
+                    inputSize="sm"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Ej. Hamburguesas, Salchipapas..."
-                    className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                    Descripción (opcional)
-                  </label>
-                  <input
-                    type="text"
+                  <Input
+                    label="Descripción (opcional)"
+                    inputSize="sm"
                     value={newDesc}
                     onChange={(e) => setNewDesc(e.target.value)}
                     placeholder="Breve detalle..."
-                    className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                    Categoría Padre (Opcional — Máximo 2 niveles)
-                  </label>
-                  <select
+                  <Select
+                    label="Categoría Padre (Opcional — Máximo 2 niveles)"
+                    selectSize="sm"
                     value={newParentId}
                     onChange={(e) => setNewParentId(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
                   >
                     <option value="">Ninguna (Categoría Principal)</option>
                     {rootCategories
@@ -332,7 +323,7 @@ export function CategoryManagerModal({
                           {c.name}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -383,31 +374,27 @@ export function CategoryManagerModal({
                       className="p-3 bg-white dark:bg-[#0D0F16] border border-[#ED500A]/40 rounded-xl space-y-2.5 shadow-xs animate-in fade-in duration-100"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <input
-                          type="text"
+                        <Input
+                          inputSize="sm"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-lg text-xs font-semibold"
                           placeholder="Nombre"
                         />
-                        <input
-                          type="text"
+                        <Input
+                          inputSize="sm"
                           value={editDesc}
                           onChange={(e) => setEditDesc(e.target.value)}
-                          className="px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-lg text-xs"
                           placeholder="Descripción"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
-                          Categoría Padre (Opcional — Máximo 2 niveles)
-                        </label>
-                        <select
+                        <Select
+                          label="Categoría Padre (Opcional — Máximo 2 niveles)"
+                          selectSize="sm"
                           value={editParentId}
                           onChange={(e) => setEditParentId(e.target.value)}
                           disabled={categories.some((c) => c.parent_category_id === cat.id)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#ED500A] disabled:opacity-50"
                         >
                           <option value="">Ninguna (Categoría Principal)</option>
                           {rootCategories
@@ -417,7 +404,7 @@ export function CategoryManagerModal({
                                 {c.name}
                               </option>
                             ))}
-                        </select>
+                        </Select>
                         {categories.some((c) => c.parent_category_id === cat.id) && (
                           <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
                             Esta categoría ya tiene subcategorías asociadas; no puede convertirse en subcategoría.
@@ -596,10 +583,10 @@ export function CategoryManagerModal({
             <label className="block text-[11px] font-semibold text-amber-800 dark:text-amber-300">
               Reasignar productos a:
             </label>
-            <select
+            <Select
+              selectSize="sm"
               value={reassignTargetId}
               onChange={(e) => setReassignTargetId(e.target.value)}
-              className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-white/[0.03] border border-amber-300 dark:border-amber-500/30 rounded-lg text-xs focus:outline-none"
             >
               <option value="">Dejar sin categoría (categoría = null)</option>
               {categories
@@ -609,7 +596,7 @@ export function CategoryManagerModal({
                     Mover a «{c.name}»
                   </option>
                 ))}
-            </select>
+            </Select>
           </div>
         )}
       </ConfirmModal>

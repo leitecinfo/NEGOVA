@@ -3,6 +3,8 @@ import {
   Supplier,
   CreateSupplierInput,
   CreateSupplierInputSchema,
+  UpdateSupplierInput,
+  UpdateSupplierInputSchema,
   Purchase,
   PurchaseItem,
   CreatePurchaseInput,
@@ -11,6 +13,7 @@ import {
   PurchaseKPIs,
   PurchaseFilters,
   PurchasePeriodPreset,
+  PurchasePaymentStatus,
   AccountsPayableWithDetails,
   AccountPayablePayment,
   RegisterPaymentInput,
@@ -27,6 +30,10 @@ import {
   getActiveCashSession,
   recordCashMovement,
 } from "@/lib/cash/cash-service";
+import {
+  convertQuantity,
+  getConversionFactor,
+} from "@/lib/recipes/unit-conversion";
 
 /**
  * Calcula el Costo Promedio Ponderado (CPP) al ingresar una compra de producto inventariable [PROV-004]:
@@ -81,77 +88,351 @@ export async function getDbClient() {
 
 function mapSupplierRow(row: any): Supplier {
   return {
-    id: row.id,
-    businessId: row.business_id,
-    name: row.name,
-    contactName: row.contact_name ?? null,
+    id: String(row.id),
+    businessId: String(row.business_id || row.businessId),
+    name: row.name || "",
+    contactName: row.contact_name ?? row.contactName ?? null,
     phone: row.phone ?? null,
     email: row.email ?? null,
     address: row.address ?? null,
-    taxId: row.tax_id ?? null,
-    paymentTermsDays: Number(row.payment_terms_days ?? 0),
+    taxId: row.tax_id ?? row.taxId ?? null,
+    paymentTermsDays: Number(row.payment_terms_days ?? row.paymentTermsDays ?? 0),
     notes: row.notes ?? null,
     status: row.status ?? "active",
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
   };
+}
+
+async function getSuppliersFromSettings(businessId: string): Promise<Supplier[]> {
+  try {
+    const supabase = await getDbClient();
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("settings")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    if (error || !data) return [];
+    const settings = (data.settings || {}) as any;
+    const rawList = Array.isArray(settings.suppliers) ? settings.suppliers : [];
+    return rawList
+      .filter((s: any) => s.status !== "archived")
+      .map(mapSupplierRow)
+      .sort((a: Supplier, b: Supplier) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.warn("[getSuppliersFromSettings] Error:", err);
+    return [];
+  }
+}
+
+async function saveSuppliersToSettings(businessId: string, suppliers: Supplier[]): Promise<void> {
+  const supabase = await getDbClient();
+  const { data } = await supabase
+    .from("businesses")
+    .select("settings")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  const currentSettings = (data?.settings || {}) as any;
+  const updatedSettings = {
+    ...currentSettings,
+    suppliers,
+  };
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ settings: updatedSettings })
+    .eq("id", businessId);
+
+  if (error) {
+    console.error("[saveSuppliersToSettings] Error al persistir proveedores:", error);
+    throw new Error(`Error al guardar proveedor: ${error.message}`);
+  }
+}
+
+export function findDuplicateSupplier(
+  existingSuppliers: Supplier[],
+  name: string,
+  taxId?: string | null,
+  excludeId?: string
+): Supplier | null {
+  const cleanName = name.trim().toLowerCase();
+  const cleanTaxId = taxId?.trim().toLowerCase();
+
+  return (
+    existingSuppliers.find((s) => {
+      if (excludeId && s.id === excludeId) return false;
+      if (s.status === "archived") return false;
+
+      // Coincidencia por nombre idéntico (case-insensitive)
+      if (s.name.trim().toLowerCase() === cleanName) return true;
+
+      // Coincidencia por NIT o identificación si ambos están definidos
+      if (cleanTaxId && s.taxId && s.taxId.trim().toLowerCase() === cleanTaxId) {
+        return true;
+      }
+
+      return false;
+    }) || null
+  );
 }
 
 /**
  * Consulta la lista de proveedores del comercio.
+ * Resiliente: si la tabla 'suppliers' no está en el schema cache de Supabase Cloud,
+ * utiliza de forma transparente el almacén por negocio en businesses.settings.
  */
 export async function getSuppliers(businessId: string): Promise<Supplier[]> {
   const supabase = await getDbClient();
-  const { data, error } = await supabase
-    .from("suppliers")
-    .select("*")
-    .eq("business_id", businessId)
-    .neq("status", "archived")
-    .order("name", { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("business_id", businessId)
+      .neq("status", "archived")
+      .order("name", { ascending: true });
 
-  if (error) {
-    console.error("[getSuppliers] Error al obtener proveedores:", error);
-    throw new Error(`Error al consultar proveedores: ${error.message}`);
+    if (error) {
+      if (
+        error.code === "PGRST205" ||
+        error.message?.includes("schema cache") ||
+        error.message?.includes("does not exist")
+      ) {
+        return await getSuppliersFromSettings(businessId);
+      }
+      console.warn("[getSuppliers] Error en consulta a tabla, recurriendo a fallback:", error.message);
+      return await getSuppliersFromSettings(businessId);
+    }
+
+    // Si la tabla devolvió filas, retornar; si está vacía, revisar si había registros en settings para migración fluida
+    if (data && data.length > 0) {
+      return data.map(mapSupplierRow);
+    }
+    const fromSettings = await getSuppliersFromSettings(businessId);
+    return fromSettings.length > 0 ? fromSettings : [];
+  } catch (err: any) {
+    console.warn("[getSuppliers] Excepción capturada, fallback a settings:", err?.message);
+    return await getSuppliersFromSettings(businessId);
   }
-
-  return (data || []).map(mapSupplierRow);
 }
 
 /**
- * Registra un nuevo proveedor (soporta creación rápida inline).
+ * Registra un nuevo proveedor en el negocio.
+ * Valida unicidad (evita duplicados de nombre/NIT) y garantiza persistencia.
  */
 export async function createSupplier(
   businessId: string,
   input: CreateSupplierInput
 ): Promise<Supplier> {
   const parsed = CreateSupplierInputSchema.parse(input);
-  const supabase = await getDbClient();
 
-  const { data, error } = await supabase
-    .from("suppliers")
-    .insert({
-      business_id: businessId,
-      name: parsed.name.trim(),
-      contact_name: parsed.contactName?.trim() || null,
-      phone: parsed.phone?.trim() || null,
-      email: parsed.email?.trim() || null,
-      address: parsed.address?.trim() || null,
-      tax_id: parsed.taxId?.trim() || null,
-      payment_terms_days: parsed.paymentTermsDays || 0,
-      notes: parsed.notes?.trim() || null,
-      status: "active",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error("[createSupplier] Error al insertar proveedor:", error);
-    throw new Error(`No se pudo crear el proveedor: ${error?.message || "Desconocido"}`);
+  // 1. Validar que no exista un proveedor duplicado en este negocio
+  const currentSuppliers = await getSuppliers(businessId);
+  const duplicate = findDuplicateSupplier(currentSuppliers, parsed.name, parsed.taxId);
+  if (duplicate) {
+    throw new Error(
+      `Ya existe un proveedor registrado con el nombre "${parsed.name}"${
+        parsed.taxId ? " o esa identificación" : ""
+      } en tu negocio.`
+    );
   }
 
-  return mapSupplierRow(data);
+  const supabase = await getDbClient();
+  const nowIso = new Date().toISOString();
+
+  // 2. Intentar inserción en tabla 'suppliers'
+  try {
+    const { data, error } = await supabase
+      .from("suppliers")
+      .insert({
+        business_id: businessId,
+        name: parsed.name.trim(),
+        contact_name: parsed.contactName?.trim() || null,
+        phone: parsed.phone?.trim() || null,
+        email: parsed.email?.trim() || null,
+        address: parsed.address?.trim() || null,
+        tax_id: parsed.taxId?.trim() || null,
+        payment_terms_days: parsed.paymentTermsDays || 0,
+        notes: parsed.notes?.trim() || null,
+        status: "active",
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapSupplierRow(data);
+    }
+
+    if (
+      error &&
+      (error.code === "PGRST205" ||
+        error.message?.includes("schema cache") ||
+        error.message?.includes("does not exist"))
+    ) {
+      // Proceder con fallback
+    } else if (error) {
+      console.warn("[createSupplier] Error en tabla suppliers, usando persistencia fallback:", error.message);
+    }
+  } catch (tableErr: any) {
+    console.warn("[createSupplier] Excepción en tabla suppliers:", tableErr?.message);
+  }
+
+  // 3. Fallback: Persistir en businesses.settings.suppliers
+  const newSupplier: Supplier = {
+    id: crypto.randomUUID(),
+    businessId,
+    name: parsed.name.trim(),
+    contactName: parsed.contactName?.trim() || null,
+    phone: parsed.phone?.trim() || null,
+    email: parsed.email?.trim() || null,
+    address: parsed.address?.trim() || null,
+    taxId: parsed.taxId?.trim() || null,
+    paymentTermsDays: parsed.paymentTermsDays || 0,
+    notes: parsed.notes?.trim() || null,
+    status: "active",
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  const { data: bData } = await supabase
+    .from("businesses")
+    .select("settings")
+    .eq("id", businessId)
+    .single();
+
+  const settings = (bData?.settings || {}) as any;
+  const rawSuppliers = Array.isArray(settings.suppliers) ? settings.suppliers : [];
+  const updatedSuppliers = [newSupplier, ...rawSuppliers];
+
+  await saveSuppliersToSettings(businessId, updatedSuppliers);
+  return newSupplier;
+}
+
+/**
+ * Actualiza los datos de un proveedor existente.
+ */
+export async function updateSupplier(
+  businessId: string,
+  supplierId: string,
+  input: UpdateSupplierInput
+): Promise<Supplier> {
+  const parsed = UpdateSupplierInputSchema.parse(input);
+  const currentSuppliers = await getSuppliers(businessId);
+  const target = currentSuppliers.find((s) => s.id === supplierId);
+
+  if (!target && parsed.status !== "archived") {
+    throw new Error("El proveedor que intentas editar no existe en este negocio.");
+  }
+
+  // Si se modifica nombre o NIT, validar duplicados excluyendo el proveedor actual
+  const checkName = parsed.name ?? target?.name;
+  if (checkName) {
+    const checkTaxId = parsed.taxId !== undefined ? parsed.taxId : target?.taxId;
+    const duplicate = findDuplicateSupplier(currentSuppliers, checkName, checkTaxId, supplierId);
+    if (duplicate) {
+      throw new Error(
+        `Ya existe otro proveedor registrado con el nombre "${checkName}" o esa identificación.`
+      );
+    }
+  }
+
+  const supabase = await getDbClient();
+  const nowIso = new Date().toISOString();
+
+  // Intentar actualización en tabla 'suppliers'
+  try {
+    const updatePayload: Record<string, any> = { updated_at: nowIso };
+    if (parsed.name !== undefined) updatePayload.name = parsed.name.trim();
+    if (parsed.contactName !== undefined) updatePayload.contact_name = parsed.contactName?.trim() || null;
+    if (parsed.phone !== undefined) updatePayload.phone = parsed.phone?.trim() || null;
+    if (parsed.email !== undefined) updatePayload.email = parsed.email?.trim() || null;
+    if (parsed.address !== undefined) updatePayload.address = parsed.address?.trim() || null;
+    if (parsed.taxId !== undefined) updatePayload.tax_id = parsed.taxId?.trim() || null;
+    if (parsed.paymentTermsDays !== undefined) updatePayload.payment_terms_days = parsed.paymentTermsDays;
+    if (parsed.notes !== undefined) updatePayload.notes = parsed.notes?.trim() || null;
+    if (parsed.status !== undefined) updatePayload.status = parsed.status;
+
+    const { data, error } = await supabase
+      .from("suppliers")
+      .update(updatePayload)
+      .eq("id", supplierId)
+      .eq("business_id", businessId)
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapSupplierRow(data);
+    }
+  } catch (err: any) {
+    console.warn("[updateSupplier] Excepción en tabla suppliers:", err?.message);
+  }
+
+  // Fallback: Actualizar en businesses.settings.suppliers
+  const { data: bData } = await supabase
+    .from("businesses")
+    .select("settings")
+    .eq("id", businessId)
+    .single();
+
+  const settings = (bData?.settings || {}) as any;
+  const rawSuppliers = Array.isArray(settings.suppliers) ? settings.suppliers : [];
+  const idx = rawSuppliers.findIndex((s: any) => String(s.id) === String(supplierId));
+
+  if (idx === -1) {
+    throw new Error("No se encontró el proveedor a actualizar.");
+  }
+
+  const current = rawSuppliers[idx];
+  const updatedItem: Supplier = {
+    ...current,
+    name: parsed.name !== undefined ? parsed.name.trim() : current.name,
+    contactName: parsed.contactName !== undefined ? parsed.contactName?.trim() || null : current.contactName,
+    phone: parsed.phone !== undefined ? parsed.phone?.trim() || null : current.phone,
+    email: parsed.email !== undefined ? parsed.email?.trim() || null : current.email,
+    address: parsed.address !== undefined ? parsed.address?.trim() || null : current.address,
+    taxId: parsed.taxId !== undefined ? parsed.taxId?.trim() || null : current.taxId,
+    paymentTermsDays: parsed.paymentTermsDays !== undefined ? parsed.paymentTermsDays : current.paymentTermsDays,
+    notes: parsed.notes !== undefined ? parsed.notes?.trim() || null : current.notes,
+    status: parsed.status !== undefined ? parsed.status : current.status,
+    updatedAt: nowIso,
+  };
+
+  rawSuppliers[idx] = updatedItem;
+  await saveSuppliersToSettings(businessId, rawSuppliers);
+  return updatedItem;
+}
+
+/**
+ * Activa o desactiva lógicamente un proveedor.
+ * Garantiza que un proveedor desactivado conserve toda su relación con compras históricas
+ * pero deje de aparecer para nuevas compras.
+ */
+export async function toggleSupplierStatus(
+  businessId: string,
+  supplierId: string,
+  newStatus: "active" | "inactive"
+): Promise<Supplier> {
+  return await updateSupplier(businessId, supplierId, { status: newStatus });
+}
+
+/**
+ * Archiva lógicamente un proveedor (borrado lógico no destructivo).
+ */
+export async function deleteSupplier(
+  businessId: string,
+  supplierId: string
+): Promise<void> {
+  try {
+    await updateSupplier(businessId, supplierId, { status: "archived" });
+  } catch (err: any) {
+    if (err?.message?.includes("No se encontró el proveedor")) {
+      return;
+    }
+    throw err;
+  }
 }
 
 // ==============================================================================
@@ -159,66 +440,122 @@ export async function createSupplier(
 // ==============================================================================
 
 function mapPurchaseRow(row: any): Purchase {
+  const meta = (row.metadata as Record<string, any>) || {};
+  const ap = Array.isArray(row.accounts_payable)
+    ? row.accounts_payable[0]
+    : row.accounts_payable;
+  const isCredit = row.payment_type === "credit";
+  const isCancelled = row.status === "cancelled";
+
+  let paidAmount = 0;
+  let balance = 0;
+  let paymentStatus: PurchasePaymentStatus = "paid";
+
+  const totalAmount = Number(row.total || 0);
+
+  if (isCancelled) {
+    paymentStatus = "cancelled";
+    paidAmount = Number(meta.paid_amount ?? (isCredit ? (ap?.paid_amount ?? ap?.paidAmount ?? 0) : totalAmount));
+    balance = 0;
+  } else if (!isCredit) {
+    paidAmount = totalAmount;
+    balance = 0;
+    paymentStatus = "paid";
+  } else {
+    // Es a crédito
+    const apPaid = ap ? Number(ap.paid_amount ?? ap.paidAmount ?? 0) : Number(meta.paid_amount || 0);
+    const apBalance = ap ? Number(ap.balance ?? (totalAmount - apPaid)) : Number(meta.balance ?? totalAmount);
+
+    paidAmount = Number(apPaid.toFixed(2));
+    balance = Number(Math.max(0, apBalance).toFixed(2));
+
+    if (balance <= 0 || ap?.status === "paid") {
+      paymentStatus = "paid";
+    } else if (paidAmount > 0 || ap?.status === "partially_paid" || ap?.status === "partial") {
+      paymentStatus = "partially_paid";
+    } else {
+      paymentStatus = "pending";
+    }
+  }
+
+  const itemsArray = Array.isArray(row.purchase_items) ? row.purchase_items : [];
+
   return {
     id: row.id,
     businessId: row.business_id,
     purchaseNumber: row.purchase_number,
     supplierId: row.supplier_id ?? null,
-    supplierName: row.suppliers?.name ?? null,
+    supplierName: row.suppliers?.name ?? meta.supplier_name ?? null,
+    supplierTaxId: row.suppliers?.tax_id ?? meta.supplier_tax_id ?? null,
     invoiceNumber: row.invoice_number ?? null,
+    documentType: meta.document_type || row.document_type || "factura",
     purchaseDate: row.purchase_date,
+    dueDate: ap?.due_date || meta.due_date || row.due_date || null,
     subtotal: Number(row.subtotal || 0),
+    discountAmount: Number(meta.discount_amount || row.discount_amount || 0),
     taxAmount: Number(row.tax_amount || 0),
-    total: Number(row.total || 0),
+    retentionAmount: Number(meta.retention_amount || row.retention_amount || 0),
+    total: totalAmount,
+    paidAmount,
+    balance,
     paymentType: row.payment_type || "cash",
     paymentMethod: row.payment_method || "cash",
+    paymentStatus,
     status: row.status || "confirmed",
+    itemsCount: itemsArray.length || Number(meta.items_count || 0),
     notes: row.notes ?? null,
     deductFromCashRegister: Boolean(
       row.deduct_from_cash_register ??
-      row.metadata?.deduct_from_cash_register ??
+      meta.deduct_from_cash_register ??
       (row.payment_type === "cash" && row.payment_method === "cash")
     ),
     cashRegisterName:
       row.cash_register_name ??
-      row.metadata?.cash_register_name ??
+      meta.cash_register_name ??
       (row.payment_type === "cash" && row.payment_method === "cash" ? "Caja Principal" : null),
     createdBy: row.created_by ?? null,
+    cancellationReason: meta.cancellation_reason || null,
+    cancelledAt: meta.cancelled_at || null,
+    cancelledBy: meta.cancelled_by || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    items: Array.isArray(row.purchase_items)
-      ? row.purchase_items.map((it: any): PurchaseItem => ({
-          id: it.id,
-          purchaseId: it.purchase_id,
-          businessId: it.business_id,
-          productId: it.product_id ?? null,
-          itemName: it.item_name,
-          quantity: Number(it.quantity || 0),
-          unitCost: Number(it.unit_cost || 0),
-          totalCost: Number(it.total_cost || 0),
-          locationId: it.location_id ?? null,
-          isInventoryItem: Boolean(it.is_inventory_item),
-          itemCategory: it.item_category || it.itemCategory || undefined,
-          createdAt: it.created_at,
-        }))
-      : [],
-    accountPayable: row.accounts_payable && row.accounts_payable[0]
+    items: itemsArray.map((it: any): PurchaseItem => ({
+      id: it.id,
+      purchaseId: it.purchase_id,
+      businessId: it.business_id,
+      productId: it.product_id ?? null,
+      itemName: it.item_name,
+      quantity: Number(it.quantity || 0),
+      unitCost: Number(it.unit_cost || 0),
+      totalCost: Number(it.total_cost || 0),
+      locationId: it.location_id ?? null,
+      locationName: it.location_name || it.locations?.name || null,
+      isInventoryItem: Boolean(it.is_inventory_item),
+      itemCategory: it.item_category || it.itemCategory || undefined,
+      purchaseUnit: it.purchase_unit || it.metadata?.purchase_unit || null,
+      inventoryUnit: it.inventory_unit || it.metadata?.inventory_unit || null,
+      conversionFactor: Number(it.conversion_factor || it.metadata?.conversion_factor || 1),
+      inventoryQuantity: Number(it.inventory_quantity || it.metadata?.inventory_quantity || it.quantity || 0),
+      discount: Number(it.discount || it.metadata?.discount || 0),
+      createdAt: it.created_at,
+    })),
+    accountPayable: ap
       ? {
-          id: row.accounts_payable[0].id,
-          businessId: row.accounts_payable[0].business_id,
-          purchaseId: row.accounts_payable[0].purchase_id,
-          supplierId: row.accounts_payable[0].supplier_id ?? null,
-          totalAmount: Number(row.accounts_payable[0].total_amount || 0),
-          paidAmount: Number(row.accounts_payable[0].paid_amount || 0),
-          balance: Number(row.accounts_payable[0].balance || 0),
-          dueDate: row.accounts_payable[0].due_date,
-          status: row.accounts_payable[0].status,
-          notes: row.accounts_payable[0].notes ?? null,
-          createdAt: row.accounts_payable[0].created_at,
-          updatedAt: row.accounts_payable[0].updated_at,
+          id: ap.id,
+          businessId: ap.business_id,
+          purchaseId: ap.purchase_id,
+          supplierId: ap.supplier_id ?? null,
+          totalAmount: Number(ap.total_amount || 0),
+          paidAmount: Number(ap.paid_amount || 0),
+          balance: Number(ap.balance || 0),
+          dueDate: ap.due_date,
+          status: ap.status,
+          notes: ap.notes ?? null,
+          createdAt: ap.created_at,
+          updatedAt: ap.updated_at,
         }
       : null,
-    impactSummary: row.impact_summary || row.metadata?.impact_summary || null,
+    impactSummary: row.impact_summary || meta.impact_summary || null,
   };
 }
 
@@ -277,38 +614,50 @@ export async function createPurchase(
   // 1. Validar proveedor si fue especificado
   let supplier: Supplier | null = null;
   if (parsed.supplierId) {
-    const { data: sData } = await supabase
-      .from("suppliers")
-      .select("*")
-      .eq("id", parsed.supplierId)
-      .eq("business_id", businessId)
-      .maybeSingle();
+    try {
+      const { data: sData } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("id", parsed.supplierId)
+        .eq("business_id", businessId)
+        .maybeSingle();
 
-    if (sData) {
-      supplier = mapSupplierRow(sData);
+      if (sData) {
+        supplier = mapSupplierRow(sData);
+      }
+    } catch (sErr) {
+      console.warn("[createPurchase] No se pudo cargar proveedor:", sErr);
     }
   }
 
-  // 2. Calcular subtotales e impuestos
-  let subtotal = 0;
+  // 2. Calcular subtotales, descuentos y validar artículos
+  let grossSubtotal = 0;
   const itemsToInsert: any[] = [];
 
   for (const item of parsed.items) {
-    const itemTotal = Number((item.quantity * item.unitCost).toFixed(2));
-    subtotal += itemTotal;
+    const itemDiscount = Math.max(0, Number(item.discount || 0));
+    const lineGross = Number((item.quantity * item.unitCost).toFixed(2));
+    const lineNet = Math.max(0, lineGross - itemDiscount);
+    grossSubtotal += lineNet;
+
     itemsToInsert.push({
       productId: item.productId || null,
       itemName: item.itemName.trim(),
       quantity: item.quantity,
       unitCost: item.unitCost,
-      totalCost: itemTotal,
+      totalCost: lineNet,
+      discount: itemDiscount,
       locationId: item.locationId || null,
       isInventoryItem: item.isInventoryItem,
       itemCategory: item.itemCategory,
+      purchaseUnit: item.purchaseUnit || null,
+      inventoryUnit: item.inventoryUnit || null,
+      conversionFactor: item.conversionFactor || 1,
     });
   }
 
-  subtotal = Number(subtotal.toFixed(2));
+  const globalDiscount = Math.max(0, Number(parsed.discountAmount || 0));
+  const subtotal = Number(Math.max(0, grossSubtotal - globalDiscount).toFixed(2));
   const taxAmount = Number(((subtotal * (parsed.taxPercentage || 0)) / 100).toFixed(2));
   const retentionAmount = Number(((subtotal * (parsed.retentionPercentage || 0)) / 100).toFixed(2));
   const total = Number(Math.max(0, subtotal + taxAmount - retentionAmount).toFixed(2));
@@ -317,7 +666,46 @@ export async function createPurchase(
   const purchaseNumber = await generateNextPurchaseNumber(businessId);
   const purchaseDate = parsed.purchaseDate || new Date().toISOString();
 
-  // 4. Insertar cabecera de la compra
+  // 4. Calcular pagos iniciales y saldo pendiente
+  let paidAmount = 0;
+  let balance = 0;
+  let paymentStatus: PurchasePaymentStatus = "paid";
+  let dueDate: string | null = null;
+
+  if (parsed.paymentType === "cash") {
+    paidAmount = total;
+    balance = 0;
+    paymentStatus = "paid";
+  } else {
+    // Crédito o Pago Parcial
+    const initialPay = Math.min(total, Math.max(0, Number(parsed.initialPaymentAmount || 0)));
+    paidAmount = Number(initialPay.toFixed(2));
+    balance = Number(Math.max(0, total - initialPay).toFixed(2));
+    paymentStatus = balance <= 0 ? "paid" : (paidAmount > 0 ? "partially_paid" : "pending");
+
+    dueDate = parsed.dueDate || null;
+    if (!dueDate) {
+      const termsDays = supplier?.paymentTermsDays || 30;
+      const targetDate = new Date(purchaseDate);
+      targetDate.setDate(targetDate.getDate() + termsDays);
+      dueDate = targetDate.toISOString();
+    }
+  }
+
+  // 5. Insertar cabecera de la compra
+  const initialMetadata: Record<string, any> = {
+    document_type: parsed.documentType || "factura",
+    discount_amount: globalDiscount,
+    retention_amount: retentionAmount,
+    paid_amount: paidAmount,
+    balance: balance,
+    payment_status: paymentStatus,
+    due_date: dueDate,
+    supplier_name: supplier?.name || null,
+    supplier_tax_id: supplier?.taxId || null,
+    items_count: itemsToInsert.length,
+  };
+
   const { data: purchaseData, error: purchaseErr } = await supabase
     .from("purchases")
     .insert({
@@ -334,6 +722,7 @@ export async function createPurchase(
       status: "confirmed",
       notes: parsed.notes?.trim() || null,
       created_by: userId || null,
+      metadata: initialMetadata,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -347,7 +736,7 @@ export async function createPurchase(
 
   const purchaseId = purchaseData.id;
 
-  // 5. Insertar ítems de la compra
+  // 6. Insertar ítems de la compra
   const itemsPayload = itemsToInsert.map((it) => ({
     purchase_id: purchaseId,
     business_id: businessId,
@@ -372,7 +761,7 @@ export async function createPurchase(
     throw new Error(`Error al registrar ítems de la compra: ${itemsErr.message}`);
   }
 
-  // 6. Procesar afectación de inventario y costo promedio ponderado (PROV-004)
+  // 7. Procesar afectación de inventario con conversión de unidades y costo promedio ponderado
   const inventoryImpacts: Array<{
     productId?: string | null;
     itemName: string;
@@ -395,7 +784,6 @@ export async function createPurchase(
           targetLocationId = defaultLoc.id;
         }
 
-        // Consultar nombre de ubicación para trazabilidad explicativa con aislamiento de tenant
         let locationName = "Bodega Principal";
         try {
           const { data: locData } = await supabase
@@ -408,10 +796,9 @@ export async function createPurchase(
             locationName = locData.name;
           }
         } catch {
-          // Continuar con nombre por defecto si no se puede consultar ubicación
+          // Continuar con nombre por defecto
         }
 
-        // Consultar existencias y costo actual para el recálculo promedio ponderado
         const { data: currentStockRow } = await supabase
           .from("inventory_stock")
           .select("quantity, cost, min_stock")
@@ -428,6 +815,35 @@ export async function createPurchase(
           .maybeSingle();
 
         const prodMeta = ((prodData?.metadata as Record<string, any>) || {});
+
+        // Validación: Prohibir compra directa de preparados y servicios
+        if (prodMeta.product_type === "prepared" || prodMeta.has_recipe || prodMeta.is_recipe) {
+          throw new Error(
+            `El artículo "${item.itemName}" es un producto elaborado con receta. No ingresa como inventario físico terminado; debes abastecer sus materias primas e insumos.`
+          );
+        }
+        if (prodMeta.product_type === "service" || prodMeta.is_service) {
+          throw new Error(`El artículo "${item.itemName}" es un servicio sin control de existencias físicas.`);
+        }
+
+        // Conversión de unidades entre compra e inventario
+        const purchaseUnit = item.purchaseUnit || prodMeta.unit || "unidad";
+        const inventoryUnit = prodMeta.unit || item.inventoryUnit || "unidad";
+
+        let normalizedQuantity = item.quantity;
+        let normalizedUnitCost = item.unitCost;
+
+        if (purchaseUnit.toLowerCase() !== inventoryUnit.toLowerCase()) {
+          const conv = convertQuantity(item.quantity, purchaseUnit, inventoryUnit);
+          if (!conv.isCompatible) {
+            throw new Error(
+              `Unidades incompatibles para "${item.itemName}": compra en "${purchaseUnit}" pero la unidad base en inventario es "${inventoryUnit}".`
+            );
+          }
+          normalizedQuantity = conv.convertedQuantity;
+          normalizedUnitCost = conv.factor > 0 ? Number((item.unitCost / conv.factor).toFixed(4)) : item.unitCost;
+        }
+
         const currentQty = Number(currentStockRow?.quantity || 0);
         const rawStockCost = Number(currentStockRow?.cost || 0);
         const currentCost =
@@ -437,36 +853,42 @@ export async function createPurchase(
         const minStock = Number(currentStockRow?.min_stock ?? prodMeta.min_stock ?? 0);
 
         // Fórmula de Costo Promedio Ponderado [PROV-004]:
-        // nuevo_costo = ((stock_actual * costo_anterior) + (cant_comprada * costo_nuevo)) / (stock_actual + cant_comprada)
         const newAverageCost = calculateWeightedAverageCost(
           currentQty,
           currentCost,
-          item.quantity,
-          item.unitCost
+          normalizedQuantity,
+          normalizedUnitCost
         );
 
-        // Determinar categoría del ítem: Insumo/Ingrediente vs Bebida/Reventa Directa
         const isIngredient =
           item.itemCategory === "ingredient" ||
-          prodMeta.product_type === "ingredient";
+          prodMeta.product_type === "ingredient" ||
+          prodMeta.material_type === "ingredient" ||
+          prodMeta.material_type === "supply";
 
         const isResale =
           item.itemCategory === "resale" ||
           prodMeta.product_type === "product";
 
         // Registrar movimiento de kardex tipo "entry"
+        const movementNotes = `Compra ${purchaseNumber}${parsed.invoiceNumber ? ` - Fac. ${parsed.invoiceNumber}` : ""}${
+          purchaseUnit !== inventoryUnit
+            ? ` (${item.quantity} ${purchaseUnit} = ${normalizedQuantity} ${inventoryUnit})`
+            : ""
+        }`;
+
         await recordInventoryMovement(
           businessId,
           {
             productId: item.productId,
             locationId: targetLocationId,
             movementType: "entry",
-            quantity: item.quantity,
-            unitCost: item.unitCost,
+            quantity: normalizedQuantity,
+            unitCost: normalizedUnitCost,
             totalCost: item.totalCost,
             referenceType: "purchase",
             referenceId: purchaseId,
-            notes: `Compra ${purchaseNumber}${parsed.invoiceNumber ? ` - Fac. ${parsed.invoiceNumber}` : ""}`,
+            notes: movementNotes,
           },
           userId
         );
@@ -475,7 +897,7 @@ export async function createPurchase(
         await upsertInventoryStock(businessId, {
           productId: item.productId,
           locationId: targetLocationId,
-          quantity: currentQty + item.quantity,
+          quantity: currentQty + normalizedQuantity,
           minStock,
           cost: newAverageCost,
         });
@@ -486,7 +908,7 @@ export async function createPurchase(
             ...prodMeta,
             cost: newAverageCost,
             average_cost: newAverageCost,
-            stock_quantity: currentQty + item.quantity,
+            stock_quantity: currentQty + normalizedQuantity,
           };
 
           const updateProductPayload: Record<string, any> = {
@@ -494,7 +916,6 @@ export async function createPurchase(
             updated_at: new Date().toISOString(),
           };
 
-          // Si es Bebida / Reventa Directa: Aumenta existencia en catálogo POS y actualiza costo
           if (isResale) {
             updatedMeta.available_in_pos = true;
             updateProductPayload.available_in_pos = true;
@@ -511,16 +932,17 @@ export async function createPurchase(
           productId: item.productId,
           itemName: item.itemName,
           itemCategory: isIngredient ? "ingredient" : isResale ? "resale" : "ingredient",
-          quantityAdded: item.quantity,
+          quantityAdded: normalizedQuantity,
           previousStock: currentQty,
-          newStock: currentQty + item.quantity,
+          newStock: currentQty + normalizedQuantity,
           previousCost: currentCost,
           newAverageCost,
-          unit: prodMeta.unit || "unidad",
+          unit: inventoryUnit,
           locationName,
         });
       } catch (invErr) {
         console.error(`[createPurchase] Error al actualizar inventario del producto ${item.productId}:`, invErr);
+        throw invErr;
       }
     } else {
       inventoryImpacts.push({
@@ -538,17 +960,9 @@ export async function createPurchase(
     }
   }
 
-  // 7. Si la compra es a crédito, registrar automáticamente Cuenta por Pagar (accounts_payable)
+  // 8. Si la compra es a crédito o tiene saldo pendiente, registrar Cuenta por Pagar (accounts_payable)
   let createdAccountPayable: AccountsPayable | null = null;
-  if (parsed.paymentType === "credit") {
-    let dueDate = parsed.dueDate;
-    if (!dueDate) {
-      const termsDays = supplier?.paymentTermsDays || 30;
-      const targetDate = new Date(purchaseDate);
-      targetDate.setDate(targetDate.getDate() + termsDays);
-      dueDate = targetDate.toISOString();
-    }
-
+  if (parsed.paymentType === "credit" || balance > 0) {
     const { data: apData, error: apErr } = await supabase
       .from("accounts_payable")
       .insert({
@@ -557,11 +971,11 @@ export async function createPurchase(
         supplier_id: parsed.supplierId || null,
         amount: total,
         total_amount: total,
-        paid_amount: 0,
-        balance: total,
-        due_date: dueDate,
-        status: "pending",
-        notes: `Crédito por compra ${purchaseNumber}`,
+        paid_amount: paidAmount,
+        balance: balance,
+        due_date: dueDate || purchaseDate,
+        status: paymentStatus,
+        notes: `Crédito por compra ${purchaseNumber}${paidAmount > 0 ? ` (Abono inicial ${paidAmount})` : ""}`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -587,15 +1001,42 @@ export async function createPurchase(
         createdAt: apData.created_at,
         updatedAt: apData.updated_at,
       };
+
+      // Si hubo abono inicial en una compra a crédito, registrar el movimiento de pago
+      if (paidAmount > 0) {
+        try {
+          await supabase.from("account_payable_payments").insert({
+            business_id: businessId,
+            account_payable_id: apData.id,
+            amount: paidAmount,
+            payment_method: parsed.initialPaymentMethod || parsed.paymentMethod,
+            payment_date: purchaseDate,
+            reference: "Abono inicial en registro de compra",
+            notes: `Pago inicial factura ${purchaseNumber}`,
+            created_by: userId || null,
+            created_at: new Date().toISOString(),
+          });
+        } catch (payErr) {
+          console.warn("[createPurchase] No se pudo insertar en account_payable_payments:", payErr);
+        }
+      }
     }
   }
 
-  // 8. Integración con Caja: deducir automáticamente del efectivo de la caja activa
+  // 9. Integración con Caja: deducir automáticamente del efectivo de la caja activa
   let cashImpactDeducted = false;
   let cashImpactRegisterName: string | null = null;
   let cashImpactSessionId: string | null = null;
 
-  if (parsed.deductFromCashRegister && parsed.paymentType === "cash") {
+  const effectiveCashAmount =
+    parsed.paymentType === "cash" && parsed.paymentMethod === "cash"
+      ? total
+      : parsed.paymentType === "credit" &&
+        (parsed.initialPaymentMethod || parsed.paymentMethod) === "cash"
+      ? paidAmount
+      : 0;
+
+  if (parsed.deductFromCashRegister && effectiveCashAmount > 0) {
     try {
       const activeSession = await getActiveCashSession(businessId, undefined, userId).catch(() => null);
       if (activeSession && activeSession.status === "open") {
@@ -615,40 +1056,17 @@ export async function createPurchase(
           {
             sessionId: activeSession.id,
             movementType: "expense",
-            amount: total,
+            amount: effectiveCashAmount,
             referenceId: purchaseId,
             referenceType: "purchase",
-            notes: `Pago compra ${purchaseNumber}${supplier ? ` - Prov: ${supplier.name}` : ""}`,
+            notes: `Pago compra ${purchaseNumber}${supplier ? ` - Prov: ${supplier.name}` : ""}${
+              parsed.paymentType === "credit" ? " (Abono inicial)" : ""
+            }`,
           },
           userId
         );
 
-        // Registrar también en cash_transactions vinculado al turno activo
-        try {
-          await supabase.from("cash_transactions").insert({
-            business_id: businessId,
-            session_id: activeSession.id,
-            type: "expense",
-            amount: total,
-            reference_id: purchaseId,
-            reference_type: "purchase",
-            notes: `Egreso automático por compra ${purchaseNumber}`,
-            created_at: new Date().toISOString(),
-          });
-        } catch {
-          // Ignorar si cash_transactions es un alias de vista
-        }
-
         cashImpactDeducted = true;
-
-        // Actualizar datos de caja en la compra
-        await supabase
-          .from("purchases")
-          .update({
-            cash_register_name: cashImpactRegisterName,
-            deduct_from_cash_register: true,
-          })
-          .eq("id", purchaseId);
       }
     } catch (cashErr) {
       console.error("[createPurchase] Error al registrar movimiento de caja:", cashErr);
@@ -659,28 +1077,31 @@ export async function createPurchase(
     inventoryImpacts,
     cashImpact: {
       deducted: cashImpactDeducted,
-      amount: cashImpactDeducted ? total : 0,
+      amount: cashImpactDeducted ? effectiveCashAmount : 0,
       cashRegisterName: cashImpactRegisterName,
       sessionId: cashImpactSessionId,
     },
   };
 
-  // Guardar impactSummary en metadata de la compra si el cliente soporta update
+  // Guardar metadata enriquecida en la compra
+  const finalMetadata = {
+    ...initialMetadata,
+    deduct_from_cash_register: cashImpactDeducted,
+    cash_register_name: cashImpactRegisterName,
+    impact_summary: impactSummary,
+  };
+
   try {
-    const tableQuery = supabase.from("purchases");
-    if (typeof tableQuery?.update === "function") {
-      await tableQuery
-        .update({
-          metadata: {
-            deduct_from_cash_register: cashImpactDeducted,
-            cash_register_name: cashImpactRegisterName,
-            impact_summary: impactSummary,
-          },
-        })
-        .eq("id", purchaseId);
-    }
+    await supabase
+      .from("purchases")
+      .update({
+        cash_register_name: cashImpactRegisterName,
+        deduct_from_cash_register: cashImpactDeducted,
+        metadata: finalMetadata,
+      })
+      .eq("id", purchaseId);
   } catch (mErr) {
-    console.warn("[createPurchase] Advertencia al guardar impact_summary en metadata:", mErr);
+    console.warn("[createPurchase] Advertencia al actualizar metadata de compra:", mErr);
   }
 
   return {
@@ -688,14 +1109,10 @@ export async function createPurchase(
       ...purchaseData,
       deduct_from_cash_register: cashImpactDeducted,
       cash_register_name: cashImpactRegisterName,
-      suppliers: supplier ? { id: supplier.id, name: supplier.name } : null,
+      suppliers: supplier ? { id: supplier.id, name: supplier.name, tax_id: supplier.taxId } : null,
       purchase_items: insertedItems || [],
       accounts_payable: createdAccountPayable ? [createdAccountPayable] : [],
-      metadata: {
-        deduct_from_cash_register: cashImpactDeducted,
-        cash_register_name: cashImpactRegisterName,
-        impact_summary: impactSummary,
-      },
+      metadata: finalMetadata,
     }),
     impactSummary,
   };
@@ -765,7 +1182,7 @@ export function getDateRangeForPeriod(
 }
 
 /**
- * Consulta las compras registradas con filtros por periodo, proveedor, método de pago y estado.
+ * Consulta las compras registradas con filtros por periodo, proveedor, método de pago, estado de pago y estado de compra.
  */
 export async function getPurchases(
   businessId: string,
@@ -773,170 +1190,260 @@ export async function getPurchases(
 ): Promise<Purchase[]> {
   const supabase = await getDbClient();
 
-  let query = supabase
-    .from("purchases")
-    .select(
+  try {
+    let query = supabase
+      .from("purchases")
+      .select(
+        `
+        *,
+        suppliers(id, name, tax_id),
+        purchase_items(*),
+        accounts_payable(*)
       `
-      *,
-      suppliers(id, name),
-      purchase_items(*),
-      accounts_payable(*)
-    `
-    )
-    .eq("business_id", businessId);
+      )
+      .eq("business_id", businessId);
 
-  // Filtro por proveedor
-  if (filters.supplierId && filters.supplierId !== "all") {
-    query = query.eq("supplier_id", filters.supplierId);
-  }
-
-  // Filtro por tipo de pago (contado / crédito)
-  if (filters.paymentType && filters.paymentType !== "all") {
-    query = query.eq("payment_type", filters.paymentType);
-  }
-
-  // Filtro por medio de pago
-  if (filters.paymentMethod && filters.paymentMethod !== "all") {
-    query = query.eq("payment_method", filters.paymentMethod);
-  }
-
-  // Filtro por periodo y rango de fechas
-  const { from, to } = getDateRangeForPeriod(
-    filters.period || "all",
-    filters.startDate,
-    filters.endDate
-  );
-  if (from) {
-    query = query.gte("purchase_date", from);
-  }
-  if (to) {
-    query = query.lte("purchase_date", to);
-  }
-
-  // Orden descendente por fecha
-  query = query.order("purchase_date", { ascending: false });
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("[getPurchases] Error al listar compras:", error);
-    throw new Error(`Error al consultar compras: ${error.message}`);
-  }
-
-  let list = (data || []).map(mapPurchaseRow);
-
-  // Filtrado adicional en memoria para pestañas de estado complejas
-  const now = new Date();
-  if (filters.statusTab && filters.statusTab !== "all") {
-    if (filters.statusTab === "cash") {
-      list = list.filter((p) => p.paymentType === "cash");
-    } else if (filters.statusTab === "credit") {
-      list = list.filter((p) => p.paymentType === "credit");
-    } else if (filters.statusTab === "pending") {
-      list = list.filter((p) => p.accountPayable && p.accountPayable.balance > 0);
-    } else if (filters.statusTab === "overdue") {
-      const nowDateStr = now.toISOString();
-      list = list.filter(
-        (p) =>
-          p.accountPayable &&
-          p.accountPayable.balance > 0 &&
-          p.accountPayable.dueDate < nowDateStr
-      );
+    // Filtro por proveedor
+    if (filters.supplierId && filters.supplierId !== "all") {
+      query = query.eq("supplier_id", filters.supplierId);
     }
-  }
 
-  // Búsqueda de texto (código de compra, número de factura, proveedor o notas)
-  if (filters.search && filters.search.trim().length > 0) {
-    const q = filters.search.toLowerCase().trim();
-    list = list.filter(
-      (p) =>
-        p.purchaseNumber.toLowerCase().includes(q) ||
-        (p.invoiceNumber && p.invoiceNumber.toLowerCase().includes(q)) ||
-        (p.supplierName && p.supplierName.toLowerCase().includes(q)) ||
-        (p.notes && p.notes.toLowerCase().includes(q))
+    // Filtro por tipo de pago (contado / crédito)
+    if (filters.paymentType && filters.paymentType !== "all") {
+      query = query.eq("payment_type", filters.paymentType);
+    }
+
+    // Filtro por medio de pago
+    if (filters.paymentMethod && filters.paymentMethod !== "all") {
+      query = query.eq("payment_method", filters.paymentMethod);
+    }
+
+    // Filtro por estado de compra (confirmed / cancelled) si se especifica a nivel SQL
+    if (filters.purchaseStatus && filters.purchaseStatus !== "all") {
+      query = query.eq("status", filters.purchaseStatus);
+    }
+
+    // Filtro por periodo y rango de fechas
+    const { from, to } = getDateRangeForPeriod(
+      filters.period || "all",
+      filters.startDate,
+      filters.endDate
     );
-  }
+    if (from) {
+      query = query.gte("purchase_date", from);
+    }
+    if (to) {
+      query = query.lte("purchase_date", to);
+    }
 
-  return list;
+    // Orden descendente por fecha de compra
+    query = query.order("purchase_date", { ascending: false });
+
+    const { data, error } = await query;
+    if (error) {
+      // Manejo resiliente si las tablas de compras aún no están desplegadas en el cache remoto
+      if (
+        error.code === "PGRST205" ||
+        error.message?.includes("schema cache") ||
+        error.message?.includes("does not exist")
+      ) {
+        console.warn("[getPurchases] Tabla purchases no disponible en schema cache:", error.message);
+        return [];
+      }
+      console.error("[getPurchases] Error al listar compras:", error);
+      throw new Error(`Error al consultar compras: ${error.message}`);
+    }
+
+    let list = (data || []).map(mapPurchaseRow);
+
+    // Filtrado por estado de pago (paid / partially_paid / pending / cancelled)
+    if (filters.paymentStatus && filters.paymentStatus !== "all") {
+      list = list.filter((p) => p.paymentStatus === filters.paymentStatus);
+    }
+
+    // Filtrado por pestañas heredadas de estado
+    const now = new Date();
+    if (filters.statusTab && filters.statusTab !== "all") {
+      if (filters.statusTab === "cash") {
+        list = list.filter((p) => p.paymentType === "cash");
+      } else if (filters.statusTab === "credit") {
+        list = list.filter((p) => p.paymentType === "credit");
+      } else if (filters.statusTab === "pending") {
+        list = list.filter((p) => p.balance > 0 && p.status !== "cancelled");
+      } else if (filters.statusTab === "overdue") {
+        const nowDateStr = now.toISOString();
+        list = list.filter(
+          (p) =>
+            p.balance > 0 &&
+            p.status !== "cancelled" &&
+            p.dueDate &&
+            p.dueDate < nowDateStr
+        );
+      }
+    }
+
+    // Búsqueda de texto (código de compra, número de factura, proveedor, notas o nombres de artículos)
+    if (filters.search && filters.search.trim().length > 0) {
+      const q = filters.search.toLowerCase().trim();
+      list = list.filter((p) => {
+        const matchesMain =
+          p.purchaseNumber.toLowerCase().includes(q) ||
+          (p.invoiceNumber && p.invoiceNumber.toLowerCase().includes(q)) ||
+          (p.supplierName && p.supplierName.toLowerCase().includes(q)) ||
+          (p.notes && p.notes.toLowerCase().includes(q));
+
+        if (matchesMain) return true;
+
+        // Buscar en artículos
+        return (p.items || []).some((item) =>
+          item.itemName.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return list;
+  } catch (err: any) {
+    if (
+      err?.code === "PGRST205" ||
+      err?.message?.includes("schema cache") ||
+      err?.message?.includes("does not exist")
+    ) {
+      return [];
+    }
+    throw err;
+  }
 }
 
 /**
- * Calcula los KPIs financieros y operativos de compras para el negocio.
+ * Consulta una compra individual por ID con todos sus detalles.
  */
-export async function getPurchaseKPIs(businessId: string): Promise<PurchaseKPIs> {
+export async function getPurchaseById(
+  businessId: string,
+  purchaseId: string
+): Promise<Purchase | null> {
   const supabase = await getDbClient();
 
-  const [purchasesRes, apRes] = await Promise.all([
-    supabase
+  try {
+    const { data, error } = await supabase
       .from("purchases")
-      .select("total, payment_type, status, supplier_id")
+      .select(
+        `
+        *,
+        suppliers(id, name, tax_id),
+        purchase_items(*),
+        accounts_payable(
+          *,
+          account_payable_payments(*)
+        )
+      `
+      )
+      .eq("id", purchaseId)
       .eq("business_id", businessId)
-      .eq("status", "confirmed"),
-    supabase
-      .from("accounts_payable")
-      .select("balance, due_date, status")
-      .eq("business_id", businessId)
-      .neq("status", "paid")
-      .neq("status", "cancelled"),
-  ]);
+      .maybeSingle();
 
-  const purchases = purchasesRes.data || [];
-  const accounts = apRes.data || [];
+    if (error || !data) {
+      return null;
+    }
+
+    return mapPurchaseRow(data);
+  } catch (err) {
+    console.warn("[getPurchaseById] Error al consultar compra por ID:", err);
+    return null;
+  }
+}
+
+/**
+ * Calcula los KPIs financieros y operativos de compras para el negocio,
+ * respetando el período y los filtros aplicados cuando correspondan.
+ */
+export async function getPurchaseKPIs(
+  businessId: string,
+  filters: PurchaseFilters = {}
+): Promise<PurchaseKPIs> {
+  // Para KPIs del período, consultamos las compras bajo los mismos filtros de fecha/proveedor
+  const periodPurchases = await getPurchases(businessId, {
+    period: filters.period || "all",
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    supplierId: filters.supplierId,
+  });
 
   let totalPurchased = 0;
+  let totalPaid = 0;
+  let totalPendingBalance = 0;
+  let paidPurchasesCount = 0;
+  let pendingPurchasesCount = 0;
   let totalCash = 0;
   let totalCredit = 0;
   const uniqueSuppliers = new Set<string>();
 
-  for (const p of purchases) {
-    const amount = Number(p.total || 0);
-    totalPurchased += amount;
-    if (p.payment_type === "cash") {
-      totalCash += amount;
-    } else if (p.payment_type === "credit") {
-      totalCredit += amount;
-    }
-    if (p.supplier_id) {
-      uniqueSuppliers.add(p.supplier_id);
-    }
-  }
-
-  // Cuentas por pagar hoy o vencidas
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
   const endOfTodayIso = endOfToday.toISOString();
-
   let dueTodayOrOverdue = 0;
-  for (const a of accounts) {
-    const bal = Number(a.balance || 0);
-    if (bal > 0 && a.due_date <= endOfTodayIso) {
+
+  for (const p of periodPurchases) {
+    if (p.status === "cancelled") continue;
+
+    const total = Number(p.total || 0);
+    const paid = Number(p.paidAmount || 0);
+    const bal = Number(p.balance || 0);
+
+    totalPurchased += total;
+    totalPaid += paid;
+    totalPendingBalance += bal;
+
+    if (p.paymentStatus === "paid") {
+      paidPurchasesCount++;
+    } else if (bal > 0) {
+      pendingPurchasesCount++;
+    }
+
+    if (p.paymentType === "cash") {
+      totalCash += total;
+    } else if (p.paymentType === "credit") {
+      totalCredit += total;
+    }
+
+    if (p.supplierId) {
+      uniqueSuppliers.add(p.supplierId);
+    }
+
+    if (bal > 0 && p.dueDate && p.dueDate <= endOfTodayIso) {
       dueTodayOrOverdue += bal;
     }
   }
 
   return {
     totalPurchased: Number(totalPurchased.toFixed(2)),
+    totalPaid: Number(totalPaid.toFixed(2)),
+    totalPendingBalance: Number(totalPendingBalance.toFixed(2)),
+    paidPurchasesCount,
+    pendingPurchasesCount,
     uniqueSuppliersCount: uniqueSuppliers.size,
     totalCash: Number(totalCash.toFixed(2)),
     totalCredit: Number(totalCredit.toFixed(2)),
     dueTodayOrOverdue: Number(dueTodayOrOverdue.toFixed(2)),
-    totalPurchasesCount: purchases.length,
+    totalPurchasesCount: periodPurchases.filter((p) => p.status !== "cancelled").length,
   };
 }
 
 /**
  * Anula una compra registrada y revierte sus afectaciones contables y de existencias.
+ * Si tiene pagos posteriores registrados a la cuenta por pagar, se impide la anulación.
  */
 export async function cancelPurchase(
   businessId: string,
   purchaseId: string,
-  userId?: string | null
+  userId?: string | null,
+  reason?: string
 ): Promise<void> {
   const supabase = await getDbClient();
 
   // 1. Obtener la compra y sus ítems
   const { data: purchase, error: pErr } = await supabase
     .from("purchases")
-    .select(`*, purchase_items(*)`)
+    .select(`*, purchase_items(*), accounts_payable(*, account_payable_payments(*))`)
     .eq("id", purchaseId)
     .eq("business_id", businessId)
     .single();
@@ -949,43 +1456,141 @@ export async function cancelPurchase(
     throw new Error("La compra ya se encuentra anulada.");
   }
 
-  // 2. Marcar compra como cancelada
+  // 2. Validar si existen pagos posteriores registrados en accounts_payable
+  const ap = Array.isArray(purchase.accounts_payable)
+    ? purchase.accounts_payable[0]
+    : purchase.accounts_payable;
+
+  if (ap) {
+    const payments = Array.isArray(ap.account_payable_payments)
+      ? ap.account_payable_payments
+      : [];
+
+    // Si hay abonos posteriores al registro inicial, prohibir anulación
+    const nonInitialPayments = payments.filter(
+      (pm: any) => !pm.reference?.includes("Abono inicial en registro de compra")
+    );
+
+    if (nonInitialPayments.length > 0) {
+      throw new Error(
+        "No es posible anular esta compra porque ya cuenta con abonos registrados a la cuenta por pagar. Debes anular o revertir los abonos primero."
+      );
+    }
+  }
+
+  const cancellationTimestamp = new Date().toISOString();
+  const currentMeta = (purchase.metadata as Record<string, any>) || {};
+  const updatedMeta = {
+    ...currentMeta,
+    cancelled_at: cancellationTimestamp,
+    cancelled_by: userId || null,
+    cancellation_reason: reason?.trim() || "Anulación manual de compra",
+    payment_status: "cancelled",
+  };
+
+  // 3. Marcar compra como cancelada
   await supabase
     .from("purchases")
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .update({
+      status: "cancelled",
+      metadata: updatedMeta,
+      updated_at: cancellationTimestamp,
+    })
     .eq("id", purchaseId)
     .eq("business_id", businessId);
 
-  // 3. Cancelar cuenta por pagar asociada si existe
-  await supabase
-    .from("accounts_payable")
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
-    .eq("purchase_id", purchaseId)
-    .eq("business_id", businessId);
+  // 4. Cancelar cuenta por pagar asociada si existe
+  if (ap) {
+    await supabase
+      .from("accounts_payable")
+      .update({
+        status: "cancelled",
+        balance: 0,
+        updated_at: cancellationTimestamp,
+      })
+      .eq("id", ap.id)
+      .eq("business_id", businessId);
+  }
 
-  // 4. Revertir existencias de ítems inventariables
+  // 5. Revertir existencias de ítems inventariables (movimiento inverso 'exit')
   if (Array.isArray(purchase.purchase_items)) {
     for (const item of purchase.purchase_items) {
       if (item.is_inventory_item && item.product_id && item.location_id) {
         try {
+          const qty = Number(item.conversion_factor || 1) > 0 && item.inventory_quantity
+            ? Number(item.inventory_quantity)
+            : Number(item.quantity);
+
           await recordInventoryMovement(
             businessId,
             {
               productId: item.product_id,
               locationId: item.location_id,
               movementType: "exit",
-              quantity: Number(item.quantity),
+              quantity: qty,
               unitCost: Number(item.unit_cost),
               referenceType: "purchase",
               referenceId: purchaseId,
-              notes: `Anulación de compra ${purchase.purchase_number}`,
+              notes: `Anulación de compra ${purchase.purchase_number}${reason ? `: ${reason}` : ""}`,
             },
             userId
           );
+
+          // Restablecer existencias en inventory_stock
+          const { data: stockRow } = await supabase
+            .from("inventory_stock")
+            .select("quantity, min_stock, cost")
+            .eq("business_id", businessId)
+            .eq("product_id", item.product_id)
+            .eq("location_id", item.location_id)
+            .maybeSingle();
+
+          if (stockRow) {
+            const currentStockQty = Number(stockRow.quantity || 0);
+            const newStockQty = Math.max(0, currentStockQty - qty);
+            await upsertInventoryStock(businessId, {
+              productId: item.product_id,
+              locationId: item.location_id,
+              quantity: newStockQty,
+              minStock: Number(stockRow.min_stock || 0),
+              cost: Number(stockRow.cost || item.unit_cost),
+            });
+          }
         } catch (revErr) {
           console.warn(`[cancelPurchase] No se pudo revertir stock para producto ${item.product_id}:`, revErr);
         }
       }
+    }
+  }
+
+  // 6. Si hubo egreso de caja activa, reintegrar el dinero en la caja activa
+  const wasDeducted = Boolean(
+    purchase.deduct_from_cash_register ??
+    currentMeta.deduct_from_cash_register ??
+    (purchase.payment_type === "cash" && purchase.payment_method === "cash")
+  );
+
+  const amountToRefund = Number(currentMeta.paid_amount ?? purchase.total ?? 0);
+
+  if (wasDeducted && amountToRefund > 0) {
+    try {
+      const activeSession = await getActiveCashSession(businessId, undefined, userId).catch(() => null);
+      if (activeSession && activeSession.status === "open") {
+        await recordCashMovement(
+          businessId,
+          {
+            sessionId: activeSession.id,
+            movementType: "entry",
+            amount: amountToRefund,
+            referenceId: purchaseId,
+            referenceType: "purchase",
+            notes: `Reintegro por anulación de compra ${purchase.purchase_number}`,
+          },
+          userId
+        );
+      }
+    } catch (cashErr) {
+      console.warn("[cancelPurchase] Error al registrar reintegro en caja:", cashErr);
     }
   }
 }
@@ -1017,8 +1622,16 @@ export async function getAccountsPayable(
     .order("due_date", { ascending: true });
 
   if (error) {
+    if (
+      error.code === "PGRST205" ||
+      error.message?.includes("schema cache") ||
+      error.message?.includes("does not exist")
+    ) {
+      console.warn("[getAccountsPayable] Tabla accounts_payable no disponible en schema cache:", error.message);
+      return [];
+    }
     console.error("[getAccountsPayable] Error al consultar cuentas por pagar:", error);
-    throw new Error(`Error al consultar cuentas por pagar: ${error.message}`);
+    return [];
   }
 
   const now = new Date();
@@ -1171,8 +1784,27 @@ export async function getAccountsPayableKPIs(businessId: string): Promise<Accoun
     .neq("status", "paid");
 
   if (error) {
+    if (
+      error.code === "PGRST205" ||
+      error.message?.includes("schema cache") ||
+      error.message?.includes("does not exist")
+    ) {
+      return {
+        totalBalance: 0,
+        overdueBalance: 0,
+        upcomingBalance: 0,
+        pendingAccountsCount: 0,
+        overdueAccountsCount: 0,
+      };
+    }
     console.error("[getAccountsPayableKPIs] Error al consultar métricas:", error);
-    throw new Error(`Error al consultar métricas de cuentas por pagar: ${error.message}`);
+    return {
+      totalBalance: 0,
+      overdueBalance: 0,
+      upcomingBalance: 0,
+      pendingAccountsCount: 0,
+      overdueAccountsCount: 0,
+    };
   }
 
   const now = new Date();

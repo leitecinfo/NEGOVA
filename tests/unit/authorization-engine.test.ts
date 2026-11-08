@@ -23,6 +23,13 @@ describe("Authorization Engine & Security Controls", () => {
       expect(result).toBe(true);
     });
 
+    it("super_admin debe poseer permiso de business_users.view en contexto de negocio para administración", async () => {
+      const result = await hasPermission("fb3dd639-2033-4ee4-8208-88cbfb665a36", "business_users.view", {
+        businessId: "a8e2612f-4acc-4c84-a420-220131b70d66",
+      });
+      expect(result).toBe(true);
+    });
+
     it("usuario inexistente o sin rol debe ser denegado", async () => {
       const result = await hasPermission("00000000-0000-0000-0000-000000000099", "users.view", {
         scope: "platform",

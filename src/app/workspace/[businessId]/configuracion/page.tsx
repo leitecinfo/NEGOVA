@@ -6,6 +6,7 @@ import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { WorkspaceConfiguracionClient } from "./workspace-configuracion-client";
 import { getBusinessProductCount } from "@/lib/products/products-service";
+import { getBusinessActiveUserCount } from "@/lib/subscriptions/plan-limits-service";
 import { NEGOVA_PLANS, PlanId } from "@/config/plans";
 import { getEnabledFeaturesForBusiness } from "@/config/commercial-activities";
 
@@ -39,19 +40,7 @@ export default async function WorkspaceConfiguracionRootPage({
   }
 
   try {
-    // Conteo de usuarios activos usando el cliente de servidor autenticado
-    const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-    const { count } = await adminClient
-      .from("business_users")
-      .select("*", { count: "exact", head: true })
-      .eq("business_id", businessId)
-      .eq("status", "active");
-    activeUserCount = count || 0;
+    activeUserCount = await getBusinessActiveUserCount(businessId);
   } catch {
     activeUserCount = 0;
   }

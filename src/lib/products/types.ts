@@ -81,6 +81,7 @@ export type ProductVariant = z.infer<typeof ProductVariantSchema>;
 
 export const PRODUCT_UNITS = [
   { value: "unidad", label: "Unidad (un)", abbreviation: "un" },
+  { value: "paquete", label: "Paquete (paq)", abbreviation: "paq" },
   { value: "kilogramo", label: "Kilogramo (kg)", abbreviation: "kg" },
   { value: "gramo", label: "Gramo (g)", abbreviation: "g" },
   { value: "litro", label: "Litro (l)", abbreviation: "l" },
@@ -115,6 +116,7 @@ export const INGREDIENT_UNITS = [
   { value: "oz", label: "Onzas (oz)" },
   { value: "lb", label: "Libras (lb)" },
   { value: "unidad", label: "Unidades (un)" },
+  { value: "paquete", label: "Paquetes (paq)" },
   { value: "porcion", label: "Porciones (porc)" },
 ] as const;
 
@@ -160,6 +162,9 @@ export const STANDARD_TAX_RATES = [
   { value: 19, label: "19% (IVA General)", description: "Tarifa general de IVA" },
 ] as const;
 
+export const CategoryScopeSchema = z.enum(["commercial", "internal", "both"]);
+export type CategoryScope = z.infer<typeof CategoryScopeSchema>;
+
 export const CategorySchema = z.object({
   id: z.string().uuid(),
   business_id: z.string().uuid(),
@@ -169,6 +174,7 @@ export const CategorySchema = z.object({
   default_tax_rate: z.coerce.number().min(0).max(100).nullable().optional(),
   sort_order: z.number().default(0),
   status: z.enum(["active", "inactive", "archived"]).default("active"),
+  scope: CategoryScopeSchema.default("commercial").optional(),
   parent: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),

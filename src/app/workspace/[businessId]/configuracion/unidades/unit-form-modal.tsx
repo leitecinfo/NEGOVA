@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import {
   X,
   Scale,
@@ -170,8 +171,8 @@ export function UnitFormModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
@@ -247,25 +248,20 @@ export function UnitFormModal({
             {/* Nombre y Abreviación */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Nombre de la Unidad *
-                </label>
-                <input
+                <Input
+                  label="Nombre de la Unidad *"
                   type="text"
                   required
                   placeholder="Ej. Libra, Mililitro, Onza"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Abreviación / Símbolo *
-                </label>
-                <input
+                <Input
+                  label="Abreviación / Símbolo *"
                   type="text"
                   required
                   maxLength={10}
@@ -273,7 +269,7 @@ export function UnitFormModal({
                   value={abbreviation}
                   onChange={(e) => setAbbreviation(e.target.value)}
                   disabled={isSubmitting || (isEditing && unitToEdit?.isSystem)}
-                  className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                  className="font-mono"
                 />
               </div>
             </div>
@@ -281,35 +277,30 @@ export function UnitFormModal({
             {/* Unidad Base de Referencia */}
             {!isBase && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Unidad Base de Referencia
-                </label>
-                <select
+                <Select
+                  label="Unidad Base de Referencia"
                   value={baseUnitId}
                   onChange={(e) => setBaseUnitId(e.target.value)}
                   disabled={isSubmitting || (isEditing && unitToEdit?.isBase)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
                 >
                   {compatibleBaseUnits.map((bu) => (
                     <option key={bu.id} value={bu.id}>
                       {bu.name} ({bu.abbreviation}) — Unidad Base de {MEASUREMENT_UNIT_TYPE_LABELS[bu.type]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
 
             {/* Factor de Conversión */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Factor de Conversión {isBase ? "(Fijo 1.0 para Unidades Base)" : "*"}
-                </label>
                 <span className="text-[11px] text-slate-400">
                   1 {abbreviation.trim() || "unidad"} = {parsedFactor} {targetBaseSymbol}
                 </span>
               </div>
-              <input
+              <Input
+                label={`Factor de Conversión ${isBase ? "(Fijo 1.0 para Unidades Base)" : "*"}`}
                 type="number"
                 step="any"
                 min="0.000001"
@@ -318,7 +309,7 @@ export function UnitFormModal({
                 value={isBase ? "1.0" : conversionFactor}
                 onChange={(e) => setConversionFactor(e.target.value)}
                 placeholder="Ej. 0.4536 para 1 lb = 0.4536 kg"
-                className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                className="font-mono"
               />
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
                 <HelpCircle className="w-3.5 h-3.5 shrink-0" />

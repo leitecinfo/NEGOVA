@@ -3,42 +3,49 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
   Boxes,
-  MapPin,
-  Warehouse,
   History,
   AlertTriangle,
   SlidersHorizontal,
   Plus,
-  ArrowRightLeft,
-  ShoppingCart,
   Package,
   DollarSign,
-  Activity,
   Search,
-  X,
-  Filter,
   RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Sparkles,
   Layers,
-  ArrowUpDown,
-  Tag,
   CheckCircle2,
   XCircle,
+  Eye,
+  TrendingDown,
+  Warehouse,
+  ShoppingBag,
+  ExternalLink,
+  ChefHat,
+  UtensilsCrossed,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Category, Product } from "@/lib/products/types";
-import { Location, InventoryKPIs, InventoryStock } from "@/lib/inventory/types";
+import {
+  Location,
+  InventoryKPIs,
+  InventoryStock,
+  InventariableItem,
+} from "@/lib/inventory/types";
+import { RecipeWithDetails } from "@/lib/recipes/types";
 import { InventoryHistoryTab } from "./inventory-history-tab";
 import { InventoryLowStockTab } from "./inventory-low-stock-tab";
-import { InventoryPurchasesTab } from "../compras/inventory-purchases-tab";
+import { StockAdjustmentModal } from "./stock-adjustment-modal";
+import { ItemDetailModal } from "./item-detail-modal";
 import { MovementFormModal } from "./movement-form-modal";
-import { TransferFormModal } from "./transfer-form-modal";
-import { PurchaseFormModal } from "../compras/purchase-form-modal";
-import { getInventoryLocationsAction } from "../productos/inventory-actions";
-import { useRouter } from "next/navigation";
+import { SpoilageRecordsTab } from "./spoilage-records-tab";
+import { SpoilageFormModal } from "./spoilage-form-modal";
+import { getBusinessLocationsAction } from "./actions";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
+import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   businessId: string;
@@ -47,6 +54,7 @@ interface Props {
   products?: Product[];
   initialKPIs?: InventoryKPIs | null;
   initialStock?: InventoryStock[];
+  recipes?: RecipeWithDetails[];
 }
 
 export function WorkspaceInventarioClient({
@@ -56,40 +64,44 @@ export function WorkspaceInventarioClient({
   products = [],
   initialKPIs,
   initialStock = [],
+  recipes = [],
 }: Props) {
   const router = useRouter();
   const [locations, setLocations] = useState<Location[]>(initialLocations);
   const [stockList, setStockList] = useState<InventoryStock[]>(initialStock);
 
-  // Pestañas solicitadas: PRODUCTOS, COMPRAS, HISTORIAL, STOCK BAJO
-  const [activeTab, setActiveTab] = useState<"products" | "purchases" | "history" | "low_stock">("products");
+  // Pestañas unificadas del inventario: EXISTENCIAS, STOCK BAJO, HISTORIAL, MERMAS
+  const [activeTab, setActiveTab] = useState<"products" | "low_stock" | "history" | "wastes">("products");
 
   // Modales
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
-  const [selectedProductForMovement, setSelectedProductForMovement] = useState<string | undefined>(undefined);
-  const [selectedProductForPurchase, setSelectedProductForPurchase] = useState<string | null>(null);
+  const [isSpoilageModalOpen, setIsSpoilageModalOpen] = useState(false);
+  const [spoilageRefreshTrigger, setSpoilageRefreshTrigger] = useState(0);
 
-  // Filtros de la pestaña PRODUCTOS
-  const [searchName, setSearchName] = useState("");
+  // Artículo seleccionado para acciones
+  const [selectedItemForAction, setSelectedItemForAction] = useState<InventariableItem | null>(null);
+
+  // Filtros de la pestaña EXISTENCIAS
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState<
-    "all" | "in_stock" | "low_stock" | "out_of_stock" | "active" | "inactive"
-  >("all");
+  const [selectedItemType, setSelectedItemType] = useState<"all" | "direct" | "recipe" | "ingredient">("all");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock" | "pending_recipe">("all");
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  const handleRefreshLocations = async () => {
-    const res = await getInventoryLocationsAction(businessId);
+  const handleRefresh = async () => {
+    const res = await getBusinessLocationsAction(businessId);
     if (res.success && res.data) {
       setLocations(res.data);
     }
+    router.refresh();
   };
 
-  // Mapa de stock consolidado por producto
+  // Mapa de stock consolidado por producto desde inventory_stock
   const stockByProduct = useMemo(() => {
     const map = new Map<string, { totalQuantity: number; minStock: number; cost: number }>();
 
@@ -115,122 +127,266 @@ export function WorkspaceInventarioClient({
     return map;
   }, [stockList]);
 
-  // Lista enriquecida de productos comerciales
-  const enrichedProducts = useMemo(() => {
-    return products.map((prod) => {
-      const meta = (prod.metadata || {}) as Record<string, any>;
-      const cat = categories.find((c) => c.id === prod.category_id);
-      const variants = Array.isArray(meta.variants) ? meta.variants : [];
-      const hasVariants = Boolean(meta.has_variants || variants.length > 0);
+  // Mapa de recetas activas indexadas por productId
+  const recipesByProduct = useMemo(() => {
+    const map = new Map<string, RecipeWithDetails>();
+    for (const r of recipes) {
+      if (!r.productId) continue;
+      if (r.status === "active") {
+        map.set(r.productId, r);
+      } else if (!map.has(r.productId)) {
+        map.set(r.productId, r);
+      }
+    }
+    return map;
+  }, [recipes]);
 
-      const stockData = stockByProduct.get(prod.id);
-      const totalStock = stockData ? stockData.totalQuantity : Number(meta.stock_quantity ?? 0);
-      const minStock = stockData ? stockData.minStock : Number(meta.min_stock ?? 0);
-      const cost = stockData && stockData.cost > 0 ? stockData.cost : Number(meta.cost ?? meta.average_cost ?? 0);
-      const isLowStock = totalStock <= minStock;
-      const isOutOfStock = totalStock <= 0;
+  // Lista unificada y filtrada de ARTÍCULOS INVENTARIABLES [TAREA-03]:
+  // A. Productos con existencias directas (track_stock === true y product_type !== 'service')
+  // B. Productos preparados o elaborados (hamburguesas, salchipapas, pizzas) con cálculo
+  //    dinámico de disponibilidad a partir de las existencias de sus ingredientes en recetas.
+  // C. Insumos e ingredientes inventariables (product_type === 'ingredient')
+  // EXCLUSIÓN ESTRICTA: Solo servicios puros sin existencias (product_type === 'service').
+  const inventariableItems = useMemo<InventariableItem[]>(() => {
+    return products
+      .filter((prod) => {
+        const meta = (prod.metadata || {}) as Record<string, any>;
+        if (meta.product_type === "service") return false;
+        return true;
+      })
+      .map((prod) => {
+        const meta = (prod.metadata || {}) as Record<string, any>;
+        const cat = categories.find((c) => c.id === prod.category_id);
+        const variants = Array.isArray(meta.variants) ? meta.variants : [];
+        const hasVariants = Boolean(meta.has_variants || variants.length > 0);
 
-      // Calcular precio de variantes si aplica
-      const minVariantPrice = hasVariants && variants.length > 0
-        ? Math.min(...variants.map((v: any) => Number(v.price) || 0))
-        : null;
+        const isIngredient = meta.product_type === "ingredient";
+        const recipe = recipesByProduct.get(prod.id);
+        const isPrepared =
+          meta.product_type === "prepared" ||
+          Boolean(meta.has_recipe) ||
+          Boolean(recipe) ||
+          (!meta.track_stock && !isIngredient);
 
-      return {
-        ...prod,
-        category: cat,
-        meta,
-        totalStock,
-        minStock,
-        cost,
-        hasVariants,
-        variants,
-        minVariantPrice,
-        isLowStock,
-        isOutOfStock,
-      };
-    });
-  }, [products, categories, stockByProduct]);
+        const controlType =
+          (isPrepared || Boolean(recipe)) && !isIngredient ? ("recipe" as const) : ("direct" as const);
 
-  // KPIs Superiores: Total productos, Stock bajo, Valor al costo, Movimientos hoy
+        const stockData = stockByProduct.get(prod.id);
+        const price = Number(prod.price || 0);
+
+        if (controlType === "recipe") {
+          // ==========================================
+          // CASO B: PRODUCTO PREPARADO / ELABORADO
+          // ==========================================
+          const recipeIngredients = recipe?.ingredients?.map((ing) => {
+            const requiredPerPortion =
+              ing.requiredPerPortion ??
+              (recipe.portions > 0 ? ing.quantity / recipe.portions : ing.quantity);
+            const availablePortions =
+              ing.availablePortions ??
+              (requiredPerPortion > 0 ? Math.floor(ing.stockQuantity / requiredPerPortion) : 0);
+            const isLimiting = Boolean(
+              recipe.limitingIngredient && recipe.limitingIngredient.ingredientId === ing.ingredientId
+            );
+            return {
+              ingredientId: ing.ingredientId,
+              ingredientName: ing.ingredientName,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              stockQuantity: ing.stockQuantity,
+              requiredPerPortion,
+              availablePortions,
+              isLimiting,
+            };
+          });
+
+          const hasRecipeConfigured = Boolean(recipe);
+          const portionsAvailable = hasRecipeConfigured
+            ? recipe!.portionsAvailable ?? 0
+            : null;
+
+          let status: InventariableItem["status"] = "in_stock";
+          if (!hasRecipeConfigured) {
+            status = "pending_recipe";
+          } else if (portionsAvailable! <= 0) {
+            status = "out_of_stock";
+          } else if (portionsAvailable! <= 5) {
+            status = "low_stock";
+          }
+
+          const unit = meta.unit || "porción";
+          const cost = recipe?.costPerPortion ?? Number(meta.cost ?? 0);
+
+          return {
+            id: prod.id,
+            name: prod.name,
+            itemType: "product",
+            controlType: "recipe",
+            categoryId: prod.category_id,
+            categoryName: cat?.name || null,
+            sku: meta.sku || null,
+            barcode: meta.barcode || null,
+            imageUrl: prod.image_url || null,
+            unit,
+            currentStock: portionsAvailable ?? 0,
+            minStock: 0,
+            cost,
+            price,
+            totalValue: 0, // No genera valorización física terminada (evita doble conteo)
+            status,
+            hasVariants,
+            variants,
+            trackStock: false,
+            isAvailable: Boolean(prod.is_available),
+            updatedAt: prod.updated_at,
+            recipeId: recipe?.id || null,
+            recipeName: recipe?.name || null,
+            recipeStatus: (recipe?.status as any) || "none",
+            portionsAvailable,
+            exactPortionsAvailable: recipe?.exactPortionsAvailable ?? null,
+            limitingIngredient: recipe?.limitingIngredient || null,
+            recipeIngredients,
+          };
+        } else {
+          // ==========================================
+          // CASO A: PRODUCTOS DIRECTOS E INSUMOS
+          // ==========================================
+          const currentStock = stockData ? stockData.totalQuantity : Number(meta.stock_quantity ?? 0);
+          const minStock = stockData ? stockData.minStock : Number(meta.min_stock ?? 0);
+          const cost = stockData && stockData.cost > 0 ? stockData.cost : Number(meta.cost ?? 0);
+          const totalValue = currentStock > 0 && cost > 0 ? Number((currentStock * cost).toFixed(2)) : 0;
+
+          let status: InventariableItem["status"] = "in_stock";
+          if (currentStock <= 0) {
+            status = "out_of_stock";
+          } else if (minStock > 0 && currentStock <= minStock) {
+            status = "low_stock";
+          }
+
+          const unit = meta.unit || (isIngredient ? "kg" : "un");
+
+          return {
+            id: prod.id,
+            name: prod.name,
+            itemType: isIngredient ? "ingredient" : "product",
+            controlType: "direct",
+            categoryId: prod.category_id,
+            categoryName: cat?.name || null,
+            sku: meta.sku || null,
+            barcode: meta.barcode || null,
+            imageUrl: prod.image_url || null,
+            unit,
+            currentStock,
+            minStock,
+            cost,
+            price,
+            totalValue,
+            status,
+            hasVariants,
+            variants,
+            trackStock: true,
+            isAvailable: Boolean(prod.is_available),
+            updatedAt: prod.updated_at,
+          };
+        }
+      });
+  }, [products, categories, stockByProduct, recipesByProduct]);
+
+  // KPIs calculados estrictamente sobre artículos inventariables
   const kpis = useMemo(() => {
-    if (initialKPIs) return initialKPIs;
-
-    let totalProducts = enrichedProducts.length;
+    let inStockCount = 0;
     let lowStockCount = 0;
+    let outOfStockCount = 0;
     let totalCostValue = 0;
 
-    for (const p of enrichedProducts) {
-      if (p.isLowStock) {
+    for (const item of inventariableItems) {
+      totalCostValue += item.totalValue;
+      if (item.status === "out_of_stock") {
+        outOfStockCount++;
+      } else if (item.status === "low_stock") {
         lowStockCount++;
+      } else if (item.status === "in_stock") {
+        inStockCount++;
       }
-      totalCostValue += p.totalStock * p.cost;
     }
 
     return {
-      totalProducts,
+      totalItems: inventariableItems.length,
+      inStockCount,
       lowStockCount,
-      totalCostValue,
-      todayMovementsCount: 0,
+      outOfStockCount,
+      totalCostValue: Number(totalCostValue.toFixed(2)),
+      todayMovementsCount: initialKPIs?.todayMovementsCount || 0,
     };
-  }, [initialKPIs, enrichedProducts]);
+  }, [inventariableItems, initialKPIs]);
 
-  // Filtrado reactivo de productos
-  const filteredProducts = useMemo(() => {
-    return enrichedProducts.filter((p) => {
-      // 1. Filtro por Nombre / SKU / Código
-      if (searchName.trim()) {
-        const q = searchName.toLowerCase().trim();
-        const matchesName = p.name.toLowerCase().includes(q);
-        const matchesSku = p.meta.sku ? String(p.meta.sku).toLowerCase().includes(q) : false;
-        const matchesBarcode = p.meta.barcode ? String(p.meta.barcode).toLowerCase().includes(q) : false;
-        const matchesVariant = p.variants.some((v: any) => v.name?.toLowerCase().includes(q));
+  // Filtrado reactivo de la tabla de existencias
+  const filteredItems = useMemo(() => {
+    return inventariableItems.filter((item) => {
+      // 1. Búsqueda por texto (Nombre / SKU / Código / Variante / Ingrediente limitante)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = item.name.toLowerCase().includes(q);
+        const matchesSku = item.sku ? item.sku.toLowerCase().includes(q) : false;
+        const matchesBarcode = item.barcode ? item.barcode.toLowerCase().includes(q) : false;
+        const matchesVariant = item.variants.some((v: any) => v.name?.toLowerCase().includes(q));
+        const matchesLimiting = item.limitingIngredient?.name?.toLowerCase().includes(q);
 
-        if (!matchesName && !matchesSku && !matchesBarcode && !matchesVariant) {
+        if (!matchesName && !matchesSku && !matchesBarcode && !matchesVariant && !matchesLimiting) {
           return false;
         }
       }
 
       // 2. Filtro por Categoría
       if (selectedCategory !== "all") {
-        if (p.category_id !== selectedCategory) {
+        if (item.categoryId !== selectedCategory) {
           return false;
         }
       }
 
-      // 3. Filtro por Estado
-      if (selectedStatus === "in_stock") {
-        if (p.totalStock <= p.minStock) return false;
-      } else if (selectedStatus === "low_stock") {
-        if (p.totalStock > p.minStock || p.totalStock <= 0) return false;
-      } else if (selectedStatus === "out_of_stock") {
-        if (p.totalStock > 0) return false;
-      } else if (selectedStatus === "active") {
-        if (!p.is_available) return false;
-      } else if (selectedStatus === "inactive") {
-        if (p.is_available) return false;
+      // 3. Filtro por Tipo de Control / Modalidad
+      if (selectedItemType !== "all") {
+        if (selectedItemType === "direct" && item.controlType !== "direct") {
+          return false;
+        }
+        if (selectedItemType === "recipe" && item.controlType !== "recipe") {
+          return false;
+        }
+        if (selectedItemType === "ingredient" && item.itemType !== "ingredient") {
+          return false;
+        }
+      }
+
+      // 4. Filtro por Estado
+      if (selectedStatus !== "all") {
+        if (item.status !== selectedStatus) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [enrichedProducts, searchName, selectedCategory, selectedStatus]);
+  }, [inventariableItems, searchQuery, selectedCategory, selectedItemType, selectedStatus]);
 
   const hasActiveFilters =
-    searchName.trim() !== "" ||
+    searchQuery.trim() !== "" ||
     selectedCategory !== "all" ||
+    selectedItemType !== "all" ||
     selectedStatus !== "all";
 
   const clearFilters = () => {
-    setSearchName("");
+    setSearchQuery("");
     setSelectedCategory("all");
+    setSelectedItemType("all");
     setSelectedStatus("all");
     setCurrentPage(1);
   };
 
   // Paginación
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * pageSize;
-  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + pageSize);
+  const paginatedItems = filteredItems.slice(startIndex, startIndex + pageSize);
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -242,246 +398,216 @@ export function WorkspaceInventarioClient({
 
   return (
     <div className="space-y-6">
-      {/* 1. KPIS SUPERIORES */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Productos */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Total productos
-            </span>
-            <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1 block">
-              {kpis.totalProducts}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              En catálogo comercial
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5" />
-          </div>
-        </div>
+      {/* 1. KPIS SUPERIORES CALCULADOS CON DATOS REALES (NORMALIZADOS) */}
+      <KpiGrid cols={5}>
+        <KpiCard
+          title="Total artículos"
+          value={kpis.totalItems}
+          subtext="Con control de stock"
+          icon={<Boxes className="w-5 h-5" />}
+          variant="blue"
+        />
+        <KpiCard
+          title="Disponibles"
+          value={kpis.inStockCount}
+          subtext="Existencias suficientes"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          variant="emerald"
+        />
+        <KpiCard
+          title="Stock bajo"
+          value={kpis.lowStockCount}
+          subtext="Por reabastecer"
+          icon={<AlertTriangle className="w-5 h-5" />}
+          variant={kpis.lowStockCount > 0 ? "amber" : "default"}
+          onClick={() => setActiveTab("low_stock")}
+          className="cursor-pointer hover:border-amber-400"
+        />
+        <KpiCard
+          title="Agotados"
+          value={kpis.outOfStockCount}
+          subtext="0 unidades físicas"
+          icon={<XCircle className="w-5 h-5" />}
+          variant={kpis.outOfStockCount > 0 ? "red" : "default"}
+        />
+        <KpiCard
+          title="Valor al costo"
+          value={formatCOP(kpis.totalCostValue)}
+          subtext="Valorizado total en almacén"
+          icon={<DollarSign className="w-5 h-5" />}
+          variant="emerald"
+        />
+      </KpiGrid>
 
-        {/* Stock Bajo */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Stock bajo
-            </span>
-            <span
-              className={`text-2xl font-bold font-mono mt-1 block ${
-                kpis.lowStockCount > 0
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-slate-900 dark:text-white"
-              }`}
-            >
-              {kpis.lowStockCount}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Por debajo del umbral mínimo
-            </span>
-          </div>
-          <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              kpis.lowStockCount > 0
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                : "bg-slate-100 dark:bg-white/[0.04] text-slate-400"
-            }`}
-          >
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Valor al Costo */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Valor al costo
-            </span>
-            <span className="text-xl sm:text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
-              {formatCOP(kpis.totalCostValue)}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Valorizado total en almacén
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* Movimientos Hoy */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Movimientos hoy
-            </span>
-            <span className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-1 block">
-              {kpis.todayMovementsCount}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Entradas, salidas y ajustes
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <Activity className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* 2. NAVEGACIÓN POR PESTAÑAS Y ACCIONES GLOBALES */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">
-        {/* Pestañas: PRODUCTOS, COMPRAS, HISTORIAL, STOCK BAJO */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
+      {/* 2. PESTAÑAS Y ACCIONES DEL MÓDULO (ESTILO PRODUCTOS) */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200/80 dark:border-white/[0.08] pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
           <button
+            type="button"
             onClick={() => setActiveTab("products")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === "products"
-                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
             }`}
           >
-            <Boxes className="w-4 h-4 text-[#ED500A]" />
-            <span>PRODUCTOS</span>
+            <Boxes className="w-4 h-4" />
+            <span>Existencias</span>
             <span className="ml-1 text-2xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 font-bold">
-              {filteredProducts.length}
+              {inventariableItems.length}
             </span>
           </button>
 
           <button
-            onClick={() => setActiveTab("purchases")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
-              activeTab === "purchases"
-                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <ShoppingCart className="w-4 h-4 text-blue-500" />
-            <span>COMPRAS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
-              activeTab === "history"
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <History className="w-4 h-4 text-emerald-500" />
-            <span>HISTORIAL</span>
-          </button>
-
-          <button
+            type="button"
             onClick={() => setActiveTab("low_stock")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
               activeTab === "low_stock"
-                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
             }`}
           >
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span>STOCK BAJO</span>
+            <AlertTriangle className={`w-4 h-4 ${activeTab === "low_stock" ? "text-[#ED500A]" : "text-amber-500"}`} />
+            <span>Stock bajo</span>
             {kpis.lowStockCount > 0 && (
-              <span className="ml-1 text-2xs px-1.5 py-0.5 rounded-full bg-amber-500 text-white font-bold">
+              <span className="ml-1 text-2xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
                 {kpis.lowStockCount}
               </span>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("history")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
+              activeTab === "history"
+                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>Historial</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("wastes")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
+              activeTab === "wastes"
+                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+            }`}
+          >
+            <TrendingDown className="w-4 h-4" />
+            <span>Mermas</span>
+          </button>
         </div>
 
-        {/* Acciones de inventario: Transferencias y Nuevo movimiento */}
-        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-          <button
-            onClick={() => setIsTransferModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-all cursor-pointer"
-            title="Transferir existencias entre dos ubicaciones"
+        {/* Botón principal: Ajuste manual, Mermas y enlace contextual a Compras */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSpoilageModalOpen(true)}
+            className="text-rose-700 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/10"
+            title="Registrar merma o desperdicio de existencias"
           >
-            <ArrowRightLeft className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-            <span className="hidden sm:inline">Transferencias</span>
-          </button>
+            <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <span>Registrar merma</span>
+          </Button>
 
-          <button
-            onClick={() => {
-              setSelectedProductForMovement(undefined);
-              setIsMovementModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer"
+          <Button
+            variant="outline"
+            size="sm"
+            href={`/workspace/${businessId}/compras`}
+            title="Ir al módulo de Compras para registrar abastecimiento formal con proveedor"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Nuevo movimiento</span>
-          </button>
+            <ShoppingBag className="w-4 h-4 text-[#ED500A]" />
+            <span>Registrar abastecimiento</span>
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setSelectedItemForAction(null);
+              setIsAdjustmentModalOpen(true);
+            }}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Ajuste manual</span>
+          </Button>
         </div>
       </div>
 
       {/* 3. CONTENIDO DE LA PESTAÑA ACTIVA */}
       {activeTab === "products" ? (
         <div className="space-y-4">
-          {/* BARRA DE FILTROS: NOMBRE, CATEGORÍA, ESTADO */}
+          {/* BARRA DE FILTROS: Búsqueda, Categoría, Tipo de artículo y Estado de existencias */}
           <div className="p-3.5 sm:p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex flex-wrap items-center gap-3">
-            {/* Filtro Nombre / Búsqueda */}
-            <div className="relative flex-1 min-w-[200px] sm:min-w-[280px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchName}
+            {/* Búsqueda por texto */}
+            <div className="flex-1 min-w-[200px] sm:min-w-[260px]">
+              <SearchInput
+                value={searchQuery}
                 onChange={(e) => {
-                  setSearchName(e.target.value);
+                  setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Filtrar por nombre, SKU o variante..."
-                className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
+                onClear={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
+                placeholder="Buscar por nombre, SKU o código de barras..."
               />
-              {searchName && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchName("");
-                    setCurrentPage(1);
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
 
+            {/* Filtro Tipo de Artículo */}
+            <Select
+              value={selectedItemType}
+              onChange={(e) => {
+                setSelectedItemType(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              className="w-auto min-w-[170px]"
+            >
+              <option value="all">Todos los tipos</option>
+              <option value="direct">Control directo (físico)</option>
+              <option value="recipe">Por receta (elaborados)</option>
+              <option value="ingredient">Insumos e ingredientes</option>
+            </Select>
+
             {/* Filtro Categoría */}
-            <select
+            <Select
               value={selectedCategory}
               onChange={(e) => {
                 setSelectedCategory(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+              className="w-auto min-w-[170px]"
             >
-              <option value="all">Todas las categorías ({enrichedProducts.length})</option>
-              {categories.map((cat) => {
-                const count = enrichedProducts.filter((p) => p.category_id === cat.id).length;
-                return (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name} ({count})
-                  </option>
-                );
-              })}
-            </select>
+              <option value="all">Todas las categorías</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </Select>
 
             {/* Filtro Estado */}
-            <select
+            <Select
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value as any);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+              className="w-auto min-w-[160px]"
             >
               <option value="all">Todos los estados</option>
-              <option value="in_stock">En stock (&gt; Mínimo)</option>
-              <option value="low_stock">Stock bajo (&le; Mínimo)</option>
-              <option value="out_of_stock">Agotado (0 unidades)</option>
-              <option value="active">Activos para venta</option>
-              <option value="inactive">Inactivos / Pausados</option>
-            </select>
+              <option value="in_stock">Disponible</option>
+              <option value="low_stock">Stock bajo</option>
+              <option value="out_of_stock">Agotado</option>
+              <option value="pending_recipe">Receta pendiente</option>
+            </Select>
 
             {hasActiveFilters && (
               <button
@@ -495,361 +621,395 @@ export function WorkspaceInventarioClient({
             )}
           </div>
 
-          {/* TABLA DE PRODUCTOS: Producto, Categoría, Stock total, Variantes, Mínimo, Costo, Precio de venta, Estado */}
+          {/* TABLA DE EXISTENCIAS:
+              Artículo | Categoría | Tipo de control | Existencias / Disp. | Estado | Costo unitario | Valor total | Acciones */}
           <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse text-xs min-w-[980px]">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-                    <th className="py-3 px-4 min-w-[200px]">Producto</th>
-                    <th className="py-3 px-3">Categoría</th>
-                    <th className="py-3 px-3 text-right">Stock total</th>
-                    <th className="py-3 px-3">Variantes</th>
-                    <th className="py-3 px-3 text-right">Mínimo</th>
-                    <th className="py-3 px-3 text-right">Costo</th>
-                    <th className="py-3 px-4 text-right">Precio de venta</th>
-                    <th className="py-3 px-3 text-center">Estado</th>
-                    <th className="py-3 px-3 text-center w-24">Acciones</th>
+                    <th className="py-4 px-5 min-w-[260px] whitespace-nowrap">Artículo</th>
+                    <th className="py-4 px-4 min-w-[140px] whitespace-nowrap">Categoría</th>
+                    <th className="py-4 px-4 text-center min-w-[150px] whitespace-nowrap">Tipo de control</th>
+                    <th className="py-4 px-4 text-right min-w-[180px] whitespace-nowrap">Existencias / Disponibilidad</th>
+                    <th className="py-4 px-4 text-center min-w-[140px] whitespace-nowrap">Estado</th>
+                    <th className="py-4 px-4 text-right min-w-[130px] whitespace-nowrap">Costo unitario</th>
+                    <th className="py-4 px-5 text-right min-w-[130px] whitespace-nowrap">Valor total</th>
+                    <th className="py-4 px-5 text-center min-w-[150px] whitespace-nowrap">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                  {paginatedProducts.length === 0 ? (
+                  {paginatedItems.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center">
-                        <div className="max-w-xs mx-auto space-y-2">
-                          <Package className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                            No se encontraron productos
-                          </p>
-                          <p className="text-[11px] text-slate-500">
+                      <td colSpan={8} className="py-14 text-center">
+                        <div className="max-w-md mx-auto space-y-2.5">
+                          <Package className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
                             {hasActiveFilters
-                              ? "Prueba a cambiar los filtros o limpiar la búsqueda."
-                              : "No tienes productos en el catálogo comercial."}
+                              ? "No hay artículos que coincidan con los filtros"
+                              : "No tienes productos o insumos registrados en inventario"}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            {hasActiveFilters
+                              ? "Prueba a cambiar los criterios de búsqueda, tipo de control o estado."
+                              : "Los productos con existencias físicas y los platos preparados aparecen automáticamente en este inventario."}
                           </p>
+                          {!hasActiveFilters && (
+                            <div className="pt-2">
+                              <Link
+                                href={`/workspace/${businessId}/productos`}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[#ED500A] bg-[#ED500A]/10 hover:bg-[#ED500A]/20 transition-colors"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>Ir a Catálogo de Productos</span>
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    paginatedProducts.map((product) => {
-                      const displayPrice = product.hasVariants && product.minVariantPrice !== null
-                        ? `Desde ${formatCOP(product.minVariantPrice)}`
-                        : formatCOP(product.price);
-
-                      return (
-                        <tr
-                          key={product.id}
-                          className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors"
-                        >
-                          {/* 1. Producto */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              {product.image_url ? (
-                                <img
-                                  src={product.image_url}
-                                  alt={product.name}
-                                  className="w-9 h-9 rounded-xl object-cover border border-slate-200/80 dark:border-white/[0.08] shrink-0"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] flex items-center justify-center shrink-0 text-slate-400">
-                                  <Package className="w-4 h-4" />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                                  {product.name}
-                                </span>
-                                {product.meta.sku ? (
-                                  <span className="text-[10px] font-mono font-semibold text-slate-400 block truncate">
-                                    SKU: {product.meta.sku}
-                                  </span>
+                    paginatedItems.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors"
+                      >
+                        {/* 1. Artículo */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-3">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-11 h-11 rounded-2xl object-cover border border-slate-200/80 dark:border-white/[0.08] shrink-0"
+                              />
+                            ) : (
+                              <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] flex items-center justify-center shrink-0 text-slate-400">
+                                {item.controlType === "recipe" ? (
+                                  <ChefHat className="w-5 h-5 text-purple-400" />
                                 ) : (
-                                  <span className="text-[10px] text-slate-400 italic block">
-                                    Sin SKU
-                                  </span>
+                                  <Package className="w-5 h-5" />
                                 )}
                               </div>
-                            </div>
-                          </td>
-
-                          {/* 2. Categoría */}
-                          <td className="py-3 px-3">
-                            {product.category ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
-                                {product.category.name}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400 italic">
-                                Sin categoría
-                              </span>
                             )}
-                          </td>
-
-                          {/* 3. Stock total */}
-                          <td className="py-3 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
-                                {product.totalStock}
-                              </span>
-                              {product.isOutOfStock ? (
-                                <span
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                                  title="Agotado: 0 unidades disponibles"
-                                >
-                                  Agotado
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                  {item.name}
                                 </span>
-                              ) : product.isLowStock ? (
-                                <span
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                                  title="Stock bajo: por debajo del mínimo"
+                                <Badge
+                                  size="sm"
+                                  variant={item.itemType === "ingredient" ? "emerald" : "slate"}
+                                  className="text-[10px] px-1.5 py-0"
                                 >
-                                  ⚠️ Bajo
+                                  {item.itemType === "ingredient" ? "Insumo" : "Producto"}
+                                </Badge>
+                              </div>
+                              {item.sku ? (
+                                <span className="text-[11px] font-mono font-semibold text-slate-400 block truncate mt-0.5">
+                                  SKU: {item.sku}
                                 </span>
-                              ) : null}
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic block mt-0.5">
+                                  Sin SKU
+                                </span>
+                              )}
                             </div>
-                          </td>
+                          </div>
+                        </td>
 
-                          {/* 4. Variantes */}
-                          <td className="py-3 px-3">
-                            {product.hasVariants ? (
+                        {/* 2. Categoría */}
+                        <td className="py-4 px-4 whitespace-nowrap">
+                          {item.categoryName ? (
+                            <Badge size="sm" variant="slate" className="px-2.5 py-1 text-xs font-medium whitespace-nowrap">
+                              {item.categoryName}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">
+                              Sin categoría
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 3. Tipo de control */}
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                          {item.controlType === "recipe" ? (
+                            <Badge
+                              size="sm"
+                              variant="purple"
+                              icon={<ChefHat className="w-3.5 h-3.5 text-purple-500 shrink-0" />}
+                              className="px-3 py-1 text-xs font-semibold whitespace-nowrap"
+                            >
+                              Por receta
+                            </Badge>
+                          ) : (
+                            <Badge
+                              size="sm"
+                              variant="blue"
+                              icon={<Package className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
+                              className="px-3 py-1 text-xs font-semibold whitespace-nowrap"
+                            >
+                              Directo
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* 4. Existencias / Disponibilidad calculada */}
+                        <td className="py-4 px-4 text-right">
+                          {item.controlType === "direct" ? (
+                            <div>
+                              <span className="font-mono font-bold text-sm text-slate-900 dark:text-white block whitespace-nowrap">
+                                {item.currentStock} {item.unit}
+                              </span>
+                              <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
+                                {item.minStock > 0 ? `Mínimo: ${item.minStock} ${item.unit}` : "Sin mínimo"}
+                              </span>
+                            </div>
+                          ) : item.recipeStatus !== "none" ? (
+                            <div>
                               <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20"
-                                title={product.variants.map((v: any) => v.name).join(", ")}
+                                className={`font-mono font-bold text-sm block whitespace-nowrap ${
+                                  (item.portionsAvailable ?? 0) > 0
+                                    ? "text-purple-600 dark:text-purple-400"
+                                    : "text-rose-600 dark:text-rose-400"
+                                }`}
                               >
-                                <Layers className="w-3 h-3" />
-                                <span>{product.variants.length} variantes</span>
+                                {item.portionsAvailable} porciones disp.
                               </span>
+                              {item.limitingIngredient ? (
+                                <span
+                                  className="text-[11px] text-amber-600 dark:text-amber-400 block mt-0.5 truncate max-w-[180px] ml-auto"
+                                  title={`Cuello de botella: ${item.limitingIngredient.name} (${item.limitingIngredient.availablePortions} un.)`}
+                                >
+                                  Limitado: {item.limitingIngredient.name}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
+                                  Insumos suficientes
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-mono text-sm text-slate-400 italic block whitespace-nowrap">—</span>
+                              <span className="text-[11px] text-amber-600/90 dark:text-amber-400/90 block mt-0.5 font-medium whitespace-nowrap">
+                                Sin receta configurada
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Estado */}
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                          {item.status === "pending_recipe" ? (
+                            <Badge size="sm" variant="slate" dot className="px-3 py-1 text-xs text-amber-700 dark:text-amber-300 border-amber-500/20 bg-amber-500/10 font-semibold whitespace-nowrap">
+                              Receta pendiente
+                            </Badge>
+                          ) : (
+                            <Badge
+                              size="sm"
+                              variant={
+                                item.status === "out_of_stock"
+                                  ? "red"
+                                  : item.status === "low_stock"
+                                  ? "amber"
+                                  : "emerald"
+                              }
+                              dot
+                              className="px-3 py-1 text-xs font-semibold whitespace-nowrap"
+                            >
+                              {item.status === "out_of_stock"
+                                ? "Agotado"
+                                : item.status === "low_stock"
+                                ? "Stock bajo"
+                                : "Disponible"}
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* 6. Costo unitario */}
+                        <td className="py-4 px-4 text-right whitespace-nowrap">
+                          <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 block">
+                            {item.cost > 0 ? formatCOP(item.cost) : "—"}
+                          </span>
+                          {item.controlType === "recipe" && item.cost > 0 && (
+                            <span className="text-[10px] text-slate-400 block mt-0.5">p/porción</span>
+                          )}
+                        </td>
+
+                        {/* 7. Valor total */}
+                        <td className="py-4 px-5 text-right whitespace-nowrap">
+                          {item.controlType === "direct" && item.totalValue > 0 ? (
+                            <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 block">
+                              {formatCOP(item.totalValue)}
+                            </span>
+                          ) : item.controlType === "recipe" ? (
+                            <span
+                              className="text-[11px] text-slate-400 italic block"
+                              title="El costo de los ingredientes ya se computa en las existencias físicas del almacén"
+                            >
+                              En insumos
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs text-slate-400 block">—</span>
+                          )}
+                        </td>
+
+                        {/* 8. Acciones: Ajustar / Receta y Detalle */}
+                        <td className="py-4 px-5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2">
+                            {item.controlType === "direct" ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedItemForAction(item);
+                                  setIsAdjustmentModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 text-xs font-semibold text-[#ED500A] border-orange-500/20 hover:bg-orange-500/10 transition-colors"
+                                title="Ajustar existencia física"
+                              >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                <span>Ajustar</span>
+                              </Button>
                             ) : (
-                              <span className="text-[11px] text-slate-400 italic">
-                                Sin variantes
-                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                href={`/workspace/${businessId}/recetas`}
+                                className="px-3 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 border-purple-500/20 hover:bg-purple-500/10 transition-colors"
+                                title="Ver o configurar receta"
+                              >
+                                <ChefHat className="w-3.5 h-3.5 text-purple-500" />
+                                <span>{item.recipeId ? "Receta" : "Configurar"}</span>
+                              </Button>
                             )}
-                          </td>
 
-                          {/* 5. Mínimo */}
-                          <td className="py-3 px-3 text-right">
-                            <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
-                              {product.minStock > 0 ? product.minStock : "—"}
-                            </span>
-                          </td>
-
-                          {/* 6. Costo */}
-                          <td className="py-3 px-3 text-right">
-                            <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
-                              {product.cost > 0 ? formatCOP(product.cost) : "—"}
-                            </span>
-                          </td>
-
-                          {/* 7. Precio de venta */}
-                          <td className="py-3 px-4 text-right">
-                            <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
-                              {displayPrice}
-                            </span>
-                          </td>
-
-                          {/* 8. Estado */}
-                          <td className="py-3 px-3 text-center">
-                            {product.isOutOfStock ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full">
-                                <XCircle className="w-3 h-3" />
-                                <span>Agotado</span>
-                              </span>
-                            ) : product.isLowStock ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full">
-                                <AlertTriangle className="w-3 h-3" />
-                                <span>Stock bajo</span>
-                              </span>
-                            ) : product.is_available ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>En stock</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded-full">
-                                <span>Pausado</span>
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 9. Acciones */}
-                          <td className="py-3 px-3 text-center">
                             <button
                               type="button"
                               onClick={() => {
-                                setSelectedProductForMovement(product.id);
-                                setIsMovementModalOpen(true);
+                                setSelectedItemForAction(item);
+                                setIsDetailModalOpen(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-2xs font-bold text-[#ED500A] bg-[#ED500A]/10 hover:bg-[#ED500A]/20 rounded-lg transition-colors cursor-pointer"
-                              title="Registrar entrada, salida o ajuste para este producto"
+                              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-xl transition-colors cursor-pointer"
+                              title="Ver ficha técnica y desglose"
                             >
-                              <Plus className="w-3 h-3" />
-                              <span>Movimiento</span>
+                              <Eye className="w-4 h-4" />
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
             </div>
 
             {/* Paginación */}
-            {filteredProducts.length > 0 && (
-              <div className="p-3.5 sm:p-4 border-t border-slate-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-                <div className="flex items-center gap-2">
-                  <span>Filas por página:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-lg text-xs focus:outline-hidden cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="ml-2 font-medium">
-                    Mostrando{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">
-                      {Math.min(startIndex + 1, filteredProducts.length)}
-                    </strong>{" "}
-                    -{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">
-                      {Math.min(startIndex + pageSize, filteredProducts.length)}
-                    </strong>{" "}
-                    de{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">
-                      {filteredProducts.length}
-                    </strong>{" "}
-                    productos
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={safeCurrentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                    title="Primera página"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={safeCurrentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                    title="Página anterior"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <span className="px-3 py-1 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    Página {safeCurrentPage} de {totalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={safeCurrentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                    title="Página siguiente"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={safeCurrentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                    title="Última página"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </button>
-                </div>
+            {filteredItems.length > 0 && (
+              <div className="border-t border-slate-200/80 dark:border-white/[0.08]">
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredItems.length}
+                  currentCount={Math.min(pageSize, filteredItems.length - startIndex)}
+                  pageSize={pageSize}
+                  itemLabel="artículos"
+                  onPageChange={(pg) => setCurrentPage(pg)}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  showFirstLast
+                />
               </div>
             )}
           </div>
         </div>
-      ) : activeTab === "purchases" ? (
-        <InventoryPurchasesTab
+      ) : activeTab === "low_stock" ? (
+        <InventoryLowStockTab
           businessId={businessId}
-          products={products}
-          locations={locations}
+          onRestockMovement={(lowStockItem) => {
+            const found = inventariableItems.find((it) => it.id === lowStockItem.productId);
+            if (found) {
+              setSelectedItemForAction(found);
+              setIsAdjustmentModalOpen(true);
+            }
+          }}
         />
       ) : activeTab === "history" ? (
         <InventoryHistoryTab
           businessId={businessId}
           locations={locations}
           onOpenMovementModal={() => {
-            setSelectedProductForMovement(undefined);
-            setIsMovementModalOpen(true);
+            setSelectedItemForAction(null);
+            setIsAdjustmentModalOpen(true);
           }}
-          onOpenTransferModal={() => setIsTransferModalOpen(true)}
         />
       ) : (
-        <InventoryLowStockTab
+        <SpoilageRecordsTab
           businessId={businessId}
-          onRestockPurchase={(item) => {
-            setSelectedProductForPurchase(item.productId);
-            setIsPurchaseModalOpen(true);
-          }}
-          onRestockMovement={(item) => {
-            setSelectedProductForMovement(item.productId);
-            setIsMovementModalOpen(true);
-          }}
+          items={inventariableItems}
+          onOpenCreateModal={() => setIsSpoilageModalOpen(true)}
+          refreshTrigger={spoilageRefreshTrigger}
+          onStockChanged={handleRefresh}
         />
       )}
 
-      {/* Modal de Movimiento de Inventario */}
+      {/* Modal de Ajuste Manual de Inventario [TAREA-03] */}
+      <StockAdjustmentModal
+        isOpen={isAdjustmentModalOpen}
+        onClose={() => {
+          setIsAdjustmentModalOpen(false);
+          setSelectedItemForAction(null);
+        }}
+        businessId={businessId}
+        items={inventariableItems}
+        initialItem={selectedItemForAction}
+        onSuccess={handleRefresh}
+      />
+
+      {/* Modal de Detalle de Artículo [TAREA-03] */}
+      <ItemDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedItemForAction(null);
+        }}
+        businessId={businessId}
+        item={selectedItemForAction}
+        onOpenAdjustment={(item) => {
+          setSelectedItemForAction(item);
+          setIsAdjustmentModalOpen(true);
+        }}
+        onMinStockUpdated={(productId, newMin) => {
+          setStockList((prev) =>
+            prev.map((s) => (s.productId === productId ? { ...s, minStock: newMin } : s))
+          );
+          handleRefresh();
+        }}
+      />
+
+      {/* Modal de Movimiento de Inventario General */}
       <MovementFormModal
         businessId={businessId}
         isOpen={isMovementModalOpen}
-        onClose={() => {
-          setIsMovementModalOpen(false);
-          setSelectedProductForMovement(undefined);
-        }}
-        onSuccess={() => {
-          handleRefreshLocations();
-          router.refresh();
-        }}
+        onClose={() => setIsMovementModalOpen(false)}
+        onSuccess={handleRefresh}
         locations={locations}
       />
 
-      {/* Modal de Transferencia entre Ubicaciones [INV-005] */}
-      <TransferFormModal
+      {/* Modal de Registro de Mermas [TAREA-08] */}
+      <SpoilageFormModal
         businessId={businessId}
-        isOpen={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
+        isOpen={isSpoilageModalOpen}
+        onClose={() => setIsSpoilageModalOpen(false)}
         onSuccess={() => {
-          handleRefreshLocations();
-          router.refresh();
+          setSpoilageRefreshTrigger((prev) => prev + 1);
+          handleRefresh();
         }}
-        locations={locations}
-      />
-
-      {/* Modal de Nueva Compra / Reabastecimiento Directo */}
-      <PurchaseFormModal
-        businessId={businessId}
-        isOpen={isPurchaseModalOpen}
-        onClose={() => {
-          setIsPurchaseModalOpen(false);
-          setSelectedProductForPurchase(null);
-        }}
-        onSuccess={() => {
-          handleRefreshLocations();
-          router.refresh();
-        }}
-        products={products}
-        locations={locations}
-        categories={categories}
-        initialProductId={selectedProductForPurchase}
+        items={inventariableItems}
       />
     </div>
   );

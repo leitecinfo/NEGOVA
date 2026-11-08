@@ -31,6 +31,8 @@ import {
 import { toast } from "sonner";
 import { RestaurantOrderWithDetails } from "@/lib/restaurant/types";
 import { OperationalDeliveryDriver } from "@/lib/delivery/delivery-service";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface DeliveryByDriverTabProps {
   businessId: string;
@@ -212,14 +214,13 @@ export function DeliveryByDriverTab({
 
         {/* CONTROLES: FILTROS Y GESTIÓN */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
+          <div className="w-64">
+            <SearchInput
+              inputSize="sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery("")}
               placeholder="Buscar repartidor o pedido..."
-              className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/40"
             />
           </div>
 
@@ -379,7 +380,8 @@ export function DeliveryByDriverTab({
 
                     {/* Selector de asignación inmediata */}
                     <div className="flex items-center gap-1.5">
-                      <select
+                      <Select
+                        selectSize="sm"
                         defaultValue=""
                         disabled={assigningOrderId === order.id}
                         onChange={async (e) => {
@@ -392,7 +394,6 @@ export function DeliveryByDriverTab({
                             setAssigningOrderId(null);
                           }
                         }}
-                        className="flex-1 px-2.5 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
                       >
                         <option value="" disabled>
                           Asignar repartidor...
@@ -404,7 +405,7 @@ export function DeliveryByDriverTab({
                               🛵 {d.name}
                             </option>
                           ))}
-                      </select>
+                      </Select>
 
                       <button
                         type="button"
@@ -673,7 +674,8 @@ export function DeliveryByDriverTab({
                                   )}
 
                                   {/* REASIGNAR A OTRO DOMICILIARIO */}
-                                  <select
+                                  <Select
+                                    selectSize="sm"
                                     defaultValue=""
                                     onChange={(e) => {
                                       const nextDriver = e.target.value;
@@ -681,7 +683,6 @@ export function DeliveryByDriverTab({
                                         onAssignDriver(order.id, nextDriver);
                                       }
                                     }}
-                                    className="px-2 py-1 text-[11px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300"
                                     title="Reasignar a otro repartidor"
                                   >
                                     <option value="" disabled>
@@ -694,7 +695,7 @@ export function DeliveryByDriverTab({
                                           → {d.name}
                                         </option>
                                       ))}
-                                  </select>
+                                  </Select>
                                 </div>
 
                                 <div className="flex items-center gap-1">

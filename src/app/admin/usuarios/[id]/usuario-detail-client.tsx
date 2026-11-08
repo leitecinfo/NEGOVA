@@ -743,7 +743,7 @@ export function UsuarioDetailClient({
       {/* 6. MODAL DE EDICIÓN DE PERFIL */}
       {isEditModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Editar Datos de Perfil
@@ -803,7 +803,7 @@ export function UsuarioDetailClient({
       {/* 7. MODAL DE CAMBIO DE ROL PRINCIPAL */}
       {isRoleModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Cambiar Rol de {user.fullName}
@@ -873,7 +873,7 @@ export function UsuarioDetailClient({
       {/* 8. MODAL DE RESETEO DE CONTRASEÑA */}
       {isResetPassModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -940,7 +940,7 @@ export function UsuarioDetailClient({
       {/* 9. MODAL DE ELIMINACIÓN PERMANENTE CON VERIFICACIÓN */}
       {isDeleteModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">

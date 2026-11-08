@@ -3,6 +3,9 @@
 import React, { forwardRef } from "react";
 import { ChevronDown } from "lucide-react";
 
+export type SelectSize = "sm" | "md" | "lg";
+export type SelectChangeEvent = React.ChangeEvent<HTMLSelectElement>;
+
 export interface SelectOption {
   value: string;
   label: string;
@@ -11,14 +14,22 @@ export interface SelectOption {
 
 export interface SelectProps
   extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
-  label?: string;
+  label?: React.ReactNode;
   helperText?: string;
   error?: string;
   options?: SelectOption[];
-  onChange?: (value: string) => void;
+  onChange?: (e: any) => void;
+  onValueChange?: (value: string) => void;
   containerClassName?: string;
   placeholder?: string;
+  selectSize?: SelectSize;
 }
+
+const sizeClasses: Record<SelectSize, string> = {
+  sm: "h-8 text-[11px] rounded-lg",
+  md: "h-10 text-xs rounded-xl",
+  lg: "h-12 text-sm rounded-xl",
+};
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   (
@@ -31,6 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       children,
       className = "",
       containerClassName = "",
+      selectSize = "md",
       id,
       disabled,
       required,
@@ -40,11 +52,23 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const selectId = id || (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (props.onValueChange) {
+        props.onValueChange(e.target.value);
+      }
       if (onChange) {
-        onChange(e.target.value);
+        try {
+          const fnStr = onChange.toString();
+          if (fnStr.includes(".target")) {
+            onChange(e);
+          } else {
+            onChange(e.target.value);
+          }
+        } catch {
+          onChange(e);
+        }
       }
     };
 
@@ -69,10 +93,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             value={value}
             onChange={handleChange}
             suppressHydrationWarning
-            className={`w-full h-10 pl-3.5 pr-9 rounded-xl border bg-slate-50/50 dark:bg-white/[0.03] text-xs font-semibold font-body text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer ${
+            className={`w-full pl-3.5 pr-9 border bg-slate-50/70 dark:bg-[#0B0D14] font-medium font-body text-slate-800 dark:text-slate-100 hover:border-slate-300 dark:hover:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer ${
+              sizeClasses[selectSize]
+            } ${
               error
                 ? "border-red-500 focus:ring-red-500/30 focus:border-red-500"
-                : "border-slate-200 dark:border-white/[0.08]"
+                : "border-slate-200/80 dark:border-white/10"
             } ${className}`}
             {...props}
           >
@@ -95,7 +121,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               : children}
           </select>
 
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
         {error ? (
@@ -112,5 +138,5 @@ Select.displayName = "Select";
 
 // Aliases para retrocompatibilidad total
 export const AdminSelect = Select;
-export type AdminSelectOption = SelectOption;
 export type AdminSelectProps = SelectProps;
+export type AdminSelectOption = SelectOption;

@@ -12,19 +12,25 @@ export const INGREDIENT_UNITS = [
   { value: "oz", label: "Onzas (oz)" },
   { value: "lb", label: "Libras (lb)" },
   { value: "unidad", label: "Unidades (un)" },
+  { value: "paquete", label: "Paquetes (paq)" },
   { value: "porcion", label: "Porciones (porc)" },
 ] as const;
 
 export type IngredientUnit = (typeof INGREDIENT_UNITS)[number]["value"];
 
 // ==========================================
-// INGREDIENTES (INGREDIENTS) [REC-001]
+// INGREDIENTES E INSUMOS (INGREDIENTS & SUPPLIES) [REC-001]
 // ==========================================
+
+export type MaterialType = "ingredient" | "supply";
 
 export interface Ingredient {
   id: string;
   businessId: string;
   name: string;
+  type: MaterialType; // "ingredient" (para recetas) | "supply" (operación/empaques)
+  sku?: string | null;
+  barcode?: string | null;
   unit: string;
   costPerUnit: number;
   stockQuantity: number;
@@ -33,6 +39,8 @@ export interface Ingredient {
   locationId?: string | null;
   locationName?: string | null;
   categoryId?: string | null;
+  categoryName?: string | null;
+  imageUrl?: string | null;
   availableInPos: boolean;
   availableInQr: boolean;
   availableOnline: boolean;
@@ -43,34 +51,44 @@ export interface Ingredient {
 }
 
 export const CreateIngredientInputSchema = z.object({
-  name: z.string().trim().min(1, "El nombre del ingrediente es obligatorio"),
+  name: z.string().trim().min(1, "El nombre del material es obligatorio"),
+  type: z.enum(["ingredient", "supply"]).default("ingredient").optional(),
   unit: z.string().trim().min(1, "La unidad de medida es requerida").default("unidad"),
   costPerUnit: z.coerce.number().min(0, "El costo unitario no puede ser negativo").default(0),
   initialStock: z.coerce.number().min(0, "El stock inicial no puede ser negativo").default(0),
   minStock: z.coerce.number().min(0, "El stock mínimo no puede ser negativo").default(0),
   maxStock: z.coerce.number().min(0).nullable().optional(),
-  locationId: z.string().uuid("ID de ubicación inválido").nullable().optional(),
-  categoryId: z.string().uuid("ID de categoría inválido").nullable().optional(),
-  availableInPos: z.boolean().default(false),
-  availableInQr: z.boolean().default(false),
-  availableOnline: z.boolean().default(false),
+  sku: z.string().trim().nullable().optional(),
+  barcode: z.string().trim().nullable().optional(),
+  locationId: z.string().uuid("ID de ubicación inválido").or(z.literal("")).nullable().optional(),
+  categoryId: z.string().uuid("ID de categoría inválido").or(z.literal("")).nullable().optional(),
+  availableInPos: z.boolean().default(false).optional(),
+  availableInQr: z.boolean().default(false).optional(),
+  availableOnline: z.boolean().default(false).optional(),
+  imageUrl: z.string().nullable().optional(),
   notes: z.string().trim().nullable().optional(),
 });
 
 export type CreateIngredientInput = z.infer<typeof CreateIngredientInputSchema>;
 
 export const UpdateIngredientInputSchema = z.object({
-  name: z.string().trim().min(1, "El nombre del ingrediente es obligatorio").optional(),
+  name: z.string().trim().min(1, "El nombre del material es obligatorio").optional(),
+  type: z.enum(["ingredient", "supply"]).optional(),
   unit: z.string().trim().min(1, "La unidad de medida es requerida").optional(),
   costPerUnit: z.coerce.number().min(0).optional(),
+  currentStock: z.coerce.number().min(0).optional(),
   minStock: z.coerce.number().min(0).optional(),
   maxStock: z.coerce.number().min(0).nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  sku: z.string().trim().nullable().optional(),
+  barcode: z.string().trim().nullable().optional(),
+  locationId: z.string().uuid().or(z.literal("")).nullable().optional(),
+  categoryId: z.string().uuid().or(z.literal("")).nullable().optional(),
   availableInPos: z.boolean().optional(),
   availableInQr: z.boolean().optional(),
   availableOnline: z.boolean().optional(),
+  imageUrl: z.string().nullable().optional(),
   isAvailable: z.boolean().optional(),
+  status: z.enum(["active", "inactive", "archived"]).optional(),
   notes: z.string().trim().nullable().optional(),
 });
 
@@ -78,6 +96,9 @@ export type UpdateIngredientInput = z.infer<typeof UpdateIngredientInputSchema>;
 
 export interface IngredientFilters {
   search?: string;
+  type?: "all" | "ingredient" | "supply";
+  categoryId?: string;
+  status?: "all" | "active" | "inactive";
   stockStatus?: "all" | "low_stock" | "out_of_stock" | "in_stock";
   locationId?: string;
   unit?: string;
@@ -85,6 +106,8 @@ export interface IngredientFilters {
 
 export interface IngredientKPIs {
   totalIngredients: number;
+  activeIngredients: number;
+  activeSupplies: number;
   lowStockCount: number;
   outOfStockCount: number;
   totalCostValuation: number;

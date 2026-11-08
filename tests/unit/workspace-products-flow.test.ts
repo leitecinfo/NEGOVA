@@ -120,10 +120,17 @@ vi.mock("@supabase/supabase-js", () => ({
               return {
                 eq: vi.fn((col: string, val: any) => ({
                   neq: vi.fn((ncol: string, nval: any) => {
-                    const count = inMemoryProducts.filter(
-                      (p) => p.business_id === val && (ncol === "status" ? p.status !== nval : true)
-                    ).length;
-                    return Promise.resolve({ count, error: null });
+                    const getCount = () =>
+                      inMemoryProducts.filter(
+                        (p) =>
+                          p.business_id === val &&
+                          (ncol === "status" ? p.status !== nval : true) &&
+                          (p.metadata as any)?.product_type !== "ingredient"
+                      ).length;
+                    const res = Promise.resolve({ count: getCount(), error: null });
+                    return Object.assign(res, {
+                      or: vi.fn(() => Promise.resolve({ count: getCount(), error: null })),
+                    });
                   }),
                 })),
               };
@@ -131,18 +138,28 @@ vi.mock("@supabase/supabase-js", () => ({
 
             return {
               eq: vi.fn((col: string, val: any) => ({
-                neq: vi.fn((ncol: string, nval: any) => ({
-                  order: vi.fn(() => ({
+                neq: vi.fn((ncol: string, nval: any) => {
+                  const getFiltered = () =>
+                    inMemoryProducts.filter(
+                      (p) => p.business_id === val && (ncol === "status" ? p.status !== nval : true)
+                    );
+                  const promise = Promise.resolve({ data: getFiltered(), error: null });
+                  return Object.assign(promise, {
+                    or: vi.fn(() =>
+                      Promise.resolve({
+                        data: getFiltered().filter(
+                          (p) => (p.metadata as any)?.product_type !== "ingredient"
+                        ),
+                        error: null,
+                      })
+                    ),
                     order: vi.fn(() => ({
-                      order: vi.fn(() => {
-                        const filtered = inMemoryProducts.filter(
-                          (p) => p.business_id === val && (ncol === "status" ? p.status !== nval : true)
-                        );
-                        return Promise.resolve({ data: filtered, error: null });
-                      }),
+                      order: vi.fn(() => ({
+                        order: vi.fn(() => Promise.resolve({ data: getFiltered(), error: null })),
+                      })),
                     })),
-                  })),
-                })),
+                  });
+                }),
                 // Para getProductById: .eq("id", productId).eq("business_id", businessId).maybeSingle()
                 eq: vi.fn((col2: string, val2: any) => ({
                   maybeSingle: vi.fn(() => {
@@ -211,33 +228,44 @@ vi.mock("@supabase/supabase-js", () => ({
       if (table === "subscriptions") {
         return {
           select: vi.fn(() => ({
-            eq: vi.fn((col: string, val: string) => ({
-              order: vi.fn(() => ({
-                limit: vi.fn(() => ({
-                  maybeSingle: vi.fn(() => {
-                    const sub = inMemorySubscriptions[val];
-                    if (sub) {
-                      return Promise.resolve({
-                        data: {
-                          plan_id: sub.plan_id,
-                          status: "active",
-                          plans: { code: sub.plan_id, name: sub.planName },
-                        },
-                        error: null,
-                      });
-                    }
-                    return Promise.resolve({ data: null, error: null });
-                  }),
-                })),
-              })),
-            })),
+            eq: vi.fn((col: string, val: string) => {
+              const chain: any = {
+                in: vi.fn(() => chain),
+                order: vi.fn(() => chain),
+                limit: vi.fn(() => chain),
+                maybeSingle: vi.fn(() => {
+                  const sub = inMemorySubscriptions[val];
+                  if (sub) {
+                    return Promise.resolve({
+                      data: {
+                        plan_id: sub.plan_id,
+                        status: "active",
+                        plans: { code: sub.plan_id, name: sub.planName },
+                      },
+                      error: null,
+                    });
+                  }
+                  return Promise.resolve({ data: null, error: null });
+                }),
+              };
+              return chain;
+            }),
           })),
         };
       }
 
-      return {
-        select: vi.fn().mockReturnThis(),
+      const defaultChain: any = {
+        select: vi.fn(() => defaultChain),
+        eq: vi.fn(() => defaultChain),
+        neq: vi.fn(() => defaultChain),
+        in: vi.fn(() => defaultChain),
+        order: vi.fn(() => defaultChain),
+        limit: vi.fn(() => defaultChain),
+        maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        then: (resolve: any) => resolve({ data: [], error: null }),
       };
+      return defaultChain;
     }),
   })),
 }));

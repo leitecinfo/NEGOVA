@@ -373,7 +373,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                     step="500"
                     value={config.fixedFee}
                     onChange={(e) => handleChange("fixedFee", Math.max(0, Number(e.target.value) || 0))}
-                    className="w-36 pl-7 pr-3 py-2 text-sm font-bold font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                    className="w-36 pl-7 pr-3 py-2 text-sm font-bold font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
                   />
                 </div>
               </div>
@@ -416,7 +416,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                   onChange={(e) =>
                     handleDistanceConfigChange("baseTariff", Math.max(0, Number(e.target.value) || 0))
                   }
-                  className="w-full pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
                 />
               </div>
             </div>
@@ -433,7 +433,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                 onChange={(e) =>
                   handleDistanceConfigChange("baseDistanceKm", Math.max(0.5, Number(e.target.value) || 1))
                 }
-                className="w-full px-3 py-1.5 text-xs font-bold font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                className="w-full px-3 py-1.5 text-xs font-bold font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
               />
             </div>
 
@@ -451,7 +451,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                   onChange={(e) =>
                     handleDistanceConfigChange("additionalKmTariff", Math.max(0, Number(e.target.value) || 0))
                   }
-                  className="w-full pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
                 />
               </div>
             </div>
@@ -477,7 +477,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                   step="500"
                   value={config.fallbackZoneFee}
                   onChange={(e) => handleChange("fallbackZoneFee", Math.max(0, Number(e.target.value) || 0))}
-                  className="w-32 pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-32 pl-7 pr-3 py-1.5 text-xs font-bold font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
                 />
               </div>
             </div>
@@ -502,7 +502,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                 value={config.minOrderAmount}
                 onChange={(e) => handleChange("minOrderAmount", Math.max(0, Number(e.target.value) || 0))}
                 placeholder="0"
-                className="w-full pl-7 pr-3 py-1.5 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                className="w-full pl-7 pr-3 py-1.5 text-xs font-mono font-bold bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
               />
             </div>
           </div>
@@ -526,7 +526,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                   handleChange("freeDeliveryThreshold", val);
                 }}
                 placeholder="Desactivado (sin umbral)"
-                className="w-full pl-7 pr-3 py-1.5 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl placeholder:text-slate-400"
+                className="w-full pl-7 pr-3 py-1.5 text-xs font-mono font-bold bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -769,7 +769,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                 onChange={(e) =>
                   handleTimingChange("maxAcceptTimeMinutes", Math.max(1, Number(e.target.value) || 1))
                 }
-                className="w-20 px-2 py-1 text-xs font-mono font-bold text-center bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg"
+                className="w-20 px-2 py-1 text-xs font-mono font-bold text-center bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-lg"
               />
             </div>
             <p className="text-[11px] text-slate-500">
@@ -792,7 +792,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                 onChange={(e) =>
                   handleTimingChange("delayAlertMinutes", Math.max(5, Number(e.target.value) || 30))
                 }
-                className="w-20 px-2 py-1 text-xs font-mono font-bold text-center bg-white dark:bg-black border border-amber-300 dark:border-amber-800 rounded-lg text-amber-900 dark:text-amber-200"
+                className="w-20 px-2 py-1 text-xs font-mono font-bold text-center bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 rounded-lg text-amber-900 dark:text-amber-200"
               />
             </div>
             <p className="text-[11px] text-amber-700 dark:text-amber-400">
@@ -832,7 +832,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                 onChange={(e) =>
                   handleTimingChange("reassignAfterMinutes", Math.max(2, Number(e.target.value) || 5))
                 }
-                className="w-16 px-2 py-1 text-xs font-mono font-bold text-center bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg"
+                className="w-16 px-2 py-1 text-xs font-mono font-bold text-center bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-lg"
               />
               <span className="text-xs text-slate-500">min</span>
             </div>
@@ -877,7 +877,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                   onChange={(e) =>
                     handleBonusesChange("dailyDeliveryGoal", Math.max(1, Number(e.target.value) || 1))
                   }
-                  className="w-full px-3 py-1.5 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full px-3 py-1.5 text-xs font-mono font-bold bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
                 />
               </div>
 
@@ -895,7 +895,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                     onChange={(e) =>
                       handleBonusesChange("goalBonusAmount", Math.max(0, Number(e.target.value) || 0))
                     }
-                    className="w-full pl-6 pr-2 py-1.5 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-xl"
+                    className="w-full pl-6 pr-2 py-1.5 text-xs font-mono font-bold bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-xl"
                   />
                 </div>
               </div>
@@ -931,7 +931,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                       type="time"
                       value={config.bonuses.nightBonusStartTime}
                       onChange={(e) => handleBonusesChange("nightBonusStartTime", e.target.value)}
-                      className="w-full px-2 py-1 text-xs font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-2 py-1 text-xs font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-lg"
                     />
                   </div>
                   <div>
@@ -940,7 +940,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                       type="time"
                       value={config.bonuses.nightBonusEndTime}
                       onChange={(e) => handleBonusesChange("nightBonusEndTime", e.target.value)}
-                      className="w-full px-2 py-1 text-xs font-mono bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-2 py-1 text-xs font-mono bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-lg"
                     />
                   </div>
                   <div>
@@ -953,7 +953,7 @@ export function DeliveryConfigTab({ businessId, initialConfig }: DeliveryConfigT
                       onChange={(e) =>
                         handleBonusesChange("nightBonusAmount", Math.max(0, Number(e.target.value) || 0))
                       }
-                      className="w-full px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-black border border-slate-300 dark:border-slate-700 rounded-lg"
+                      className="w-full px-2 py-1 text-xs font-mono font-bold bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] rounded-lg"
                     />
                   </div>
                 </div>

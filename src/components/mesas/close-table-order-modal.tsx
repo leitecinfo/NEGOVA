@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import {
   RestaurantTableWithOrder,
   RestaurantOrderWithDetails,
@@ -367,7 +368,7 @@ export function CloseTableOrderModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/65 backdrop-blur-xs animate-in fade-in duration-150 font-body">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 font-body">
         <div
           role="dialog"
           aria-modal="true"
@@ -428,11 +429,12 @@ export function CloseTableOrderModal({
                         Seleccionar Mesa a Cerrar ({occupiedTables.length}{" "}
                         {occupiedTables.length === 1 ? "ocupada" : "ocupadas"})
                       </label>
-                      <select
+                      <Select
                         value={selectedTableId}
                         onChange={(e) => setSelectedTableId(e.target.value)}
                         disabled={isSubmitting}
-                        className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
+                        selectSize="md"
+                        className="font-bold"
                       >
                         {occupiedTables.map((tbl) => (
                           <option key={tbl.id} value={tbl.id}>
@@ -441,7 +443,7 @@ export function CloseTableOrderModal({
                             {tbl.activeOrder?.order_number} · {formatCOP(tbl.activeOrder?.total || 0)}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
 
                     <div className="sm:text-right shrink-0">
@@ -557,32 +559,37 @@ export function CloseTableOrderModal({
                     {discountMode === "custom" && (
                       <div className="space-y-2 pt-1 animate-in fade-in duration-150">
                         <div className="flex gap-1.5">
-                          <select
-                            value={customDiscountType}
-                            onChange={(e) =>
-                              setCustomDiscountType(e.target.value as "percentage" | "fixed")
-                            }
-                            className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white"
-                          >
-                            <option value="percentage">% Porcentaje</option>
-                            <option value="fixed">$ Valor fijo</option>
-                          </select>
-                          <input
-                            type="text"
-                            value={customDiscountValueStr}
-                            onChange={(e) =>
-                              setCustomDiscountValueStr(e.target.value.replace(/\D/g, ""))
-                            }
-                            placeholder={customDiscountType === "percentage" ? "Ej. 10" : "Ej. 5000"}
-                            className="flex-1 px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white"
-                          />
+                          <div className="w-36">
+                            <Select
+                              value={customDiscountType}
+                              onChange={(e) =>
+                                setCustomDiscountType(e.target.value as "percentage" | "fixed")
+                              }
+                              selectSize="sm"
+                            >
+                              <option value="percentage">% Porcentaje</option>
+                              <option value="fixed">$ Valor fijo</option>
+                            </Select>
+                          </div>
+                          <div className="flex-1">
+                            <Input
+                              type="text"
+                              value={customDiscountValueStr}
+                              onChange={(e) =>
+                                setCustomDiscountValueStr(e.target.value.replace(/\D/g, ""))
+                              }
+                              placeholder={customDiscountType === "percentage" ? "Ej. 10" : "Ej. 5000"}
+                              inputSize="sm"
+                              className="font-mono font-bold"
+                            />
+                          </div>
                         </div>
-                        <input
+                        <Input
                           type="text"
                           value={customDiscountReason}
                           onChange={(e) => setCustomDiscountReason(e.target.value)}
                           placeholder="Motivo del descuento..."
-                          className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white"
+                          inputSize="sm"
                         />
                       </div>
                     )}
@@ -651,7 +658,7 @@ export function CloseTableOrderModal({
 
                     {tipMode === "custom" && (
                       <div className="pt-1 animate-in fade-in duration-150">
-                        <input
+                        <Input
                           type="text"
                           value={
                             customTipAmountStr
@@ -664,7 +671,9 @@ export function CloseTableOrderModal({
                             setCustomTipAmountStr(e.target.value.replace(/\D/g, ""))
                           }
                           placeholder="Valor de propina ($ COP)"
-                          className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white"
+                          startAdornment={<span className="text-xs font-bold text-slate-400">$</span>}
+                          inputSize="sm"
+                          className="font-mono font-bold"
                         />
                       </div>
                     )}
@@ -773,7 +782,7 @@ export function CloseTableOrderModal({
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
                               Efectivo recibido ($ COP):
                             </span>
-                            <input
+                            <Input
                               type="text"
                               value={
                                 singleCashReceivedStr
@@ -785,7 +794,9 @@ export function CloseTableOrderModal({
                               onChange={(e) =>
                                 setSingleCashReceivedStr(e.target.value.replace(/\D/g, ""))
                               }
-                              className="w-full px-3 py-1.5 text-sm font-mono font-bold rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white"
+                              startAdornment={<span className="text-xs font-bold text-slate-400">$</span>}
+                              inputSize="md"
+                              className="font-mono font-bold"
                             />
                           </div>
 
@@ -825,27 +836,26 @@ export function CloseTableOrderModal({
                             key={row.id}
                             className="flex items-center gap-2 p-2.5 rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10"
                           >
-                            <select
-                              value={row.method}
-                              onChange={(e) =>
-                                handleUpdateSplitRow(row.id, {
-                                  method: e.target.value as "cash" | "card" | "transfer",
-                                })
-                              }
-                              className="w-48 px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
-                            >
-                              {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                                <option key={opt.code} value={opt.code}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="w-48 shrink-0">
+                              <Select
+                                value={row.method}
+                                onChange={(e) =>
+                                  handleUpdateSplitRow(row.id, {
+                                    method: e.target.value as "cash" | "card" | "transfer",
+                                  })
+                                }
+                                selectSize="sm"
+                              >
+                                {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                                  <option key={opt.code} value={opt.code}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            </div>
 
-                            <div className="relative flex-1">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                $
-                              </span>
-                              <input
+                            <div className="flex-1">
+                              <Input
                                 type="text"
                                 value={
                                   row.amount
@@ -857,7 +867,9 @@ export function CloseTableOrderModal({
                                   handleUpdateSplitRow(row.id, { amount: raw });
                                 }}
                                 placeholder="0"
-                                className="w-full pl-6 pr-3 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white"
+                                startAdornment={<span className="text-xs font-bold text-slate-400">$</span>}
+                                inputSize="sm"
+                                className="font-mono font-bold"
                               />
                             </div>
 

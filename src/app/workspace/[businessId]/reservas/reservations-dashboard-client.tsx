@@ -36,6 +36,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
+import { SearchInput } from "@/components/ui/search-input";
 import { ReservationFormModal } from "./reservation-form-modal";
 import { AssignTableModal } from "./assign-table-modal";
 import {
@@ -450,56 +453,25 @@ export function ReservationsDashboardClient({
       </div>
 
       {/* 3. PESTAÑAS DE NAVEGACIÓN DEL MÓDULO (3 PESTAÑAS) */}
-      <div className="border-b border-slate-200/80 dark:border-white/[0.08]">
-        <div className="flex items-center gap-1 -mb-px">
-          <button
-            type="button"
-            onClick={() => setActiveTab("calendar")}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-              activeTab === "calendar"
-                ? "border-[#ED500A] text-[#ED500A]"
-                : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4" />
-            <span>Vista Calendario</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("list")}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-              activeTab === "list"
-                ? "border-[#ED500A] text-[#ED500A]"
-                : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <ListFilter className="w-4 h-4" />
-            <span>Lista Reservas</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-3xs font-mono font-bold bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-              {reservations.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("tables")}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-              activeTab === "tables"
-                ? "border-[#ED500A] text-[#ED500A]"
-                : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span>Asignar Mesas</span>
-            {unassignedReservations.length > 0 && (
+      <Tabs<"calendar" | "list" | "tables">
+        variant="underline"
+        tabs={[
+          { id: "calendar", label: "Vista Calendario", icon: <CalendarIcon className="w-4 h-4" /> },
+          { id: "list", label: "Lista Reservas", icon: <ListFilter className="w-4 h-4" />, count: reservations.length },
+          {
+            id: "tables",
+            label: "Asignar Mesas",
+            icon: <LayoutGrid className="w-4 h-4" />,
+            badge: unassignedReservations.length > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-3xs font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 {unassignedReservations.length}
               </span>
-            )}
-          </button>
-        </div>
-      </div>
+            ) : null,
+          },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* ========================================================================= */}
       {/* 4. PESTAÑA: VISTA CALENDARIO (DOS COLUMNAS LADO A LADO)                   */}
@@ -718,23 +690,20 @@ export function ReservationsDashboardClient({
         <div className="space-y-4">
           {/* Barra de filtros */}
           <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
+            <div className="flex-1 max-w-md">
+              <SearchInput
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onClear={() => setSearch("")}
                 placeholder="Buscar por nombre, teléfono o email..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
               />
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               {/* Filtro de estado */}
-              <select
+              <Select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
               >
                 <option value="all">Todos los estados</option>
                 <option value="pending">Pendiente</option>
@@ -744,13 +713,12 @@ export function ReservationsDashboardClient({
                 <option value="completed">Completada</option>
                 <option value="cancelled">Cancelada</option>
                 <option value="no_show">No se presentó</option>
-              </select>
+              </Select>
 
               {/* Filtro de origen */}
-              <select
+              <Select
                 value={selectedOrigin}
                 onChange={(e) => setSelectedOrigin(e.target.value)}
-                className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
               >
                 <option value="all">Todos los orígenes</option>
                 <option value="direct">Manual / Directo</option>
@@ -758,7 +726,7 @@ export function ReservationsDashboardClient({
                 <option value="whatsapp">WhatsApp</option>
                 <option value="web">Online / Web</option>
                 <option value="walk_in">Walk-in</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -831,12 +799,12 @@ export function ReservationsDashboardClient({
 
                           {/* Estado con selector interactivo */}
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <select
+                            <Select
+                              selectSize="sm"
                               value={r.status}
                               onChange={(e) =>
                                 handleStatusChange(r.id, e.target.value as ReservationStatus)
                               }
-                              className={`px-2 py-1 rounded-lg text-[11px] font-semibold border cursor-pointer ${statusMeta.badgeClass} bg-transparent focus:outline-none`}
                             >
                               <option value="pending">Pendiente</option>
                               <option value="confirmed">Confirmada</option>
@@ -845,7 +813,7 @@ export function ReservationsDashboardClient({
                               <option value="completed">Completada</option>
                               <option value="cancelled">Cancelada</option>
                               <option value="no_show">No se presentó</option>
-                            </select>
+                            </Select>
                           </td>
 
                           {/* Origen */}
@@ -980,10 +948,9 @@ export function ReservationsDashboardClient({
               </div>
 
               {/* Filtro por sala */}
-              <select
+              <Select
                 value={selectedRoomId}
                 onChange={(e) => setSelectedRoomId(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
               >
                 <option value="all">Todas las salas</option>
                 {rooms.map((room) => (
@@ -991,7 +958,7 @@ export function ReservationsDashboardClient({
                     {room.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {/* Lienzo de Mesas */}

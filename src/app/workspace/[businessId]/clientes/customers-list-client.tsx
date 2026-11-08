@@ -30,6 +30,8 @@ import { AppPageContainer } from "@/components/layout/app-page-container";
 import { Button, IconButton } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
+import { Pagination } from "@/components/ui/pagination";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
@@ -489,33 +491,18 @@ export function CustomersListClient({
               </div>
 
               {/* Pestañas de filtrado del directorio */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { id: "all", label: "Todos" },
-                    { id: "active", label: "Activos" },
-                    { id: "individual", label: "Persona natural" },
-                    { id: "business", label: "Empresa" },
-                    { id: "inactive", label: "Inactivos" },
-                  ] as { id: CustomerDirectoryTab; label: string }[]
-                ).map((tab) => {
-                  const isActive = directoryTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => handleTabChange(tab.id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-[#ED500A] text-white font-semibold shadow-2xs"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <Tabs<CustomerDirectoryTab>
+                tabs={[
+                  { id: "all", label: "Todos" },
+                  { id: "active", label: "Activos" },
+                  { id: "individual", label: "Persona natural" },
+                  { id: "business", label: "Empresa" },
+                  { id: "inactive", label: "Inactivos" },
+                ]}
+                activeTab={directoryTab}
+                onChange={handleTabChange}
+                size="sm"
+              />
 
               {/* Barra de Filtros y Búsqueda */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
@@ -1003,50 +990,16 @@ export function CustomersListClient({
                 {/* ============================================================== */}
                 {/* PAGINADOR Y NOTAS AL PIE                                       */}
                 {/* ============================================================== */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
-                  {/* Conteo de registros */}
-                  <div>
-                    Mostrando{" "}
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {customers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
-                      {Math.min(currentPage * pageSize, totalCount)}
-                    </span>{" "}
-                    de{" "}
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {totalCount}
-                    </span>{" "}
-                    clientes
-                  </div>
-
-                  {/* Navegación y selector de página */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-600 dark:text-slate-300">
-                      Página {currentPage} de {totalPages || 1}
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage <= 1 || isPending}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        title="Página anterior"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage >= totalPages || isPending}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        title="Página siguiente"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalCount}
+                  currentCount={customers.length}
+                  pageSize={pageSize}
+                  itemLabel="clientes"
+                  onPageChange={handlePageChange}
+                  isPending={isPending}
+                />
 
                 {/* Nota informativa contable solicitada */}
                 <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.06] text-xs text-slate-500 dark:text-slate-400">

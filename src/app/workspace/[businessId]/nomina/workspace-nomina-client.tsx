@@ -41,6 +41,8 @@ import {
 } from "@/components/ui";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 interface WorkspaceNominaClientProps {
   initialPeriods: PayrollPeriodModel[];
@@ -239,17 +241,17 @@ export function WorkspaceNominaClient({
               Período de Liquidación:
             </label>
             <div className="flex flex-wrap items-center gap-2">
-              <select
+              <Select
+                selectSize="sm"
                 value={selectedPeriod?.id || ""}
                 onChange={(e) => loadPeriodDetail(e.target.value)}
-                className="text-xs font-bold text-slate-900 dark:text-white bg-transparent border-0 focus:ring-0 p-0 cursor-pointer"
               >
                 {periods.map((p) => (
                   <option key={p.id} value={p.id} className="dark:bg-[#0D0F16]">
                     {p.name} ({p.startDate} a {p.endDate}) — {p.status === "paid" ? "Pagado" : p.status === "approved" ? "Aprobado" : "Calculado"}
                   </option>
                 ))}
-              </select>
+              </Select>
 
               {selectedPeriod && (
                 <div>
@@ -446,7 +448,7 @@ export function WorkspaceNominaClient({
       {/* MODAL: LIQUIDAR NUEVO PERÍODO */}
       {createModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
@@ -479,18 +481,15 @@ export function WorkspaceNominaClient({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Periodicidad
-                  </label>
-                  <select
+                  <Select
+                    label="Periodicidad"
                     value={newPeriodData.periodType}
                     onChange={(e) => setNewPeriodData({ ...newPeriodData, periodType: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   >
                     <option value="biweekly">Quincenal (Calcula mitad del salario base)</option>
                     <option value="monthly">Mensual (Calcula salario base completo)</option>
                     <option value="weekly">Semanal</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -545,7 +544,7 @@ export function WorkspaceNominaClient({
       {/* MODAL: REGISTRAR PAGO DE COMPROBANTE */}
       {paymentModalOpen && selectedReceipt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-5"
               onClick={(e) => e.stopPropagation()}
@@ -577,19 +576,16 @@ export function WorkspaceNominaClient({
 
               <form onSubmit={handleRegisterPaymentSubmit} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Método de Pago
-                  </label>
-                  <select
+                  <Select
+                    label="Método de Pago"
                     value={paymentForm.paymentMethod}
                     onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
                   >
                     <option value="bank_transfer">Transferencia Bancaria</option>
                     <option value="cash">Efectivo (Caja Menor)</option>
                     <option value="nequi">Nequi</option>
                     <option value="daviplata">Daviplata</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
@@ -634,7 +630,7 @@ export function WorkspaceNominaClient({
       {/* MODAL: COMPROBANTE DE PAGO (RECIBO) */}
       {voucherReceipt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 space-y-6"
               onClick={(e) => e.stopPropagation()}

@@ -26,19 +26,27 @@ import {
   Calendar,
   Activity,
   AlertCircle,
+  LayoutGrid,
+  Table as TableIcon,
+  Tag,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import { Location } from "@/lib/inventory/types";
 import { RecipeWithDetails, RecipeStatus } from "@/lib/recipes/types";
+import { Product } from "@/lib/products/types";
 import {
   getRecipesAction,
   deleteRecipeAction,
   duplicateRecipeAction,
   toggleRecipeStatusAction,
 } from "./actions";
+import { getProductsAction } from "../productos/actions";
 import { RecipeFormModal } from "./recipe-form-modal";
-import { EmptyState, ErrorState, CardSkeleton } from "@/components/ui";
+import { EmptyState, ErrorState, CardSkeleton, KpiCard, KpiGrid } from "@/components/ui";
 
 interface Props {
   businessId: string;
@@ -48,12 +56,17 @@ interface Props {
 
 export function RecipesTab({ businessId, locations, availableUnits }: Props) {
   const [recipes, setRecipes] = useState<RecipeWithDetails[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Modo de vista: tabla o cuadrícula de tarjetas
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
   // Barra de Filtros
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
   // Modales
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -83,14 +96,13 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await getRecipesAction(businessId, {
-        productId: selectedProductId !== "all" ? selectedProductId : undefined,
-      });
+      // 1. Cargar recetas primero para renderizado instantáneo
+      const recipesRes = await getRecipesAction(businessId);
 
-      if (res.success && res.data) {
-        setRecipes(res.data);
+      if (recipesRes.success && recipesRes.data) {
+        setRecipes(recipesRes.data);
       } else {
-        const msg = res.error || "No se pudieron cargar las recetas.";
+        const msg = recipesRes.error || "No se pudieron cargar las recetas.";
         setLoadError(msg);
         toast.error("Error al cargar recetas", { description: msg });
       }
@@ -101,32 +113,48 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
     } finally {
       setIsLoading(false);
     }
+
+    // 2. Carga en segundo plano de productos para cálculo de KPIs secundarios sin bloquear la interfaz
+    getProductsAction(businessId)
+      .then((prodsRes) => {
+        if (prodsRes.success && prodsRes.data) {
+          setProducts(prodsRes.data);
+        }
+      })
+      .catch(() => {
+        // Silencioso para no degradar la experiencia de usuario
+      });
   };
 
   useEffect(() => {
     loadRecipes();
-  }, [businessId, selectedProductId]);
+  }, [businessId]);
 
-  // Lista única de productos asociados a las recetas para el desplegable 'Todos los productos'
-  const uniqueProducts = useMemo(() => {
-    const map = new Map<string, string>();
+  // Lista única de categorías presentes en las recetas
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
     recipes.forEach((r) => {
-      if (r.productId && r.productName) {
-        map.set(r.productId, r.productName);
+      if (r.productCategory && r.productCategory.trim()) {
+        set.add(r.productCategory.trim());
       }
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(set).sort();
   }, [recipes]);
 
   // Filtrado reactivo en memoria
   const filteredRecipes = useMemo(() => {
     return recipes.filter((r) => {
-      // 1. Filtro desplegable 'Todos los productos'
-      if (selectedProductId !== "all" && r.productId !== selectedProductId) {
+      // 1. Filtro por categoría
+      if (selectedCategory !== "all" && r.productCategory !== selectedCategory) {
         return false;
       }
 
-      // 2. Buscador 'Buscar recetas...'
+      // 2. Filtro por estado
+      if (selectedStatus !== "all" && r.status !== selectedStatus) {
+        return false;
+      }
+
+      // 3. Buscador por texto
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesName = (r.name || "").toLowerCase().includes(q);
@@ -142,7 +170,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
 
       return true;
     });
-  }, [recipes, searchQuery, selectedProductId]);
+  }, [recipes, searchQuery, selectedCategory, selectedStatus]);
 
   // Formato COP
   const formatCOP = (val: number | null | undefined): string => {
@@ -166,29 +194,39 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
     }
   };
 
-  // KPIs Superiores Requeridos:
-  // 1. Total Recetas
-  // 2. Costo Promedio (por porción)
-  // 3. Recetas Activas
+  // 5.1. INDICADORES REALES CALCULADOS:
+  // - Total de recetas
+  // - Recetas activas
+  // - Recetas incompletas o sin ingredientes
+  // - Productos preparados sin receta
+  // - Costo promedio de elaboración
   const kpis = useMemo(() => {
     const total = recipes.length;
-    if (total === 0) {
-      return {
-        total: 0,
-        avgCostPerPortion: 0,
-        activeCount: 0,
-      };
-    }
+    const activeCount = recipes.filter((r) => r.status === "active").length;
+    const incompleteCount = recipes.filter((r) => !r.ingredients || r.ingredients.length === 0).length;
 
     const totalCostPerPortion = recipes.reduce((sum, r) => sum + (r.costPerPortion || 0), 0);
-    const activeCount = recipes.filter((r) => r.status === "active").length;
+    const avgCostPerPortion = total > 0 ? Math.round(totalCostPerPortion / total) : 0;
+
+    // Productos preparados que no tienen receta activa
+    const preparedProducts = products.filter((p) => {
+      const meta = (p.metadata as any) || {};
+      return meta.product_type !== "ingredient" && meta.product_kind !== "service";
+    });
+
+    const productsWithRecipeIds = new Set(recipes.map((r) => r.productId));
+    const preparedWithoutRecipeCount = preparedProducts.filter(
+      (p) => !productsWithRecipeIds.has(p.id)
+    ).length;
 
     return {
       total,
-      avgCostPerPortion: Math.round(totalCostPerPortion / total),
       activeCount,
+      incompleteCount,
+      preparedWithoutRecipeCount,
+      avgCostPerPortion,
     };
-  }, [recipes]);
+  }, [recipes, products]);
 
   // Acciones de Receta
   const handleOpenCreate = () => {
@@ -251,124 +289,111 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
     try {
       const res = await deleteRecipeAction(businessId, recipeToDelete.id);
       if (res.success) {
-        toast.success(`Receta de "${recipeToDelete.name}" eliminada.`);
+        toast.success(`Receta "${recipeToDelete.name}" eliminada exitosamente.`);
         setRecipeToDelete(null);
         loadRecipes();
       } else {
-        toast.error(res.error || "Error al eliminar la receta.");
+        toast.error(res.error || "No se pudo eliminar la receta.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Error al eliminar la receta.");
+      toast.error(err?.message || "Error al eliminar la receta.");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const hasActiveFilters = searchQuery.trim() !== "" || selectedProductId !== "all";
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || selectedCategory !== "all" || selectedStatus !== "all";
 
   const handleClearFilters = () => {
     setSearchQuery("");
-    setSelectedProductId("all");
+    setSelectedCategory("all");
+    setSelectedStatus("all");
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 1. KPIS SUPERIORES: Total Recetas, Costo Promedio (por porción), Recetas Activas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {/* KPI 1: Total Recetas */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Total Recetas
-            </span>
-            <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1 block">
-              {kpis.total}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Fichas técnicas registradas
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <ChefHat className="w-5 h-5" />
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* 5.1. TARJETAS DE INDICADORES / KPIS REALES (NORMALIZADOS) */}
+      <KpiGrid cols={5}>
+        <KpiCard
+          title="Total Recetas"
+          value={kpis.total}
+          subtext="Fichas registradas"
+          icon={<ChefHat className="w-5 h-5" />}
+          variant="orange"
+        />
+        <KpiCard
+          title="Recetas Activas"
+          value={kpis.activeCount}
+          subtext="Operando en POS"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          variant="emerald"
+        />
+        <KpiCard
+          title="Sin Ingredientes"
+          value={kpis.incompleteCount}
+          subtext="Requieren insumos"
+          icon={<AlertTriangle className="w-5 h-5" />}
+          variant={kpis.incompleteCount > 0 ? "amber" : "default"}
+        />
+        <KpiCard
+          title="Platos sin Receta"
+          value={kpis.preparedWithoutRecipeCount}
+          subtext="Pendientes de vincular"
+          icon={<UtensilsCrossed className="w-5 h-5" />}
+          variant={kpis.preparedWithoutRecipeCount > 0 ? "blue" : "default"}
+        />
+        <KpiCard
+          title="Costo Promedio"
+          value={formatCOP(kpis.avgCostPerPortion)}
+          subtext="Por porción elaborada"
+          icon={<DollarSign className="w-5 h-5" />}
+          variant="purple"
+        />
+      </KpiGrid>
 
-        {/* KPI 2: Costo Promedio (por porción) */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Costo Promedio (por porción)
-            </span>
-            <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
-              {formatCOP(kpis.avgCostPerPortion)}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Costo base de materias primas
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <DollarSign className="w-5 h-5" />
-          </div>
-        </div>
-
-        {/* KPI 3: Recetas Activas */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Recetas Activas
-            </span>
-            <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400 mt-1 block">
-              {kpis.activeCount}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Disponibles para preparación y POS
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* 2. BARRA DE FILTROS: Buscador 'Buscar recetas...', Desplegable 'Todos los productos', Botón '+ Nueva Receta' */}
-      <div className="p-3.5 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {/* 5.2. BARRA DE FILTROS Y ACCIONES */}
+      <div className="p-3.5 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          {/* Buscador 'Buscar recetas...' */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
+          {/* Buscador de recetas */}
+          <div className="flex-1 max-w-sm">
+            <SearchInput
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar recetas..."
-              className="w-full pl-9 pr-8 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/40 transition-colors"
+              onClear={() => setSearchQuery("")}
+              placeholder="Buscar por producto o receta..."
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
-          {/* Desplegable 'Todos los productos' */}
-          <div className="relative">
-            <select
-              aria-label="Filtrar por producto"
-              value={selectedProductId}
-              onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full sm:w-auto px-3.5 py-2 bg-slate-50/50 dark:bg-[#0E131F] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/40 transition-colors cursor-pointer"
+          {/* Filtro por Categoría */}
+          {availableCategories.length > 0 && (
+            <div className="w-full sm:w-48">
+              <Select
+                aria-label="Filtrar por categoría"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                <option value="all">Todas las categorías</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {/* Filtro por Estado */}
+          <div className="w-full sm:w-36">
+            <Select
+              aria-label="Filtrar por estado"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
             >
-              <option value="all">Todos los productos</option>
-              {uniqueProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              <option value="all">Todos los estados</option>
+              <option value="active">Activas</option>
+              <option value="inactive">Inactivas</option>
+            </Select>
           </div>
 
           {hasActiveFilters && (
@@ -378,23 +403,52 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04] rounded-xl transition-colors cursor-pointer shrink-0"
             >
               <X className="w-3.5 h-3.5" />
-              <span>Limpiar filtros</span>
+              <span>Limpiar</span>
             </button>
           )}
         </div>
 
-        {/* Botón principal '+ Nueva Receta' */}
-        <button
-          type="button"
-          onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-[#ED500A]/20 transition-all cursor-pointer active:scale-98 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>+ Nueva Receta</span>
-        </button>
+        {/* Conmutador de vista y Botón Crear */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <div className="flex items-center bg-slate-100 dark:bg-white/[0.05] p-1 rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-white dark:bg-[#131620] text-[#ED500A] shadow-xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              }`}
+              title="Vista de Tabla"
+            >
+              <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                viewMode === "cards"
+                  ? "bg-white dark:bg-[#131620] text-[#ED500A] shadow-xs font-bold"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+              }`}
+              title="Vista de Tarjetas"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-[#ED500A]/20 transition-all cursor-pointer active:scale-98 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nueva receta</span>
+          </button>
+        </div>
       </div>
 
-      {/* 3. CATÁLOGO DE RECETAS EN FORMATO CARDS (TARJETAS) */}
+      {/* 5.3. LISTADO O ESTADO VACÍO */}
       {loadError ? (
         <ErrorState
           title="Error al cargar recetas"
@@ -405,27 +459,195 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
       ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
           {Array.from({ length: 6 }).map((_, i) => (
-            <CardSkeleton key={i} className="h-72" />
+            <CardSkeleton key={i} className="h-44" />
           ))}
         </div>
       ) : filteredRecipes.length === 0 ? (
         <EmptyState
           icon={ChefHat}
-          title="No se encontraron recetas"
+          title="No hay recetas registradas"
           description={
             hasActiveFilters
-              ? "No hay recetas que coincidan con la búsqueda o el producto seleccionado."
-              : "Crea las fichas técnicas y recetas de tus productos para calcular costos y descontar existencias automáticamente."
+              ? "No se encontraron recetas con los filtros aplicados. Intenta restablecer los filtros."
+              : "Define cómo se elaboran los productos de tu negocio asociando sus ingredientes, cantidades, unidades y costos."
           }
-          actionLabel="+ Nueva Receta"
+          actionLabel="Crear primera receta"
           onAction={handleOpenCreate}
           resetLabel={hasActiveFilters ? "Limpiar filtros" : undefined}
           onReset={hasActiveFilters ? handleClearFilters : undefined}
         />
+      ) : viewMode === "table" ? (
+        /* VISTA TABLA DE RECETAS (PROFESIONAL, LIMPIA Y CONSISTENTE) */
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-3xs">
+                  <th className="py-3.5 px-4">Producto Preparado / Receta</th>
+                  <th className="py-3.5 px-3">Categoría</th>
+                  <th className="py-3.5 px-3 text-center">Ingredientes</th>
+                  <th className="py-3.5 px-3 text-right">Costo / Porción</th>
+                  <th className="py-3.5 px-3 text-right">Precio Venta</th>
+                  <th className="py-3.5 px-3 text-center">Capacidad Est.</th>
+                  <th className="py-3.5 px-3 text-center">Estado</th>
+                  <th className="py-3.5 px-3 text-center">Actualización</th>
+                  <th className="py-3.5 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {filteredRecipes.map((recipe) => {
+                  const portionsAvailable = recipe.portionsAvailable ?? 0;
+                  const hasStock = portionsAvailable > 0;
+
+                  return (
+                    <tr
+                      key={recipe.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors group"
+                    >
+                      {/* Producto / Receta */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center shrink-0 font-bold">
+                            <ChefHat className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => setRecipeToView(recipe)}
+                              className="font-bold text-slate-900 dark:text-white hover:text-[#ED500A] transition-colors truncate block text-left cursor-pointer"
+                              title="Ver ficha técnica"
+                            >
+                              {recipe.name}
+                            </button>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate">
+                              Producto: {recipe.productName}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Categoría */}
+                      <td className="py-3.5 px-3">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300">
+                          {recipe.productCategory || "Sin categoría"}
+                        </span>
+                      </td>
+
+                      {/* Cantidad de Ingredientes */}
+                      <td className="py-3.5 px-3 text-center font-mono font-semibold text-slate-700 dark:text-slate-300">
+                        {recipe.ingredients.length} {recipe.ingredients.length === 1 ? "insumo" : "insumos"}
+                      </td>
+
+                      {/* Costo Estimado por Porción */}
+                      <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        {formatCOP(recipe.costPerPortion)}
+                      </td>
+
+                      {/* Precio de Venta */}
+                      <td className="py-3.5 px-3 text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCOP(recipe.productPrice)}
+                      </td>
+
+                      {/* Capacidad Estimada */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold border ${
+                            hasStock
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                              : "bg-slate-100 dark:bg-white/[0.05] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/[0.08]"
+                          }`}
+                          title={
+                            recipe.limitingIngredient
+                              ? `Limitado por ${recipe.limitingIngredient.name}`
+                              : "Sin existencias suficientes"
+                          }
+                        >
+                          {portionsAvailable} porc.
+                        </span>
+                      </td>
+
+                      {/* Estado */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            recipe.status === "active"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : "bg-slate-200/70 dark:bg-white/[0.08] text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          {recipe.status === "active" ? "Activa" : "Inactiva"}
+                        </span>
+                      </td>
+
+                      {/* Fecha de Actualización */}
+                      <td className="py-3.5 px-3 text-center text-slate-400 dark:text-slate-500 font-mono text-[11px]">
+                        {formatRecipeDate(recipe.updatedAt || recipe.createdAt)}
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setRecipeToView(recipe)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                            title="Ver ficha técnica"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(recipe)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-[#ED500A] hover:bg-[#ED500A]/10 transition-colors cursor-pointer"
+                            title="Editar receta"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(recipe)}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              recipe.status === "active"
+                                ? "text-slate-400 hover:text-amber-600 hover:bg-amber-500/10"
+                                : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10"
+                            }`}
+                            title={recipe.status === "active" ? "Desactivar receta" : "Activar receta"}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicate(recipe)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-500/10 transition-colors cursor-pointer"
+                            title="Duplicar receta"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setRecipeToDelete(recipe)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Eliminar receta"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
+        /* VISTA TARJETAS (FORMATO COMPACTO Y MODERNO) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredRecipes.map((recipe) => {
-            const isMenuOpen = openMenuRecipeId === recipe.id;
             const portionsAvailable = recipe.portionsAvailable ?? 0;
             const hasPortions = portionsAvailable > 0;
 
@@ -434,243 +656,89 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                 key={recipe.id}
                 className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden hover:border-[#ED500A]/40 transition-all flex flex-col justify-between shadow-2xs hover:shadow-md"
               >
-                {/* PARTE SUPERIOR DE LA TARJETA */}
                 <div className="p-4 sm:p-5 space-y-3.5">
-                  {/* CABECERA: Nombre de la receta, fecha y badges de estado */}
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5 flex-1 min-w-0">
-                        <h3
-                          onClick={() => setRecipeToView(recipe)}
-                          className="text-base font-bold text-slate-900 dark:text-white hover:text-[#ED500A] dark:hover:text-[#ED500A] transition-colors cursor-pointer truncate"
-                          title={recipe.name}
-                        >
-                          {recipe.name}
-                        </h3>
-                        <div className="flex items-center gap-1.5 text-2xs text-slate-400 dark:text-slate-500">
-                          <Calendar className="w-3 h-3 shrink-0" />
-                          <span>{formatRecipeDate(recipe.createdAt)}</span>
-                        </div>
-                      </div>
-
-                      {/* MENÚ DE OPCIONES DESPLEGABLE EN CABECERA */}
-                      <div className="relative shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMenuRecipeId(isMenuOpen ? null : recipe.id)
-                          }
-                          className="p-1.5 rounded-lg border border-slate-200/70 dark:border-white/[0.08] text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                          title="Menú de opciones"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-
-                        {isMenuOpen && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-full mt-1.5 w-44 bg-white dark:bg-[#121624] border border-slate-200 dark:border-white/[0.1] rounded-xl shadow-xl z-30 p-1 divide-y divide-slate-100 dark:divide-white/[0.05] animate-in fade-in zoom-in-95 duration-150"
-                          >
-                            <div className="py-1">
-                              {/* Editar */}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(recipe)}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer font-medium text-left"
-                              >
-                                <Edit2 className="w-3.5 h-3.5 text-blue-500" />
-                                <span>Editar</span>
-                              </button>
-
-                              {/* Duplicar */}
-                              <button
-                                type="button"
-                                onClick={() => handleDuplicate(recipe)}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer font-medium text-left"
-                              >
-                                <Copy className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Duplicar</span>
-                              </button>
-
-                              {/* Desactivar / Activar */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleStatus(recipe)}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors cursor-pointer font-medium text-left"
-                              >
-                                {recipe.status === "active" ? (
-                                  <>
-                                    <Power className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>Desactivar</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span>Activar</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-
-                            <div className="py-1">
-                              {/* Eliminar */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuRecipeId(null);
-                                  setRecipeToDelete(recipe);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer font-medium text-left"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Eliminar</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* BADGES DE ESTADO: 'Alcanza para X porciones' y 'Activa' */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {/* Badge: Alcanza para X porciones */}
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold border ${
-                          hasPortions
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                        }`}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5 flex-1 min-w-0">
+                      <h3
+                        onClick={() => setRecipeToView(recipe)}
+                        className="text-base font-bold text-slate-900 dark:text-white hover:text-[#ED500A] transition-colors cursor-pointer truncate"
+                        title={recipe.name}
                       >
-                        <PackageCheck className="w-3 h-3" />
-                        <span>
-                          {hasPortions
-                            ? `Alcanza para ${portionsAvailable} ${
-                                portionsAvailable === 1 ? "porción" : "porciones"
-                              }`
-                            : "Sin porciones disponibles"}
-                        </span>
-                      </span>
-
-                      {/* Badge: Activa / Inactiva */}
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider border ${
-                          recipe.status === "active"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                            : "bg-slate-100 dark:bg-white/[0.04] text-slate-500 border-slate-200 dark:border-white/[0.08]"
-                        }`}
-                      >
-                        {recipe.status === "active" ? "Activa" : "Inactiva"}
+                        {recipe.name}
+                      </h3>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 block truncate">
+                        Producto: {recipe.productName}
                       </span>
                     </div>
-                  </div>
 
-                  {/* PRODUCTO ASOCIADO: Miniatura de imagen, nombre, categoría, precio de venta y stock actual */}
-                  <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.06] flex items-center gap-3">
-                    {/* Miniatura de imagen */}
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden flex items-center justify-center shrink-0">
-                      {recipe.productImageUrl ? (
-                        <img
-                          src={recipe.productImageUrl}
-                          alt={recipe.productName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <UtensilsCrossed className="w-5 h-5 text-slate-400" />
-                      )}
-                    </div>
-
-                    {/* Datos del producto */}
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                          {recipe.productName}
-                        </span>
-                        {recipe.productSku && (
-                          <span className="text-3xs font-mono px-1 py-0.2 rounded bg-slate-200/70 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 shrink-0">
-                            {recipe.productSku}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 text-2xs text-slate-500 dark:text-slate-400">
-                        <span className="truncate">
-                          {recipe.productCategory || "Sin categoría"}
-                        </span>
-                        <span>•</span>
-                        <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                          {formatCOP(recipe.productPrice)}
-                        </span>
-                      </div>
-
-                      {/* Stock actual del producto */}
-                      <div className="flex items-center gap-1 text-2xs">
-                        <Package className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="font-medium text-slate-600 dark:text-slate-300 font-mono">
-                          {recipe.productStock !== null && recipe.productStock !== undefined
-                            ? `${recipe.productStock} en stock`
-                            : "Stock consolidado"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* DESCRIPCIÓN / NOTAS DE PREPARACIÓN */}
-                  <div className="space-y-1">
-                    <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider block">
-                      Notas de preparación:
-                    </span>
-                    <p
-                      className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed"
-                      title={recipe.description || "Sin notas de preparación"}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        recipe.status === "active"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "bg-slate-200/70 dark:bg-white/[0.08] text-slate-600 dark:text-slate-400"
+                      }`}
                     >
-                      {recipe.description?.trim() ? (
-                        recipe.description
-                      ) : (
-                        <span className="text-slate-400 italic">
-                          Sin notas de preparación registradas.
-                        </span>
-                      )}
-                    </p>
+                      {recipe.status === "active" ? "Activa" : "Inactiva"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs p-3 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06]">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Costo / unidad</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                        {formatCOP(recipe.costPerPortion)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Precio de venta</span>
+                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCOP(recipe.productPrice)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Capacidad estimada</span>
+                      <span className="font-mono font-bold text-[#ED500A]">
+                        {portionsAvailable} {portionsAvailable === 1 ? "porción" : "porciones"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Margen bruto est.</span>
+                      <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                        {recipe.marginPercentage}%
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* PIE DE LA TARJETA: Conteo de ingredientes, costo calculado por porción ($) y acciones */}
-                <div className="p-3.5 sm:px-5 bg-slate-50/50 dark:bg-white/[0.015] border-t border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between gap-2 text-xs">
-                  {/* Conteo de ingredientes */}
-                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                    <Layers className="w-3.5 h-3.5 text-[#ED500A] shrink-0" />
-                    <span className="font-semibold text-2xs sm:text-xs">
-                      {recipe.ingredients.length}{" "}
-                      {recipe.ingredients.length === 1 ? "ingrediente" : "ingredientes"}
-                    </span>
-                  </div>
+                <div className="p-3 bg-slate-50/50 dark:bg-white/[0.015] border-t border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-500 font-medium">
+                    {recipe.ingredients.length} {recipe.ingredients.length === 1 ? "ingrediente" : "ingredientes"}
+                  </span>
 
-                  {/* Costo calculado por porción ($) */}
-                  <div className="text-right">
-                    <span className="text-2xs text-slate-400 block">Costo / porción</span>
-                    <span className="font-black font-mono text-xs sm:text-sm text-slate-900 dark:text-white">
-                      {formatCOP(recipe.costPerPortion)}
-                    </span>
-                  </div>
-
-                  {/* Acciones directas rápidas */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setRecipeToView(recipe)}
-                      className="p-1.5 rounded-lg border border-slate-200/70 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                      title="Ver Ficha Técnica"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                      title="Ver ficha técnica"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(recipe)}
-                      className="p-1.5 rounded-lg border border-slate-200/70 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-[#ED500A] dark:hover:text-[#ED500A] hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-[#ED500A] hover:bg-[#ED500A]/10 transition-colors cursor-pointer"
                       title="Editar receta"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecipeToDelete(recipe)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      title="Eliminar receta"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -680,7 +748,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
         </div>
       )}
 
-      {/* Modal de Creación / Edición */}
+      {/* MODAL DE CREACIÓN / EDICIÓN */}
       <RecipeFormModal
         businessId={businessId}
         isOpen={isFormModalOpen}
@@ -693,28 +761,28 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
           setRecipeToEdit(null);
           loadRecipes();
         }}
-        recipe={recipeToEdit}
+        recipeToEdit={recipeToEdit}
         locations={locations}
         availableUnits={availableUnits}
       />
 
-      {/* Modal de Detalle de Escandallo y Stock Proyectado */}
+      {/* MODAL DE DETALLE DE FICHA TÉCNICA Y ESCANDALLO */}
       {recipeToView && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="relative w-full max-w-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Encabezado */}
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold shrink-0">
                     <ChefHat className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
                       {recipeToView.name}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Ficha técnica del producto: <strong>{recipeToView.productName}</strong>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Ficha técnica del producto preparado: <strong>{recipeToView.productName}</strong>
                     </p>
                   </div>
                 </div>
@@ -722,64 +790,64 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                 <button
                   type="button"
                   onClick={() => setRecipeToView(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="p-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Contenido */}
-              <div className="p-6 overflow-y-auto space-y-4 text-xs">
-                {/* Métricas */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08]">
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs">
+                {/* Resumen de Métricas */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08]">
                   <div>
-                    <span className="text-slate-500 block">Rendimiento:</span>
+                    <span className="text-[11px] text-slate-500 block">Rendimiento:</span>
                     <strong className="text-sm font-mono text-slate-900 dark:text-white">
                       {recipeToView.portions} {recipeToView.portions === 1 ? "porción" : "porciones"}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Costo / Porción:</span>
+                    <span className="text-[11px] text-slate-500 block">Costo / Porción:</span>
                     <strong className="text-sm font-mono text-slate-900 dark:text-white">
                       {formatCOP(recipeToView.costPerPortion)}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Precio de Venta:</span>
+                    <span className="text-[11px] text-slate-500 block">Precio de Venta:</span>
                     <strong className="text-sm font-mono text-emerald-600 dark:text-emerald-400">
                       {formatCOP(recipeToView.productPrice)}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Margen Bruto:</span>
-                    <strong className="text-sm font-mono text-slate-900 dark:text-white">
+                    <span className="text-[11px] text-slate-500 block">Margen Bruto:</span>
+                    <strong className="text-sm font-mono text-purple-600 dark:text-purple-400">
                       {recipeToView.marginPercentage}%
                     </strong>
                   </div>
                 </div>
 
-                {/* Banner de Disponibilidad "¿Cuánto me alcanza?" */}
+                {/* Banner de Capacidad Estimada */}
                 <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
                     recipeToView.portionsAvailable > 0
                       ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400"
+                      : "bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <PackageCheck className="w-5 h-5 shrink-0" />
                     <div>
                       <div className="font-bold text-xs sm:text-sm">
-                        Alcanza para:{" "}
-                        <span className="underline">
+                        Capacidad estimada:{" "}
+                        <span>
                           {recipeToView.portionsAvailable}{" "}
-                          {recipeToView.portionsAvailable === 1 ? "porción" : "porciones"}
+                          {recipeToView.portionsAvailable === 1 ? "unidad" : "unidades"}
                         </span>
                       </div>
-                      <div className="text-2xs opacity-85">
+                      <div className="text-[11px] opacity-85">
                         {recipeToView.limitingIngredient
-                          ? `Cuello de botella: ${recipeToView.limitingIngredient.name} (alcanza para ${recipeToView.limitingIngredient.availablePortions} porc.)`
-                          : "Stock suficiente para todos los ingredientes"}
+                          ? `Limitado por «${recipeToView.limitingIngredient.name}» (existencias actuales alcanzan para ${recipeToView.limitingIngredient.availablePortions} porciones)`
+                          : "Existencias suficientes de todos los ingredientes"}
                       </div>
                     </div>
                   </div>
@@ -787,59 +855,70 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
 
                 {/* Tabla de Desglose de Ingredientes */}
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white mb-2">
-                    Ingredientes ({recipeToView.ingredients.length})
+                  <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-xs">
+                    Ingredientes e Insumos ({recipeToView.ingredients.length})
                   </h4>
                   <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-white/[0.04]">
-                    <div className="bg-slate-50/75 dark:bg-white/[0.02] px-3 py-2 grid grid-cols-12 font-semibold text-slate-500 dark:text-slate-400 uppercase text-3xs tracking-wider">
-                      <div className="col-span-4">Ingrediente</div>
+                    <div className="bg-slate-50/75 dark:bg-white/[0.02] px-3 py-2 grid grid-cols-12 font-bold text-slate-500 dark:text-slate-400 uppercase text-3xs tracking-wider">
+                      <div className="col-span-5">Ingrediente</div>
                       <div className="col-span-2 text-right">Cantidad</div>
-                      <div className="col-span-3 text-right">Costo Unit.</div>
-                      <div className="col-span-3 text-right">Stock Actual</div>
+                      <div className="col-span-2 text-right">Costo Unit.</div>
+                      <div className="col-span-3 text-right">Subtotal</div>
                     </div>
 
                     {recipeToView.ingredients.map((item) => (
                       <div
                         key={item.id}
-                        className="px-3 py-2 grid grid-cols-12 items-center hover:bg-slate-50/50 dark:hover:bg-white/[0.02]"
+                        className="px-3 py-2.5 grid grid-cols-12 items-center hover:bg-slate-50/50 dark:hover:bg-white/[0.02]"
                       >
-                        <div className="col-span-4 font-medium text-slate-900 dark:text-white truncate">
+                        <div className="col-span-5 font-semibold text-slate-900 dark:text-white truncate">
                           {item.ingredientName}
+                          {item.isOptional && (
+                            <span className="ml-1.5 text-[10px] text-slate-400 font-normal">
+                              (opcional)
+                            </span>
+                          )}
                         </div>
-                        <div className="col-span-2 text-right text-slate-600 dark:text-slate-400">
+                        <div className="col-span-2 text-right font-mono text-slate-600 dark:text-slate-400">
                           {item.quantity} {item.unit}
                         </div>
-                        <div className="col-span-3 text-right font-mono text-slate-600 dark:text-slate-400">
+                        <div className="col-span-2 text-right font-mono text-slate-600 dark:text-slate-400">
                           {formatCOP(item.unitCost)}
                         </div>
-                        <div className="col-span-3 text-right font-mono font-semibold text-slate-900 dark:text-white">
-                          {item.stockQuantity} {item.unit}
+                        <div className="col-span-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          {formatCOP(item.subtotalCost)}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
+                {/* Notas de Preparación */}
                 {recipeToView.description && (
-                  <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] space-y-1">
-                    <span className="font-bold text-slate-900 dark:text-white block">
-                      Instrucciones de Elaboración:
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08]">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Notas de preparación:
                     </span>
-                    <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">
                       {recipeToView.description}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="px-6 py-3 border-t border-slate-200/80 dark:border-white/[0.08] flex justify-end">
+              {/* Pie de acciones del modal */}
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setRecipeToView(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.1] text-slate-800 dark:text-white text-xs font-bold transition-colors cursor-pointer"
+                  onClick={() => {
+                    const toEdit = recipeToView;
+                    setRecipeToView(null);
+                    handleOpenEdit(toEdit);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Cerrar
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Editar Receta</span>
                 </button>
               </div>
             </div>
@@ -847,32 +926,29 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
         </ModalPortal>
       )}
 
-      {/* Modal Personalizado de Confirmación para Eliminar (Regla: Prohibido alertas nativas) */}
+      {/* MODAL DE CONFIRMACIÓN PARA ELIMINAR (CERO ALERTAS NATIVAS) */}
       {recipeToDelete && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.1] rounded-2xl shadow-2xl p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl p-6 space-y-4">
+              <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    ¿Eliminar Receta?
+                    ¿Eliminar esta receta?
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Esta acción desvinculará la ficha técnica del producto.
+                    Esta acción no se puede deshacer.
                   </p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                ¿Estás seguro de que deseas eliminar la receta{" "}
-                <strong className="text-slate-900 dark:text-white font-semibold">
-                  "{recipeToDelete.name}"
-                </strong>
-                ? Las materias primas ya no se descontarán automáticamente por receta para este
-                producto.
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Estás a punto de eliminar la receta de «<strong>{recipeToDelete.name}</strong>». El
+                producto preparado permanecerá en el catálogo comercial, pero ya no tendrá ficha técnica
+                ni cálculo automático de materias primas.
               </p>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -880,7 +956,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                   type="button"
                   onClick={() => setRecipeToDelete(null)}
                   disabled={isDeleting}
-                  className="px-4 py-2 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -889,7 +965,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                   type="button"
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {isDeleting ? (
                     <>
@@ -899,7 +975,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                   ) : (
                     <>
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Sí, Eliminar</span>
+                      <span>Sí, eliminar receta</span>
                     </>
                   )}
                 </button>

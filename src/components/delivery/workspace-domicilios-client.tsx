@@ -56,6 +56,9 @@ import {
 } from "@/lib/delivery/types";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import { DeliveryZonesTab } from "@/components/delivery/delivery-zones-tab";
 import { DeliveryConfigTab } from "@/components/delivery/delivery-config-tab";
 import { DeliveryIntegrationsTab } from "@/components/delivery/delivery-integrations-tab";
@@ -804,14 +807,13 @@ export function WorkspaceDomiciliosClient({
                 ))}
               </div>
 
-              <div className="relative min-w-[220px]">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
+              <div className="w-64">
+                <SearchInput
+                  inputSize="sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onClear={() => setSearchQuery("")}
                   placeholder="Buscar comanda, dirección, cliente..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
                 />
               </div>
             </div>
@@ -1046,11 +1048,11 @@ export function WorkspaceDomiciliosClient({
                         {/* Selector de Repartidor con Indicador de Estado */}
                         <div className="flex items-center gap-2 min-w-[240px]">
                           <span className="text-xs text-slate-500 font-semibold">Repartidor:</span>
-                          <select
+                          <Select
+                            selectSize="sm"
                             disabled={isPending || isDelivered}
                             value={order.driver_name || ""}
                             onChange={(e) => handleAssignDriver(order.id, e.target.value)}
-                            className="text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 text-slate-800 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer disabled:opacity-50"
                           >
                             <option value="">-- Sin asignar --</option>
                             {drivers
@@ -1070,7 +1072,7 @@ export function WorkspaceDomiciliosClient({
                               !drivers.some((d) => d.name === order.driver_name) && (
                                 <option value={order.driver_name}>{order.driver_name}</option>
                               )}
-                          </select>
+                          </Select>
                         </div>
 
                         {/* Botones de acción */}
@@ -1576,7 +1578,7 @@ export function WorkspaceDomiciliosClient({
         {/* ============================================================ */}
         {isNewDriverModalOpen && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                   <div className="flex items-center gap-2">
@@ -1602,35 +1604,24 @@ export function WorkspaceDomiciliosClient({
                 </div>
 
                 <form onSubmit={handleCreateDriver} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Nombre del Domiciliario *
-                    </label>
-                    <input
-                      type="text"
+                  <Input
+                      label="Nombre del Domiciliario *"
                       required
                       value={newDriverName}
                       onChange={(e) => setNewDriverName(e.target.value)}
                       placeholder="Ej. Carlos Domicilios"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
+                      inputSize="sm"
                     />
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Teléfono Celular (Opcional)
-                    </label>
-                    <input
+                  <Input
+                      label="Teléfono Celular (Opcional)"
                       type="tel"
                       value={newDriverPhone}
                       onChange={(e) => setNewDriverPhone(e.target.value)}
                       placeholder="Ej. 310 123 4567"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30"
+                      helperText="Permite enviar el enlace privado con PIN directamente por WhatsApp."
+                      inputSize="sm"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Permite enviar el enlace privado con PIN directamente por WhatsApp.
-                    </p>
-                  </div>
 
                   <div className="p-3 bg-slate-50 dark:bg-white/[0.02] rounded-xl border border-slate-100 dark:border-white/5 text-xs text-slate-500 space-y-1">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -1668,7 +1659,7 @@ export function WorkspaceDomiciliosClient({
         {/* ============================================================ */}
         {editingDriver && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -1684,31 +1675,22 @@ export function WorkspaceDomiciliosClient({
                 </div>
 
                 <form onSubmit={handleSaveDriverEdit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Nombre *
-                    </label>
-                    <input
-                      type="text"
+                  <Input
+                      label="Nombre *"
                       required
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white"
+                      inputSize="sm"
                     />
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Teléfono Celular
-                    </label>
-                    <input
+                  <Input
+                      label="Teléfono Celular"
                       type="tel"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
                       placeholder="Ej. 310 123 4567"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white"
+                      inputSize="sm"
                     />
-                  </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -1723,12 +1705,12 @@ export function WorkspaceDomiciliosClient({
                         Regenerar PIN Aleatorio
                       </button>
                     </div>
-                    <input
-                      type="text"
+                    <Input
                       maxLength={6}
                       value={editPin}
                       onChange={(e) => setEditPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="w-full px-3 py-2 text-sm font-mono font-bold tracking-widest bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white"
+                      className="font-mono font-bold tracking-widest text-center"
+                      inputSize="sm"
                     />
                   </div>
 
@@ -1759,7 +1741,7 @@ export function WorkspaceDomiciliosClient({
         {/* ============================================================ */}
         {settleModalDriver && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center gap-2.5 text-emerald-600">
                   <DollarSign className="w-6 h-6 shrink-0" />
@@ -1815,18 +1797,13 @@ export function WorkspaceDomiciliosClient({
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Observaciones / Notas (Opcional)
-                  </label>
-                  <input
-                    type="text"
+                <Input
+                    label="Observaciones / Notas (Opcional)"
                     value={settleNotes}
                     onChange={(e) => setSettleNotes(e.target.value)}
                     placeholder="Ej. Liquidación turno tarde entregada en sobre..."
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white"
+                    inputSize="sm"
                   />
-                </div>
 
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
                   <button
@@ -1855,7 +1832,7 @@ export function WorkspaceDomiciliosClient({
         {/* ============================================================ */}
         {issueOrder && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center gap-2.5 text-rose-600">
                   <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -1871,22 +1848,18 @@ export function WorkspaceDomiciliosClient({
                 </div>
 
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Tipo de Incidencia *
-                    </label>
-                    <select
+                  <Select
+                      label="Tipo de Incidencia *"
                       value={issueType}
                       onChange={(e) => setIssueType(e.target.value as DeliveryIssueType)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white font-semibold cursor-pointer"
+                      selectSize="sm"
                     >
                       {Object.entries(DELIVERY_ISSUE_LABELS).map(([k, label]) => (
                         <option key={k} value={k}>
                           {label}
                         </option>
                       ))}
-                    </select>
-                  </div>
+                    </Select>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1930,7 +1903,7 @@ export function WorkspaceDomiciliosClient({
         {/* ============================================================ */}
         {exceptionOrder && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center gap-2.5 text-amber-600">
                   <AlertCircle className="w-5 h-5 shrink-0" />

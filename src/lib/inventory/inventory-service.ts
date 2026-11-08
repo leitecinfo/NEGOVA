@@ -19,6 +19,11 @@ import {
   CreateTransferInputSchema,
   TransferResult,
   resolveMovementOrigin,
+  extractStockSnapshot,
+  StockAdjustmentInput,
+  StockAdjustmentInputSchema,
+  StockAdjustmentResult,
+  ADJUSTMENT_REASON_LABELS,
 } from "./types";
 import { createNotification } from "@/lib/notifications/notifications-service";
 import { assertPlanLimit } from "@/lib/subscriptions/plan-limits-service";
@@ -292,6 +297,7 @@ export async function recordInventoryMovement(
     throw new Error("El producto indicado no pertenece a este comercio o no existe.");
   }
 
+  let currentQty = 0;
   let finalQuantity = 0;
   let unitCost = parsed.unitCost ?? null;
   let minStock = 0;
@@ -306,7 +312,7 @@ export async function recordInventoryMovement(
       .eq("location_id", parsed.locationId)
       .maybeSingle();
 
-    const currentQty = Number(stockRow?.quantity || 0);
+    currentQty = Number(stockRow?.quantity || 0);
     minStock = Number(stockRow?.min_stock || 0);
     const existingCost = Number(stockRow?.cost || 0);
     unitCost = parsed.unitCost !== undefined && parsed.unitCost !== null ? parsed.unitCost : existingCost;
@@ -375,6 +381,22 @@ export async function recordInventoryMovement(
     (unitCost !== null && unitCost !== undefined ? Number((unitCost * parsed.quantity).toFixed(2)) : null);
 
   // 5. Inserción inmutable en inventory_movements (Kardex)
+  // Formatear notas respetando el texto original proporcionado por el usuario
+  let movementNotes = parsed.notes ? parsed.notes.trim() : null;
+  if (!movementNotes && !options?.skipStockUpdate) {
+    const auditDetail = `(Anterior: ${currentQty}, Resultante: ${finalQuantity})`;
+    movementNotes = auditDetail;
+  }
+
+  // Prevenir error de restricción CHECK en PostgreSQL: reference_type solo admite ('sale', 'purchase', 'adjustment', 'transfer')
+  const safeReferenceType =
+    parsed.referenceType === "spoilage"
+      ? "adjustment"
+      : parsed.referenceType ??
+        (parsed.movementType === "spoilage" || parsed.movementType === "adjustment"
+          ? "adjustment"
+          : null);
+
   const { data, error } = await supabase
     .from("inventory_movements")
     .insert({
@@ -386,8 +408,8 @@ export async function recordInventoryMovement(
       unit_cost: unitCost,
       total_cost: calculatedTotalCost,
       reference_id: parsed.referenceId ?? null,
-      reference_type: parsed.referenceType ?? null,
-      notes: parsed.notes ?? null,
+      reference_type: safeReferenceType,
+      notes: movementNotes,
       created_by: createdBy || null,
       created_at: new Date().toISOString(),
     })
@@ -744,16 +766,29 @@ export async function migrateProductStockToNormalized(
 export async function getInventoryKPIs(businessId: string): Promise<InventoryKPIs> {
   const supabase = await getDbClient();
 
-  // 1. Total Productos activos
-  const { count: totalProducts, error: prodErr } = await supabase
+  // 1. Consultar todos los productos e insumos activos del negocio
+  const { data: productsData, error: prodErr } = await supabase
     .from("products")
-    .select("id", { count: "exact", head: true })
+    .select("id, name, metadata")
     .eq("business_id", businessId)
     .neq("status", "archived");
 
   if (prodErr) {
-    console.warn("[getInventoryKPIs] Advertencia al consultar total de productos:", prodErr);
+    console.warn("[getInventoryKPIs] Advertencia al consultar productos:", prodErr);
   }
+
+  // Filtrar estrictamente los artículos inventariables [TAREA-03]:
+  // a) Insumos / ingredientes (product_type === 'ingredient')
+  // b) Productos comerciales con control de existencias (track_stock === true y product_type !== 'service')
+  const inventariableProducts = (productsData || []).filter((p) => {
+    const meta = (p.metadata || {}) as Record<string, any>;
+    if (meta.product_type === "ingredient") return true;
+    if (meta.product_type === "service") return false;
+    return Boolean(meta.track_stock);
+  });
+
+  const inventariableIdSet = new Set(inventariableProducts.map((p) => p.id));
+  const productMetaMap = new Map(inventariableProducts.map((p) => [p.id, (p.metadata || {}) as Record<string, any>]));
 
   // 2. Existencias en inventory_stock
   const { data: stockList, error: stockErr } = await supabase
@@ -766,19 +801,54 @@ export async function getInventoryKPIs(businessId: string): Promise<InventoryKPI
   }
 
   let totalCostValue = 0;
+  const totalStockByProduct = new Map<string, number>();
   const lowStockProductIds = new Set<string>();
 
   for (const s of stockList || []) {
+    if (!inventariableIdSet.has(s.product_id)) continue;
     const qty = Number(s.quantity || 0);
     const min = Number(s.min_stock || 0);
     const c = Number(s.cost || 0);
 
     totalCostValue += qty * c;
+    totalStockByProduct.set(s.product_id, (totalStockByProduct.get(s.product_id) || 0) + qty);
 
-    if (qty <= min) {
+    if (min > 0 && qty <= min && qty > 0) {
       lowStockProductIds.add(s.product_id);
     }
   }
+
+  let inStockCount = 0;
+  let outOfStockCount = 0;
+
+  for (const p of inventariableProducts) {
+    const meta = productMetaMap.get(p.id) || {};
+    const hasStockRows = totalStockByProduct.has(p.id);
+    const qty = hasStockRows ? (totalStockByProduct.get(p.id) || 0) : Number(meta.stock_quantity ?? 0);
+    const min = Number(meta.min_stock ?? 0);
+    const c = Number(meta.cost ?? 0);
+
+    if (!hasStockRows) {
+      totalCostValue += qty * c;
+      if (min > 0 && qty <= min && qty > 0) {
+        lowStockProductIds.add(p.id);
+      }
+    }
+
+    // Regla de clasificación mutuamente excluyente:
+    // - Agotado: existencia <= 0
+    // - Stock bajo: existencia positiva y menor o igual al mínimo configurado en alguna ubicación o consolidado
+    // - Disponible: existencia superior al mínimo, o positiva sin mínimo configurado
+    if (qty <= 0) {
+      outOfStockCount++;
+    } else if (lowStockProductIds.has(p.id) || (min > 0 && qty <= min)) {
+      lowStockProductIds.add(p.id);
+    } else {
+      inStockCount++;
+    }
+  }
+
+  const lowStockCount = lowStockProductIds.size;
 
   // 3. Movimientos de hoy
   const todayStart = new Date();
@@ -794,9 +864,14 @@ export async function getInventoryKPIs(businessId: string): Promise<InventoryKPI
     console.warn("[getInventoryKPIs] Advertencia al consultar movimientos de hoy:", movErr);
   }
 
+  const totalCount = inventariableProducts.length;
+
   return {
-    totalProducts: totalProducts || 0,
-    lowStockCount: lowStockProductIds.size,
+    totalProducts: totalCount,
+    totalItems: totalCount,
+    inStockCount,
+    lowStockCount,
+    outOfStockCount,
     totalCostValue: Number(totalCostValue.toFixed(2)),
     todayMovementsCount: todayMovementsCount || 0,
   };
@@ -976,7 +1051,13 @@ export async function getInventoryMovementsHistory(
   }
 
   if (filters?.endDate) {
-    query = query.lte("created_at", filters.endDate);
+    const end = filters.endDate.includes("T") ? filters.endDate : `${filters.endDate}T23:59:59.999Z`;
+    query = query.lte("created_at", end);
+  }
+
+  if (filters?.search) {
+    const s = filters.search.trim();
+    query = query.or(`notes.ilike.%${s}%`);
   }
 
   query = query.order("created_at", { ascending: false });
@@ -984,7 +1065,7 @@ export async function getInventoryMovementsHistory(
   if (filters?.limit) {
     query = query.limit(filters.limit);
   } else {
-    query = query.limit(100);
+    query = query.limit(200);
   }
 
   const { data, error } = await query;
@@ -1055,16 +1136,23 @@ export async function getInventoryMovementsHistory(
         ? Number((unitCost * quantity).toFixed(2))
         : null;
 
+    const snapshot = extractStockSnapshot(row.notes);
+    const meta = (row.products?.metadata || {}) as Record<string, any>;
+    const unit = meta.unit || (meta.product_type === "ingredient" ? "kg" : "un");
+
     return {
       id: row.id,
       businessId: row.business_id,
       productId: row.product_id,
       productName: row.products?.name || "Producto sin nombre",
-      productSku: (row.products?.metadata as any)?.sku || null,
+      productSku: meta.sku || null,
+      unit,
       locationId: row.location_id,
       locationName: row.locations?.name || "Ubicación",
       movementType: row.movement_type,
       quantity,
+      previousQuantity: snapshot.previousQuantity,
+      resultingQuantity: snapshot.resultingQuantity,
       unitCost,
       totalCost,
       referenceId: row.reference_id || null,
@@ -1103,20 +1191,36 @@ export async function getLowStockItems(businessId: string): Promise<LowStockItem
   const items: LowStockItem[] = [];
 
   for (const s of stockData || []) {
-    const qty = Number(s.quantity || 0);
-    const min = Number(s.min_stock || 0);
-    const cost = Number(s.cost || (s.products?.metadata as any)?.cost || 0);
+    const meta = (s.products?.metadata || {}) as Record<string, any>;
+    // Excluir productos preparados o servicios que no controlan existencias [TAREA-08]
+    const isExcluded =
+      meta.product_type === "prepared" ||
+      meta.product_type === "service" ||
+      meta.track_stock === false;
+    if (isExcluded) continue;
 
-    // Solo considerar si el stock es <= mínimo y min_stock fue configurado (o si está totalmente agotado)
-    if (qty <= min) {
-      const deficit = Math.max(0, min - qty);
-      const status: LowStockItem["status"] = qty <= 0 ? "out_of_stock" : "critical";
+    const qty = Number(s.quantity || 0);
+    const min = Number(s.min_stock || meta.min_stock || 0);
+    const cost = Number(s.cost || meta.cost || 0);
+
+    // Regla TAREA-08:
+    // - Agotado: qty <= 0 (artículo con control de stock)
+    // - Stock bajo: min > 0 && qty > 0 && qty <= min
+    // - Si min == 0 y qty > 0: está DISPONIBLE (NO se incluyen en alertas de stock bajo)
+    const isOutOfStock = qty <= 0;
+    const isLowStock = min > 0 && qty > 0 && qty <= min;
+
+    if (isOutOfStock || isLowStock) {
+      const deficit = isOutOfStock ? Math.max(1, min) : Math.max(0, min - qty);
+      const status: LowStockItem["status"] = isOutOfStock ? "out_of_stock" : "critical";
+      const unit = meta.unit || (meta.product_type === "ingredient" ? "kg" : "un");
 
       items.push({
         productId: s.product_id,
         productName: s.products?.name || "Producto",
         categoryName: (s.products?.categories as any)?.name || null,
-        sku: (s.products?.metadata as any)?.sku || null,
+        sku: meta.sku || null,
+        unit,
         locationId: s.location_id,
         locationName: s.locations?.name || "Ubicación",
         quantity: qty,
@@ -1240,6 +1344,224 @@ export async function executeStockMovement(
     newQuantity: finalQuantity,
   };
 }
+
+/**
+ * Ejecuta un ajuste manual de inventario con trazabilidad estricta y fuente única de verdad [TAREA-03].
+ */
+export async function executeStockAdjustment(
+  businessId: string,
+  input: StockAdjustmentInput,
+  userId?: string | null
+): Promise<StockAdjustmentResult> {
+  const parsed = StockAdjustmentInputSchema.parse(input);
+  const supabase = await getDbClient();
+
+  // 1. Validar producto
+  const { data: prodData, error: prodErr } = await supabase
+    .from("products")
+    .select("id, name, metadata, business_id")
+    .eq("id", parsed.productId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (prodErr || !prodData) {
+    throw new Error("El artículo indicado no pertenece a este comercio o no existe.");
+  }
+
+  // 2. Resolver ubicación única
+  const defaultLoc = await ensureDefaultLocation(businessId);
+
+  // 3. Consultar existencia actual en inventory_stock
+  const { data: currentStockRow } = await supabase
+    .from("inventory_stock")
+    .select("quantity, min_stock, cost")
+    .eq("business_id", businessId)
+    .eq("product_id", parsed.productId)
+    .eq("location_id", defaultLoc.id)
+    .maybeSingle();
+
+  const meta = (prodData.metadata || {}) as Record<string, any>;
+  const previousQuantity = currentStockRow
+    ? Number(currentStockRow.quantity || 0)
+    : Number(meta.stock_quantity ?? 0);
+  const minStock = currentStockRow
+    ? Number(currentStockRow.min_stock || 0)
+    : Number(meta.min_stock ?? 0);
+  const existingCost = currentStockRow && currentStockRow.cost > 0
+    ? Number(currentStockRow.cost)
+    : Number(meta.cost ?? 0);
+  const unitCost = parsed.unitCost !== undefined && parsed.unitCost !== null
+    ? parsed.unitCost
+    : existingCost;
+
+  const newQuantity = Number(parsed.targetQuantity);
+  const difference = newQuantity - previousQuantity;
+
+  const reasonLabel = ADJUSTMENT_REASON_LABELS[parsed.reason] || parsed.reason;
+  const auditDetail = `(Anterior: ${previousQuantity}, Dif: ${difference >= 0 ? "+" : ""}${difference}, Resultante: ${newQuantity})`;
+  const fullNotes = [reasonLabel, parsed.notes?.trim(), auditDetail].filter(Boolean).join(" — ");
+
+  // 4. Inserción inmutable en inventory_movements (Kardex)
+  const totalCost = unitCost > 0 ? Number((unitCost * Math.abs(difference)).toFixed(2)) : 0;
+  const now = new Date().toISOString();
+
+  const { data: movData, error: movErr } = await supabase
+    .from("inventory_movements")
+    .insert({
+      business_id: businessId,
+      product_id: parsed.productId,
+      location_id: defaultLoc.id,
+      movement_type: "adjustment",
+      quantity: Math.abs(difference),
+      unit_cost: unitCost > 0 ? unitCost : null,
+      total_cost: totalCost > 0 ? totalCost : null,
+      reference_type: "adjustment",
+      notes: fullNotes,
+      created_by: userId || null,
+      created_at: now,
+    })
+    .select()
+    .single();
+
+  if (movErr || !movData) {
+    console.error("[executeStockAdjustment] Error al insertar movimiento:", movErr);
+    throw new Error(`No se pudo registrar el movimiento de ajuste: ${movErr?.message}`);
+  }
+
+  // 5. Actualizar inventory_stock de manera atómica
+  await upsertInventoryStock(businessId, {
+    productId: parsed.productId,
+    locationId: defaultLoc.id,
+    quantity: newQuantity,
+    minStock,
+    cost: unitCost,
+  });
+
+  // 6. Sincronizar products.metadata.stock_quantity (fuente única de verdad)
+  try {
+    const updatedMeta = {
+      ...meta,
+      stock_quantity: newQuantity,
+      ...(unitCost > 0 ? { cost: unitCost } : {}),
+    };
+    await supabase
+      .from("products")
+      .update({
+        metadata: updatedMeta,
+        updated_at: now,
+      })
+      .eq("id", parsed.productId)
+      .eq("business_id", businessId);
+  } catch (syncErr) {
+    console.warn("[executeStockAdjustment] Error al sincronizar metadata en products:", syncErr);
+  }
+
+  // 7. Notificación si queda en stock bajo
+  if (newQuantity <= minStock && minStock > 0) {
+    await checkAndTriggerLowStockNotification(businessId, parsed.productId, defaultLoc.id);
+  }
+
+  return {
+    movement: mapMovementRow(movData),
+    previousQuantity,
+    newQuantity,
+    difference,
+    reason: parsed.reason,
+    notes: fullNotes,
+  };
+}
+
+/**
+ * Consulta el historial de movimientos exclusivo de un producto específico.
+ */
+export async function getProductMovementHistory(
+  businessId: string,
+  productId: string,
+  limit = 20
+): Promise<InventoryMovementWithDetails[]> {
+  return await getInventoryMovementsHistory(businessId, {
+    productId,
+    limit,
+  });
+}
+
+/**
+ * Actualiza el stock mínimo configurado para un producto o insumo inventariable [TAREA-08].
+ * Permite al negocio definir el umbral de seguridad bajo el cual se emitirán alertas de stock bajo.
+ */
+export async function updateItemMinStock(
+  businessId: string,
+  productId: string,
+  minStock: number,
+  userId?: string | null
+): Promise<{ success: boolean; minStock: number }> {
+  if (minStock < 0) {
+    throw new Error("El stock mínimo no puede ser negativo.");
+  }
+
+  const supabase = await getDbClient();
+
+  // 1. Validar que el producto pertenezca al negocio
+  const { data: prodData, error: prodErr } = await supabase
+    .from("products")
+    .select("id, name, metadata, business_id")
+    .eq("id", productId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (prodErr || !prodData) {
+    throw new Error("El artículo no existe o no pertenece a este comercio.");
+  }
+
+  const defaultLoc = await ensureDefaultLocation(businessId);
+
+  // 2. Actualizar min_stock en inventory_stock
+  const { data: stockRow } = await supabase
+    .from("inventory_stock")
+    .select("quantity, cost")
+    .eq("business_id", businessId)
+    .eq("product_id", productId)
+    .eq("location_id", defaultLoc.id)
+    .maybeSingle();
+
+  const currentQty = stockRow
+    ? Number(stockRow.quantity || 0)
+    : Number((prodData.metadata as any)?.stock_quantity || 0);
+  const currentCost = stockRow
+    ? Number(stockRow.cost || 0)
+    : Number((prodData.metadata as any)?.cost || 0);
+
+  await upsertInventoryStock(businessId, {
+    productId,
+    locationId: defaultLoc.id,
+    quantity: currentQty,
+    minStock,
+    cost: currentCost,
+  });
+
+  // 3. Sincronizar en products.metadata
+  const meta = (prodData.metadata || {}) as Record<string, any>;
+  await supabase
+    .from("products")
+    .update({
+      metadata: {
+        ...meta,
+        min_stock: minStock,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId)
+    .eq("business_id", businessId);
+
+  // 4. Evaluar alerta si el stock actual quedó en o por debajo del nuevo mínimo
+  if (currentQty <= minStock && minStock > 0) {
+    await checkAndTriggerLowStockNotification(businessId, productId, defaultLoc.id);
+  }
+
+  return { success: true, minStock };
+}
+
+
 
 
 

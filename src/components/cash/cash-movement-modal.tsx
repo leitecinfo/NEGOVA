@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { CashRegisterWithSession } from "@/lib/cash/types";
 import { toast } from "sonner";
 import { recordCashMovementAction } from "@/app/workspace/[businessId]/cajas/actions";
@@ -231,7 +232,7 @@ export function CashMovementModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -310,42 +311,41 @@ export function CashMovementModal({
 
             {/* 2. CAJA (*) DESPLEGABLE CON VISUALIZACIÓN DE SALDO EN TIEMPO REAL */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="register-select"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Caja <span className="text-rose-500">*</span>
-              </label>
-
               {registerOptions.length > 1 ? (
-                <select
+                <Select
+                  label="Caja"
+                  required
                   id="register-select"
                   value={selectedRegisterId}
-                  onChange={(e) => setSelectedRegisterId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
+                  onChange={setSelectedRegisterId}
                 >
                   {registerOptions.map((opt) => (
                     <option key={opt.id} value={opt.id}>
                       {opt.name} — {formatCOP(opt.currentCash)} en cajón {opt.isOpen ? "(Turno abierto)" : "(Cerrada)"}
                     </option>
                   ))}
-                </select>
+                </Select>
               ) : (
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-slate-400" />
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {selectedRegister?.name || "Caja Principal"}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Caja <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-xs">
+                    <div className="flex items-center gap-2">
+                      <Landmark className="w-4 h-4 text-slate-400" />
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {selectedRegister?.name || "Caja Principal"}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {selectedRegister?.isOpen ? "Turno abierto" : "Cerrada"}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {selectedRegister?.isOpen ? "Turno abierto" : "Cerrada"}
-                  </span>
                 </div>
               )}
 
               {/* Monitor de saldo en tiempo real */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5 text-xs">
                 <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Wallet className="w-3.5 h-3.5 text-slate-400" />
                   <span>Saldo en cajón en tiempo real:</span>
@@ -365,44 +365,20 @@ export function CashMovementModal({
 
             {/* 3. MONTO (*) MONETARIO */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="cash-movement-amount"
-                className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between"
-              >
-                <span>Monto <span className="text-rose-500">*</span></span>
-                {movementType === "withdrawal" && (
-                  <span className="text-[11px] font-normal text-slate-400 font-mono">
-                    Máx: {formatCOP(currentCashInDrawer)}
-                  </span>
-                )}
-              </label>
-
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                  $
-                </span>
-                <input
-                  id="cash-movement-amount"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={amount}
-                  onChange={handleAmountChange}
-                  className={`w-full pl-8 pr-4 py-2.5 text-base font-black font-mono rounded-xl border bg-slate-50/50 dark:bg-white/5 focus:outline-none transition-colors ${
-                    isWithdrawalExceeding
-                      ? "border-rose-400 text-rose-600 dark:text-rose-400 focus:ring-2 focus:ring-rose-500/30"
-                      : "border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#ED500A]/30"
-                  }`}
-                  autoFocus
-                />
-              </div>
-
-              {isWithdrawalExceeding && (
-                <div className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 pt-0.5">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>El monto a retirar no puede superar el efectivo disponible en cajón.</span>
-                </div>
-              )}
+              <Input
+                label={`Monto ${movementType === "withdrawal" ? `(Máx: ${formatCOP(currentCashInDrawer)})` : ""}`}
+                required
+                id="cash-movement-amount"
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={amount}
+                onChange={handleAmountChange}
+                startAdornment={<span className="text-slate-400 font-bold text-sm">$</span>}
+                className="text-base font-black font-mono"
+                error={isWithdrawalExceeding ? "El monto a retirar no puede superar el efectivo disponible en cajón." : undefined}
+                autoFocus
+              />
 
               {/* Botones Presets Rápidos */}
               <div className="flex items-center gap-1.5 pt-1">
@@ -472,7 +448,7 @@ export function CashMovementModal({
                 placeholder="Detalle adicional, número de soporte, proveedor o nota explicativa..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 resize-none"
+                className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 resize-none"
               />
             </div>
 

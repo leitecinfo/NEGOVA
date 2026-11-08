@@ -86,13 +86,13 @@ export function ModuleLoadingOverlay({
       return;
     }
 
-    // Pequeño retardo de 80ms para no parpadear si la navegación es instantánea
-    const showTimer = setTimeout(() => setVisible(true), 80);
+    // Pequeño retardo de 60ms para no parpadear si la navegación es instantánea (ej: prefetched)
+    const showTimer = setTimeout(() => setVisible(true), 60);
 
-    // Failsafe estricto: un overlay de navegación jamás debe bloquear la interfaz por más de 2000ms
+    // Failsafe de seguridad: si la conexión se congela o cancela, liberar overlay tras 8s
     const maxSafetyTimer = setTimeout(() => {
       setVisible(false);
-    }, 2000);
+    }, 8000);
 
     const started = Date.now();
     const tick = setInterval(() => setElapsed(Date.now() - started), 300);
@@ -112,10 +112,12 @@ export function ModuleLoadingOverlay({
   const subtitle = isSlow ? "La conexión está lenta, seguimos cargando..." : `${LOADING_TIPS[tipIndex]}...`;
 
   return (
-    <NegovaLogoLoader
-      moduleName={label}
-      subtitle={subtitle}
-      isFullPage={true}
-    />
+    <div className="absolute inset-0 z-50 animate-in fade-in duration-150">
+      <NegovaLogoLoader
+        moduleName={label}
+        subtitle={subtitle}
+        isFullPage={false}
+      />
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Building2, Plus, Loader2, CheckCircle2, Globe, Mail, Store, Utensils, ShoppingBag, Briefcase } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 
 interface AdminCreateTenantModalProps {
   isOpen: boolean;
@@ -80,7 +81,7 @@ export function AdminCreateTenantModal({ isOpen, onClose, onTenantCreated }: Adm
       >
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
           onClick={() => !isSubmitting && onClose()}
         />
 
@@ -121,86 +122,60 @@ export function AdminCreateTenantModal({ isOpen, onClose, onTenantCreated }: Adm
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 text-xs font-body">
             {/* Nombre del Negocio */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
-                Nombre Comercial del Negocio *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Ej. Restaurante Sabor Criollo"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-              />
-            </div>
+            <Input
+              label="Nombre Comercial del Negocio"
+              required
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Ej. Restaurante Sabor Criollo"
+              leftIcon={<Store className="w-4 h-4" />}
+            />
 
             {/* Subdominio / Slug */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-slate-400" />
-                Subdominio en Plataforma
-              </label>
-              <div className="flex items-center rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] px-3.5 py-2">
-                <span className="text-slate-400 font-mono text-[11px]">negova.app/</span>
-                <input
-                  type="text"
-                  required
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="sabor-criollo"
-                  className="w-full bg-transparent text-slate-900 dark:text-white font-mono text-xs focus:outline-hidden font-semibold pl-1"
-                />
-              </div>
-            </div>
+            <Input
+              label="Subdominio en Plataforma"
+              required
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="sabor-criollo"
+              leftIcon={<Globe className="w-4 h-4" />}
+              helperText="URL: negova.app/[slug]"
+            />
 
             {/* Tipo de Negocio y Plan */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Categoría de Comercio
-                </label>
-                <select
-                  value={businessType}
-                  onChange={(e) => setBusinessType(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-                >
-                  <option value="restaurant">Restaurante de Comida Rápida</option>
-                </select>
-              </div>
+              <Select
+                label="Categoría de Comercio"
+                value={businessType}
+                onChange={setBusinessType}
+                options={[
+                  { value: "restaurant", label: "Restaurante de Comida Rápida" },
+                ]}
+              />
 
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Plan de Suscripción Inicial
-                </label>
-                <select
-                  value={plan}
-                  onChange={(e) => setPlan(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-                >
-                  <option value="crece">Plan Crece ($59.900 COP/mes)</option>
-                  <option value="inicio">Plan Inicio ($29.900 COP/mes)</option>
-                  <option value="negocio">Plan Negocio ($99.900 COP/mes)</option>
-                  <option value="trial">Prueba Gratuita (30 días)</option>
-                </select>
-              </div>
+              <Select
+                label="Plan de Suscripción Inicial"
+                value={plan}
+                onChange={setPlan}
+                options={[
+                  { value: "crece", label: "Plan Crece ($59.900 COP/mes)" },
+                  { value: "inicio", label: "Plan Inicio ($29.900 COP/mes)" },
+                  { value: "negocio", label: "Plan Negocio ($99.900 COP/mes)" },
+                  { value: "trial", label: "Prueba Gratuita (30 días)" },
+                ]}
+              />
             </div>
 
             {/* Email del Administrador Principal */}
-            <div className="space-y-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-slate-400" />
-                Correo Electrónico del Propietario
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="gerencia@negocio.co"
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-              />
-            </div>
+            <Input
+              label="Correo Electrónico del Propietario"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="gerencia@negocio.co"
+              leftIcon={<Mail className="w-4 h-4" />}
+            />
 
             {/* Botones de Acción */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-white/[0.08]">

@@ -3,6 +3,8 @@ import {
   createSpoilageRecord,
   getSpoilageRecords,
   getSpoilageKPIs,
+  updateSpoilageRecord,
+  cancelSpoilageRecord,
 } from "../../src/lib/spoilage/spoilage-service";
 import { CreateSpoilageInput, SpoilageCause, SpoilageItemType } from "../../src/lib/spoilage/types";
 
@@ -119,6 +121,30 @@ const mockSupabaseClient = {
             },
           }),
         }),
+        update: (data: any) => {
+          let targetId: string | null = null;
+          const updChain: any = {
+            eq: (col: string, val: any) => {
+              if (col === "id") targetId = val;
+              inMemorySpoilageRecords = inMemorySpoilageRecords.map((r) => {
+                if (r[col] === val) {
+                  return { ...r, ...data };
+                }
+                return r;
+              });
+              return updChain;
+            },
+            select: () => ({
+              single: async () => {
+                const updated = inMemorySpoilageRecords.find((r) => r.id === targetId);
+                return { data: updated || null, error: null };
+              },
+            }),
+            then: (resolve: any, reject?: any) =>
+              Promise.resolve({ error: null }).then(resolve, reject),
+          };
+          return updChain;
+        },
         select: (cols: string = "*") => {
           let list = [...inMemorySpoilageRecords];
           const chain: any = {
@@ -158,6 +184,14 @@ const mockSupabaseClient = {
               list = list.slice(0, n);
               return chain;
             },
+            single: async () => ({
+              data: list[0] || null,
+              error: null,
+            }),
+            maybeSingle: async () => ({
+              data: list[0] || null,
+              error: null,
+            }),
             then: (resolve: any, reject?: any) =>
               Promise.resolve({ data: list, error: null }).then(resolve, reject),
           };
@@ -176,6 +210,9 @@ const mockSupabaseClient = {
               return prodChain;
             },
             single: async () => {
+              return { data: list[0] || null, error: null };
+            },
+            maybeSingle: async () => {
               return { data: list[0] || null, error: null };
             },
             then: (resolve: any, reject?: any) =>
@@ -209,6 +246,50 @@ const mockSupabaseClient = {
       };
     }
 
+    if (table === "inventory_movements") {
+      return {
+        insert: (data: any) => {
+          inMemoryMovements.push(data);
+          return Promise.resolve({ data, error: null });
+        },
+        update: (data: any) => {
+          const updChain: any = {
+            eq: (col: string, val: any) => {
+              inMemoryMovements = inMemoryMovements.map((m) => {
+                if (m[col] === val) {
+                  return { ...m, ...data };
+                }
+                return m;
+              });
+              return updChain;
+            },
+            then: (resolve: any, reject?: any) =>
+              Promise.resolve({ error: null }).then(resolve, reject),
+          };
+          return updChain;
+        },
+      };
+    }
+
+    if (table === "users") {
+      return {
+        select: (cols: string = "*") => ({
+          in: (col: string, vals: any[]) => ({
+            then: (resolve: any, reject?: any) =>
+              Promise.resolve({
+                data: vals.map((id) => ({
+                  id,
+                  name: `Usuario ${id.substring(0, 4)}`,
+                  full_name: `Nombre Usuario ${id.substring(0, 4)}`,
+                  email: `user_${id.substring(0, 4)}@negova.com`,
+                })),
+                error: null,
+              }).then(resolve, reject),
+          }),
+        }),
+      };
+    }
+
     return {};
   },
 };
@@ -229,6 +310,16 @@ describe("[CAT-007] Spoilage Service (Mermas de Productos e Ingredientes)", () =
         cost: 2.5,
         updated_at: new Date().toISOString(),
       },
+      {
+        id: "stock-ing",
+        business_id: TEST_BUSINESS_ID,
+        product_id: "11111111-2222-3333-4444-555555555555",
+        location_id: `loc-def-${TEST_BUSINESS_ID}`,
+        quantity: 10,
+        min_stock: 2,
+        cost: 4000,
+        updated_at: new Date().toISOString(),
+      },
     ];
     inMemoryProducts = [
       {
@@ -239,6 +330,18 @@ describe("[CAT-007] Spoilage Service (Mermas de Productos e Ingredientes)", () =
         metadata: {
           stock_quantity: 50,
           cost: 2.5,
+          track_stock: true,
+        },
+      },
+      {
+        id: "11111111-2222-3333-4444-555555555555",
+        business_id: TEST_BUSINESS_ID,
+        name: "Tomates Frescos (Kilos)",
+        price: 0,
+        metadata: {
+          product_type: "ingredient",
+          stock_quantity: 10,
+          cost: 4000,
           track_stock: true,
         },
       },
@@ -303,8 +406,8 @@ describe("[CAT-007] Spoilage Service (Mermas de Productos e Ingredientes)", () =
     expect(mov.quantity).toBe(2);
     expect(mov.total_cost).toBe(5.0);
     expect(mov.reference_id).toBe(record.id);
-    expect(mov.reference_type).toBe("spoilage");
-    expect(mov.notes).toContain("Dañado / Averiado");
+    expect(mov.reference_type).toBe("adjustment");
+    expect(mov.notes).toContain("Merma");
     expect(mov.created_by).toBe("user-tester-2");
   });
 
@@ -489,5 +592,206 @@ describe("[CAT-007] Spoilage Service (Mermas de Productos e Ingredientes)", () =
     // El negocio A nunca ve los registros del negocio B
     const allBizA = await getSpoilageRecords(TEST_BUSINESS_ID);
     expect(allBizA.some((r) => r.itemName === "Vino Tinto")).toBe(false);
+  });
+
+  // ----------------------------------------------------------------------------
+  // 7. Edición de Mermas (Cálculo de Diferencia Neta y Sincronización)
+  // ----------------------------------------------------------------------------
+  it("debe editar una merma existente ajustando el stock por la diferencia neta sin doble descuento", async () => {
+    // 1. Crear una merma inicial de 5 unidades (Stock inicial = 50 -> queda en 45)
+    const initialRecord = await createSpoilageRecord(
+      TEST_BUSINESS_ID,
+      {
+        itemType: "product",
+        itemId: TEST_PRODUCT_ID,
+        itemName: "Coca-Cola 400ml",
+        cause: "expired",
+        quantity: 5,
+        unitCost: 2.5,
+        notes: "Lote caducado",
+        idempotencyKey: `idemp-edit-${Date.now()}-${Math.random()}`,
+      },
+      "user-editor-1"
+    );
+
+    const stockAfterCreate = inMemoryStock.find(
+      (s) => s.business_id === TEST_BUSINESS_ID && s.product_id === TEST_PRODUCT_ID
+    );
+    expect(stockAfterCreate?.quantity).toBe(45);
+
+    // 2. Modificar la merma de 5 a 8 unidades (Diferencia neta = +3 a restar de stock)
+    const updated = await updateSpoilageRecord(
+      TEST_BUSINESS_ID,
+      {
+        id: initialRecord.id,
+        itemType: "product",
+        itemId: TEST_PRODUCT_ID,
+        itemName: "Coca-Cola 400ml",
+        cause: "expired",
+        quantity: 8,
+        unitCost: 2.5,
+        notes: "Lote caducado - conteo revisado",
+      },
+      "user-editor-1"
+    );
+
+    expect(updated.quantity).toBe(8);
+    expect(updated.totalCost).toBe(20); // 8 * 2.5
+
+    // Stock resultante: 45 - 3 = 42
+    const stockAfterIncrease = inMemoryStock.find(
+      (s) => s.business_id === TEST_BUSINESS_ID && s.product_id === TEST_PRODUCT_ID
+    );
+    expect(stockAfterIncrease?.quantity).toBe(42);
+
+    // 3. Modificar la merma reduciendo de 8 a 3 unidades (Diferencia neta = -5 a devolver al stock)
+    const reduced = await updateSpoilageRecord(
+      TEST_BUSINESS_ID,
+      {
+        id: initialRecord.id,
+        itemType: "product",
+        itemId: TEST_PRODUCT_ID,
+        itemName: "Coca-Cola 400ml",
+        cause: "damaged",
+        quantity: 3,
+        unitCost: 2.5,
+        notes: "Corrección: solo 3 estaban dañadas",
+      },
+      "user-editor-1"
+    );
+
+    expect(reduced.quantity).toBe(3);
+    // Stock resultante: 42 + 5 = 47
+    const stockAfterDecrease = inMemoryStock.find(
+      (s) => s.business_id === TEST_BUSINESS_ID && s.product_id === TEST_PRODUCT_ID
+    );
+    expect(stockAfterDecrease?.quantity).toBe(47);
+  });
+
+  // ----------------------------------------------------------------------------
+  // 8. Anulación de Mermas (Reversión de Stock y Trazabilidad)
+  // ----------------------------------------------------------------------------
+  it("debe anular una merma revirtiendo las existencias y evitando doble anulación", async () => {
+    // 1. Crear merma de 10 unidades (Stock inicial = 50 -> queda en 40)
+    const record = await createSpoilageRecord(
+      TEST_BUSINESS_ID,
+      {
+        itemType: "product",
+        itemId: TEST_PRODUCT_ID,
+        itemName: "Coca-Cola 400ml",
+        cause: "damaged",
+        quantity: 10,
+        unitCost: 2.5,
+        notes: "Caja rota",
+        idempotencyKey: `idemp-cancel-${Date.now()}-${Math.random()}`,
+      },
+      "user-admin"
+    );
+
+    expect(
+      inMemoryStock.find((s) => s.business_id === TEST_BUSINESS_ID && s.product_id === TEST_PRODUCT_ID)?.quantity
+    ).toBe(40);
+
+    // 2. Anular la merma por error de digitación
+    const cancelled = await cancelSpoilageRecord(
+      TEST_BUSINESS_ID,
+      {
+        id: record.id,
+        reason: "Se registró por error en lugar de rotación de lote",
+      },
+      "user-supervisor"
+    );
+
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.cancelledBy).toBe("user-supervisor");
+    expect(cancelled.cancellationReason).toContain("error en lugar de rotación");
+
+    // Stock debe regresar a 50
+    expect(
+      inMemoryStock.find((s) => s.business_id === TEST_BUSINESS_ID && s.product_id === TEST_PRODUCT_ID)?.quantity
+    ).toBe(50);
+
+    // Kardex debe tener un movimiento compensatorio de tipo adjustment
+    const cancelMovement = inMemoryMovements.find(
+      (m) => m.reference_id === record.id && m.movement_type === "adjustment"
+    );
+    expect(cancelMovement).toBeDefined();
+    expect(cancelMovement?.quantity).toBe(10);
+
+    // 3. Intentar anularla por segunda vez debe fallar
+    await expect(
+      cancelSpoilageRecord(
+        TEST_BUSINESS_ID,
+        {
+          id: record.id,
+          reason: "Intento de segunda anulación",
+        },
+        "user-supervisor"
+      )
+    ).rejects.toThrow(/ya ha sido anulada/i);
+
+    // Intentar editar una merma anulada debe fallar
+    await expect(
+      updateSpoilageRecord(
+        TEST_BUSINESS_ID,
+        {
+          id: record.id,
+          itemType: "product",
+          itemId: TEST_PRODUCT_ID,
+          itemName: "Coca-Cola 400ml",
+          cause: "damaged",
+          quantity: 5,
+          unitCost: 2.5,
+        },
+        "user-supervisor"
+      )
+    ).rejects.toThrow(/No es posible editar una merma que ya ha sido anulada/i);
+  });
+
+  // ----------------------------------------------------------------------------
+  // 9. Exclusión de Mermas Anuladas en KPIs Financieros
+  // ----------------------------------------------------------------------------
+  it("excluye mermas anuladas del cálculo de pérdidas financieras operativas en KPIs", async () => {
+    const todayISO = new Date().toISOString();
+    inMemorySpoilageRecords = [
+      {
+        id: "sp-active",
+        business_id: TEST_BUSINESS_ID,
+        item_type: "product",
+        cause: "expired",
+        item_name: "Producto Vigente",
+        quantity: 2,
+        unit_cost: 10,
+        total_cost: 20,
+        status: "active",
+        date: todayISO,
+        created_at: todayISO,
+      },
+      {
+        id: "sp-cancelled",
+        business_id: TEST_BUSINESS_ID,
+        item_type: "product",
+        cause: "damaged",
+        item_name: "Producto Cancelado",
+        quantity: 5,
+        unit_cost: 10,
+        total_cost: 50,
+        status: "cancelled",
+        date: todayISO,
+        created_at: todayISO,
+      },
+    ];
+
+    const kpis = await getSpoilageKPIs(TEST_BUSINESS_ID);
+
+    // Total de registros activos: 1
+    expect(kpis.totalRecords).toBe(1);
+    // Costo total operativo debe ser solo de las vigentes (20), NO 70
+    expect(kpis.totalCost).toBe(20);
+    // Cantidad total operativa: solo 2
+    expect(kpis.totalQuantity).toBe(2);
+    // Estadísticas de anuladas separadas
+    expect(kpis.cancelledRecordsCount).toBe(1);
+    expect(kpis.cancelledCost).toBe(50);
   });
 });

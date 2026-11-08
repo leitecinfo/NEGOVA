@@ -35,6 +35,8 @@ import {
   getKdsAlertLevel,
 } from "@/lib/restaurant/types";
 import { getKdsOpenTicketsAction } from "./actions";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface OpenTicketsPanelProps {
   businessId: string;
@@ -302,61 +304,51 @@ export function OpenTicketsPanel({
         {/* BARRA DE FILTROS Y BÚSQUEDA */}
         <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* INPUT DE BÚSQUEDA */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
+          <div className="flex-1 max-w-md">
+            <SearchInput
+              inputSize="sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery("")}
               placeholder="Buscar por # ticket, mesa, cliente, cajero o plato..."
-              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] shadow-2xs transition-all"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs font-bold px-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            )}
           </div>
 
           {/* FILTROS RÁPIDOS */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* CANAL */}
-            <select
+            <Select
+              selectSize="sm"
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] shadow-2xs"
             >
               <option value="all">Todos los canales</option>
               <option value="in_person">POS / Mostrador</option>
               <option value="digital_menu">Menú QR</option>
               <option value="whatsapp">Domicilio / WhatsApp</option>
-            </select>
+            </Select>
 
             {/* SERVICIO */}
-            <select
+            <Select
+              selectSize="sm"
               value={serviceFilter}
               onChange={(e) => setServiceFilter(e.target.value)}
-              className="bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] shadow-2xs"
             >
               <option value="all">Todos los servicios</option>
               <option value="dine_in">Mesa (Salón)</option>
               <option value="takeout">Para Llevar</option>
               <option value="delivery">Domicilio</option>
-            </select>
+            </Select>
 
             {/* ORDEN */}
-            <select
+            <Select
+              selectSize="sm"
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as "oldest" | "newest")}
-              className="bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A] shadow-2xs"
             >
               <option value="oldest">Más antiguos primero (FIFO)</option>
               <option value="newest">Más recientes primero</option>
-            </select>
+            </Select>
           </div>
         </div>
       </div>

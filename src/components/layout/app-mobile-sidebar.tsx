@@ -28,7 +28,15 @@ export function AppMobileSidebar({
 }: AppMobileSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
   const searchParams = useSearchParams();
-  const { startNavigation } = useNavigationProgress();
+  const { isNavigating, navigatingHref, startNavigation } = useNavigationProgress();
+
+  const checkActive = (targetHref: string, exactMatch?: boolean) => {
+    const isCurrentActive = isRouteActive(targetHref, pathname, searchParams, exactMatch);
+    const isPendingTarget = Boolean(
+      isNavigating && navigatingHref && isRouteActive(targetHref, navigatingHref, undefined, exactMatch)
+    );
+    return isPendingTarget || (isCurrentActive && !isNavigating);
+  };
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     operacion: true,
@@ -44,15 +52,16 @@ export function AppMobileSidebar({
 
   // Asegurar que la sección que contiene la ruta activa esté abierta
   useEffect(() => {
+    const targetPath = isNavigating && navigatingHref ? navigatingHref : pathname;
     navSections.forEach((section) => {
       const hasActive = section.items.some((item) =>
-        isRouteActive(item.href, pathname, searchParams, item.exactMatch)
+        isRouteActive(item.href, targetPath, isNavigating ? undefined : searchParams, item.exactMatch)
       );
       if (hasActive) {
         setOpenSections((prev) => ({ ...prev, [section.id]: true }));
       }
     });
-  }, [pathname, searchParams, navSections]);
+  }, [pathname, searchParams, navSections, isNavigating, navigatingHref]);
 
   // Prevenir scroll de fondo mientras esté abierto el drawer
   useEffect(() => {
@@ -95,7 +104,7 @@ export function AppMobileSidebar({
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
       />
 
@@ -201,12 +210,13 @@ export function AppMobileSidebar({
                   <div className="space-y-1 animate-in fade-in-50 duration-150">
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
-                      const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
+                      const isActive = checkActive(item.href, item.exactMatch);
 
                     return (
                       <div key={item.id} className="space-y-1">
                         <Link
                           href={item.href}
+                          prefetch={true}
                           onClick={() => {
                             onClose();
                             if (!isActive) {
@@ -241,11 +251,12 @@ export function AppMobileSidebar({
                           <div className="ml-7 space-y-1 border-l border-slate-200 dark:border-white/[0.08] pl-2.5 pt-1">
                             {item.subItems.map((subItem) => {
                               const SubIcon = subItem.icon;
-                              const isSubActive = isRouteActive(subItem.href, pathname, searchParams);
+                              const isSubActive = checkActive(subItem.href);
                               return (
                                 <Link
                                   key={subItem.id}
                                   href={subItem.href}
+                                  prefetch={true}
                                   onClick={() => {
                                     onClose();
                                     if (!isSubActive) {

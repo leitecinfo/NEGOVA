@@ -1432,7 +1432,7 @@ export function OrdersListClient({
               />
 
               {/* Filtro Fecha Desde */}
-              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5" />
                 <span className="text-[11px] text-slate-400 font-medium mr-1 shrink-0 hidden sm:inline">Desde:</span>
                 <input
@@ -1448,7 +1448,7 @@ export function OrdersListClient({
               </div>
 
               {/* Filtro Fecha Hasta */}
-              <div className="relative flex items-center h-10 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.03] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
+              <div className="relative flex items-center h-10 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] px-2.5 sm:px-3 focus-within:ring-2 focus-within:ring-[#ED500A]/30 focus-within:border-[#ED500A] transition-all w-full [color-scheme:light] dark:[color-scheme:dark]">
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5" />
                 <span className="text-[11px] text-slate-400 font-medium mr-1 shrink-0 hidden sm:inline">Hasta:</span>
                 <input
@@ -1920,7 +1920,7 @@ export function OrdersListClient({
         {/* 7. MODAL ACCESIBLE Y TÁCTIL PARA MOVER PEDIDO ENTRE COLUMNAS */}
         {moveModal.isOpen && moveModal.order && (
           <ModalPortal>
-            <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
               <div
                 role="dialog"
                 aria-modal="true"

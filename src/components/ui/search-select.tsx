@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Search, ChevronDown, Check, X, Loader2 } from "lucide-react";
+
+export type SearchSelectSize = "sm" | "md" | "lg";
 
 export interface SearchSelectOption {
   value: string;
@@ -27,7 +30,14 @@ export interface SearchSelectProps {
   clearable?: boolean;
   containerClassName?: string;
   className?: string;
+  selectSize?: SearchSelectSize;
 }
+
+const sizeClasses: Record<SearchSelectSize, string> = {
+  sm: "h-8 text-[11px] rounded-lg",
+  md: "h-10 text-xs rounded-xl",
+  lg: "h-12 text-sm rounded-xl",
+};
 
 export function SearchSelect({
   label,
@@ -45,11 +55,24 @@ export function SearchSelect({
   clearable = true,
   containerClassName = "",
   className = "",
+  selectSize = "md",
 }: SearchSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const selectedOption = useMemo(() => {
     return options.find((opt) => opt.value === value) || null;
@@ -65,9 +88,61 @@ export function SearchSelect({
     );
   }, [options, search]);
 
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const popoverHeight = 280;
+    const minWidth = Math.max(rect.width, 240);
+
+    // 1. Alineación horizontal
+    let left = rect.left;
+    if (left + minWidth > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - minWidth - 12);
+    }
+
+    // 2. Alineación vertical (detectar si cabe abajo o abrir arriba)
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    let top = rect.bottom + 6;
+
+    if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+      top = Math.max(12, rect.top - popoverHeight - 6);
+    }
+
+    setCoords({
+      top,
+      left,
+      width: minWidth,
+    });
+  }, []);
+
+  // Actualizar coordenadas dinámicas al abrir, redimensionar o hacer scroll
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+
+    const handleScrollOrResize = () => {
+      updatePosition();
+    };
+
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [isOpen, updatePosition]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
@@ -107,12 +182,14 @@ export function SearchSelect({
         type="button"
         disabled={disabled || isLoading}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full h-10 px-3.5 rounded-xl border bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-left flex items-center justify-between transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+        className={`w-full px-3.5 border bg-slate-50/70 dark:bg-[#0B0D14] font-body text-left flex items-center justify-between transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+          sizeClasses[selectSize]
+        } ${
           error
             ? "border-red-500 focus:ring-red-500/30 focus:border-red-500"
             : isOpen
             ? "border-[#ED500A] ring-2 ring-[#ED500A]/30"
-            : "border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15]"
+            : "border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
         } ${className}`}
       >
         <div className="flex items-center gap-2 truncate pr-2">
@@ -142,27 +219,37 @@ export function SearchSelect({
             </span>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-slate-400 transition-transform ${
+            className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${
               isOpen ? "rotate-180" : ""
             }`}
           />
         </div>
       </button>
 
-      {/* Dropdown Popover */}
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+      {/* Dropdown Popover renderizado en Portal para evitar overflow clipping y problemas de z-index */}
+      {isOpen && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: "fixed",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+          className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+        >
           {/* Search Field */}
           <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.06] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#0B0D14] border border-transparent dark:border-white/10 text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:border-[#ED500A]"
               />
             </div>
           </div>
@@ -182,31 +269,33 @@ export function SearchSelect({
                     type="button"
                     disabled={opt.disabled}
                     onClick={() => handleSelect(opt.value)}
-                    className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-left transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                       isSelected
                         ? "bg-[#ED500A]/10 text-[#ED500A] font-semibold"
-                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
-                    } ${opt.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 truncate">
+                    <div className="flex items-center gap-2 truncate pr-2">
                       {opt.icon && <span className="shrink-0">{opt.icon}</span>}
-                      <div className="truncate">
-                        <p className="font-semibold truncate">{opt.label}</p>
+                      <div>
+                        <p className="truncate font-body">{opt.label}</p>
                         {opt.description && (
-                          <p className="text-[11px] text-slate-400 font-mono truncate">
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-body">
                             {opt.description}
                           </p>
                         )}
                       </div>
                     </div>
-
-                    {isSelected && <Check className="w-4 h-4 text-[#ED500A] shrink-0 ml-2" />}
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-[#ED500A] shrink-0" />
+                    )}
                   </button>
                 );
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {error ? (
@@ -220,5 +309,5 @@ export function SearchSelect({
 
 // Aliases para retrocompatibilidad total
 export const AdminSearchSelect = SearchSelect;
-export type AdminSearchSelectOption = SearchSelectOption;
 export type AdminSearchSelectProps = SearchSelectProps;
+export type AdminSearchSelectOption = SearchSelectOption;

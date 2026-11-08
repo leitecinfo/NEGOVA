@@ -738,7 +738,7 @@ export function WorkspaceUsuariosClient({
       {/* MODAL DE CONTRASEÑA TEMPORAL GENERADA */}
       {tempPasswordModal.isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 space-y-4">
               <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400">
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">

@@ -25,7 +25,7 @@ export function DocumentPreview({ document, onClose }: DocumentPreviewProps) {
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 m-0">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 m-0">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">

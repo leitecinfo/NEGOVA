@@ -1,5 +1,6 @@
 "use client";
 
+import { Tabs } from "@/components/ui/tabs";
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -36,6 +37,9 @@ import {
   KpiCard,
   KpiGrid,
   EmptyState,
+  Select,
+  Input,
+  SearchInput,
 } from "@/components/ui";
 import { ReportNavTabs } from "@/components/reports/report-nav-tabs";
 import {
@@ -337,7 +341,7 @@ export function RecipeReportClient({
           {/* Categoría */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-500">Categoría de Producto</label>
-            <select
+            <Select
               value={filters.categoryId || "all"}
               onChange={(e) => handleFilterChange("categoryId", e.target.value)}
               className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -348,13 +352,13 @@ export function RecipeReportClient({
                   {cat.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Filtro de Margen */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-500">Filtro de Margen Bruto</label>
-            <select
+            <Select
               value={filters.marginFilter || "all"}
               onChange={(e) => handleFilterChange("marginFilter", e.target.value)}
               className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
@@ -363,7 +367,7 @@ export function RecipeReportClient({
               <option value="low_margin">Alerta: Margen &lt; 30%</option>
               <option value="negative_margin">Crítico: Margen Negativo (&lt; 0%)</option>
               <option value="healthy_margin">Saludable: Margen &ge; 30%</option>
-            </select>
+            </Select>
           </div>
 
           {/* Buscador de Texto */}
@@ -480,50 +484,25 @@ export function RecipeReportClient({
       </div>
 
       {/* 4. Selector de Pestañas de la Vista */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6">
-        <button
-          type="button"
-          onClick={() => setActiveTab("costos")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 ${
-            activeTab === "costos"
-              ? "text-[#ED500A]"
-              : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <UtensilsCrossed className="w-4 h-4" />
-          <span>Costos por Producto (Escandallos)</span>
-          <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal">
-            {filteredProductCosts.length}
-          </span>
-          {activeTab === "costos" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ED500A]" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("ingredientes")}
-          className={`pb-3 text-sm font-semibold transition-all relative flex items-center gap-2 ${
-            activeTab === "ingredientes"
-              ? "text-[#ED500A]"
-              : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Consumo de Ingredientes</span>
-          <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-normal">
-            {filteredIngredientConsumptions.length}
-          </span>
-          {highRiskIngredients.length > 0 && (
-            <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-              {highRiskIngredients.length} alertas
-            </span>
-          )}
-          {activeTab === "ingredientes" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ED500A]" />
-          )}
-        </button>
-      </div>
+      <Tabs<RecipeViewTab>
+        variant="underline"
+        tabs={[
+          { id: "costos", label: "Costos por Producto (Escandallos)", icon: <UtensilsCrossed className="w-4 h-4" />, count: filteredProductCosts.length },
+          {
+            id: "ingredientes",
+            label: "Consumo de Ingredientes",
+            icon: <Package className="w-4 h-4" />,
+            count: filteredIngredientConsumptions.length,
+            badge: highRiskIngredients.length > 0 ? (
+              <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                {highRiskIngredients.length} alertas
+              </span>
+            ) : null,
+          },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* 5. Contenido de la Vista Seleccionada */}
       {activeTab === "costos" ? (

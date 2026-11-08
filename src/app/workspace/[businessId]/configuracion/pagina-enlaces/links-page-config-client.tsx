@@ -58,6 +58,7 @@ import {
   resetPredefinedLinksAction,
 } from "./actions";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Select } from "@/components/ui/select";
 
 interface LinksPageConfigClientProps {
   initialConfig: BusinessLinksPageConfig;
@@ -570,7 +571,7 @@ export function LinksPageConfigClient({
                       </div>
 
                       <div className="sm:col-span-2">
-                        <select
+                        <Select
                           value={link.icon}
                           onChange={(e) => handleUpdateLink(link.id, { icon: e.target.value as any })}
                           className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-slate-200 text-xs cursor-pointer"
@@ -580,7 +581,7 @@ export function LinksPageConfigClient({
                               {ic.id}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                     </div>
 

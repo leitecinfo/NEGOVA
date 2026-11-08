@@ -19,6 +19,7 @@ import {
   Store,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { getRestaurantOrdersListAction } from '@/app/workspace/[businessId]/pedidos/actions';
 
 export interface OpenTicket {
@@ -168,7 +169,7 @@ export function PosOpenTicketsDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
         className="w-full max-w-md bg-white dark:bg-[#0D0F16] h-full shadow-2xl flex flex-col transform transition-transform ease-out duration-300 border-l border-slate-200 dark:border-white/[0.08]"
         role="dialog"
@@ -237,29 +238,29 @@ export function PosOpenTicketsDrawer({
         <div className="p-3 border-b border-slate-200 dark:border-white/[0.08] grid grid-cols-2 gap-2 text-xs">
           <div>
             <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mb-1">Estado</label>
-            <select
+            <Select
+              selectSize="sm"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-800 dark:text-white"
             >
               <option value="TODOS">Todos los estados</option>
               <option value="PENDING">Pendientes</option>
               <option value="PREPARING">En preparación</option>
               <option value="READY">Listos</option>
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mb-1">Servicio</label>
-            <select
+            <Select
+              selectSize="sm"
               value={filterService}
               onChange={(e) => setFilterService(e.target.value)}
-              className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-800 dark:text-white"
             >
               <option value="TODOS">Todos</option>
               <option value="DINE_IN">Mesa</option>
               <option value="TAKEOUT">Para llevar</option>
               <option value="DELIVERY">Domicilio</option>
-            </select>
+            </Select>
           </div>
           <div className="col-span-2 flex items-center justify-between pt-1">
             <span className="text-[11px] text-slate-500 dark:text-slate-400">Ordenar por:</span>

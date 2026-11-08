@@ -16,10 +16,10 @@ export default async function ProductsPage({
   // Validate session and permission
   const session = await requireWorkspaceSession(businessId, "products.view");
 
-  // Fetch initial data (auto-inicializa categorías con plantilla si el negocio no tiene ninguna)
+  // Fetch initial data (auto-inicializa categorías comerciales si el negocio no tiene ninguna)
   const [products, categories] = await Promise.all([
     getProducts(businessId),
-    getCategories(businessId, session.businessType),
+    getCategories(businessId, session.businessType, "commercial"),
   ]);
 
   const pageTitle = getCatalogModuleLabel(session.commercialActivities, session.businessType);

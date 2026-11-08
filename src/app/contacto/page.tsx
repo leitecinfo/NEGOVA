@@ -24,6 +24,7 @@ import {
   X
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
 
 // Hook de observación de scroll bidireccional
 function useScrollObserver(): [React.RefObject<HTMLDivElement | null>, boolean] {
@@ -59,7 +60,7 @@ function SuccessModal({ isOpen, onClose, userName }: { isOpen: boolean; onClose:
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
         <div 
           className="relative w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 border border-slate-200 shadow-2xl text-center text-[#0B0E14]"
           onClick={(e) => e.stopPropagation()}
@@ -629,30 +630,20 @@ export default function ContactoPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label htmlFor="consulta" className="block text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">
-                    Tipo de consulta
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="consulta"
-                      name="consulta"
-                      value={formData.consulta}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white font-body text-xs text-[#0B0E14] focus:outline-none focus:border-[#ED500A] appearance-none transition-colors cursor-pointer"
-                    >
-                      <option value="Soporte">Soporte y Ayuda</option>
-                      <option value="Ventas">Ventas y Planes</option>
-                      <option value="Informacion">Información sobre NEGOVA</option>
-                      <option value="Alianzas">Alianzas comerciales</option>
-                      <option value="Sugerencias">Sugerencias y comentarios</option>
-                      <option value="Otro">Otro asunto</option>
-                    </select>
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
+                <Select
+                  id="consulta"
+                  name="consulta"
+                  label="Tipo de consulta"
+                  value={formData.consulta}
+                  onChange={handleInputChange}
+                >
+                  <option value="Soporte">Soporte y Ayuda</option>
+                  <option value="Ventas">Ventas y Planes</option>
+                  <option value="Informacion">Información sobre NEGOVA</option>
+                  <option value="Alianzas">Alianzas comerciales</option>
+                  <option value="Sugerencias">Sugerencias y comentarios</option>
+                  <option value="Otro">Otro asunto</option>
+                </Select>
 
                 <div className="space-y-1">
                   <label htmlFor="mensaje" className="block text-[11px] font-mono font-bold text-slate-500 uppercase tracking-wider">

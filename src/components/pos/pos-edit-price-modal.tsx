@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui";
 import { DollarSign, X, Info } from "lucide-react";
 
 interface PosEditPriceModalProps {
@@ -31,7 +32,7 @@ export function PosEditPriceModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -64,27 +65,19 @@ export function PosEditPriceModal({
 
           <form onSubmit={handleApply} className="p-6 space-y-4 text-xs">
             {/* Campo de Precio Unitario */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                Precio Unitario (COP)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400">
-                  $
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  required
-                  value={price || ""}
-                  onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))}
-                  placeholder="0"
-                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                  autoFocus
-                />
-              </div>
-            </div>
+            <Input
+              label="Precio Unitario (COP)"
+              type="number"
+              min="0"
+              step="500"
+              required
+              autoFocus
+              value={price || ""}
+              onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))}
+              placeholder="0"
+              startAdornment={<span className="font-mono font-bold text-slate-400">$</span>}
+              className="font-mono font-bold text-sm"
+            />
 
             {/* Nota informativa inferior */}
             <div className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.06] flex items-start gap-2 text-slate-500 text-[11px]">

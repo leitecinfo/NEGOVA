@@ -54,6 +54,7 @@ import {
   NEGOVA_INSTITUTIONAL_PROFILE,
 } from "@/types/config/platform-config";
 import { updatePlatformConfigSection } from "./actions";
+import { Input, Select, SearchInput, Button, Tabs } from "@/components/ui";
 
 interface ConfiguracionClientProps {
   initialConfig: PlatformFullConfig;
@@ -284,54 +285,41 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* NAVEGACIÓN COMPACTA EN MÓVIL (HORIZONTAL SCROLL BAR) */}
         <div className="lg:hidden col-span-1 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-3 shadow-xs space-y-2.5">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar sección..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
+            placeholder="Buscar sección..."
+            inputSize="sm"
+          />
+
+          <div className="overflow-x-auto no-scrollbar pb-1">
+            <Tabs
+              tabs={filteredTabs.map((t) => {
+                const Icon = t.icon;
+                return {
+                  id: t.id,
+                  label: t.label,
+                  icon: <Icon className="w-3.5 h-3.5" />,
+                };
+              })}
+              activeTab={activeTab}
+              onChange={(id) => handleTabChange(id as any)}
+              size="sm"
             />
-          </div>
-
-          <div className="flex overflow-x-auto no-scrollbar gap-1.5 pb-1">
-            {filteredTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-[#ED500A] text-white shadow-xs"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200/70 dark:bg-white/[0.04] dark:text-slate-300"
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
         {/* PANEL IZQUIERDO: LISTADO DE SUBSECCIONES (DESKTOP) */}
         <div className="hidden lg:block lg:col-span-4 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-4 shadow-xs space-y-3">
           {/* Buscador de ajustes */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar sección o parámetro..."
-              className="w-full pl-10 pr-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-body"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
+            placeholder="Buscar sección o parámetro..."
+            inputSize="sm"
+          />
 
           <div className="space-y-1">
             {filteredTabs.map((tab) => {
@@ -412,18 +400,16 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
               )}
 
               {activeTab !== "general" && activeTab !== "planes-limites" && isSuperAdmin && (
-                <button
+                <Button
                   type="submit"
-                  disabled={isPending}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#d44508] text-white text-xs font-semibold shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer shrink-0"
+                  variant="primary"
+                  size="sm"
+                  isLoading={isPending}
+                  leftIcon={<Save className="w-4 h-4" />}
+                  className="w-full sm:w-auto shrink-0"
                 >
-                  {isPending ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>{isPending ? "Guardando..." : "Guardar Cambios"}</span>
-                </button>
+                  Guardar Cambios
+                </Button>
               )}
             </div>
 
@@ -778,7 +764,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             {securityConfig.adminSession.maxSessionHours} horas
                           </span>
                         </div>
-                        <select
+                        <Select
                           value={securityConfig.adminSession.maxSessionHours}
                           onChange={(e) =>
                             setSecurityConfig({
@@ -789,12 +775,12 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               },
                             })
                           }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
+                          selectSize="sm"
                         >
                           <option value={12}>12 Horas (Jornada Administrativa)</option>
                           <option value={24}>24 Horas (1 Día - Recomendado)</option>
                           <option value={48}>48 Horas (2 Días)</option>
-                        </select>
+                        </Select>
                       </div>
 
                       {/* Toggles de seguridad estricta para staff */}
@@ -901,7 +887,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             {securityConfig.businessSession.maxSessionDays} Días
                           </span>
                         </div>
-                        <select
+                        <Select
                           value={securityConfig.businessSession.maxSessionDays}
                           onChange={(e) =>
                             setSecurityConfig({
@@ -912,12 +898,12 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                               },
                             })
                           }
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white font-mono"
+                          selectSize="sm"
                         >
                           <option value={7}>7 Días (Rotación Semanal)</option>
                           <option value={14}>14 Días (Quincenal)</option>
                           <option value={30}>30 Días (1 Mes - Recomendado para Negocios)</option>
-                        </select>
+                        </Select>
                         <p className="text-[11px] text-slate-400 dark:text-slate-500 font-body">
                           Tiempo total antes de requerir un nuevo inicio de sesión completo.
                         </p>
@@ -1137,7 +1123,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Quién puede emitir invitaciones
                       </label>
-                      <select
+                      <Select
                         value={usersAccessConfig.whoCanInvite}
                         onChange={(e) =>
                           setUsersAccessConfig({
@@ -1145,18 +1131,18 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             whoCanInvite: e.target.value as "super_admin_only" | "super_admin_and_staff",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        selectSize="sm"
                       >
                         <option value="super_admin_only">Solo Super Administrador (Recomendado)</option>
                         <option value="super_admin_and_staff">Super Administrador y Staff Autorizado</option>
-                      </select>
+                      </Select>
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Caducidad del Enlace de Invitación
                       </label>
-                      <select
+                      <Select
                         value={usersAccessConfig.invitationExpiryHours}
                         onChange={(e) =>
                           setUsersAccessConfig({
@@ -1164,13 +1150,13 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             invitationExpiryHours: Number(e.target.value),
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        selectSize="sm"
                       >
                         <option value={24}>24 Horas (Alta Seguridad)</option>
                         <option value={48}>48 Horas (Estándar)</option>
                         <option value={72}>72 Horas (3 Días)</option>
                         <option value={168}>168 Horas (7 Días)</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -1208,7 +1194,7 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Estado Inicial de la Cuenta
                       </label>
-                      <select
+                      <Select
                         value={usersAccessConfig.defaultUserStatus}
                         onChange={(e) =>
                           setUsersAccessConfig({
@@ -1216,18 +1202,18 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             defaultUserStatus: e.target.value as "active" | "pending_verification",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        selectSize="sm"
                       >
                         <option value="active">Activo (Acceso Inmediato)</option>
                         <option value="pending_verification">Pendiente de Verificación</option>
-                      </select>
+                      </Select>
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         Política de Activación
                       </label>
-                      <select
+                      <Select
                         value={usersAccessConfig.accountActivationPolicy}
                         onChange={(e) =>
                           setUsersAccessConfig({
@@ -1235,11 +1221,11 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                             accountActivationPolicy: e.target.value as "immediate" | "manual_approval",
                           })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
+                        selectSize="sm"
                       >
                         <option value="immediate">Activación Inmediata tras verificar email</option>
                         <option value="manual_approval">Aprobación manual requerida por Superadmin</option>
-                      </select>
+                      </Select>
                     </div>
                   </div>
 
@@ -1644,17 +1630,16 @@ export function ConfiguracionClient({ initialConfig, userRole }: ConfiguracionCl
                       Informativo
                     </span>
                   </div>
-                  <select
+                  <Select
                     value={auditConfig.retentionDays}
                     onChange={(e) => setAuditConfig({ ...auditConfig, retentionDays: Number(e.target.value) as any })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] text-xs text-slate-900 dark:text-white font-mono"
                   >
                     <option value={30}>30 Días (Estándar)</option>
                     <option value={60}>60 Días</option>
                     <option value={90}>90 Días (Recomendado)</option>
                     <option value={180}>180 Días (Semestral)</option>
                     <option value={365}>365 Días (1 Año - Cumplimiento)</option>
-                  </select>
+                  </Select>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 font-body">
                     Parámetro institucional registrado en plataforma. Actualmente no se ejecutan eliminaciones automáticas destructivas sobre el registro histórico de auditoría.
                   </p>

@@ -165,7 +165,10 @@ export interface InventoryMovementsListResult {
 
 export interface InventoryKPIs {
   totalProducts: number;
+  totalItems?: number;
+  inStockCount?: number;
   lowStockCount: number;
+  outOfStockCount?: number;
   totalCostValue: number;
   todayMovementsCount: number;
 }
@@ -200,24 +203,63 @@ export interface ProductStockMatrixResult {
 // HISTORIAL DE MOVIMIENTOS Y ALERTAS DE STOCK BAJO [INV-004]
 // ==========================================
 
-export type MovementOrigin = "POS" | "Mesa" | "Domicilio" | "Devolución" | "Otro";
+export type MovementOrigin =
+  | "Compra"
+  | "Merma"
+  | "Ajuste"
+  | "Receta"
+  | "POS"
+  | "Mesa"
+  | "Domicilio"
+  | "Devolución"
+  | "Otro";
 
 export const MOVEMENT_ORIGIN_OPTIONS: { value: MovementOrigin | "all"; label: string }[] = [
   { value: "all", label: "Todos los orígenes" },
-  { value: "POS", label: "POS" },
-  { value: "Mesa", label: "Mesa" },
-  { value: "Domicilio", label: "Domicilio" },
-  { value: "Devolución", label: "Devolución" },
+  { value: "Compra", label: "Recepción de Compra" },
+  { value: "Merma", label: "Merma / Pérdida" },
+  { value: "Ajuste", label: "Ajuste de Inventario" },
+  { value: "Receta", label: "Consumo por Receta" },
+  { value: "POS", label: "Venta en POS / Caja" },
+  { value: "Mesa", label: "Consumo en Mesa" },
+  { value: "Domicilio", label: "Despacho Domicilio" },
+  { value: "Devolución", label: "Devolución / Anulación" },
   { value: "Otro", label: "Otro" },
 ];
 
 /**
+ * Extrae de forma confiable la existencia anterior y resultante a partir de los metadatos o notas del movimiento.
+ */
+export function extractStockSnapshot(notes?: string | null): {
+  previousQuantity: number | null;
+  resultingQuantity: number | null;
+} {
+  if (!notes) return { previousQuantity: null, resultingQuantity: null };
+
+  // Formato estándar: (Anterior: 10, Resultante: 8) o (Anterior: 10, Dif: -2, Resultante: 8)
+  const prevMatch = notes.match(/Anterior:\s*(-?[\d.]+)/i);
+  const resultMatch = notes.match(/Resultante:\s*(-?[\d.]+)/i);
+
+  const prev = prevMatch ? Number(prevMatch[1]) : null;
+  const res = resultMatch ? Number(resultMatch[1]) : null;
+
+  return {
+    previousQuantity: prev !== null && !isNaN(prev) ? prev : null,
+    resultingQuantity: res !== null && !isNaN(res) ? res : null,
+  };
+}
+
+/**
  * Resuelve el canal/origen operativo del movimiento de inventario:
+ * - Compra: Recepción de mercancía por orden de compra
+ * - Merma: Pérdida, desperdicio, daño o descomposición
+ * - Ajuste: Ajuste físico o corrección manual de stock
+ * - Receta: Consumo de insumos/ingredientes por preparación
  * - POS: Ventas en mostrador, para llevar o directas en caja
  * - Mesa: Consumo en salón / pedidos en mesa (dine_in)
  * - Domicilio: Pedidos de delivery / despacho a domicilio
  * - Devolución: Anulaciones de ventas, notas de crédito o reingreso de stock
- * - Otro: Compras, traslados entre bodegas, ajustes físicos, mermas
+ * - Otro: Transferencias u operaciones no catalogadas
  */
 export function resolveMovementOrigin(movement: {
   referenceType?: string | null;
@@ -233,7 +275,34 @@ export function resolveMovementOrigin(movement: {
   const orderType = (movement.orderType || "").toLowerCase();
   const docType = (movement.docType || "").toLowerCase();
 
-  // 1. Devolución (anulación de ventas, notas de crédito, reintegro de existencias)
+  // 1. Merma (pérdida, desperdicio, daño, vencimiento)
+  if (
+    movType === "spoilage" ||
+    refType === "spoilage" ||
+    notes.includes("merma") ||
+    notes.includes("desperdicio") ||
+    notes.includes("descomposic") ||
+    notes.includes("vencid") ||
+    notes.includes("dañad") ||
+    notes.includes("manipulación")
+  ) {
+    return "Merma";
+  }
+
+  // 2. Compra (recepción de mercancía por compra con proveedor)
+  if (
+    refType === "purchase" ||
+    notes.includes("compra") ||
+    notes.includes("proveedor") ||
+    notes.includes("recepción de compra") ||
+    notes.includes("recepcion de compra") ||
+    notes.includes("abastecimiento") ||
+    notes.startsWith("compra ")
+  ) {
+    return "Compra";
+  }
+
+  // 3. Devolución (anulaciones de ventas, notas de crédito, reintegros)
   if (
     docType === "credit_note" ||
     refType === "sale_cancellation" ||
@@ -252,7 +321,31 @@ export function resolveMovementOrigin(movement: {
     return "Devolución";
   }
 
-  // 2. Domicilio (delivery, repartidores, despachos)
+  // 4. Consumo de ingredientes/insumos por receta
+  if (
+    refType === "recipe" ||
+    refType === "production" ||
+    movType === "recipe" ||
+    notes.includes("receta") ||
+    notes.includes("descuento por receta") ||
+    notes.includes("consumo por receta")
+  ) {
+    return "Receta";
+  }
+
+  // 5. Ajuste manual de inventario (conteo físico o corrección)
+  if (
+    movType === "adjustment" ||
+    refType === "adjustment" ||
+    notes.includes("ajuste") ||
+    notes.includes("conteo físico") ||
+    notes.includes("conteo fisico") ||
+    notes.includes("inventario inicial")
+  ) {
+    return "Ajuste";
+  }
+
+  // 6. Domicilio (delivery, repartidores, despachos)
   if (
     orderType === "delivery" ||
     refType === "delivery" ||
@@ -265,7 +358,7 @@ export function resolveMovementOrigin(movement: {
     return "Domicilio";
   }
 
-  // 3. Mesa (dine_in, consumo en salón, comanda de mesa)
+  // 7. Mesa (dine_in, consumo en salón, comanda de mesa)
   if (
     orderType === "dine_in" ||
     notes.includes("mesa") ||
@@ -277,7 +370,7 @@ export function resolveMovementOrigin(movement: {
     return "Mesa";
   }
 
-  // 4. POS (ventas en caja, mostrador, para llevar, recetas de venta directa)
+  // 8. POS (ventas en caja, mostrador, para llevar, ticket directo)
   if (
     orderType === "takeout" ||
     refType === "sale" ||
@@ -288,13 +381,11 @@ export function resolveMovementOrigin(movement: {
     notes.includes("para llevar") ||
     notes.includes("takeout") ||
     notes.includes("ticket") ||
-    notes.includes("receta (pedido") ||
     notes.includes("venta #")
   ) {
     return "POS";
   }
 
-  // 5. Otro (compras, ajustes de inventario, traslados entre bodegas, mermas, stock inicial)
   return "Otro";
 }
 
@@ -323,10 +414,13 @@ export interface InventoryMovementWithDetails {
   productId: string;
   productName: string;
   productSku?: string | null;
+  unit?: string | null;
   locationId: string;
   locationName: string;
   movementType: MovementType;
   quantity: number;
+  previousQuantity?: number | null;
+  resultingQuantity?: number | null;
   unitCost?: number | null;
   totalCost?: number | null;
   referenceId?: string | null;
@@ -343,6 +437,7 @@ export interface LowStockItem {
   productName: string;
   categoryName?: string | null;
   sku?: string | null;
+  unit?: string | null;
   locationId: string;
   locationName: string;
   quantity: number;
@@ -359,6 +454,7 @@ export interface InventoryMovementFilters {
   origin?: MovementOrigin | "all";
   startDate?: string;
   endDate?: string;
+  search?: string;
   limit?: number;
 }
 
@@ -395,6 +491,122 @@ export interface TransferResult {
   destinationLocationName: string;
   movements: InventoryMovement[];
 }
+
+// ==========================================
+// ARTÍCULOS INVENTARIABLES Y AJUSTES MANUALES [TAREA-03]
+// ==========================================
+
+export type InventariableItemType = "product" | "ingredient";
+export type InventariableControlType = "direct" | "recipe";
+
+export interface RecipeIngredientDetail {
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  stockQuantity: number;
+  requiredPerPortion: number;
+  availablePortions: number;
+  isLimiting: boolean;
+}
+
+export interface InventariableItem {
+  id: string;
+  name: string;
+  itemType: InventariableItemType;
+  controlType: InventariableControlType;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  imageUrl?: string | null;
+  unit: string;
+  currentStock: number;
+  minStock: number;
+  cost: number;
+  price: number;
+  totalValue: number;
+  status: "in_stock" | "low_stock" | "out_of_stock" | "pending_recipe";
+  hasVariants: boolean;
+  variants: any[];
+  trackStock: boolean;
+  isAvailable: boolean;
+  updatedAt?: string;
+
+  // Atributos de productos preparados por receta [TAREA-03]
+  recipeId?: string | null;
+  recipeName?: string | null;
+  recipeStatus?: "active" | "inactive" | "none";
+  portionsAvailable?: number | null;
+  exactPortionsAvailable?: number | null;
+  limitingIngredient?: {
+    ingredientId: string;
+    name: string;
+    currentStock: number;
+    requiredPerPortion: number;
+    unit: string;
+    availablePortions: number;
+  } | null;
+  recipeIngredients?: RecipeIngredientDetail[];
+}
+
+export const AdjustmentReasonSchema = z.enum([
+  "physical_count",
+  "initial_inventory",
+  "correction",
+  "return",
+  "internal_use",
+  "sample",
+  "damage",
+  "expiration",
+  "loss",
+  "other",
+]);
+
+export type AdjustmentReason = z.infer<typeof AdjustmentReasonSchema>;
+
+export const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {
+  initial_inventory: "Inventario inicial",
+  correction: "Corrección por error de registro",
+  physical_count: "Diferencia de conteo físico",
+  return: "Devolución a proveedor",
+  internal_use: "Consumo interno",
+  sample: "Uso como muestra",
+  damage: "Daño / Rotura",
+  expiration: "Vencimiento / Caducidad",
+  loss: "Pérdida / Descuadre",
+  other: "Otro motivo",
+};
+
+export const ADJUSTMENT_UI_REASONS: AdjustmentReason[] = [
+  "initial_inventory",
+  "correction",
+  "physical_count",
+  "return",
+  "internal_use",
+  "sample",
+  "other",
+];
+
+export const StockAdjustmentInputSchema = z.object({
+  productId: z.string().uuid("ID de artículo inválido"),
+  targetQuantity: z.coerce.number().min(0, "La cantidad física no puede ser negativa"),
+  reason: AdjustmentReasonSchema,
+  unitCost: z.coerce.number().min(0, "El costo no puede ser negativo").optional(),
+  notes: z.string().trim().max(500, "Las observaciones no pueden superar 500 caracteres").optional(),
+});
+
+export type StockAdjustmentInput = z.infer<typeof StockAdjustmentInputSchema>;
+
+export interface StockAdjustmentResult {
+  movement: InventoryMovement;
+  previousQuantity: number;
+  newQuantity: number;
+  difference: number;
+  reason: AdjustmentReason;
+  notes?: string | null;
+}
+
 
 
 

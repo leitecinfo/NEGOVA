@@ -271,7 +271,7 @@ export function HelpCenterDrawer({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"

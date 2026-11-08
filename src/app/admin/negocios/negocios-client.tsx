@@ -771,7 +771,7 @@ export function NegociosClient({
       {/* 5. MODAL REUTILIZABLE DE EDICIÓN RÁPIDA DE NEGOCIO Y RUBRO */}
       {editModal.isOpen && editModal.business && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}

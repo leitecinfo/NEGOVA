@@ -32,6 +32,10 @@ import { BusinessDocumentConfig } from "@/lib/documents/types";
 import { OperationalDeliveryDriver } from "@/lib/delivery/delivery-service";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
+import { Tabs } from "@/components/ui/tabs";
 import { DeliveryByDriverTab } from "@/components/delivery/delivery-by-driver-tab";
 import { DeliveryIntegrationsTab } from "@/components/delivery/delivery-integrations-tab";
 import { createClient } from "@/lib/supabase/client";
@@ -318,41 +322,15 @@ export function DeliveriesClient({
     >
       <div className="space-y-6">
         {/* PESTAÑAS PRINCIPALES DEL MÓDULO */}
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/[0.08] pb-3">
-          <button
-            type="button"
-            onClick={() => setCurrentMainTab("orders")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              currentMainTab === "orders"
-                ? "bg-[#ED500A] text-white shadow-xs"
-                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
-            }`}
-          >
-            Lista de Pedidos
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentMainTab("by_driver")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              currentMainTab === "by_driver"
-                ? "bg-[#ED500A] text-white shadow-xs"
-                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
-            }`}
-          >
-            Por Repartidor
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentMainTab("integrations")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              currentMainTab === "integrations"
-                ? "bg-[#ED500A] text-white shadow-xs"
-                : "bg-white dark:bg-[#0D0F16] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08] hover:bg-slate-50"
-            }`}
-          >
-            Integraciones (Rappi / Justo)
-          </button>
-        </div>
+        <Tabs<"orders" | "by_driver" | "integrations">
+          tabs={[
+            { id: "orders", label: "Lista de Pedidos" },
+            { id: "by_driver", label: "Por Repartidor" },
+            { id: "integrations", label: "Integraciones (Rappi / Justo)" },
+          ]}
+          activeTab={currentMainTab}
+          onChange={setCurrentMainTab}
+        />
 
         {currentMainTab === "integrations" ? (
           <DeliveryIntegrationsTab businessId={businessId} />
@@ -403,36 +381,25 @@ export function DeliveriesClient({
 
         {/* PESTAÑAS Y BUSCADOR */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] p-3 rounded-2xl border border-slate-200 dark:border-white/[0.08] shadow-xs">
-          <div className="flex items-center gap-1 overflow-x-auto p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
-            {[
-              { id: "all", label: `Todos (${orders.length})` },
-              { id: "pending", label: `Por despachar (${countPending})` },
-              { id: "on_the_way", label: `En camino (${countOnTheWay})` },
-              { id: "delivered", label: `Entregados (${countDelivered})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === tab.id
-                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Tabs<"all" | "pending" | "on_the_way" | "delivered">
+            tabs={[
+              { id: "all", label: "Todos", count: orders.length },
+              { id: "pending", label: "Por despachar", count: countPending },
+              { id: "on_the_way", label: "En camino", count: countOnTheWay },
+              { id: "delivered", label: "Entregados", count: countDelivered },
+            ]}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            size="sm"
+          />
 
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+          <div className="w-64">
+            <SearchInput
+              inputSize="sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery("")}
               placeholder="Buscar dirección, cliente, #"
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
             />
           </div>
         </div>
@@ -645,11 +612,11 @@ export function DeliveriesClient({
                     {/* Selector / Asignación de Domiciliario */}
                     <div className="flex items-center gap-2 min-w-[200px]">
                       <span className="text-xs text-slate-500">Repartidor:</span>
-                      <select
+                      <Select
+                        selectSize="sm"
                         disabled={isPending || isDelivered}
                         value={order.driver_name || ""}
                         onChange={(e) => handleAssignDriver(order.id, e.target.value)}
-                        className="text-xs font-semibold bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl px-2.5 py-1.5 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
                       >
                         <option value="">-- Sin asignar --</option>
                         {drivers
@@ -663,7 +630,7 @@ export function DeliveriesClient({
                           !drivers.some((d) => d.name === order.driver_name) && (
                             <option value={order.driver_name}>{order.driver_name}</option>
                           )}
-                      </select>
+                      </Select>
                     </div>
 
                     {/* Botones de acción del pedido */}
@@ -719,7 +686,7 @@ export function DeliveriesClient({
         {/* MODAL GESTIÓN DE REPARTIDORES OPERATIVOS (SIN CONSUMIR ASIENTOS) */}
         {isDriversModalOpen && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between bg-slate-50 dark:bg-white/[0.02]">
                   <div className="flex items-center gap-2.5">
@@ -751,31 +718,22 @@ export function DeliveriesClient({
                       Registrar Nuevo Domiciliario
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Nombre del repartidor *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={newDriverName}
-                          onChange={(e) => setNewDriverName(e.target.value)}
-                          placeholder="Ej. Carlos Domicilios"
-                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                          Teléfono celular (Opcional)
-                        </label>
-                        <input
-                          type="tel"
-                          value={newDriverPhone}
-                          onChange={(e) => setNewDriverPhone(e.target.value)}
-                          placeholder="Ej. 310 123 4567"
-                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                        />
-                      </div>
+                      <Input
+                        label="Nombre del repartidor *"
+                        required
+                        value={newDriverName}
+                        onChange={(e) => setNewDriverName(e.target.value)}
+                        placeholder="Ej. Carlos Domicilios"
+                        inputSize="sm"
+                      />
+                      <Input
+                        label="Teléfono celular (Opcional)"
+                        type="tel"
+                        value={newDriverPhone}
+                        onChange={(e) => setNewDriverPhone(e.target.value)}
+                        placeholder="Ej. 310 123 4567"
+                        inputSize="sm"
+                      />
                     </div>
 
                     <button
@@ -878,7 +836,7 @@ export function DeliveriesClient({
         {/* MODAL DE CONFIRMACIÓN DE ENTREGA POR EXCEPCIÓN */}
         {exceptionOrder && (
           <ModalPortal>
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 m-0 animate-in fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 m-0 animate-in fade-in">
               <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                 <div className="flex items-center gap-2.5 text-amber-600">
                   <AlertCircle className="w-5 h-5 shrink-0" />

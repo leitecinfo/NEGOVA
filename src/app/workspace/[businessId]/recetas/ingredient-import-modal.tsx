@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useTransition, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui";
 import {
   X,
   FileSpreadsheet,
@@ -303,8 +304,8 @@ export function IngredientImportModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="relative w-full max-w-4xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
             <div className="flex items-center gap-3">
@@ -568,17 +569,18 @@ export function IngredientImportModal({
                   {locations.length > 0 && (
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-muted-foreground font-medium">Sede:</span>
-                      <select
+                      <Select
+                        selectSize="sm"
                         value={locationId}
                         onChange={(e) => setLocationId(e.target.value)}
-                        className="h-7 px-2 rounded-lg border border-border bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-36"
                       >
                         {locations.map((loc) => (
                           <option key={loc.id} value={loc.id}>
                             {loc.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
                 </div>

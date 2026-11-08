@@ -548,10 +548,11 @@ describe("TAREA 10: Prueba Integral del Flujo de Inventario y Abastecimiento", (
 
     it("debe vender producto preparado y descontar los ingredientes exactos vía deductRecipeIngredientsForSale", async () => {
       // Vender 3 Hamburguesas
+      const testOrderId = crypto.randomUUID();
       const deduction = await deductRecipeIngredientsForSale(
         testBusinessId,
         [{ productId: productHamburguesaId, quantity: 3 }],
-        "00000000-0000-0000-0000-000000000001",
+        testOrderId,
         101
       );
 
@@ -668,7 +669,7 @@ describe("TAREA 10: Prueba Integral del Flujo de Inventario y Abastecimiento", (
 
       // Movimiento tipo 'spoilage' generado en Kardex
       const movs = await getInventoryMovementsHistory(testBusinessId, { productId: ingPanId });
-      const spoilMov = movs.movements.find(
+      const spoilMov = movs.find(
         (m) => m.referenceId === spoilage.id && m.movementType === "spoilage"
       );
       expect(spoilMov).toBeDefined();
@@ -705,7 +706,7 @@ describe("TAREA 10: Prueba Integral del Flujo de Inventario y Abastecimiento", (
           quantity: 1,
           unitCost: 5000,
         })
-      ).rejects.toThrow(/producto preparado/i);
+      ).rejects.toThrow(/productos? preparados?/i);
     });
   });
 

@@ -16,6 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { toast } from "sonner";
 import {
   ExpenseItem,
@@ -205,7 +206,7 @@ export function ExpenseFormModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
         <div
           className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
@@ -296,44 +297,43 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Categoría *
                 </label>
-                <select
+                <Select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
+                  selectSize="sm"
                 >
                   {expenseType === "production"
                     ? PRODUCTION_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat} className="dark:bg-[#0D0F16]">
+                        <option key={cat} value={cat}>
                           {cat}
                         </option>
                       ))
                     : OPERATIONAL_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat} className="dark:bg-[#0D0F16]">
+                        <option key={cat} value={cat}>
                           {cat}
                         </option>
                       ))}
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Monto Total ($ COP) *
                 </label>
-                <div className="relative">
-                  <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="80000"
-                    value={amount}
-                    onChange={(e) => {
-                      setAmount(e.target.value);
-                      handleAmountOrQuantityChange(e.target.value, quantity);
-                    }}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono font-bold"
-                  />
-                </div>
+                <Input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="80000"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    handleAmountOrQuantityChange(e.target.value, quantity);
+                  }}
+                  startAdornment={<DollarSign className="w-4 h-4 text-slate-400" />}
+                  inputSize="sm"
+                  className="font-mono font-bold"
+                />
               </div>
             </div>
 
@@ -341,13 +341,13 @@ export function ExpenseFormModal({
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Concepto / Nombre del Gasto *
               </label>
-              <input
+              <Input
                 type="text"
                 required
                 placeholder={expenseType === "production" ? "Ej. Compra de queso campesino" : "Ej. Factura servicio de energía"}
                 value={concept}
                 onChange={(e) => setConcept(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                inputSize="sm"
               />
             </div>
 
@@ -364,10 +364,10 @@ export function ExpenseFormModal({
                     <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                       Ítem / Ingrediente del Catálogo (Opcional)
                     </label>
-                    <select
+                    <Select
                       value={productId}
                       onChange={(e) => setProductId(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white text-xs"
+                      selectSize="sm"
                     >
                       <option value="">-- Ninguno (Gasto libre de producción) --</option>
                       {products.map((p) => (
@@ -375,7 +375,7 @@ export function ExpenseFormModal({
                           {p.name} {p.cost ? `(Costo actual: $${p.cost.toLocaleString("es-CO")})` : ""}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -383,7 +383,7 @@ export function ExpenseFormModal({
                       <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                         Cantidad
                       </label>
-                      <input
+                      <Input
                         type="number"
                         step="any"
                         placeholder="Ej. 10"
@@ -392,20 +392,22 @@ export function ExpenseFormModal({
                           setQuantity(e.target.value);
                           handleAmountOrQuantityChange(amount, e.target.value);
                         }}
-                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white text-xs font-mono"
+                        inputSize="sm"
+                        className="font-mono"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                         Costo Unitario
                       </label>
-                      <input
+                      <Input
                         type="number"
                         step="any"
                         placeholder="Ej. 8000"
                         value={unitCost}
                         onChange={(e) => setUnitCost(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white text-xs font-mono"
+                        inputSize="sm"
+                        className="font-mono"
                       />
                     </div>
                   </div>
@@ -433,12 +435,13 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Fecha *
                 </label>
-                <input
+                <Input
                   type="date"
                   required
                   value={expenseDate}
                   onChange={(e) => setExpenseDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                  inputSize="sm"
+                  className="font-mono"
                 />
               </div>
 
@@ -446,17 +449,17 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Medio de Pago *
                 </label>
-                <select
+                <Select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                  selectSize="sm"
                 >
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia Bancaria</option>
                   <option value="tarjeta">Tarjeta Débito/Crédito</option>
                   <option value="nequi">Nequi</option>
                   <option value="daviplata">Daviplata</option>
-                </select>
+                </Select>
                 {paymentMethod === "efectivo" && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-mono">
                     • Se registrará como salida de efectivo en el turno de caja activo [GAS-003].
@@ -468,10 +471,10 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Proveedor (Opcional)
                 </label>
-                <select
+                <Select
                   value={supplierId}
                   onChange={(e) => setSupplierId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                  selectSize="sm"
                 >
                   <option value="">-- Sin proveedor --</option>
                   {suppliers.map((s) => (
@@ -479,7 +482,7 @@ export function ExpenseFormModal({
                       {s.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -488,12 +491,13 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   N° Comprobante / Recibo
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder="Ej. REC-00912"
                   value={receiptNumber}
                   onChange={(e) => setReceiptNumber(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white font-mono"
+                  inputSize="sm"
+                  className="font-mono"
                 />
               </div>
 
@@ -501,12 +505,12 @@ export function ExpenseFormModal({
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Notas u Observaciones
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder="Detalles adicionales..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white"
+                  inputSize="sm"
                 />
               </div>
             </div>

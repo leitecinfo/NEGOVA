@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui";
 import { Tag, X, Percent, DollarSign } from "lucide-react";
 import { formatCOP } from "@/lib/pos/types";
 
@@ -53,7 +54,7 @@ export function PosDiscountModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -161,26 +162,22 @@ export function PosDiscountModal({
             )}
 
             {/* Campo de valor */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                {discountType === "percentage" ? "Porcentaje a descontar" : "Monto a descontar (COP)"}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400">
+            <Input
+              label={discountType === "percentage" ? "Porcentaje a descontar" : "Monto a descontar (COP)"}
+              type="number"
+              min="0"
+              max={discountType === "percentage" ? 100 : itemPrice}
+              step={discountType === "percentage" ? 1 : 500}
+              value={value || ""}
+              onChange={(e) => setValue(Number(e.target.value) || 0)}
+              placeholder={discountType === "percentage" ? "% descuento" : "$ monto"}
+              startAdornment={
+                <span className="font-mono font-bold text-slate-400">
                   {discountType === "percentage" ? "%" : "$"}
                 </span>
-                <input
-                  type="number"
-                  min="0"
-                  max={discountType === "percentage" ? 100 : itemPrice}
-                  step={discountType === "percentage" ? 1 : 500}
-                  value={value || ""}
-                  onChange={(e) => setValue(Number(e.target.value) || 0)}
-                  placeholder={discountType === "percentage" ? "% descuento" : "$ monto"}
-                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-              </div>
-            </div>
+              }
+              className="font-mono font-bold"
+            />
 
             {/* Resumen */}
             <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.06] space-y-1 text-xs">

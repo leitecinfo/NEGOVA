@@ -183,7 +183,7 @@ export function ModifierSelectionModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"

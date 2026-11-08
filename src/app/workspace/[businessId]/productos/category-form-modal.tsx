@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { CustomModal } from "@/components/ui/custom-modal";
+import { Input, Select } from "@/components/ui";
 import { Category, STANDARD_TAX_RATES } from "@/lib/products/types";
 import { createCategoryAction, updateCategoryAction } from "./actions";
 import { toast } from "sonner";
@@ -138,21 +139,15 @@ export function CategoryFormModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
         {/* Nombre * */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-            Nombre <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Bebidas, Comidas, Postres"
-            disabled={isPending}
-            required
-            autoFocus
-            className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
-          />
-        </div>
+        <Input
+          label="Nombre"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ej: Bebidas, Comidas, Postres"
+          disabled={isPending}
+          autoFocus
+        />
 
         {/* Descripción (opcional) */}
         <div>
@@ -171,23 +166,21 @@ export function CategoryFormModal({
 
         {/* Categoría Padre (opcional) */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Categoría Padre <span className="text-slate-400 font-normal lowercase">(opcional)</span>
-            </label>
-            <span className="text-[11px] text-slate-400">Jerarquía (máx. 2 niveles)</span>
-          </div>
-
           {hasSubcategories ? (
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400">
               Esta categoría contiene subcategorías asociadas y no puede ser convertida en subcategoría.
             </div>
           ) : (
-            <select
+            <Select
+              label="Categoría Padre (opcional)"
+              helperText={
+                parentCategoryId
+                  ? "Esta categoría se mostrará agrupada bajo la categoría principal seleccionada."
+                  : "Aparecerá en el primer nivel del catálogo y del menú."
+              }
               value={parentCategoryId}
-              onChange={(e) => setParentCategoryId(e.target.value)}
+              onChange={setParentCategoryId}
               disabled={isPending}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
             >
               <option value="">Ninguna (categoría principal)</option>
               {availableParentCategories.map((p) => (
@@ -195,13 +188,8 @@ export function CategoryFormModal({
                   Subcategoría de: {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            {parentCategoryId
-              ? "Esta categoría se mostrará agrupada bajo la categoría principal seleccionada."
-              : "Aparecerá en el primer nivel del catálogo y del menú."}
-          </p>
         </div>
 
         {/* Impuesto por Defecto (opcional) */}
@@ -258,22 +246,16 @@ export function CategoryFormModal({
         </div>
 
         {/* Orden */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-            <Hash className="w-3.5 h-3.5 text-slate-400" />
-            <span>Orden de visualización</span>
-          </label>
-          <input
-            type="number"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
-            disabled={isPending}
-            className="w-full sm:w-36 px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
-          />
-          <p className="text-[10px] text-slate-400 mt-1">
-            Los números menores aparecen primero en el menú y en la pantalla de ventas.
-          </p>
-        </div>
+        <Input
+          label="Orden de visualización"
+          type="number"
+          value={sortOrder}
+          onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
+          disabled={isPending}
+          leftIcon={<Hash className="w-3.5 h-3.5 text-slate-400" />}
+          helperText="Los números menores aparecen primero en el menú y en la pantalla de ventas."
+          className="sm:w-36 font-mono font-bold"
+        />
 
         {/* Botones de acción */}
         <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">

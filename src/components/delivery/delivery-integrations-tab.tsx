@@ -38,6 +38,8 @@ import {
   saveDeliveryIntegrationCredentialsAction,
   simulateDeliveryWebhookAction,
 } from "@/app/workspace/[businessId]/pedidos/domicilios/actions";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 interface DeliveryIntegrationsTabProps {
   businessId: string;
@@ -550,86 +552,60 @@ export function DeliveryIntegrationsTab({ businessId }: DeliveryIntegrationsTabP
               <form onSubmit={handleSaveCredentials} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Entorno de Ejecución:
-                    </label>
-                    <select
+                    <Select
+                      label="Entorno de Ejecución"
                       value={formEnvironment}
                       onChange={(e) => setFormEnvironment(e.target.value as any)}
-                      className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200"
                     >
                       <option value="sandbox">Sandbox / Modo Pruebas</option>
                       <option value="production">Producción (En Vivo)</option>
-                    </select>
+                    </Select>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Store ID (Identificador de Sucursal):
-                    </label>
-                    <input
-                      type="text"
+                  <Input
+                      label="Store ID (Identificador de Sucursal)"
                       placeholder="Ej: STORE-BOG-01"
                       value={formStoreId}
                       onChange={(e) => setFormStoreId(e.target.value)}
-                      className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200"
                     />
-                  </div>
                 </div>
 
                 {selectedProvider === "rappi" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Client ID / App ID:
-                      </label>
-                      <input
-                        type="text"
+                    <Input
+                        label="Client ID / App ID"
                         placeholder="ID de aplicación provisto por Rappi"
                         value={formAppId}
                         onChange={(e) => setFormAppId(e.target.value)}
-                        className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 font-mono"
+                        className="font-mono"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Client Secret:
-                      </label>
-                      <input
+                    <Input
+                        label="Client Secret"
                         type="password"
                         placeholder="••••••••••••••••••••••••"
                         value={formClientSecret}
                         onChange={(e) => setFormClientSecret(e.target.value)}
-                        className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 font-mono"
+                        className="font-mono"
                       />
-                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        API Key de Justo:
-                      </label>
-                      <input
+                    <Input
+                        label="API Key de Justo"
                         type="password"
                         placeholder="jst_live_••••••••••••••••"
                         value={formApiKey}
                         onChange={(e) => setFormApiKey(e.target.value)}
-                        className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 font-mono"
+                        className="font-mono"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Webhook Secret (Opcional):
-                      </label>
-                      <input
+                    <Input
+                        label="Webhook Secret (Opcional)"
                         type="password"
                         placeholder="Clave de firma para validar webhook"
                         value={formWebhookSecret}
                         onChange={(e) => setFormWebhookSecret(e.target.value)}
-                        className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 font-mono"
+                        className="font-mono"
                       />
-                    </div>
                   </div>
                 )}
 

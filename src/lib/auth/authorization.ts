@@ -187,6 +187,11 @@ export async function hasPermission(
         return false;
       }
 
+      // El Super Administrador activo de la plataforma cuenta con acceso y supervisión universal sobre los comercios
+      if (platformRole === "super_admin") {
+        return true;
+      }
+
       // 2.3 Validar vigencia de la suscripción
       const { data: subscription } = await dbClient
         .from("subscriptions")
@@ -269,10 +274,10 @@ export async function hasPermission(
         return Boolean(fallbackPermissions?.includes(permissionCode));
       }
 
-      // 2.4 Control de Acceso Delegado para Personal de Plataforma (Soporte / Admin / Superadmin)
-      // Si el usuario no es miembro directo pero es personal de plataforma, solo puede acceder si posee
+      // 2.4 Control de Acceso Delegado para Personal de Plataforma (Soporte / Admin)
+      // Si el usuario no es miembro directo pero es personal de soporte o admin, solo puede acceder si posee
       // una autorización explícita (grant) activa y el permiso solicitado es estrictamente de solo lectura (.view / .read).
-      if (["super_admin", "admin", "soporte"].includes(platformRole)) {
+      if (["admin", "soporte"].includes(platformRole)) {
         const isReadOnlyPermission = permissionCode.endsWith(".view") || permissionCode.endsWith(".read");
         if (!isReadOnlyPermission) {
           // Bloqueo estricto: El personal de plataforma NO puede mutar datos en el negocio
@@ -285,7 +290,7 @@ export async function hasPermission(
         else if (permissionCode.startsWith("orders.") || permissionCode.startsWith("tables.")) requiredScope = "orders_read";
         else if (permissionCode.startsWith("inventory.") || permissionCode.startsWith("products.")) requiredScope = "inventory_read";
         else if (permissionCode.startsWith("finance.") || permissionCode.startsWith("expenses.") || permissionCode.startsWith("cash.")) requiredScope = "finance_read";
-        else if (permissionCode.startsWith("business_settings.")) requiredScope = "settings_read";
+        else if (permissionCode.startsWith("business_settings.") || permissionCode.startsWith("business_users.")) requiredScope = "settings_read";
 
         if (!requiredScope) {
           // Deny by default: Si el permiso no está mapeado a un scope de diagnóstico seguro, no se concede

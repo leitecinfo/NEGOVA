@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { Button, IconButton } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Input, Select, SearchInput } from "@/components/ui";
 import { CreateRoomModal } from "@/components/mesas/create-room-modal";
 import { CloseTableOrderModal } from "@/components/mesas/close-table-order-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -720,24 +721,14 @@ export function TablesDashboardClient({
                   </div>
 
                   {/* Buscador */}
-                  <div className="relative w-full sm:w-56">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input
-                      type="text"
+                  <div className="w-full sm:w-56">
+                    <SearchInput
+                      inputSize="sm"
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={setSearch}
+                      onClear={() => setSearch("")}
                       placeholder="Buscar mesa..."
-                      className="w-full h-8 pl-8 pr-7 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     />
-                    {search && (
-                      <button
-                        type="button"
-                        onClick={() => setSearch("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1266,24 +1257,26 @@ export function TablesDashboardClient({
 
               {/* Filtros de rendimiento */}
               <div className="flex items-center gap-2">
-                <select
+                <Select
+                  selectSize="sm"
                   value={heatMapPeriod}
                   onChange={(e) => setHeatMapPeriod(e.target.value as any)}
-                  className="h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-semibold"
+                  className="w-auto min-w-[120px]"
                 >
                   <option value="today">Hoy</option>
                   <option value="week">Esta semana</option>
                   <option value="month">Este mes</option>
-                </select>
+                </Select>
 
-                <select
+                <Select
+                  selectSize="sm"
                   value={heatMapMetric}
                   onChange={(e) => setHeatMapMetric(e.target.value as any)}
-                  className="h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-semibold"
+                  className="w-auto min-w-[160px]"
                 >
                   <option value="revenue">Métrica: Ingresos</option>
                   <option value="orders">Métrica: Pedidos</option>
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -1408,7 +1401,7 @@ export function TablesDashboardClient({
       {/* ========================================================================= */}
       {isTransferModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">
@@ -1428,30 +1421,24 @@ export function TablesDashboardClient({
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Mesa de Origen (Ocupada)
-                  </label>
-                  <select
+                  <Select
+                    label="Mesa de Origen (Ocupada)"
                     value={transferSourceTableId}
                     onChange={(e) => setTransferSourceTableId(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   >
                     {occupiedTables.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name_or_number} ({formatCOP(t.activeOrder?.total || 0)})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Mesa de Destino
-                  </label>
-                  <select
+                  <Select
+                    label="Mesa de Destino"
                     value={transferTargetTableId}
                     onChange={(e) => setTransferTargetTableId(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   >
                     {initialTables
                       .filter((t) => t.id !== transferSourceTableId)
@@ -1460,19 +1447,16 @@ export function TablesDashboardClient({
                           {t.name_or_number} {t.status === "available" ? "(Libre)" : "(Ocupada - Unir)"}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Motivo del traslado (opcional)
-                  </label>
-                  <input
+                  <Input
+                    label="Motivo del traslado (opcional)"
                     type="text"
                     value={transferNotes}
                     onChange={(e) => setTransferNotes(e.target.value)}
                     placeholder="Ej. Solicitud del cliente por lluvia, mesa más grande..."
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
               </div>
@@ -1504,7 +1488,7 @@ export function TablesDashboardClient({
       {/* ========================================================================= */}
       {isCreateTableModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl max-h-[92vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3 shrink-0">
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1577,10 +1561,8 @@ export function TablesDashboardClient({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Nombre o número de mesa (*)
-                  </label>
-                  <input
+                  <Input
+                    label="Nombre o número de mesa (*)"
                     type="text"
                     required
                     value={createTableForm.name_or_number}
@@ -1588,15 +1570,14 @@ export function TablesDashboardClient({
                       setCreateTableForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
                     placeholder="Ej. Mesa 5, Terraza 2"
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Número de sillas (Capacidad)
-                    </label>
+                    </span>
                     <span className="text-2xs font-mono text-slate-400">
                       {createTableForm.capacity || 4} comensales
                     </span>
@@ -1620,7 +1601,7 @@ export function TablesDashboardClient({
                       </button>
                     ))}
                   </div>
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     max={30}
@@ -1631,15 +1612,12 @@ export function TablesDashboardClient({
                         capacity: parseInt(e.target.value, 10) || 4,
                       }))
                     }
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Sala o Ambiente
-                  </label>
-                  <select
+                  <Select
+                    label="Sala o Ambiente"
                     value={createTableForm.room_id || ""}
                     onChange={(e) =>
                       setCreateTableForm((prev) => ({
@@ -1647,7 +1625,6 @@ export function TablesDashboardClient({
                         room_id: e.target.value || undefined,
                       }))
                     }
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   >
                     <option value="">Sin sala asignada</option>
                     {roomsList.map((r) => (
@@ -1655,7 +1632,7 @@ export function TablesDashboardClient({
                         {r.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
@@ -1680,7 +1657,7 @@ export function TablesDashboardClient({
       {/* Modal Editar Mesa */}
       {editingTable && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl max-h-[92vh] flex flex-col">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3 shrink-0">
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1747,25 +1724,22 @@ export function TablesDashboardClient({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Nombre o número de mesa
-                  </label>
-                  <input
+                  <Input
+                    label="Nombre o número de mesa"
                     type="text"
                     required
                     value={editTableForm.name_or_number}
                     onChange={(e) =>
                       setEditTableForm((prev) => ({ ...prev, name_or_number: e.target.value }))
                     }
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Capacidad (comensales)
-                    </label>
+                    </span>
                     <span className="text-2xs font-mono text-slate-400">
                       {editTableForm.capacity || 4} comensales
                     </span>
@@ -1789,7 +1763,7 @@ export function TablesDashboardClient({
                       </button>
                     ))}
                   </div>
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     max={30}
@@ -1800,15 +1774,12 @@ export function TablesDashboardClient({
                         capacity: parseInt(e.target.value, 10) || 4,
                       }))
                     }
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Sala
-                  </label>
-                  <select
+                  <Select
+                    label="Sala"
                     value={editTableForm.room_id || ""}
                     onChange={(e) =>
                       setEditTableForm((prev) => ({
@@ -1816,7 +1787,6 @@ export function TablesDashboardClient({
                         room_id: e.target.value || undefined,
                       }))
                     }
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   >
                     <option value="">Sin sala asignada</option>
                     {roomsList.map((r) => (
@@ -1824,7 +1794,7 @@ export function TablesDashboardClient({
                         {r.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
@@ -1849,7 +1819,7 @@ export function TablesDashboardClient({
       {/* Modal Editar Sala */}
       {roomToEdit && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">
@@ -1866,15 +1836,12 @@ export function TablesDashboardClient({
 
               <form onSubmit={handleUpdateRoom} className="space-y-3 text-xs">
                 <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Nombre de la sala (*)
-                  </label>
-                  <input
+                  <Input
+                    label="Nombre de la sala (*)"
                     type="text"
                     required
                     value={editRoomName}
                     onChange={(e) => setEditRoomName(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                   />
                 </div>
 
@@ -1900,7 +1867,7 @@ export function TablesDashboardClient({
       {/* Modal Instalar App (PWA) */}
       {isPwaModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.1] rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
               <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto">
                 <Smartphone className="w-6 h-6" />

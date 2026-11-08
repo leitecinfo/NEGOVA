@@ -186,6 +186,10 @@ const mockSupabaseClient = {
               const item = list[0] || null;
               return { data: item, error: item ? null : { message: "Not found" } };
             },
+            maybeSingle: async () => {
+              const item = list[0] || null;
+              return { data: item, error: null };
+            },
             then: (resolve: any, reject?: any) =>
               Promise.resolve({ data: list, error: null }).then(resolve, reject),
           };
@@ -213,6 +217,15 @@ const mockSupabaseClient = {
               Promise.resolve({ error: null }).then(resolve, reject),
           };
           return updChain;
+        },
+      };
+    }
+
+    if (table === "inventory_movements") {
+      return {
+        insert: (data: any) => {
+          inMemoryMovements.push(data);
+          return Promise.resolve({ data, error: null });
         },
       };
     }

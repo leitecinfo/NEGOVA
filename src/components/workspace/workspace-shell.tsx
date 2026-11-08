@@ -21,6 +21,7 @@ interface WorkspaceShellProps {
   logoUrl?: string | null;
   primaryColor?: string;
   productCount?: number;
+  userCount?: number;
   employeeCount?: number;
   trialRemainingDays?: number | null;
   isTrialing?: boolean;
@@ -32,6 +33,7 @@ export function WorkspaceShell({
   logoUrl,
   primaryColor = "#0284C7",
   productCount = 0,
+  userCount,
   employeeCount = 1,
   trialRemainingDays = null,
   isTrialing = false,
@@ -117,7 +119,8 @@ export function WorkspaceShell({
           enabledFeatures={session.enabledFeatures}
           planLimits={session.planLimits}
           productCount={productCount}
-          employeeCount={employeeCount}
+          userCount={userCount ?? employeeCount}
+          employeeCount={userCount ?? employeeCount}
           trialRemainingDays={trialRemainingDays}
           isTrialing={isTrialing}
           upgradeUrl={`/workspace/${businessId}/configuracion?tab=mi-negocio`}

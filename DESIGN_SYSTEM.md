@@ -194,21 +194,25 @@ Para garantizar alineación visual milimétrica en formularios y toolbars:
 
 ## 5. Botones y Acciones
 
+> [!CRITICAL]
+> **Prohibición de Botones HTML Nativos con Estilos Ad-hoc:**  
+> Queda terminantemente prohibido escribir etiquetas HTML nativas `<button>` con clases de Tailwind arbitrarias (`bg-blue-600`, `bg-[#ED500A]`, etc.) o spinners manuales (`<Loader2 className="animate-spin" />`) para botones de acción principal, secundaria, envío de formularios o pies de modales. Siempre se debe importar y usar `<Button>` de `@/components/ui/button` (o `@/components/ui`).
+
 ### 5.1 Especificación de `Button` (`src/components/ui/button.tsx`)
 
-El componente `Button` es el único estándar para interactuar con la plataforma. Dispone de soporte nativo para `Link` mediante la prop `href`, estado `isLoading` con spinner `Loader2`, iconos `leftIcon` y `rightIcon`.
+El componente `Button` es el único estándar para interactuar con la plataforma. Dispone de soporte nativo para `Link` mediante la prop `href`, estado `isLoading` con spinner integrado (`Loader2`) y bloqueo automático de interacción, iconos `leftIcon` y `rightIcon`, y ajuste de ancho completo (`fullWidth`).
 
 ```tsx
 import { Button } from "@/components/ui/button";
 
-// Acción primaria
-<Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
-  Nuevo Registro
+// Acción primaria con spinner automático
+<Button variant="primary" size="md" isLoading={isSubmitting} leftIcon={<Plus className="w-4 h-4" />}>
+  Guardar Cambios
 </Button>
 
-// Acción secundaria en outline
-<Button variant="outline" size="sm" onClick={handleExport}>
-  Exportar Reporte
+// Acción secundaria en outline (ideal para Cancelar o Cerrar)
+<Button variant="outline" size="sm" onClick={handleClose}>
+  Cancelar
 </Button>
 ```
 
@@ -222,6 +226,7 @@ import { Button } from "@/components/ui/button";
 | **`ghost`** | `bg-transparent text-slate-600 dark:text-slate-400 border-transparent` | `hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]` | Botones dentro de filas de tablas, toolbars compactos y navegación en tabs. |
 | **`destructive`** | `bg-red-600 text-white shadow-xs` | `hover:bg-red-700 active:bg-red-800` | Acciones irreversibles ("Eliminar", "Archivar", "Desvincular"). Debe ir acompañado de `ConfirmModal`. |
 | **`success`** | `bg-emerald-600 text-white shadow-xs` | `hover:bg-emerald-700 active:bg-emerald-800` | Acciones terminales de cobro o confirmación exitosa de entregas/pedidos. |
+| **`warning`** | `bg-amber-500 text-white shadow-xs` | `hover:bg-amber-600 active:bg-amber-700` | Acciones de atención preventiva o advertencias no destructivas. |
 
 ### 5.3 `IconButton` y `ButtonGroup`
 
@@ -230,22 +235,40 @@ import { Button } from "@/components/ui/button";
 
 ---
 
-## 6. Campos y Controles de Entrada
+## 6. Campos y Controles de Entrada (Suite Obligatoria `@/components/ui`)
+
+> [!CRITICAL]
+> **Prohibición de Campos HTML Crudos:**  
+> Queda terminantemente prohibido escribir etiquetas HTML nativas como `<input>` o `<select>` con clases ad-hoc, así como wrappers manuales de búsqueda tipo `<div><input /><Search /></div>`. Todos los formularios y filtros deben utilizar obligatoriamente los componentes canónicos de `@/components/ui/`.
 
 ### 6.1 `Input` (`src/components/ui/input.tsx`)
 
-- **Estructura:** Contenedor vertical con `label` (`text-xs font-semibold`), asterisco rojo para `required`, soporte para `leftIcon` (ej. lupa o candado), `rightElement` (ej. botón ver contraseña), mensaje de `error` (`text-red-500`) o `helperText` (`text-slate-400`).
-- **Altura canónica:** `h-10` con `rounded-xl`.
-- **Foco:** `focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] focus:outline-hidden`.
+- **Estructura:** Contenedor vertical con `label` (`text-xs font-semibold`, soporta `React.ReactNode`), asterisco rojo para `required`, soporte para `leftIcon`, `startAdornment` (ej. prefijo monetario `+$` o `$`), `rightElement`, `endAdornment`, mensaje de `error` (`text-red-500`) o `helperText` (`text-slate-400`).
+- **Fondo y Superficie:** Fondo unificado sólido `bg-slate-50/70 dark:bg-[#0B0D14]` (se eliminó completamente el fondo grisáceo traslúcido `dark:bg-white/[0.03]`).
+- **Bordes y Foco:** `border-slate-200/80 dark:border-white/10`, foco `focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] focus:outline-hidden`.
+- **Tamaños Disponibles:**
+  - `sm`: `h-8 text-[11px] rounded-lg` (filtros compactos, tablas y sub-ítems).
+  - `md`: `h-10 text-xs rounded-xl` (formularios estándar, valor por defecto).
+  - `lg`: `h-12 text-sm rounded-xl` (buscadores principales o vistas hero).
 
-### 6.2 `Select` y `SearchSelect`
+### 6.2 `Select` (`src/components/ui/select.tsx`)
 
-- **`Select` (`src/components/ui/select.tsx`):** Selector nativo estilizado con flecha `ChevronDown` posicionada a la derecha, soporte para `options` estructuradas o `children`, y modo de color asegurado para desplegables (`color-scheme` explícito en dark/light).
-- **`SearchSelect` (`src/components/ui/search-select.tsx`):** Selector avanzado de alto rendimiento con caja de búsqueda en tiempo real, scroll optimizado, limpieza rápida (`clearable`), descripciones de fila y soporte de iconos. Ideal para clientes, productos, cuentas contables y sucursales.
+- **Sustitución Total:** 100% de los elementos `<select>` del proyecto sustituidos por este componente.
+- **Flecha y Apariencia:** Flecha `ChevronDown` posicionada a la derecha, soporte para `options?: SelectOption[]` estructuradas o `children` (`<option>`).
+- **Control de Eventos Dual:** Soporte inteligente para ambos contratos:
+  - Evento estándar de React: `onChange={(e) => setVal(e.target.value)}`.
+  - Valor directo o reactivo: `onChange={(val) => setVal(val)}` o `onValueChange={(val) => setVal(val)}`.
+- **Tamaños y Label:** Tamaños `sm` (h-8), `md` (h-10), `lg` (h-12) y `label?: React.ReactNode`.
 
 ### 6.3 `SearchInput` (`src/components/ui/search-input.tsx`)
 
-Buscador especializado con icono de lupa fijo, spinner de estado asíncrono (`isLoading`), tecla de atajo rápido, botón de borrado rápido (`X`) y callback `onSubmit` / `onChange`.
+- **Buscador Universal:** Componente estándar para búsqueda en tiempo real en todos los módulos (Admin y Workspace).
+- **Características:** Icono de búsqueda con spinner asíncrono (`isLoading`), debounce automático configurable (`debounceMs`), botón de limpieza rápida (`onClear`), soporte para `endAdornment` y tamaños (`sm`, `md`, `lg`).
+- **Compatibilidad de Handlers:** Acepta tanto `onChange={(e) => setSearch(e.target.value)}` como `onChange={(val) => setSearch(val)}`.
+
+### 6.4 `SearchSelect` (`src/components/ui/search-select.tsx`)
+
+- **Selector Desplegable Asistido:** Selector avanzado con caja de búsqueda integrada en tiempo real, scroll virtualizado optimizado, limpieza rápida (`clearable`), descripciones secundarias y soporte de iconos. Ideal para clientes, productos, cuentas contables, almacenes y proveedores.
 
 ---
 
@@ -287,23 +310,46 @@ Ubicación: `src/components/ui/kpi-card.tsx`
 ## 8. Modales, Diálogos y Overlays
 
 > [!CRITICAL]
-> **Prohibición de Diálogos Nativos:**  
-> Queda terminantemente prohibido el uso de `window.alert()`, `window.confirm()` o `window.prompt()`. Toda interacción modal debe utilizar los componentes oficiales sobre `ModalPortal`.
+> **Prohibición Total de Diálogos Nativos y Overlays Inconsistentes:**  
+> Queda terminantemente prohibido el uso de `window.alert()`, `window.confirm()`, `window.prompt()` o `Alert.alert`. Toda interacción modal debe utilizar los componentes canónicos sobre `ModalPortal` y gobernar el fondo exclusivamente con el token:
+> $$\text{Overlay Oficial} = \texttt{bg-black/75 backdrop-blur-sm}$$
 
-### 8.1 `CustomModal` (`src/components/ui/custom-modal.tsx`)
+### 8.1 `ModalPortal` (`src/components/ui/modal-portal.tsx`)
 
-Modal multipropósito para formularios, información y alertas de sistema:
-- **Backdrop:** `fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm animate-in fade-in`.
-- **Caja de diálogo:** `rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-2xl p-6`.
+Portal React montado en `document.body` que garantiza aislamiento visual y z-index libre de solapamientos:
+- **Hidratación segura:** Verificación `mounted` para prevenir discrepancias en Server-Side Rendering (SSR).
+- **Bloqueo de scroll:** Soporta la prop opcional `lockScroll={true}` (bloquea el scroll del viewport mientras el modal esté visible y restaura el `overflow` original al desmontarse).
+- **Retrocompatibilidad:** Re-exporta `AdminModalPortal`.
+
+### 8.2 `CustomModal` (`src/components/ui/custom-modal.tsx`)
+
+Modal multipropósito para formularios, diálogos informativos y flujos de negocio:
+- **Backdrop:** `fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm animate-in fade-in`.
+- **Caja de diálogo:** `rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-2xl p-6`.
 - **Anchos soportados:** `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `4xl`, `5xl`.
 - **Iconos contextuales:** `info` (azul), `warning` (ámbar), `error` (rojo), `success` (esmeralda).
+- **Acciones y Teclado:** Cierre con tecla `Escape` y botones canónicos `<Button variant="outline">` y `<Button variant={...} isLoading={isLoading}>`.
 
-### 8.2 `ConfirmModal` (`src/components/ui/confirm-modal.tsx`)
+### 8.3 `ConfirmModal` (`src/components/ui/confirm-modal.tsx`) y `ConfirmDialog` (`src/components/ui/confirm-dialog.tsx`)
 
-Modal especializado para confirmar operaciones críticas o destructivas:
-- **Variantes:** `danger` (botón rojo), `warning` (botón ámbar), `default` (botón naranja).
-- **Seguridad:** Bloqueo de doble clic con soporte para `Promise` en `onConfirm` y spinner `Loader2`.
-- **Accesibilidad:** Atributos `role="dialog"` y `aria-modal="true"`.
+Modales especializados para confirmar operaciones críticas, destructivas o de auditoría:
+- **Variantes semánticas:** `destructive` / `danger` (rojo), `warning` (ámbar), `primary` / `default` (`#ED500A`), `success` (esmeralda).
+- **Interoperabilidad completa de props:** Soporta `confirmText` o `confirmLabel`, `cancelText` o `cancelLabel`, `itemDetails` para auditoría y `reasonValue` con `onReasonChange`.
+- **Botones canónicos:** Cancelar siempre con `<Button variant="outline">` y confirmar con `<Button variant={buttonVariant} isLoading={isLoading}>`.
+- **Accesibilidad:** Atributos `role="alertdialog"` y `aria-modal="true"`.
+
+### 8.4 `ImageCropperModal` (`src/components/ui/image-cropper-modal.tsx`)
+
+Herramienta de recorte y ajuste visual de imágenes y logotipos comerciales:
+- **Aspect Ratios soportados:** `1:1 Cuadrado`, `16:9 Banner`, `4:3 Estándar` y `free Proporción original`.
+- **Manipulación:** Arrastre táctil/ratón, zoom interactivo con rueda o botones, rotación continua en pasos de 90° y botón de llenado de encuadre.
+- **Acciones:** Cancelar con `<Button variant="outline">` y guardar con `<Button isLoading={isProcessing}>`.
+
+### 8.5 `LogoutModal` (`src/components/ui/logout-modal.tsx`)
+
+Diálogo de seguridad para finalizar la sesión de usuario:
+- **Limpieza de sesión híbrida:** Ejecuta `supabase.auth.signOut({ scope: "local" })`, invoca `/api/logout` para purgar cookies de sesión del servidor y redirige a `/login`.
+- **Acciones:** `<Button variant="outline">` para cancelar y `<Button variant="destructive" isLoading={isLoggingOut}>` para cerrar sesión.
 
 ---
 
@@ -327,7 +373,16 @@ Barra de control que unifica:
 
 ### 9.3 `Pagination` (`src/components/ui/pagination.tsx`)
 
-Control de paginación con desglose de registros visibles (`Mostrando 1–10 de 154 registros`), selector de salto a página primera/última opcional y botones anterior/siguiente desactivados con opacidad al cargar.
+> [!CRITICAL]
+> **Prohibición de Paginadores HTML Manuales:**  
+> Queda terminantemente prohibido escribir controles caseros de paginación con botones dispersos de "Anterior" y "Siguiente", números de página mapeados a mano o selectores de página ad-hoc. Toda vista con paginación debe implementar `<Pagination>` de `@/components/ui/pagination`.
+
+Control de paginación universal con capacidades estándar:
+- **Desglose Adaptativo:** Muestra `Mostrando X–Y de Z registros` (con personalización vía `itemLabel`, ej. "productos", "pedidos", "clientes").
+- **Selector de Tamaño de Página Integrado:** Soporte para `pageSizeOptions={[10, 20, 50, 100]}` y `onPageSizeChange` gobernado por el componente canónico `<Select selectSize="sm">`.
+- **Navegación Completa:** Botones de salto a primera y última página (`showFirstLast`), anterior y siguiente con estados deshabilitados y opacidad automática.
+- **Soporte Dual de Contratos:** Acepta tanto `totalItems` como `totalCount`, e `isPending` o `isLoading`.
+- **Modo Compacto / Auto-ocultación:** Si solo existe 1 página y los registros no superan el tamaño de página, se adapta a una barra informativa limpia sin controles redundantes.
 
 ---
 
@@ -349,6 +404,21 @@ Barra superior fija (`sticky top-0 z-20 h-16`) con fondo translúcido `backdrop-
 ### 10.3 `GlobalScrollbar` (`src/components/layout/global-scrollbar.tsx`)
 
 Scrollbar ultrafino de 6px con thumb naranja de 44px de altura (`#ED500A`), sin pista de fondo, interactivo para drag y click. Oculta la barra tosca nativa de Windows en navegadores desktop y se desactiva en móviles táctiles para respetar el scroll inercial natural de iOS y Android.
+
+### 10.4 `Tabs` (`src/components/ui/tabs.tsx`)
+
+> [!CRITICAL]
+> **Prohibición de Barras de Pestañas Caseras:**  
+> Queda terminantemente prohibido construir barras de pestañas manuales con `<div><button onClick={() => setActiveTab(...)} className="...">...</button></div>`, bordes inferiores manuales `border-b-2` o contenedores de pastillas ad-hoc. Toda navegación por pestañas debe implementar `<Tabs>` de `@/components/ui/tabs`.
+
+- **Variante `pills` (Por defecto):** Fondo encapsulado `bg-slate-100 dark:bg-white/[0.04]`, pastilla activa `bg-white dark:bg-[#1E2330]` o marca `#ED500A`. Diseñada para filtros de estado, selectores de segmentación y subsecciones de módulos operativos.
+- **Variante `underline`:** Pestaña con diseño editorial plano y borde activo inferior `border-b-2 border-[#ED500A] text-[#ED500A]`. Diseñada para pasos secuenciales en modales (ej. Modalidad, Opciones, Productos), vistas de detalle de clientes y formularios tabulados extensos.
+- **Soporte de Elementos:**
+  - Ícono contextual opcional (`icon`).
+  - Contador numérico automático (`count`).
+  - Badge personalizado reactivo (`badge`), ideal para estados en tiempo real o pulsos animados.
+  - Tamaños: `sm`, `md`, `lg`.
+  - Accesibilidad WAI-ARIA completa (`role="tablist"`, `role="tab"`, `aria-selected`).
 
 ---
 
@@ -586,18 +656,28 @@ La auditoría transversal de todo el código de NEGOVA ha revelado las siguiente
 
 ## 18. Reglas Obligatorias para Futuros Desarrollos
 
-Cualquier funcionalidad nueva, página, modal o ajuste visual que se desarrolle en NEGOVA debe respetar estrictamente estas 10 directrices:
+Cualquier funcionalidad nueva, página, modal o ajuste visual que se desarrolle en NEGOVA debe respetar estrictamente estas directrices inviolables:
 
-1. **Buscar y Reutilizar Primero:** Antes de redactar cualquier etiqueta HTML o clase de Tailwind, consultar el [Inventario de Componentes Compartidos](#16-inventario-completo-de-componentes-compartidos). Está prohibido escribir `<button>` o `<input>` manuales cuando existan `Button`, `Input`, `Select` o `SearchInput`.
+1. **Suite de Primitivas Canónicas Obligatorias:** Antes de redactar cualquier etiqueta HTML o clase de Tailwind, consultar el [Inventario de Componentes Compartidos](#16-inventario-completo-de-componentes-compartidos). Queda terminantemente prohibido escribir:
+   - `<button>` manuales con estilos ad-hoc: usar siempre `<Button>` de `@/components/ui/button` (o `@/components/ui`).
+   - `<input>` o `<select>` nativos o contenedores caseros de búsqueda: usar siempre `<Input>`, `<Select>`, `<SearchInput>` o `<SearchSelect>` de `@/components/ui`.
+   - Barras de pestañas caseras con `<div><button>...</button></div>` o borders `border-b-2` manuales: usar siempre `<Tabs variant="pills" | "underline">` de `@/components/ui/tabs`.
+   - Controles de paginación manuales con botones dispersos de página o dropdowns caseros: usar siempre `<Pagination>` de `@/components/ui/pagination`.
+   - Tablas HTML nativas (`<table>`) de cientos de líneas sin diseño responsive: usar siempre `<DataTable>` de `@/components/ui/data-table` con `columns`, `data`, `keyExtractor`, `stickyFirstColumn` y `renderMobileCard`.
+   - Barras de filtros y herramientas de tabla caseras: usar siempre `<TableToolbar>` de `@/components/ui/table-toolbar` con layout `inline` o `stacked`.
+   - Tarjetas de métricas con estilos dispersos: usar siempre `<KpiCard>` y `<KpiGrid>` de `@/components/ui/kpi-card` con sus variantes oficiales (`orange`, `emerald`, `amber`, `red`, `purple`, `blue`, `default`).
+   - Etiquetas y badges de estado con clases ad-hoc: usar siempre `<Badge>` y `<StatusBadge>` de `@/components/ui`.
+   - Vistas de carga, error o vacío artesanales: usar obligatoriamente `<TableSkeleton>` / `<KpiSkeleton>` / `<CardSkeleton>`, `<EmptyState>` y `<ErrorState>` de `@/components/ui`.
 2. **Uso de Colores Oficiales:** Utilizar exclusivamente la paleta oficial de modo claro/oscuro y el naranja `#ED500A` para acciones primarias. Prohibido inventar colores arbitrarios o mezclar escalas (`zinc`, `neutral` o `gray`) con la base `slate`.
-3. **Prohibición Total de Diálogos Nativos:** Nunca utilizar `alert()`, `confirm()` ni `prompt()`. Todo diálogo de confirmación debe implementarse con `ConfirmModal` y todo mensaje de feedback con `toast` de Sonner.
-4. **Geometría Coherente:** Respetar los radios oficiales: `rounded-2xl` para contenedores y modales, `rounded-xl` para botones e inputs, `rounded-lg` para badges y `rounded-full` para pills.
-5. **Iconografía Única con Lucide:** Emplear únicamente iconos provenientes de `lucide-react`. Mantener consistencia en tamaños (`w-4 h-4` para controles, `w-5 h-5` para acciones).
-6. **Estructura con `AppPageContainer`:** Toda página de primer nivel dentro del Workspace debe comenzar con `<AppPageContainer title="..." description="...">`.
-7. **Diseño Responsive Obligatorio:** Toda tabla de datos debe incorporar la propiedad `renderMobileCard` o activar scroll horizontal para garantizar usabilidad completa en teléfonos móviles.
-8. **Tipografía Semántica:** No modificar las familias tipográficas. Los títulos usan `font-title`, el cuerpo `font-body` y las cifras o códigos `font-mono`.
-9. **Estados Completos:** Toda vista asíncrona debe implementar sus cuatro estados visuales: Carga (`TableSkeleton` o `KpiSkeleton`), Vacío (`EmptyState`), Error (`ErrorState`) y Datos.
-10. **Actualización del Sistema:** Si una nueva necesidad de negocio requiere crear un componente reutilizable nuevo, este debe colocarse en `src/components/ui/` y documentarse en este archivo `DESIGN_SYSTEM.md`.
+3. **Prohibición Total de Diálogos Nativos:** Nunca utilizar `alert()`, `confirm()` ni `prompt()`, ni `Alert.alert` en React Native. Todo diálogo de confirmación debe implementarse con `ConfirmModal` (o `ConfirmDialog`) y todo mensaje de feedback con `toast` de Sonner.
+4. **Modales y Diálogos:** Los modales deben montarse siempre mediante `ModalPortal` con overlay universal `bg-black/75 backdrop-blur-sm`. En el pie de todo modal, la cancelación debe ser `<Button variant="outline" onClick={onClose}>Cancelar</Button>` y la confirmación `<Button variant="primary" type="submit" isLoading={isSubmitting}>Confirmar</Button>`. Prohibido crear spinners manuales con `<Loader2>` dentro de los botones.
+5. **Geometría Coherente:** Respetar los radios oficiales: `rounded-2xl` para contenedores y modales, `rounded-xl` para botones e inputs, `rounded-lg` para badges y `rounded-full` para pills.
+6. **Iconografía Única con Lucide:** Emplear únicamente iconos provenientes de `lucide-react`. Mantener consistencia en tamaños (`w-4 h-4` para controles, `w-5 h-5` para acciones).
+7. **Estructura con `AppPageContainer`:** Toda página de primer nivel dentro del Workspace debe comenzar con `<AppPageContainer title="..." description="...">`.
+8. **Diseño Responsive Obligatorio:** Toda tabla de datos debe incorporar la propiedad `renderMobileCard` o activar scroll horizontal para garantizar usabilidad completa en teléfonos móviles.
+9. **Tipografía Semántica:** No modificar las familias tipográficas. Los títulos usan `font-title`, el cuerpo `font-body` y las cifras o códigos `font-mono`.
+10. **Estados Completos:** Toda vista asíncrona debe implementar sus cuatro estados visuales: Carga (`TableSkeleton` o `KpiSkeleton`), Vacío (`EmptyState`), Error (`ErrorState`) y Datos.
+11. **Actualización del Sistema:** Si una nueva necesidad de negocio requiere crear un componente reutilizable nuevo, este debe colocarse en `src/components/ui/` y documentarse en este archivo `DESIGN_SYSTEM.md`.
 
 ---
 
@@ -606,13 +686,15 @@ Cualquier funcionalidad nueva, página, modal o ajuste visual que se desarrolle 
 Antes de dar por finalizada cualquier tarea de desarrollo o interfaz en NEGOVA, verificar:
 
 - [ ] ¿Se utilizó `AppPageContainer` como envoltorio de la página?
-- [ ] ¿Los botones usan el componente `<Button>` con sus variantes semánticas oficiales?
-- [ ] ¿Los campos de entrada utilizan `<Input>`, `<Select>` o `<SearchSelect>`?
+- [ ] ¿Los botones usan el componente canónico `<Button>` con sus variantes semánticas oficiales (`primary`, `outline`, etc.) e `isLoading` para estados asíncronos?
+- [ ] ¿Los campos de entrada utilizan `<Input>`, `<Select>`, `<SearchInput>` o `<SearchSelect>`?
+- [ ] ¿Las pestañas de navegación utilizan `<Tabs variant="pills" | "underline">` en lugar de botones ad-hoc?
+- [ ] ¿La paginación de listas y tablas utiliza `<Pagination>`?
 - [ ] ¿Se eliminó cualquier llamada a `window.alert`, `window.confirm` o `window.prompt`?
-- [ ] ¿Las confirmaciones usan `<ConfirmModal>` montado sobre `ModalPortal`?
+- [ ] ¿Las confirmaciones usan `<ConfirmModal>` montado sobre `ModalPortal` con backdrop `bg-black/75 backdrop-blur-sm`?
 - [ ] ¿El feedback asíncrono utiliza `toast.success` o `toast.error` de `sonner`?
 - [ ] ¿Los estados vacíos implementan `<EmptyState>` con icono y acción de resolución?
-- [ ] ¿Los estados de carga muestran `<TableSkeleton>`, `<KpiSkeleton>` o spinners en botones?
+- [ ] ¿Los estados de carga muestran `<TableSkeleton>`, `<KpiSkeleton>` o spinners integrados en botones?
 - [ ] ¿Los precios y cifras numéricas están formateados con `font-mono` y en moneda local?
 - [ ] ¿La interfaz se probó y funciona impecablemente en modo claro y en modo oscuro (`.dark`)?
 - [ ] ¿La vista se probó en pantalla pequeña (ancho 375px–640px) sin desbordamientos horizontales accidentales?

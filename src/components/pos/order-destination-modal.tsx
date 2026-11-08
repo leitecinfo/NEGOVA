@@ -19,6 +19,7 @@ import {
   Store,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select, SearchInput } from "@/components/ui";
 import { PosCartItem, PosOrderSummary, formatCOP } from "@/lib/pos/types";
 import { RestaurantTable, CreateRestaurantOrderInput } from "@/lib/restaurant/types";
 import { DeliveryZone, DeliveryBusinessConfig, calculateDeliveryFeeForOrder } from "@/lib/delivery/types";
@@ -398,7 +399,7 @@ export function OrderDestinationModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -572,7 +573,7 @@ export function OrderDestinationModal({
                     )}
                   </div>
 
-                  <select
+                  <Select
                     disabled={isSubmitting}
                     value={isCustomWaiter ? "custom" : selectedWaiterId || ""}
                     onChange={(e) => {
@@ -592,7 +593,7 @@ export function OrderDestinationModal({
                         setSelectedWaiterName(found ? `${found.name} (${found.code})` : "");
                       }
                     }}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                    selectSize="sm"
                   >
                     <option value="">Sin camarero asignado (Atención general)</option>
                     {waiters.map((w) => (
@@ -601,16 +602,17 @@ export function OrderDestinationModal({
                       </option>
                     ))}
                     <option value="custom">✏️ Otro / Ingresar nombre manualmente...</option>
-                  </select>
+                  </Select>
 
                   {isCustomWaiter && (
-                    <input
+                    <Input
                       type="text"
                       disabled={isSubmitting}
                       value={customWaiterName}
                       onChange={(e) => setCustomWaiterName(e.target.value)}
                       placeholder="Nombre del camarero o persona que atiende..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white mt-1.5"
+                      inputSize="sm"
+                      className="mt-1.5"
                     />
                   )}
                 </div>
@@ -630,17 +632,15 @@ export function OrderDestinationModal({
 
                 {/* Buscador predictivo opcional */}
                 <div className="relative">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      disabled={isSubmitting}
-                      value={customerSearchQuery}
-                      onChange={(e) => handleCustomerSearchChange(e.target.value)}
-                      placeholder="Buscar cliente frecuente por celular o nombre..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-dashed border-slate-300 dark:border-white/20 rounded-lg text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    disabled={isSubmitting}
+                    value={customerSearchQuery}
+                    onChange={(e) => handleCustomerSearchChange(e.target.value)}
+                    placeholder="Buscar cliente frecuente por celular o nombre..."
+                    startAdornment={<Search className="w-3.5 h-3.5 text-slate-400" />}
+                    inputSize="sm"
+                  />
 
                   {/* Resultados predictivos */}
                   {customerSearchResults.length > 0 && (
@@ -689,34 +689,30 @@ export function OrderDestinationModal({
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nombre del cliente / destinatario (Opcional)
                     </label>
-                    <div className="relative">
-                      <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        disabled={isSubmitting}
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Ej. Carlos Mendoza (Opcional)"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
-                      />
-                    </div>
+                    <Input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Ej. Carlos Mendoza (Opcional)"
+                      startAdornment={<User className="w-3.5 h-3.5 text-slate-400" />}
+                      inputSize="sm"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Teléfono de contacto (Opcional)
                     </label>
-                    <div className="relative">
-                      <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="tel"
-                        disabled={isSubmitting}
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="Ej. 300 123 4567"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
-                      />
-                    </div>
+                    <Input
+                      type="tel"
+                      disabled={isSubmitting}
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Ej. 300 123 4567"
+                      startAdornment={<Phone className="w-3.5 h-3.5 text-slate-400" />}
+                      inputSize="sm"
+                    />
                   </div>
                 </div>
 
@@ -724,18 +720,16 @@ export function OrderDestinationModal({
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Dirección de entrega *
                   </label>
-                  <div className="relative">
-                    <MapPin className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      disabled={isSubmitting}
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      placeholder="Ej. Calle 45 # 12 - 34, Barrio El Poblado"
-                      className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    required
+                    disabled={isSubmitting}
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="Ej. Calle 45 # 12 - 34, Barrio El Poblado"
+                    startAdornment={<MapPin className="w-3.5 h-3.5 text-slate-400" />}
+                    inputSize="sm"
+                  />
                 </div>
 
                 {/* MODALIDAD Y TARIFA DE ENTREGA [DOM-001, DOM-002] */}
@@ -806,10 +800,10 @@ export function OrderDestinationModal({
                         )}
                       </div>
 
-                      <select
+                      <Select
                         value={selectedZoneId}
                         onChange={(e) => handleZoneChange(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                        selectSize="sm"
                       >
                         {deliveryZones.length === 0 ? (
                           <option value="outside">Sin zonas configuradas (Tarifa manual)</option>
@@ -823,7 +817,7 @@ export function OrderDestinationModal({
                             <option value="outside">⚠️ Fuera de cobertura habitual / Tarifa personalizada</option>
                           </>
                         )}
-                      </select>
+                      </Select>
 
                       {/* ADVERTENCIA FUERA DE COBERTURA */}
                       {isOutsideZones && (
@@ -884,13 +878,13 @@ export function OrderDestinationModal({
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Punto de referencia / Instrucciones de llegada (Opcional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     disabled={isSubmitting}
                     value={deliveryReference}
                     onChange={(e) => setDeliveryReference(e.target.value)}
                     placeholder="Ej. Torre 2, apto 504 / Portón negro frente al parque"
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                    inputSize="sm"
                   />
                 </div>
 
@@ -908,7 +902,7 @@ export function OrderDestinationModal({
                     )}
                   </div>
 
-                  <select
+                  <Select
                     disabled={isSubmitting}
                     value={isCustomDriver ? "custom" : selectedDriverName || ""}
                     onChange={(e) => {
@@ -924,7 +918,7 @@ export function OrderDestinationModal({
                         setSelectedDriverName(val);
                       }
                     }}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                    selectSize="sm"
                   >
                     <option value="">Por asignar (Asignar luego de preparar comanda)</option>
                     {drivers.map((d) => (
@@ -933,16 +927,17 @@ export function OrderDestinationModal({
                       </option>
                     ))}
                     <option value="custom">✏️ Otro repartidor / Ingresar nombre manualmente...</option>
-                  </select>
+                  </Select>
 
                   {isCustomDriver && (
-                    <input
+                    <Input
                       type="text"
                       disabled={isSubmitting}
                       value={customDriverName}
                       onChange={(e) => setCustomDriverName(e.target.value)}
                       placeholder="Nombre o empresa del repartidor (ej. Juan Repartos / Rappi)..."
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white mt-1.5"
+                      inputSize="sm"
+                      className="mt-1.5"
                     />
                   )}
                 </div>
@@ -962,17 +957,15 @@ export function OrderDestinationModal({
 
                 {/* Buscador predictivo opcional */}
                 <div className="relative">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      disabled={isSubmitting}
-                      value={customerSearchQuery}
-                      onChange={(e) => handleCustomerSearchChange(e.target.value)}
-                      placeholder="Buscar cliente frecuente por celular o nombre..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-[#0D0F16] border border-dashed border-slate-300 dark:border-white/20 rounded-lg text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    disabled={isSubmitting}
+                    value={customerSearchQuery}
+                    onChange={(e) => handleCustomerSearchChange(e.target.value)}
+                    placeholder="Buscar cliente frecuente por celular o nombre..."
+                    startAdornment={<Search className="w-3.5 h-3.5 text-slate-400" />}
+                    inputSize="sm"
+                  />
 
                   {/* Resultados predictivos */}
                   {customerSearchResults.length > 0 && (
@@ -1016,34 +1009,30 @@ export function OrderDestinationModal({
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Nombre de quien recoge (Opcional)
                     </label>
-                    <div className="relative">
-                      <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        disabled={isSubmitting}
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Ej. Andrés R."
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
-                      />
-                    </div>
+                    <Input
+                      type="text"
+                      disabled={isSubmitting}
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Ej. Andrés R."
+                      startAdornment={<User className="w-3.5 h-3.5 text-slate-400" />}
+                      inputSize="sm"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Teléfono de contacto (Opcional)
                     </label>
-                    <div className="relative">
-                      <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="tel"
-                        disabled={isSubmitting}
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="Ej. 311 234 5678"
-                        className="w-full pl-8 pr-3 py-2 text-xs bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
-                      />
-                    </div>
+                    <Input
+                      type="tel"
+                      disabled={isSubmitting}
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Ej. 311 234 5678"
+                      startAdornment={<Phone className="w-3.5 h-3.5 text-slate-400" />}
+                      inputSize="sm"
+                    />
                   </div>
                 </div>
               </div>
@@ -1054,13 +1043,13 @@ export function OrderDestinationModal({
               <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 3. Instrucciones generales de la comanda (Opcional)
               </label>
-              <input
+              <Input
                 type="text"
                 disabled={isSubmitting}
                 value={generalNotes}
                 onChange={(e) => setGeneralNotes(e.target.value)}
                 placeholder="Ej. Empacar salsas por separado, cliente espera con prisa..."
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 text-slate-900 dark:text-white"
+                inputSize="sm"
               />
             </div>
 

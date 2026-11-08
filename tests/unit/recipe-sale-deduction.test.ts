@@ -9,17 +9,17 @@ import { deductRecipeIngredientsForSale } from "../../src/lib/recipes/recipe-ser
 // ==============================================================================
 
 const BUSINESS_A = "11111111-aaaa-4aaa-aaaa-111111111111";
-const LOCATION_A = "loc-1111-aaaa-4aaa-aaaa-111111111111";
+const LOCATION_A = "aaaaaaaa-1111-4aaa-aaaa-111111111111";
 
 // IDs de Productos y Recetas
-const PROD_PANCAKE = "pancake-1111-4aaa-aaaa-111111111111";
-const PROD_COFFEE = "coffee-1111-4aaa-aaaa-111111111111"; // Producto sin receta (stock directo)
-const RECIPE_PANCAKE = "rec-pancake-4aaa-aaaa-111111111111";
+const PROD_PANCAKE = "bbbbbbbb-1111-4aaa-aaaa-111111111111";
+const PROD_COFFEE = "cccccccc-1111-4aaa-aaaa-111111111111"; // Producto sin receta (stock directo)
+const RECIPE_PANCAKE = "dddddddd-4aaa-aaaa-aaaa-111111111111";
 
 // Ingredientes
-const ING_HARINA = "ing-harina-4aaa-aaaa-111111111111";
-const ING_HUEVOS = "ing-huevos-4aaa-aaaa-111111111111";
-const ING_MIEL_OPC = "ing-miel-4aaa-aaaa-111111111111"; // Opcional
+const ING_HARINA = "eeeeeeee-4aaa-aaaa-aaaa-111111111111";
+const ING_HUEVOS = "ffffffff-4aaa-aaaa-aaaa-111111111111";
+const ING_MIEL_OPC = "11112222-4aaa-aaaa-aaaa-111111111111"; // Opcional
 
 let inMemoryProducts: any[] = [];
 let inMemoryRecipes: any[] = [];
@@ -574,6 +574,7 @@ describe("[REC-003] Descuento de ingredientes al vender en RPC PostgreSQL", () =
         },
       ],
       customerName: "Carlos Pérez",
+      customerPhone: "3001234567",
     };
 
     const result = await createRestaurantOrder(BUSINESS_A, orderInput, "usr-1");
@@ -620,6 +621,7 @@ describe("[REC-003] Descuento de ingredientes al vender en RPC PostgreSQL", () =
         },
       ],
       customerName: "Carlos Pérez",
+      customerPhone: "3001234567",
     };
 
     const result = await createRestaurantOrder(BUSINESS_A, orderInput, "usr-1");
@@ -660,6 +662,7 @@ describe("[REC-003] Descuento de ingredientes al vender en RPC PostgreSQL", () =
         },
       ],
       customerName: "Ana Gómez",
+      customerPhone: "3001234567",
     };
 
     const result = await createRestaurantOrder(BUSINESS_A, orderInput, "usr-1");
@@ -698,6 +701,7 @@ describe("[REC-003] Descuento de ingredientes al vender en RPC PostgreSQL", () =
         },
       ],
       customerName: "Juan Valdez",
+      customerPhone: "3001234567",
     };
 
     const result = await createRestaurantOrder(BUSINESS_A, orderInput, "usr-1");

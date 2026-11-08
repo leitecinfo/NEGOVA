@@ -209,7 +209,7 @@ export function WorkspaceCommandPalette({
       >
         {/* Fondo oscurecido con desenfoque */}
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
           onClick={onClose}
         />
 

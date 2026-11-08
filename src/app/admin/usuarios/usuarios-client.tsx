@@ -39,6 +39,7 @@ import {
   deleteUserAction,
 } from "./actions";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui";
 import {
   AdminPagination,
   AdminEmptyState,
@@ -849,7 +850,7 @@ export function UsuariosClient({
       {/* 7. MODAL DE ELIMINACIÓN PERMANENTE CON VERIFICACIÓN DE EMAIL */}
       {deleteModal.isOpen && deleteModal.user && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-red-500/20 dark:border-red-500/30 rounded-3xl p-6 shadow-2xl space-y-4 font-body animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 flex items-center justify-center shrink-0">
@@ -877,32 +878,23 @@ export function UsuariosClient({
               </div>
 
               <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                    Para confirmar, escribe el correo del usuario: <span className="font-mono text-red-600 dark:text-red-400 select-all font-bold">{deleteModal.user.email}</span>
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder={deleteModal.user.email}
-                    value={deleteModal.confirmEmailInput}
-                    onChange={(e) => setDeleteModal((prev) => ({ ...prev, confirmEmailInput: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-                  />
-                </div>
+                <Input
+                  label={<>Para confirmar, escribe el correo del usuario: <span className="font-mono text-red-600 dark:text-red-400 select-all font-bold">{deleteModal.user.email}</span></>}
+                  type="text"
+                  autoFocus
+                  placeholder={deleteModal.user.email}
+                  value={deleteModal.confirmEmailInput}
+                  onChange={(e) => setDeleteModal((prev) => ({ ...prev, confirmEmailInput: e.target.value }))}
+                  className="font-mono"
+                />
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                    Motivo de la eliminación (opcional para auditoría):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Solicitud de baja definitiva / cuenta duplicada"
-                    value={deleteModal.reason}
-                    onChange={(e) => setDeleteModal((prev) => ({ ...prev, reason: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-                  />
-                </div>
+                <Input
+                  label="Motivo de la eliminación (opcional para auditoría):"
+                  type="text"
+                  placeholder="Ej: Solicitud de baja definitiva / cuenta duplicada"
+                  value={deleteModal.reason}
+                  onChange={(e) => setDeleteModal((prev) => ({ ...prev, reason: e.target.value }))}
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">

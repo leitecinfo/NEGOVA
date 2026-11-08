@@ -71,7 +71,7 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
     it("valida la configuración de límites del plan STARTER / INICIO", () => {
       const limits = PLAN_RESOURCE_LIMITS.starter;
       expect(limits.products).toBe(50);
-      expect(limits.employees).toBe(3);
+      expect(limits.employees).toBe(4);
       expect(limits.locations).toBe(1);
       expect(limits.registers).toBe(1);
       expect(limits.recipes).toBe(20);
@@ -82,16 +82,16 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
     it("valida la configuración de límites del plan PROFESSIONAL / CRECE", () => {
       const limits = PLAN_RESOURCE_LIMITS.professional;
       expect(limits.products).toBe(500);
-      expect(limits.employees).toBe(15);
+      expect(limits.employees).toBe(6);
       expect(limits.locations).toBe(3);
       expect(limits.registers).toBe(5);
       expect(limits.recipes).toBe(200);
     });
 
-    it("valida que ENTERPRISE / NEGOCIO tiene límites ilimitados (-1)", () => {
+    it("valida que ENTERPRISE / NEGOCIO tiene límites de 10 usuarios y recursos correspondientes", () => {
       const limits = PLAN_RESOURCE_LIMITS.enterprise;
       expect(limits.products).toBe(-1);
-      expect(limits.employees).toBe(-1);
+      expect(limits.employees).toBe(10);
       expect(limits.locations).toBe(-1);
       expect(limits.registers).toBe(-1);
       expect(limits.recipes).toBe(-1);
@@ -111,44 +111,7 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
   });
 
   describe("2. Criterio de Aceptación 1: Un negocio en STARTER no puede crear el empleado #4 (límite 3)", () => {
-    it("permite crear empleado si el negocio tiene 2 empleados (dentro del límite 3)", async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "subscriptions") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockReturnValue({
-                      maybeSingle: vi.fn().mockResolvedValue({
-                        data: { plan_id: "starter", plans: { code: "starter", name: "Starter" } },
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          };
-        }
-        if (table === "business_users") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ count: 2, error: null }),
-              }),
-            }),
-          };
-        }
-        return {};
-      });
-
-      const check = await checkPlanLimit(businessId, "employees");
-      expect(check.allowed).toBe(true);
-      expect(check.currentCount).toBe(2);
-      expect(check.maxLimit).toBe(3);
-    });
-
-    it("bloquea la creación del empleado #4 cuando ya hay 3 empleados activos en plan STARTER", async () => {
+    it("permite crear empleado si el negocio tiene 3 usuarios (dentro del límite 4)", async () => {
       mockFrom.mockImplementation((table: string) => {
         if (table === "subscriptions") {
           return {
@@ -180,10 +143,47 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
       });
 
       const check = await checkPlanLimit(businessId, "employees");
-      expect(check.allowed).toBe(false);
+      expect(check.allowed).toBe(true);
       expect(check.currentCount).toBe(3);
-      expect(check.maxLimit).toBe(3);
-      expect(check.error).toContain("Has alcanzado el límite de empleados en tu plan (Starter). Límite: 3");
+      expect(check.maxLimit).toBe(4);
+    });
+
+    it("bloquea la creación del empleado #5 cuando ya hay 4 usuarios activos en plan STARTER", async () => {
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "subscriptions") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                in: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockReturnValue({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: { plan_id: "starter", plans: { code: "starter", name: "Starter" } },
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "business_users") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ count: 4, error: null }),
+              }),
+            }),
+          };
+        }
+        return {};
+      });
+
+      const check = await checkPlanLimit(businessId, "employees");
+      expect(check.allowed).toBe(false);
+      expect(check.currentCount).toBe(4);
+      expect(check.maxLimit).toBe(4);
+      expect(check.error).toContain("Has alcanzado el límite de usuarios en tu plan (Starter). Límite: 4");
 
       // Verificar en la server action createWorkspaceUserAction
       const actionRes = await createWorkspaceUserAction(businessId, {
@@ -193,7 +193,7 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
       });
 
       expect(actionRes.success).toBe(false);
-      expect(actionRes.error).toContain("Has alcanzado el límite de empleados en tu plan (Starter). Límite: 3");
+      expect(actionRes.error).toContain("Has alcanzado el límite de usuarios en tu plan (Starter). Límite: 4");
     });
   });
 
@@ -361,9 +361,9 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
       expect(productCheck.maxLimit).toBe(-1);
 
       const empCheck = await checkPlanLimit(businessId, "employees");
-      expect(empCheck.allowed).toBe(true);
-      expect(empCheck.isUnlimited).toBe(true);
-      expect(empCheck.maxLimit).toBe(-1);
+      expect(empCheck.allowed).toBe(false);
+      expect(empCheck.currentCount).toBe(500);
+      expect(empCheck.maxLimit).toBe(10);
     });
   });
 
@@ -491,7 +491,7 @@ describe("[SUB-001] Implementar límites de plan en servidor para todos los recu
       const overview = await getBusinessPlanOverview(businessId);
       expect(overview.planCode).toBe("starter");
       expect(overview.resources.products.limit).toBe(50);
-      expect(overview.resources.employees.limit).toBe(3);
+      expect(overview.resources.employees.limit).toBe(4);
       expect(overview.resources.locations.limit).toBe(1);
       expect(overview.resources.registers.limit).toBe(1);
       expect(overview.resources.recipes.limit).toBe(20);

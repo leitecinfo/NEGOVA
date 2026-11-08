@@ -242,7 +242,10 @@ export async function getBusinessesList(filters: BusinessListFilters = {}): Prom
 
   (businessUsers || []).forEach((bu: any) => {
     const bizId = bu.business_id;
-    userCountMap.set(bizId, (userCountMap.get(bizId) || 0) + 1);
+    const isActive = bu.status === "active" && (!bu.users || bu.users.status === "active");
+    if (isActive) {
+      userCountMap.set(bizId, (userCountMap.get(bizId) || 0) + 1);
+    }
 
     if (bu.roles?.code === "owner" || !ownerMap.has(bizId)) {
       if (bu.users) {
@@ -480,7 +483,7 @@ export async function getBusinessDetail(businessId: string): Promise<{
     updatedAt: dbBusiness.updated_at || new Date().toISOString(),
     owner,
     plan,
-    userCount: memberships.length,
+    userCount: memberships.filter((m: any) => m.status === "active").length,
   };
 
   return {

@@ -85,6 +85,7 @@ const mockSupabaseClient: any = {
           return {
             select: () => ({
               single: async () => ({ data: row, error: null }),
+              maybeSingle: async () => ({ data: row, error: null }),
             }),
           };
         },
@@ -241,6 +242,15 @@ const mockSupabaseClient: any = {
       };
     }
 
+    if (table === "account_payable_payments") {
+      return {
+        insert: (payload: any) => ({
+          error: null,
+          data: { id: crypto.randomUUID(), ...payload },
+        }),
+      };
+    }
+
     if (table === "inventory_stock") {
       return {
         select: (cols: string = "*") => {
@@ -359,6 +369,26 @@ const mockSupabaseClient: any = {
               },
             }),
           }),
+        }),
+      };
+    }
+
+    if (table === "businesses") {
+      return {
+        select: (cols: string = "*") => ({
+          eq: (col: string, val: any) => ({
+            single: async () => ({
+              data: { id: val, settings: { suppliers: inMemorySuppliers } },
+              error: null,
+            }),
+            maybeSingle: async () => ({
+              data: { id: val, settings: { suppliers: inMemorySuppliers } },
+              error: null,
+            }),
+          }),
+        }),
+        update: (payload: any) => ({
+          eq: async (col: string, val: any) => ({ error: null }),
         }),
       };
     }
@@ -638,5 +668,87 @@ describe("[PROV-002] Registro de Compras, Proveedores y Kardex", () => {
 
     const testPurchases = await getPurchases(TEST_BUSINESS_ID);
     expect(testPurchases.length).toBe(1);
+  });
+
+  // ----------------------------------------------------------------------------
+  // 8. Conversión de unidades en abastecimiento (kg -> g)
+  // ----------------------------------------------------------------------------
+  it("convierte correctamente unidades de compra a la unidad base de inventario", async () => {
+    const INGREDIENT_ID = "44444444-4444-4444-8444-444444444444";
+    inMemoryProducts.push({
+      id: INGREDIENT_ID,
+      business_id: TEST_BUSINESS_ID,
+      name: "Carne de Res Molida",
+      metadata: {
+        product_type: "ingredient",
+        material_type: "ingredient",
+        unit: "g", // unidad base en inventario
+        cost: 20, // $20 por gramo ($20.000 por kg)
+      },
+    });
+
+    inMemoryStock.push({
+      id: "stock-carne",
+      business_id: TEST_BUSINESS_ID,
+      product_id: INGREDIENT_ID,
+      location_id: LOC_1,
+      quantity: 1000, // 1.000 g en stock
+      cost: 20,
+      min_stock: 500,
+    });
+
+    // Compra de 5 kg a $22.000 por kg ($110.000 total)
+    // Conversión esperada: 5 kg = 5.000 g. Costo por gramo = $22
+    const purchase = await createPurchase(TEST_BUSINESS_ID, {
+      paymentType: "cash",
+      items: [
+        {
+          productId: INGREDIENT_ID,
+          itemName: "Carne de Res Molida",
+          quantity: 5,
+          unitCost: 22000,
+          purchaseUnit: "kg",
+          inventoryUnit: "g",
+          conversionFactor: 1000,
+          locationId: LOC_1,
+          isInventoryItem: true,
+          itemCategory: "ingredient",
+        },
+      ],
+    });
+
+    expect(purchase).toBeDefined();
+    // Revisar movimiento en kardex: debe haberse registrado con 5.000 gramos
+    const mov = inMemoryMovements.find((m) => m.product_id === INGREDIENT_ID);
+    expect(mov).toBeDefined();
+    expect(mov?.quantity).toBe(5000);
+    expect(mov?.unit_cost).toBe(22); // $22.000 / 1000 g
+
+    // Stock final: 1.000 g iniciales + 5.000 g comprados = 6.000 g
+    const finalStock = inMemoryStock.find((s) => s.product_id === INGREDIENT_ID);
+    expect(finalStock?.quantity).toBe(6000);
+  });
+
+  // ----------------------------------------------------------------------------
+  // 9. Compra con pago parcial / abono inicial
+  // ----------------------------------------------------------------------------
+  it("al registrar una compra a crédito con abono inicial: calcula saldo restante y estado partially_paid", async () => {
+    const purchase = await createPurchase(TEST_BUSINESS_ID, {
+      paymentType: "credit",
+      initialPaymentAmount: 30000,
+      items: [
+        {
+          itemName: "Empaques ecológicos",
+          quantity: 100,
+          unitCost: 1000, // total $100.000
+          isInventoryItem: false,
+        },
+      ],
+    });
+
+    expect(purchase.total).toBe(100000);
+    expect(purchase.paidAmount).toBe(30000);
+    expect(purchase.balance).toBe(70000);
+    expect(purchase.paymentStatus).toBe("partially_paid");
   });
 });

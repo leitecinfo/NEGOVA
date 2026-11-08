@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Select } from "@/components/ui";
 import { Monitor, X, Printer, Landmark, UtensilsCrossed, Wine, Bike, Check } from "lucide-react";
 import {
   PrintingStation,
@@ -88,7 +88,7 @@ export function StationFormModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -178,19 +178,21 @@ export function StationFormModal({
 
             {/* Impresora asignada */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Impresora asignada <span className="text-red-500">*</span>
-              </label>
               {printers.length === 0 ? (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400">
-                  No hay impresoras registradas todavía. Primero registra al menos una impresora en la sección anterior.
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Impresora asignada <span className="text-red-500">*</span>
+                  </label>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 dark:text-amber-400">
+                    No hay impresoras registradas todavía. Primero registra al menos una impresora en la sección anterior.
+                  </div>
                 </div>
               ) : (
-                <select
+                <Select
+                  label="Impresora asignada *"
                   value={printerId}
                   onChange={(e) => setPrinterId(e.target.value)}
                   required
-                  className="w-full bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none dark:[color-scheme:dark] cursor-pointer"
                 >
                   <option value="" disabled>Selecciona una impresora...</option>
                   {printers.map((p) => (
@@ -198,25 +200,24 @@ export function StationFormModal({
                       {p.name} ({p.type === "thermal_80mm" ? "80 mm" : p.type === "thermal_58mm" ? "58 mm" : "Carta"} - {p.connection.toUpperCase()})
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
             </div>
 
             {/* VINCULACIÓN A CAJA REGISTRADORA (CRITERIO CONF-002) */}
-            <div className="space-y-1.5 p-3 rounded-xl bg-orange-50/40 dark:bg-orange-500/5 border border-orange-500/20">
+            <div className="space-y-2 p-3 rounded-xl bg-orange-50/40 dark:bg-orange-500/5 border border-orange-500/20">
               <div className="flex items-center gap-2">
                 <Landmark className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                <label className="text-xs font-bold text-slate-900 dark:text-white">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">
                   Vincular a Caja Registradora
-                </label>
+                </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Al asignar esta estación a una caja, los cobros registrados en dicha caja imprimirán automáticamente en esta impresora.
               </p>
-              <select
+              <Select
                 value={cashRegisterId}
                 onChange={(e) => setCashRegisterId(e.target.value)}
-                className="w-full bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none dark:[color-scheme:dark] cursor-pointer"
               >
                 <option value="">Sin vincular a caja específica (General)</option>
                 {cashRegisters.map((reg) => (
@@ -224,7 +225,7 @@ export function StationFormModal({
                     {reg.name} {reg.isActive ? "(Activa)" : "(Inactiva)"}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {/* Automatizaciones de Impresión */}
@@ -273,15 +274,16 @@ export function StationFormModal({
                 <span className="text-xs font-semibold text-slate-800 dark:text-white">Número de copias</span>
                 <p className="text-[11px] text-slate-400">Copias a generar en cada disparo</p>
               </div>
-              <select
+              <Select
+                selectSize="sm"
                 value={copies}
                 onChange={(e) => setCopies(Number(e.target.value))}
-                className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none dark:[color-scheme:dark] cursor-pointer"
+                className="w-28"
               >
                 <option value={1}>1 copia</option>
                 <option value={2}>2 copias</option>
                 <option value={3}>3 copias</option>
-              </select>
+              </Select>
             </div>
 
             {/* Footer Buttons */}

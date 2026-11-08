@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { DollarSign, Landmark, X, Loader2, AlertCircle } from "lucide-react";
 import { CashRegister, CashSession } from "@/lib/cash/types";
 import { openCashSessionAction } from "@/app/workspace/[businessId]/cajas/actions";
@@ -83,7 +84,7 @@ export function OpenCashShiftModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -124,65 +125,50 @@ export function OpenCashShiftModal({
             )}
 
             {/* SELECTOR DE CAJA */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="pos-cash-register-select"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Caja Registradora
-              </label>
-              <select
-                id="pos-cash-register-select"
-                value={selectedRegisterId || registers[0]?.id || ""}
-                onChange={(e) => setSelectedRegisterId(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-              >
-                {registers.length > 0 ? (
-                  registers.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">Caja Principal</option>
-                )}
-              </select>
-            </div>
+            <Select
+              label="Caja Registradora"
+              id="pos-cash-register-select"
+              value={selectedRegisterId || registers[0]?.id || ""}
+              onChange={setSelectedRegisterId}
+            >
+              {registers.length > 0 ? (
+                registers.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))
+              ) : (
+                <option value="">Caja Principal</option>
+              )}
+            </Select>
 
             {/* BASE INICIAL */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Base Inicial en Efectivo ($ COP)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold">
-                  $
-                </div>
-                <input
-                  type="text"
-                  value={
-                    initialAmountStr === "0"
-                      ? "0"
-                      : new Intl.NumberFormat("es-CO").format(
-                          Number(initialAmountStr.replace(/\D/g, "")) || 0
-                        )
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    setInitialAmountStr(val || "0");
-                  }}
-                  className="w-full pl-8 pr-4 py-2.5 text-base font-mono font-bold text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                  placeholder="0"
-                  autoFocus
-                />
-              </div>
+              <Input
+                label="Base Inicial en Efectivo ($ COP)"
+                value={
+                  initialAmountStr === "0"
+                    ? "0"
+                    : new Intl.NumberFormat("es-CO").format(
+                        Number(initialAmountStr.replace(/\D/g, "")) || 0
+                      )
+                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setInitialAmountStr(val || "0");
+                }}
+                placeholder="0"
+                startAdornment={<span className="text-slate-400 font-bold">$</span>}
+                className="text-base font-mono font-bold"
+                autoFocus
+              />
 
               {/* BOTONES RÁPIDOS */}
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setInitialAmountStr("0")}
-                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors"
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
                 >
                   $0
                 </button>
@@ -191,7 +177,7 @@ export function OpenCashShiftModal({
                     key={amt}
                     type="button"
                     onClick={() => setInitialAmountStr(String(amt))}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 text-[#ED500A] transition-colors"
+                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 text-[#ED500A] transition-colors cursor-pointer"
                   >
                     ${new Intl.NumberFormat("es-CO").format(amt)}
                   </button>
@@ -209,7 +195,7 @@ export function OpenCashShiftModal({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ej. Recibido por turno mañana con billetes de baja denominación..."
                 rows={2}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A] resize-none"
+                className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A] resize-none"
               />
             </div>
 

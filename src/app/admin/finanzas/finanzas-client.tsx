@@ -24,6 +24,7 @@ import {
   AdminButton,
   AdminEmptyState,
 } from "@/components/admin/ui";
+import { Input, Select } from "@/components/ui";
 import { registerExpenseAction, fetchFinancialSummaryAction, updateExpenseAction, deleteExpenseAction } from "./actions";
 import { toast } from "sonner";
 
@@ -163,17 +164,17 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
             Período:
           </label>
-          <select
+          <Select
             value={filterPeriod}
             onChange={(e) => setFilterPeriod(e.target.value as any)}
-            className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+            selectSize="sm"
           >
             <option value="all">Historico Completo</option>
             <option value="this_month">Este Mes</option>
             <option value="last_month">Mes Pasado</option>
             <option value="this_year">Este Año</option>
             <option value="custom">Rango Personalizado</option>
-          </select>
+          </Select>
         </div>
 
         {filterPeriod === "custom" && (
@@ -182,22 +183,22 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Desde:
               </label>
-              <input
+              <Input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                inputSize="sm"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Hasta:
               </label>
-              <input
+              <Input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="p-2 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                inputSize="sm"
               />
             </div>
             <div>
@@ -360,7 +361,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
 
       {/* 4. MODAL: REGISTRAR/EDITAR COSTO OPERATIVO */}
       {mounted && isExpenseModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-2.5">
@@ -390,10 +391,10 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Categoría del Gasto:
                 </label>
-                <select
+                <Select
                   value={expenseForm.category}
                   onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value as PlatformExpense["category"] })}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                  selectSize="md"
                 >
                   <option value="infra">Infraestructura & Base de Datos</option>
                   <option value="domain_hosting">Dominio & Alojamiento Web</option>
@@ -401,19 +402,18 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                   <option value="commissions">Comisiones Bancarias / Pasarela</option>
                   <option value="operations">Operaciones & Soporte Técnico</option>
                   <option value="other">Otros Costos Operativos</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Concepto / Detalle:
                 </label>
-                <input
+                <Input
                   type="text"
                   value={expenseForm.concept}
                   onChange={(e) => setExpenseForm({ ...expenseForm, concept: e.target.value })}
                   placeholder="Ej: Suscripción mensual infraestructura Supabase Pro"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
                   required
                 />
               </div>
@@ -423,7 +423,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Monto en COP:
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={expenseForm.amount === 0 ? "" : new Intl.NumberFormat("es-CO").format(expenseForm.amount)}
                     onChange={(e) => {
@@ -431,7 +431,6 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                       setExpenseForm({ ...expenseForm, amount: rawValue ? parseInt(rawValue, 10) : 0 });
                     }}
                     placeholder="Ej: 110.000"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                     required
                   />
                 </div>
@@ -439,11 +438,10 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Fecha del Egreso:
                   </label>
-                  <input
+                  <Input
                     type="date"
                     value={expenseForm.date}
                     onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                     required
                   />
                 </div>
@@ -453,12 +451,11 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Referencia / Factura:
                 </label>
-                <input
+                <Input
                   type="text"
                   value={expenseForm.receiptReference}
                   onChange={(e) => setExpenseForm({ ...expenseForm, receiptReference: e.target.value })}
                   placeholder="Ej: INV-SUP-9821"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white font-mono"
                 />
               </div>
 
@@ -478,7 +475,7 @@ export function FinanzasClient({ initialData }: FinanzasClientProps) {
 
       {/* 5. MODAL: ELIMINAR/ANULAR EGRESO */}
       {mounted && isDeleteModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm rounded-2xl border border-red-200 dark:border-red-500/20 bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10 text-red-600 flex items-center justify-center mx-auto mb-4">

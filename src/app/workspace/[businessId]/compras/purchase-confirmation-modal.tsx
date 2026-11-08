@@ -98,7 +98,7 @@ export function PurchaseConfirmationModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="relative w-full max-w-3xl bg-white dark:bg-[#0E131F] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           {/* ========================================================= */}
           {/* 1. ENCABEZADO CON VERIFICACIÓN VERDE Y METADATOS          */}

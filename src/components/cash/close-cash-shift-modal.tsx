@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui";
 import {
   Landmark,
   X,
@@ -133,7 +134,7 @@ export function CloseCashShiftModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -280,27 +281,23 @@ export function CloseCashShiftModal({
                     </button>
                   </div>
 
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold">
-                      $
-                    </div>
-                    <input
-                      id="counted-cash-input"
-                      type="text"
-                      inputMode="numeric"
-                      value={
-                        countedCashStr
-                          ? new Intl.NumberFormat("es-CO").format(Number(countedCashStr))
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        setCountedCashStr(val);
-                      }}
-                      placeholder="0"
-                      className="w-full pl-8 pr-3 py-2.5 text-lg font-bold font-mono rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    id="counted-cash-input"
+                    type="text"
+                    inputMode="numeric"
+                    value={
+                      countedCashStr
+                        ? new Intl.NumberFormat("es-CO").format(Number(countedCashStr))
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      setCountedCashStr(val);
+                    }}
+                    placeholder="0"
+                    startAdornment={<span className="text-slate-400 font-bold">$</span>}
+                    className="text-lg font-bold font-mono"
+                  />
 
                   {/* COMPARADOR: SISTEMA VS CONTADO & DIFERENCIA */}
                   <div className="grid grid-cols-3 gap-2 pt-1 text-center">
@@ -355,10 +352,10 @@ export function CloseCashShiftModal({
                         ? "Explica la causa del faltante/sobrante en el arqueo físico..."
                         : "Comentarios sobre el cierre del turno, entrega de turno, etc."
                     }
-                    className={`w-full px-3 py-2 text-xs rounded-xl border bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 ${
+                    className={`w-full px-3.5 py-2 text-xs rounded-xl border bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
                       hasDifference && !notes.trim()
                         ? "border-amber-400 focus:ring-amber-500"
-                        : "border-slate-200 dark:border-white/10 focus:ring-[#ED500A]"
+                        : "border-slate-200/80 dark:border-white/10 focus:ring-[#ED500A]"
                     }`}
                   />
                 </div>

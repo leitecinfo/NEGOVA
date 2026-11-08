@@ -42,6 +42,8 @@ import { MovementFormModal } from "./movement-form-modal";
 import { MovementDetailModal } from "./movement-detail-modal";
 import { ConfirmCancelMovementModal } from "./confirm-cancel-movement-modal";
 import { getUnifiedMovementsAction } from "./actions";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   businessId: string;
@@ -478,24 +480,23 @@ export function WorkspaceGastosClient({
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-border bg-background text-foreground"
+                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-foreground focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
               />
               <span className="text-xs text-muted-foreground">a</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-border bg-background text-foreground"
+                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-foreground focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
               />
             </div>
           )}
 
           {/* Selector de Categorías */}
           <div className={periodPreset === "custom" ? "sm:col-span-3" : "sm:col-span-4"}>
-            <select
+            <Select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs"
             >
               <option value="all">Todas las categorías</option>
 
@@ -527,30 +528,17 @@ export function WorkspaceGastosClient({
                   </optgroup>
                 </>
               )}
-            </select>
+            </Select>
           </div>
 
           {/* Buscador */}
           <div className={periodPreset === "custom" ? "sm:col-span-5" : "sm:col-span-8"}>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
+            <SearchInput
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onClear={() => setSearchTerm("")}
                 placeholder="Buscar por concepto, tercero, proveedor o comprobante..."
-                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
               />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2.5 top-2.5 p-0.5 rounded-md text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>

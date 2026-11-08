@@ -16,7 +16,7 @@ export async function getCategoriesAction(
     const auth = await verifyWorkspaceAction(businessId, "products.view");
     if (!auth.success) return { success: false, error: auth.error };
 
-    const data = await productsService.getCategories(businessId);
+    const data = await productsService.getCategories(businessId, undefined, "commercial");
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: error.message || "Error al obtener categorías." };
@@ -497,11 +497,11 @@ export async function createSpoilageRecordAction(
     if (!auth.success) return { success: false, error: auth.error };
 
     const { createSpoilageRecord } = await import("@/lib/spoilage/spoilage-service");
-    const record = await createSpoilageRecord(businessId, input, auth.context?.userId);
+    const result = await createSpoilageRecord(businessId, input, auth.context?.userId);
 
     revalidatePath(`/workspace/${businessId}/productos`);
     revalidatePath(`/workspace/${businessId}/inventario`);
-    return { success: true, data: record };
+    return { success: true, data: result.spoilage };
   } catch (error: any) {
     return { success: false, error: error.message || "Error al registrar la merma." };
   }

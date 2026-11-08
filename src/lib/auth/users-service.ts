@@ -18,7 +18,7 @@ import {
   PlatformRoleCode,
 } from "./permissions";
 import { NEGOVA_PLANS, PlanId, CENTRALIZED_PLAN_EMPLOYEE_LIMITS, getPlanMaxEmployees } from "@/config/plans";
-import { checkPlanLimit } from "@/lib/subscriptions/plan-limits-service";
+import { checkPlanLimit, getBusinessActiveUserCount } from "@/lib/subscriptions/plan-limits-service";
 
 export type UserType = "platform" | "business";
 export type UserStatus = "active" | "invited" | "disabled" | "blocked" | "inactive" | "suspended";
@@ -558,9 +558,10 @@ export async function checkBusinessPlanUserCapacity(businessId: string): Promise
   if (subscription?.plans) {
     const planObj = subscription.plans as any;
     const codeLower = (planObj.code || "").toLowerCase();
-    if (codeLower.includes("crece")) {
+    const nameLower = (planObj.name || "").toLowerCase();
+    if (codeLower.includes("crece") || codeLower.includes("avanzado") || nameLower.includes("crece") || nameLower.includes("avanzado")) {
       planKey = "crece";
-    } else if (codeLower.includes("negocio") || codeLower.includes("enterprise")) {
+    } else if (codeLower.includes("negocio") || codeLower.includes("enterprise") || nameLower.includes("negocio")) {
       planKey = "negocio";
     } else {
       planKey = "inicio";
@@ -575,14 +576,8 @@ export async function checkBusinessPlanUserCapacity(businessId: string): Promise
     maxUsers = basePlan.maxMembers;
   }
 
-  // 3. Contar miembros actuales en el negocio
-  const { count: currentUsers } = await adminClient
-    .from("business_users")
-    .select("id", { count: "exact", head: true })
-    .eq("business_id", businessId)
-    .neq("status", "inactive");
-
-  const totalMembers = currentUsers || 0;
+  // 3. Contar miembros activos actuales en el negocio (Regla canónica: 1 Dueño + N colaboradores activos)
+  const totalMembers = await getBusinessActiveUserCount(businessId);
   const canAddUser = totalMembers < maxUsers;
 
   return {

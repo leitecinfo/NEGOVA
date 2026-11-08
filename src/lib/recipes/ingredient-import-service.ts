@@ -57,7 +57,7 @@ export async function importIngredientsBatch(
       .insert({
         business_id: businessId,
         name: newCatName,
-        is_active: true,
+        status: "active",
       })
       .select("id, name")
       .single();
@@ -81,27 +81,34 @@ export async function importIngredientsBatch(
         targetCategoryId = catMap.get(row.categoryName.trim().toLowerCase()) || null;
       }
 
-      const itemData: any = {
-        business_id: businessId,
-        name: row.name,
-        description: row.description,
-        category_id: targetCategoryId,
-        cost: row.cost,
-        cost_unit: row.unit,
-        price: row.price,
+      const metadata = {
+        product_type: "ingredient",
+        material_type: "ingredient",
         unit: row.unit,
+        cost: row.cost,
+        track_stock: true,
+        stock_quantity: row.stock,
         min_stock: row.minStock,
         max_stock: row.maxStock,
-        is_active: true,
-        item_type: "raw_material",
-        metadata: {
-          barcode: row.barcode,
-          sku: row.barcode,
-          mostrar_en_pos: row.mostrarEnPos,
-          mostrar_en_qr: row.mostrarEnQr,
-          mostrar_en_mesas: row.mostrarEnMesas,
-          mostrar_en_domicilios: row.mostrarEnDomicilios,
-        },
+        barcode: row.barcode || null,
+        sku: row.barcode || null,
+        available_in_pos: Boolean(row.mostrarEnPos),
+        available_in_qr: Boolean(row.mostrarEnQr),
+        available_online: Boolean(row.mostrarEnDomicilios),
+      };
+
+      const productPayload: any = {
+        business_id: businessId,
+        name: row.name.trim(),
+        description: row.description || null,
+        category_id: targetCategoryId,
+        price: 0,
+        status: "active",
+        is_available: true,
+        available_in_pos: Boolean(row.mostrarEnPos),
+        available_in_qr: Boolean(row.mostrarEnQr),
+        available_online: Boolean(row.mostrarEnDomicilios),
+        metadata,
         updated_at: new Date().toISOString(),
       };
 
@@ -110,8 +117,8 @@ export async function importIngredientsBatch(
       if (row.action === "update" && ingredientId) {
         // Actualizar existente
         const { error: updateErr } = await supabase
-          .from("restaurant_items")
-          .update(itemData)
+          .from("products")
+          .update(productPayload)
           .eq("id", ingredientId)
           .eq("business_id", businessId);
 
@@ -119,24 +126,45 @@ export async function importIngredientsBatch(
         updatedCount++;
       } else {
         // Crear nuevo
-        itemData.created_at = new Date().toISOString();
-        const { data: createdItem, error: insertErr } = await supabase
-          .from("restaurant_items")
-          .insert(itemData)
+        productPayload.created_at = new Date().toISOString();
+        let { data: createdProd, error: insertErr } = await supabase
+          .from("products")
+          .insert(productPayload)
           .select("id")
           .single();
 
-        if (insertErr || !createdItem) throw insertErr || new Error("No se pudo crear el ingrediente.");
-        ingredientId = createdItem.id;
+        if (
+          insertErr &&
+          (insertErr.code === "PGRST204" ||
+            String(insertErr.message || "").includes("available_in_") ||
+            String(insertErr.message || "").includes("available_online"))
+        ) {
+          delete productPayload.available_in_pos;
+          delete productPayload.available_in_qr;
+          delete productPayload.available_online;
+          const retry = await supabase
+            .from("products")
+            .insert(productPayload)
+            .select("id")
+            .single();
+          createdProd = retry.data;
+          insertErr = retry.error;
+        }
+
+        if (insertErr || !createdProd) {
+          throw insertErr || new Error("No se pudo crear el ingrediente en el catálogo.");
+        }
+        ingredientId = createdProd.id;
         createdCount++;
       }
 
-      // 4. Manejo de Stock Inicial si viene especificado y es mayor que 0
+      // 4. Manejo de Stock Inicial en inventory_stock y Kardex
       if (ingredientId && defaultLocId && row.stock > 0 && row.action === "create") {
         await upsertInventoryStock(businessId, {
           productId: ingredientId,
           locationId: defaultLocId,
           quantity: row.stock,
+          minStock: row.minStock,
           cost: row.cost,
         });
 
@@ -152,6 +180,14 @@ export async function importIngredientsBatch(
           },
           userId || undefined
         );
+      } else if (ingredientId && defaultLocId && row.action === "create") {
+        await upsertInventoryStock(businessId, {
+          productId: ingredientId,
+          locationId: defaultLocId,
+          quantity: 0,
+          minStock: row.minStock,
+          cost: row.cost,
+        });
       }
     } catch (err: any) {
       failedCount++;

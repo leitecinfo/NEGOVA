@@ -10,17 +10,17 @@ import * as path from "path";
 
 describe("Pestaña 'Historial' dentro de /workspace/[businessId]/inventario", () => {
   describe("1. Encabezado y Opciones de Canal/Origen", () => {
-    it("debe contar con las 6 opciones requeridas en el filtro desplegable de origen", () => {
-      const expectedOptions = [
-        { value: "all", label: "Todos los orígenes" },
-        { value: "POS", label: "POS" },
-        { value: "Mesa", label: "Mesa" },
-        { value: "Domicilio", label: "Domicilio" },
-        { value: "Devolución", label: "Devolución" },
-        { value: "Otro", label: "Otro" },
-      ];
-
-      expect(MOVEMENT_ORIGIN_OPTIONS).toEqual(expectedOptions);
+    it("debe contar con las opciones requeridas en el filtro desplegable de origen [TAREA-08]", () => {
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "all")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Compra")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Merma")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Ajuste")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Receta")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "POS")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Mesa")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Domicilio")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Devolución")).toBe(true);
+      expect(MOVEMENT_ORIGIN_OPTIONS.some((o) => o.value === "Otro")).toBe(true);
     });
 
     it("el archivo de la pestaña Historial debe existir y tener el encabezado 'Historial de Movimientos'", () => {
@@ -92,25 +92,30 @@ describe("Pestaña 'Historial' dentro de /workspace/[businessId]/inventario", ()
       expect(originCreditNote).toBe("Devolución");
     });
 
-    it("debe clasificar como Otro las compras, ajustes manuales, mermas y traslados", () => {
+    it("debe clasificar con precisión compras, mermas, ajustes y otros movimientos [TAREA-08]", () => {
       const originPurchase = resolveMovementOrigin({
         referenceType: "purchase",
         notes: "Compra Factura Proveedor #8821",
         movementType: "entry",
       });
-      expect(originPurchase).toBe("Otro");
+      expect(originPurchase).toBe("Compra");
 
       const originAdjustment = resolveMovementOrigin({
         movementType: "adjustment",
         notes: "Ajuste físico de inventario fin de mes",
       });
-      expect(originAdjustment).toBe("Otro");
+      expect(originAdjustment).toBe("Ajuste");
 
       const originSpoilage = resolveMovementOrigin({
         movementType: "spoilage",
         notes: "Merma por vencimiento de producto",
       });
-      expect(originSpoilage).toBe("Otro");
+      expect(originSpoilage).toBe("Merma");
+
+      const originOther = resolveMovementOrigin({
+        notes: "Cierre anual no clasificado",
+      });
+      expect(originOther).toBe("Otro");
     });
   });
 

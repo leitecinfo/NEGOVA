@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import {
   X,
   Calendar,
@@ -257,7 +258,7 @@ export function ReservationFormModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -337,17 +338,15 @@ export function ReservationFormModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Nombre del Cliente *
                   </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ej. Carolina Montoya"
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    required
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Ej. Carolina Montoya"
+                    startAdornment={<User className="w-4 h-4 text-slate-400" />}
+                    inputSize="md"
+                  />
                 </div>
 
                 {/* Teléfono y Email */}
@@ -356,32 +355,28 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Teléfono / WhatsApp
                     </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="Ej. +57 300 123 4567"
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                      />
-                    </div>
+                    <Input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ej. +57 300 123 4567"
+                      startAdornment={<Phone className="w-4 h-4 text-slate-400" />}
+                      inputSize="md"
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Email
                     </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="cliente@ejemplo.com"
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                      />
-                    </div>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="cliente@ejemplo.com"
+                      startAdornment={<Mail className="w-4 h-4 text-slate-400" />}
+                      inputSize="md"
+                    />
                   </div>
                 </div>
 
@@ -392,18 +387,17 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Número de Personas *
                     </label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        required
-                        value={partySize}
-                        onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                      />
-                    </div>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      required
+                      value={partySize}
+                      onChange={(e) => setPartySize(Math.max(1, parseInt(e.target.value) || 1))}
+                      startAdornment={<Users className="w-4 h-4 text-slate-400" />}
+                      inputSize="md"
+                      className="font-mono font-bold"
+                    />
                   </div>
 
                   {/* Fecha */}
@@ -411,16 +405,15 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Fecha de Reserva *
                     </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="date"
-                        required
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full h-10 pl-9 pr-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                      />
-                    </div>
+                    <Input
+                      type="date"
+                      required
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      startAdornment={<Calendar className="w-4 h-4 text-slate-400" />}
+                      inputSize="md"
+                      className="font-mono"
+                    />
                   </div>
 
                   {/* Hora */}
@@ -428,20 +421,17 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Hora *
                     </label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        value={time}
-                        onChange={(e) => setTime(e.target.value)}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
-                      >
-                        {HOURS_PRESETS.map((h) => (
-                          <option key={h} value={h}>
-                            {h}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <Select
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      selectSize="md"
+                    >
+                      {HOURS_PRESETS.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
                 </div>
 
@@ -451,52 +441,46 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Sala / Salón (Opcional)
                     </label>
-                    <div className="relative">
-                      <UtensilsCrossed className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        value={roomId}
-                        onChange={(e) => {
-                          setRoomId(e.target.value);
-                          setTableId("");
-                        }}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
-                      >
-                        <option value="">Cualquier sala / Sin asignar</option>
-                        {rooms.map((room) => (
-                          <option key={room.id} value={room.id}>
-                            {room.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <Select
+                      value={roomId}
+                      onChange={(e) => {
+                        setRoomId(e.target.value);
+                        setTableId("");
+                      }}
+                      selectSize="md"
+                    >
+                      <option value="">Cualquier sala / Sin asignar</option>
+                      {rooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Mesa Asignada (Opcional)
                     </label>
-                    <div className="relative">
-                      <Armchair className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        value={tableId}
-                        onChange={(e) => {
-                          const tId = e.target.value;
-                          setTableId(tId);
-                          if (tId) {
-                            const tbl = tables.find((t) => t.id === tId);
-                            if (tbl?.room_id) setRoomId(tbl.room_id);
-                          }
-                        }}
-                        className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
-                      >
-                        <option value="">Sin mesa asignada (asignar después)</option>
-                        {filteredModalTables.map((tbl: RestaurantTableWithOrder) => (
-                          <option key={tbl.id} value={tbl.id}>
-                            Mesa {tbl.name_or_number} (Capacidad: {tbl.capacity} comensales)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <Select
+                      value={tableId}
+                      onChange={(e) => {
+                        const tId = e.target.value;
+                        setTableId(tId);
+                        if (tId) {
+                          const tbl = tables.find((t) => t.id === tId);
+                          if (tbl?.room_id) setRoomId(tbl.room_id);
+                        }
+                      }}
+                      selectSize="md"
+                    >
+                      <option value="">Sin mesa asignada (asignar después)</option>
+                      {filteredModalTables.map((tbl: RestaurantTableWithOrder) => (
+                        <option key={tbl.id} value={tbl.id}>
+                          Mesa {tbl.name_or_number} (Capacidad: {tbl.capacity} comensales)
+                        </option>
+                      ))}
+                    </Select>
                   </div>
                 </div>
 
@@ -506,33 +490,33 @@ export function ReservationFormModal({
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Origen de la Reserva
                     </label>
-                    <select
+                    <Select
                       value={origin}
                       onChange={(e) => setOrigin(e.target.value as ReservationOrigin)}
-                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
+                      selectSize="md"
                     >
                       <option value="direct">Manual / Directo</option>
                       <option value="phone">Teléfono</option>
                       <option value="whatsapp">WhatsApp</option>
                       <option value="web">Online / Web</option>
                       <option value="walk_in">Walk-in (Sin reserva previa)</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Estado Inicial
                     </label>
-                    <select
+                    <Select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as ReservationStatus)}
-                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer"
+                      selectSize="md"
                     >
                       <option value="confirmed">Confirmada</option>
                       <option value="pending">Pendiente</option>
                       <option value="checked_in">Check-in (Llegó al local)</option>
                       <option value="seated">En Mesa (Sentado)</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -606,16 +590,14 @@ export function ReservationFormModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Nombre de la Empresa
                   </label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Razón social o nombre corporativo"
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Razón social o nombre corporativo"
+                    startAdornment={<Building2 className="w-4 h-4 text-slate-400" />}
+                    inputSize="md"
+                  />
                 </div>
 
                 {/* RUC / NIT */}
@@ -623,16 +605,15 @@ export function ReservationFormModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     RUC / NIT
                   </label>
-                  <div className="relative">
-                    <FileCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={taxId}
-                      onChange={(e) => setTaxId(e.target.value)}
-                      placeholder="Número de identificación fiscal o tributario"
-                      className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs font-mono text-slate-900 dark:text-white placeholder:font-sans placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    value={taxId}
+                    onChange={(e) => setTaxId(e.target.value)}
+                    placeholder="Número de identificación fiscal o tributario"
+                    startAdornment={<FileCheck className="w-4 h-4 text-slate-400" />}
+                    inputSize="md"
+                    className="font-mono"
+                  />
                 </div>
 
                 {/* Dirección fiscal */}

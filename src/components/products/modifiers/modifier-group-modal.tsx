@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select, SearchInput, Button, Tabs } from "@/components/ui";
 import {
   CreateModifierGroupInput,
   ModifierCommercialType,
@@ -115,6 +116,17 @@ export function ModifierGroupModal({
       setSelectedCategoryFilter("all");
     }
   }, [isOpen, group, initialProductId]);
+
+  // Manejo de tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isSubmitting, onClose]);
 
   // Sincronizar límites al cambiar required o selectionType
   const handleToggleRequired = (val: boolean) => {
@@ -302,8 +314,19 @@ export function ModifierGroupModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-2xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col">
+      <div
+        className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isSubmitting) {
+            onClose();
+          }
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="relative bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl w-full max-w-2xl max-h-[92vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+        >
           {/* Cabecera */}
           <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
             <div className="flex items-center gap-2.5">
@@ -330,40 +353,18 @@ export function ModifierGroupModal({
           </div>
 
           {/* Selector de Sección Integrada */}
-          <div className="flex items-center gap-1 px-4 sm:px-5 pt-3 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/30 dark:bg-white/[0.01] shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab("general")}
-              className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                activeTab === "general"
-                  ? "border-[#ED500A] text-[#ED500A]"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
-              }`}
-            >
-              1. Modalidad y Reglas
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("options")}
-              className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                activeTab === "options"
-                  ? "border-[#ED500A] text-[#ED500A]"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
-              }`}
-            >
-              2. Opciones ({options.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("assignment")}
-              className={`pb-2.5 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                activeTab === "assignment"
-                  ? "border-[#ED500A] text-[#ED500A]"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white"
-              }`}
-            >
-              3. Productos ({selectedProductIds.length})
-            </button>
+          <div className="px-4 sm:px-5 pt-3 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/30 dark:bg-white/[0.01] shrink-0">
+            <Tabs
+              variant="underline"
+              tabs={[
+                { id: "general", label: "1. Modalidad y Reglas" },
+                { id: "options", label: `2. Opciones (${options.length})` },
+                { id: "assignment", label: `3. Productos (${selectedProductIds.length})` },
+              ]}
+              activeTab={activeTab}
+              onChange={(id) => setActiveTab(id as "general" | "options" | "assignment")}
+              size="sm"
+            />
           </div>
 
           {/* Contenido del Formulario */}
@@ -375,32 +376,20 @@ export function ModifierGroupModal({
               <div className="space-y-4 animate-in fade-in duration-150">
                 {/* Nombre y descripción */}
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Nombre del grupo *
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ej. Acabados premium, Opciones de presentación, Adicionales"
-                      required
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    label="Nombre del grupo"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ej. Acabados premium, Opciones de presentación, Adicionales"
+                  />
 
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Descripción o instrucción opcional
-                    </label>
-                    <input
-                      type="text"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ej. Selecciona las opciones deseadas o añade complementos"
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    label="Descripción o instrucción opcional"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ej. Selecciona las opciones deseadas o añade complementos"
+                  />
                 </div>
 
                 {/* Modalidad Comercial */}
@@ -516,45 +505,37 @@ export function ModifierGroupModal({
                   {/* Límites de cantidad si es múltiple */}
                   {selectionType === "multiple" && (
                     <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                          Cantidad mínima
-                        </label>
-                        <input
-                          type="number"
-                          min={required ? 1 : 0}
-                          max={maxSelect}
-                          value={minSelect}
-                          onChange={(e) =>
-                            setMinSelect(
-                              Math.max(
-                                required ? 1 : 0,
-                                Math.min(maxSelect, parseInt(e.target.value, 10) || 0)
-                              )
+                      <Input
+                        label="Cantidad mínima"
+                        type="number"
+                        min={required ? 1 : 0}
+                        max={maxSelect}
+                        value={minSelect}
+                        onChange={(e) =>
+                          setMinSelect(
+                            Math.max(
+                              required ? 1 : 0,
+                              Math.min(maxSelect, parseInt(e.target.value, 10) || 0)
                             )
-                          }
-                          className="w-full px-3 py-1.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold text-center"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                          Cantidad máxima
-                        </label>
-                        <input
-                          type="number"
-                          min={Math.max(1, minSelect)}
-                          value={maxSelect}
-                          onChange={(e) =>
-                            setMaxSelect(
-                              Math.max(
-                                Math.max(1, minSelect),
-                                parseInt(e.target.value, 10) || 1
-                              )
+                          )
+                        }
+                        inputSize="sm"
+                      />
+                      <Input
+                        label="Cantidad máxima"
+                        type="number"
+                        min={Math.max(1, minSelect)}
+                        value={maxSelect}
+                        onChange={(e) =>
+                          setMaxSelect(
+                            Math.max(
+                              Math.max(1, minSelect),
+                              parseInt(e.target.value, 10) || 1
                             )
-                          }
-                          className="w-full px-3 py-1.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-bold text-center"
-                        />
-                      </div>
+                          )
+                        }
+                        inputSize="sm"
+                      />
                     </div>
                   )}
                 </div>
@@ -638,23 +619,19 @@ export function ModifierGroupModal({
 
                         {/* Nombre de la opción */}
                         <div className="flex-1 min-w-0">
-                          <input
-                            type="text"
+                          <Input
+                            inputSize="sm"
                             value={opt.name}
                             onChange={(e) => handleOptionChange(idx, "name", e.target.value)}
                             placeholder="Nombre (ej. Queso mozzarella, Salsa BBQ)"
-                            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                           />
                         </div>
 
                         {/* Precio adicional formateado */}
-                        <div className="w-28 relative shrink-0">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400">
-                            +$
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
+                        <div className="w-28 shrink-0">
+                          <Input
+                            inputSize="sm"
+                            startAdornment={<span className="text-[11px] font-bold text-slate-400">+$</span>}
                             value={opt.price ? formatNumberWithDots(opt.price) : ""}
                             onChange={(e) =>
                               handleOptionChange(
@@ -664,7 +641,7 @@ export function ModifierGroupModal({
                               )
                             }
                             placeholder="0"
-                            className="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                            className="font-mono font-bold"
                           />
                         </div>
 
@@ -758,21 +735,17 @@ export function ModifierGroupModal({
 
                 {/* Filtro y buscador de productos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      placeholder="Buscar por nombre o SKU..."
-                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs text-slate-900 dark:text-white"
-                    />
-                  </div>
+                  <SearchInput
+                    value={productSearch}
+                    onChange={setProductSearch}
+                    placeholder="Buscar por nombre o SKU..."
+                    inputSize="sm"
+                  />
 
-                  <select
+                  <Select
                     value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300"
+                    onChange={setSelectedCategoryFilter}
+                    selectSize="sm"
                   >
                     <option value="all">Todas las categorías</option>
                     {categories.map((c) => (
@@ -780,7 +753,7 @@ export function ModifierGroupModal({
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 {/* Lista de productos con checkbox */}
@@ -793,6 +766,11 @@ export function ModifierGroupModal({
                     {filteredProducts.map((p) => {
                       const isSelected = selectedProductIds.includes(p.id);
                       const cat = categories.find((c) => c.id === p.category_id);
+                      const productImg =
+                        p.image_url ||
+                        (p.metadata as any)?.gallery_images?.[0] ||
+                        (p.metadata as any)?.images?.[0];
+
                       return (
                         <div
                           key={p.id}
@@ -803,13 +781,28 @@ export function ModifierGroupModal({
                               : "bg-white dark:bg-[#0D0F16] border-slate-100 dark:border-white/[0.04] text-slate-700 dark:text-slate-300 hover:border-slate-200"
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {}} // Manejado por el onClick del contenedor
-                              className="w-4 h-4 text-[#ED500A] rounded border-slate-300 focus:ring-[#ED500A]"
+                              className="w-4 h-4 text-[#ED500A] rounded border-slate-300 focus:ring-[#ED500A] shrink-0"
                             />
+
+                            {/* Miniatura del producto */}
+                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.08] shrink-0 flex items-center justify-center">
+                              {productImg ? (
+                                <img
+                                  src={productImg}
+                                  alt={p.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <Package className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+
                             <div className="min-w-0">
                               <span className="text-xs font-bold block truncate">
                                 {p.name}
@@ -835,32 +828,25 @@ export function ModifierGroupModal({
 
             {/* Footer con acciones */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Cancelar
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                variant="primary"
+                size="sm"
+                isLoading={isSubmitting}
+                leftIcon={<Check className="w-3.5 h-3.5" />}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Guardando grupo...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{isEditing ? "Guardar cambios" : "Crear grupo"}</span>
-                  </>
-                )}
-              </button>
+                {isEditing ? "Guardar cambios" : "Crear grupo"}
+              </Button>
             </div>
           </form>
         </div>

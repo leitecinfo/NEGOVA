@@ -248,7 +248,7 @@ export function ThermalTicketModal({
         }
       `}} />
 
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4 m-0 thermal-no-print animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 m-0 thermal-no-print animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"

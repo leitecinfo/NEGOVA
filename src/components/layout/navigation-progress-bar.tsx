@@ -29,6 +29,22 @@ export function NavigationProgressProvider({ children }: { children: React.React
   const [progress, setProgress] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const startPathnameRef = useRef<string | null>(null);
+  const startSearchRef = useRef<string | null>(null);
+
+  const endNavigation = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    setProgress(100);
+    const t = setTimeout(() => {
+      setIsNavigating(false);
+      setNavigatingHref(null);
+      setIsVisible(false);
+      setProgress(0);
+      startPathnameRef.current = null;
+      startSearchRef.current = null;
+    }, 120);
+    timersRef.current.push(t);
+  }, []);
 
   const startNavigation = useCallback((href: string) => {
     // Normalizar URLs para evitar falsos positivos con trailing slashes
@@ -43,37 +59,36 @@ export function NavigationProgressProvider({ children }: { children: React.React
     // Limpiar timers de una navegación anterior para que no cancelen la actual
     timersRef.current.forEach(clearTimeout);
 
+    // Guardar ruta y search de partida
+    startPathnameRef.current = cleanCurrent;
+    startSearchRef.current = searchParams ? searchParams.toString() : "";
+
+    // Resetear inmediatamente el scroll del contenedor principal de la vista
+    try {
+      const viewport = document.getElementById("app-main-viewport");
+      if (viewport) {
+        viewport.scrollTo({ top: 0, behavior: "instant" });
+      }
+    } catch {
+      // Ignorar si no está en DOM
+    }
+
     setNavigatingHref(href);
     setIsNavigating(true);
     setIsVisible(true);
     setProgress(25);
 
-    // Incrementar progresivamente mientras el servidor resuelve
-    const t1 = setTimeout(() => setProgress((p) => (p < 60 ? 60 : p)), 180);
-    const t2 = setTimeout(() => setProgress((p) => (p < 85 ? 85 : p)), 500);
+    // Incrementar progresivamente mientras el servidor resuelve el RSC
+    const t1 = setTimeout(() => setProgress((p) => Math.max(p, 60)), 150);
+    const t2 = setTimeout(() => setProgress((p) => Math.max(p, 85)), 400);
 
-    // Timeout de seguridad estricto (máximo 3.5s) para evitar overlays congelados
+    // Failsafe de seguridad por pérdida de red o aborto (8 segundos)
     const timeout = setTimeout(() => {
-      setIsNavigating(false);
-      setNavigatingHref(null);
-      setIsVisible(false);
-      setProgress(0);
-    }, 3500);
+      endNavigation();
+    }, 8000);
 
     timersRef.current = [t1, t2, timeout];
-  }, [pathname]);
-
-  const endNavigation = useCallback(() => {
-    timersRef.current.forEach(clearTimeout);
-    setProgress(100);
-    const t = setTimeout(() => {
-      setIsNavigating(false);
-      setNavigatingHref(null);
-      setIsVisible(false);
-      setProgress(0);
-    }, 150);
-    timersRef.current.push(t);
-  }, []);
+  }, [pathname, searchParams, endNavigation]);
 
   // Escuchar clics globales en enlaces para activar el estado de carga instantáneamente
   useEffect(() => {
@@ -124,24 +139,25 @@ export function NavigationProgressProvider({ children }: { children: React.React
     };
   }, [startNavigation, endNavigation]);
 
-  // Terminar navegación cuando la URL o los searchParams cambien o cuando ya se haya alcanzado el destino
+  // Terminar navegación ÚNICAMENTE cuando la URL cambie efectivamente al destino o a una nueva ruta
   useEffect(() => {
     if (!isNavigating) return;
 
     const cleanCurrent = pathname.split("?")[0].replace(/\/$/, "");
+    const cleanStart = startPathnameRef.current;
     const cleanTarget = (navigatingHref || "").split("?")[0].replace(/\/$/, "");
 
-    // Si ya estamos en la ruta destino, terminar navegación de inmediato
-    if (cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))) {
-      endNavigation();
-      return;
-    }
+    // 1. Llegó al destino deseado o a una subruta del destino
+    const hasReachedTarget = Boolean(
+      cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))
+    );
 
-    // O cerrar tras un breve tiempo para completar la barra de progreso
-    const timer = setTimeout(() => {
+    // 2. Cambió la ruta respecto a la pantalla desde donde se inició la navegación
+    const hasChangedRoute = Boolean(cleanStart && cleanCurrent !== cleanStart);
+
+    if (hasReachedTarget || hasChangedRoute) {
       endNavigation();
-    }, 200);
-    return () => clearTimeout(timer);
+    }
   }, [pathname, searchParams, isNavigating, navigatingHref, endNavigation]);
 
   return (

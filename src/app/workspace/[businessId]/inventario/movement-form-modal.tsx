@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition } from "react";
+import Link from "next/link";
 import {
   X,
   Plus,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select, SearchSelect } from "@/components/ui";
 import { Location, MovementType } from "@/lib/inventory/types";
 import { recordInventoryMovementsBatchAction, getInventoryStockAction } from "./actions";
 import { formatCOP, formatNumberWithDots, parseNumberFromDots } from "@/lib/pos/types";
@@ -142,18 +144,27 @@ export function MovementFormModal({
     return stockMap[selectedProduct.id] ?? 0;
   }, [selectedProduct, stockMap]);
 
-  // Filtrado de productos en el buscador
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products.slice(0, 8);
-    const term = productSearch.toLowerCase();
-    return products
-      .filter((p) => {
-        const nameMatch = p.name.toLowerCase().includes(term);
-        const skuMatch = (p.metadata as any)?.sku?.toLowerCase()?.includes(term);
-        return nameMatch || skuMatch;
-      })
-      .slice(0, 10);
-  }, [products, productSearch]);
+  // Opciones normalizadas para SearchSelect
+  const productOptions = useMemo(() => {
+    return products.map((p) => {
+      const availStock = stockMap[p.id] ?? 0;
+      const sku = (p.metadata as any)?.sku;
+      return {
+        value: p.id,
+        label: p.name,
+        description: `${sku ? `SKU: ${sku} · ` : ""}Stock: ${availStock} un.`,
+        icon: p.image_url ? (
+          <img
+            src={p.image_url}
+            alt={p.name}
+            className="w-4 h-4 rounded-sm object-cover"
+          />
+        ) : (
+          <Package className="w-4 h-4 text-slate-400" />
+        ),
+      };
+    });
+  }, [products, stockMap]);
 
   const activeLocation = useMemo(() => {
     return locations.find((l) => l.id === selectedLocationId) || locations[0];
@@ -321,7 +332,7 @@ export function MovementFormModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -359,21 +370,21 @@ export function MovementFormModal({
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Ubicación / Bodega de destino *
               </label>
-              <select
+              <Select
                 value={selectedLocationId}
                 onChange={(e) => {
                   setSelectedLocationId(e.target.value);
                   setSelectedProduct(null);
                   setProductSearch("");
                 }}
-                className="w-full px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all cursor-pointer"
+                selectSize="md"
               >
                 {locations.map((loc) => (
                   <option key={loc.id} value={loc.id}>
                     {loc.name} ({loc.type === "warehouse" ? "Bodega" : "Punto de Venta"})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             {/* 2. TIPO DE MOVIMIENTO */}
@@ -429,79 +440,54 @@ export function MovementFormModal({
                 {movementType === "exit" && "Reduce las existencias. No permite dejar el inventario en negativo."}
                 {movementType === "adjustment" && "Fija el conteo físico exacto de existencias (establece el valor indicado)."}
               </p>
-            </div>
 
-            {/* 3. BUSCADOR DE PRODUCTOS CON STOCK DISPONIBLE */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Producto de catálogo *
-                </label>
-                {selectedProduct && (
-                  <span className="text-xs font-medium text-slate-500">
-                    Stock actual en {activeLocation?.name}:{" "}
-                    <strong className="text-slate-800 dark:text-slate-200">
-                      {currentStockForSelected} un.
-                    </strong>
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar producto por nombre o SKU..."
-                  value={productSearch}
-                  onChange={(e) => {
-                    setProductSearch(e.target.value);
-                    if (selectedProduct && e.target.value !== selectedProduct.name) {
-                      setSelectedProduct(null);
-                    }
-                  }}
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
-                />
-              </div>
-
-              {/* Lista sugerida si no está seleccionado aún */}
-              {!selectedProduct && productSearch.trim().length > 0 && (
-                <div className="max-h-40 overflow-y-auto border border-slate-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-[#0E131F] divide-y divide-slate-100 dark:divide-white/[0.04] shadow-md">
-                  {isLoadingProducts ? (
-                    <div className="p-3 text-center text-xs text-slate-400">
-                      <Loader2 className="w-4 h-4 animate-spin inline-block mr-1.5" />
-                      Cargando catálogo...
-                    </div>
-                  ) : filteredProducts.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400">
-                      No se encontraron productos coincidentes.
-                    </div>
-                  ) : (
-                    filteredProducts.map((p) => {
-                      const availStock = stockMap[p.id] ?? 0;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => handleSelectProduct(p)}
-                          className="w-full p-2.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between transition-colors cursor-pointer"
-                        >
-                          <div>
-                            <span className="font-semibold text-slate-900 dark:text-white">{p.name}</span>
-                            {(p.metadata as any)?.sku && (
-                              <span className="text-2xs text-slate-400 block">
-                                SKU: {(p.metadata as any).sku}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-2xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 font-bold text-slate-700 dark:text-slate-300">
-                            {availStock} en stock
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
+              {movementType === "entry" && (
+                <div className="mt-2.5 p-3 rounded-xl bg-[#ED500A]/5 border border-[#ED500A]/20 flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                  <AlertCircle className="w-4 h-4 text-[#ED500A] shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-bold text-slate-900 dark:text-white">¿Es una compra o abastecimiento de proveedor?</span>
+                    <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Para mantener la trazabilidad contable, control de factura, impuestos y cuentas por pagar, utiliza el módulo oficial de Compras.
+                    </p>
+                    <Link
+                      href={`/workspace/${businessId}/compras`}
+                      onClick={onClose}
+                      className="inline-flex items-center gap-1 text-2xs font-bold text-[#ED500A] hover:underline mt-1.5"
+                    >
+                      <span>Ir al registro de Compras</span>
+                      <span>→</span>
+                    </Link>
+                  </div>
                 </div>
               )}
+            </div>
+
+            {/* 3. BUSCADOR DE PRODUCTOS CON STOCK DISPONIBLE (NORMALIZADO) */}
+            <div className="space-y-1.5">
+              <SearchSelect
+                label="Producto de catálogo"
+                required
+                options={productOptions}
+                value={selectedProduct?.id || ""}
+                onChange={(val) => {
+                  const found = products.find((p) => p.id === val) || null;
+                  if (found) handleSelectProduct(found);
+                  else {
+                    setSelectedProduct(null);
+                    setProductSearch("");
+                  }
+                }}
+                placeholder="Buscar o seleccionar producto por nombre o SKU..."
+                searchPlaceholder="Escribe el nombre o SKU del producto..."
+                emptyText="No se encontraron productos coincidentes"
+                isLoading={isLoadingProducts}
+                selectSize="md"
+                helperText={
+                  selectedProduct
+                    ? `Stock actual en ${activeLocation?.name}: ${currentStockForSelected} un.`
+                    : undefined
+                }
+              />
             </div>
 
             {/* 4. CANTIDAD, COSTO Y NOTAS */}
@@ -510,14 +496,15 @@ export function MovementFormModal({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   {movementType === "adjustment" ? "Nuevo Stock Físico (Conteo Exacto) *" : "Cantidad a Mover *"}
                 </label>
-                <input
+                <Input
                   type="number"
                   step="any"
                   min={movementType === "adjustment" ? "0" : "0.01"}
                   value={quantityInput}
                   onChange={(e) => setQuantityInput(e.target.value)}
                   placeholder={movementType === "adjustment" ? "Ej. 25" : "Ej. 10"}
-                  className="w-full px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
+                  inputSize="md"
+                  className="font-semibold"
                 />
               </div>
 
@@ -525,17 +512,16 @@ export function MovementFormModal({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Costo Unitario (COP)
                 </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={costInput}
-                    onChange={(e) => setCostInput(formatNumberWithDots(e.target.value))}
-                    placeholder="0"
-                    className="w-full pl-7 pr-3.5 py-2.5 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={costInput}
+                  onChange={(e) => setCostInput(formatNumberWithDots(e.target.value))}
+                  placeholder="0"
+                  startAdornment={<span className="text-sm text-slate-400">$</span>}
+                  inputSize="md"
+                  className="font-semibold"
+                />
               </div>
             </div>
 
@@ -543,12 +529,12 @@ export function MovementFormModal({
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Notas / Motivo del Movimiento
               </label>
-              <input
+              <Input
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ej. Factura proveedor #4912, Conteo mensual, Merma operativa..."
-                className="w-full px-3.5 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
+                inputSize="sm"
               />
             </div>
 

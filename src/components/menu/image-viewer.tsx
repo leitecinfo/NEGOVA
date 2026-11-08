@@ -200,7 +200,7 @@ export function ImageViewerComponent({
       {/* Lightbox Pantalla Completa si se activa */}
       {isFullscreen && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setIsFullscreen(false)}
         >
           <div className="absolute top-4 right-4 z-10 flex items-center gap-3">

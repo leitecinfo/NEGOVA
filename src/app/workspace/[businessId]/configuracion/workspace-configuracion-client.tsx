@@ -49,6 +49,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { AdminTabs, AdminKpiGrid, AdminKpiCard, AdminButton, AdminInput, AdminBadge } from "@/components/ui";
+import { Select } from "@/components/ui/select";
 
 
 
@@ -1652,7 +1653,7 @@ export function WorkspaceConfiguracionClient({
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Cantidad de copias configuradas para la emisión de comprobantes.</p>
                 </div>
-                <select
+                <Select
                   value={posSettings.receiptCopies}
                   onChange={(e) => handlePosChange("receiptCopies", Number(e.target.value))}
                   disabled={!isOwner}
@@ -1661,7 +1662,7 @@ export function WorkspaceConfiguracionClient({
                   <option value={1} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">1 copia</option>
                   <option value={2} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">2 copias</option>
                   <option value={3} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">3 copias</option>
-                </select>
+                </Select>
               </div>
 
               {/* Método de pago predeterminado */}
@@ -1675,7 +1676,7 @@ export function WorkspaceConfiguracionClient({
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Preselecciona el método de cobro en el formulario de ventas.</p>
                 </div>
-                <select
+                <Select
                   value={posSettings.defaultPaymentMethod}
                   onChange={(e) => handlePosChange("defaultPaymentMethod", e.target.value)}
                   disabled={!isOwner}
@@ -1684,7 +1685,7 @@ export function WorkspaceConfiguracionClient({
                   <option value="cash" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Efectivo</option>
                   <option value="transfer" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Transferencia</option>
                   <option value="card" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white">Tarjeta / Datáfono</option>
-                </select>
+                </Select>
               </div>
 
               {/* Solicitar nombre del cliente */}

@@ -17,8 +17,8 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LowStockItem } from "@/lib/inventory/types";
-import { getLowStockItemsAction } from "../productos/inventory-actions";
-import { TableSkeleton, EmptyState, ErrorState } from "@/components/ui";
+import { getLowStockItemsAction } from "./actions";
+import { TableSkeleton, EmptyState, ErrorState, KpiCard, KpiGrid, SearchInput, Badge, Button } from "@/components/ui";
 
 interface Props {
   businessId: string;
@@ -124,26 +124,26 @@ export function InventoryLowStockTab({
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* ========================================================= */}
-      {/* 1. ENCABEZADO: Título 'Productos con Stock Bajo' con icono de advertencia/alerta */}
+      {/* 1. ENCABEZADO: Título 'Productos con Stock Bajo' (NORMALIZADO) */}
       {/* ========================================================= */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-linear-to-r from-amber-500/10 via-amber-500/5 to-rose-500/10 border border-amber-500/20 shadow-xs">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#0D0F16] border border-amber-500/30 dark:border-amber-500/20 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0 shadow-xs">
-              <AlertTriangle className="w-6 h-6" />
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 shadow-xs">
+              <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h3 className="text-lg sm:text-xl font-bold font-title tracking-tight text-slate-900 dark:text-white">
                   Productos con Stock Bajo
                 </h3>
                 {items.length > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500 text-white shadow-2xs">
+                  <Badge size="sm" variant="red">
                     {items.length} {items.length === 1 ? "crítico" : "críticos"}
-                  </span>
+                  </Badge>
                 )}
               </div>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {items.length === 0
                   ? "Todos los productos del catálogo cuentan con existencias por encima de sus límites de seguridad."
                   : "Lista de referencias con déficit de existencias que requieren orden de compra o ingreso inmediato."}
@@ -156,7 +156,7 @@ export function InventoryLowStockTab({
               onClick={() => loadLowStock()}
               disabled={isLoading}
               title="Actualizar existencias críticas"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-[#0D0F16] border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-white/[0.04] transition-all cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all cursor-pointer shadow-2xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
               <span>Actualizar lista</span>
@@ -164,56 +164,51 @@ export function InventoryLowStockTab({
           </div>
         </div>
 
-        {/* Tarjetas resumen de déficit */}
+        {/* Tarjetas resumen de déficit normalizadas con KpiGrid */}
         {items.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-amber-500/15">
-            <div className="p-3 rounded-2xl bg-white/70 dark:bg-[#0D0F16]/70 border border-amber-500/20">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                Total Agotados (0 un.)
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5 block">
-                {totalOutOfStock} productos
-              </span>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-white/70 dark:bg-[#0D0F16]/70 border border-amber-500/20">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                En Nivel Crítico
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5 block">
-                {totalCritical} productos
-              </span>
-            </div>
-
-            <div className="col-span-2 sm:col-span-1 p-3 rounded-2xl bg-white/70 dark:bg-[#0D0F16]/70 border border-amber-500/20">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                Déficit Total Consolidado
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5 block">
-                -{totalDeficitUnits} unidades
-              </span>
-            </div>
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+            <KpiGrid cols={3}>
+              <KpiCard
+                title="Total Agotados"
+                value={`${totalOutOfStock} productos`}
+                subtext="0 unidades físicas en stock"
+                icon={<XCircle className="w-5 h-5" />}
+                variant={totalOutOfStock > 0 ? "red" : "default"}
+              />
+              <KpiCard
+                title="En Nivel Crítico"
+                value={`${totalCritical} productos`}
+                subtext="Por debajo del stock mínimo"
+                icon={<AlertTriangle className="w-5 h-5" />}
+                variant={totalCritical > 0 ? "amber" : "default"}
+              />
+              <KpiCard
+                title="Déficit Total Consolidado"
+                value={`-${totalDeficitUnits} un.`}
+                subtext="Unidades faltantes por surtir"
+                icon={<AlertCircle className="w-5 h-5" />}
+                variant={totalDeficitUnits > 0 ? "red" : "emerald"}
+              />
+            </KpiGrid>
           </div>
         )}
       </div>
 
       {/* ========================================================= */}
-      {/* 2. BARRA DE BÚSQUEDA Y FILTRADO */}
+      {/* 2. BARRA DE BÚSQUEDA Y FILTRADO (NORMALIZADA) */}
       {/* ========================================================= */}
       {items.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xs">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs">
+          <div className="flex-1 max-w-md">
+            <SearchInput
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onClear={() => setSearch("")}
               placeholder="Buscar por nombre, SKU, categoría o bodega..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/40"
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setStatusFilter("all")}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
@@ -308,10 +303,10 @@ export function InventoryLowStockTab({
                               {item.productName}
                             </span>
                             {isOutOfStock && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                              <Badge size="sm" variant="red">
                                 <XCircle className="w-3 h-3" />
                                 <span>Agotado</span>
-                              </span>
+                              </Badge>
                             )}
                           </div>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -336,28 +331,28 @@ export function InventoryLowStockTab({
                         </div>
                       </td>
 
-                      {/* 2. Stock Actual: Badge / etiqueta numérica en color rojo con las unidades físicas */}
+                      {/* 2. Stock Actual */}
                       <td className="py-4 px-4 text-center">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border border-rose-200/80 dark:border-rose-500/20 shadow-2xs">
+                        <Badge size="sm" variant="red">
                           {isOutOfStock ? (
-                            <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <XCircle className="w-3.5 h-3.5" />
                           ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5" />
                           )}
-                          <span>{item.quantity} un.</span>
-                        </span>
+                          <span className="font-mono font-bold">{item.quantity} un.</span>
+                        </Badge>
                       </td>
 
-                      {/* 3. Stock Mínimo: Número entero que disparó la alerta */}
+                      {/* 3. Stock Mínimo */}
                       <td className="py-4 px-4 text-center font-mono font-bold text-xs text-slate-700 dark:text-slate-300">
                         <span>{Math.round(item.minStock)} un.</span>
                       </td>
 
-                      {/* 4. Diferencia: Número negativo en rojo (ej: -3) indicando el déficit respecto al mínimo requerido */}
+                      {/* 4. Diferencia */}
                       <td className="py-4 px-4 text-center">
-                        <span className="inline-flex items-center font-mono font-extrabold text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-xl border border-rose-500/20 shadow-2xs">
-                          {formattedDifference}
-                        </span>
+                        <Badge size="sm" variant="red">
+                          <span className="font-mono font-bold">{formattedDifference}</span>
+                        </Badge>
                       </td>
 
                       {/* 5. Acción: Botón interactivo 'Reabastecer' que abre directamente la orden de compra o ingreso */}

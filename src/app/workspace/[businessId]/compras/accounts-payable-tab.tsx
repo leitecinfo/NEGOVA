@@ -33,6 +33,8 @@ import {
   getSuppliersAction,
 } from "./actions";
 import { PaymentModal } from "./payment-modal";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   businessId: string;
@@ -284,22 +286,21 @@ export function AccountsPayableTab({ businessId }: Props) {
 
           <div className="flex items-center gap-2">
             {/* Buscador */}
-            <div className="relative flex-1 sm:w-64">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
+            <div className="flex-1 sm:w-64">
+              <SearchInput
+                inputSize="sm"
                 placeholder="Buscar por proveedor, compra, factura..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500/20"
+                onClear={() => setSearch("")}
               />
             </div>
 
             {/* Filtro Proveedor */}
-            <select
+            <Select
+              selectSize="sm"
               value={selectedSupplier}
               onChange={(e) => setSelectedSupplier(e.target.value)}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-hidden"
             >
               <option value="all">Todos los Proveedores</option>
               {suppliers.map((s) => (
@@ -307,20 +308,20 @@ export function AccountsPayableTab({ businessId }: Props) {
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
 
             {/* Filtro Rango Vencimiento */}
-            <select
+            <Select
+              selectSize="sm"
               value={dueDateRange}
               onChange={(e) => setDueDateRange(e.target.value as any)}
-              className="text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-hidden"
             >
               <option value="all">Cualquier Vencimiento</option>
               <option value="today">Vence Hoy</option>
               <option value="next_7d">Próximos 7 días</option>
               <option value="this_month">Este Mes</option>
               <option value="overdue">Solo Vencidas</option>
-            </select>
+            </Select>
 
             {/* Recargar */}
             <button

@@ -81,6 +81,7 @@ import { CashMovementModal } from "@/components/cash/cash-movement-modal";
 import { ShiftMovementsHistoryModal } from "@/components/cash/shift-movements-history-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
 import { toast } from "sonner";
 
 // Nuevos subcomponentes modales y paneles [POS-006]
@@ -1605,10 +1606,10 @@ export function PosScreenClient({
                       <label className="block text-[10px] font-bold text-blue-900 dark:text-blue-300 mb-1">
                         Selecciona Mesa
                       </label>
-                      <select
+                      <Select
+                        selectSize="sm"
                         value={selectedTableId}
                         onChange={(e) => setSelectedTableId(e.target.value)}
-                        className="w-full h-8 px-2 rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-800 dark:text-slate-200"
                       >
                         <option value="">Mesa Principal / Mostrador</option>
                         {tables.map((t) => (
@@ -1616,7 +1617,7 @@ export function PosScreenClient({
                             {t.name_or_number} (Capacidad: {t.capacity || 4})
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
 
@@ -2158,7 +2159,7 @@ export function PosScreenClient({
       {/* DRAWER MÓVIL PARA VER PEDIDO */}
       {isMobileCartOpen && (
         <ModalPortal>
-          <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full bg-white dark:bg-[#0D0F16] rounded-t-3xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden border-t border-slate-200/80 dark:border-white/[0.08]">
               <div className="p-3 border-b border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">

@@ -297,7 +297,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFullConfig = {
   },
   planesLimites: {
     inicio: {
-      maxUsers: 2,
+      maxUsers: 4,
       maxProducts: 200,
       maxBranches: 1,
       canUsePos: true,
@@ -308,7 +308,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFullConfig = {
       supportLevel: "standard",
     },
     crece: {
-      maxUsers: 3,
+      maxUsers: 6,
       maxProducts: 1000,
       maxBranches: 1,
       canUsePos: true,
@@ -319,7 +319,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFullConfig = {
       supportLevel: "priority",
     },
     negocio: {
-      maxUsers: 6,
+      maxUsers: 10,
       maxProducts: 3000,
       maxBranches: 1,
       canUsePos: true,

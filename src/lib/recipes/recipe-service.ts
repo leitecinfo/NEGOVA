@@ -1,5 +1,10 @@
 // Dynamic import of createClient inside getDbClient to avoid next/headers leakage
+import { z } from "zod";
 import { assertPlanLimit } from "@/lib/subscriptions/plan-limits-service";
+import {
+  calculateLineCostWithConversion,
+  convertQuantity,
+} from "./unit-conversion";
 import {
   Ingredient,
   CreateIngredientInput,
@@ -46,7 +51,11 @@ export async function getDbClient() {
 /**
  * Mapea una fila de producto tipo "ingredient" hacia la interfaz normalizada Ingredient.
  */
-function mapProductToIngredient(prod: any, stockRows?: any[]): Ingredient {
+function mapProductToIngredient(
+  prod: any,
+  stockRows?: any[],
+  categoriesMap?: Map<string, string>
+): Ingredient {
   const meta = (prod.metadata as Record<string, any>) || {};
   const stockForProd = (stockRows || []).filter((s) => s.product_id === prod.id);
 
@@ -58,11 +67,15 @@ function mapProductToIngredient(prod: any, stockRows?: any[]): Ingredient {
 
   // Primera ubicación asociada para referencia
   const primaryStock = stockForProd[0];
+  const catName = categoriesMap?.get(prod.category_id) || prod.categories?.name || null;
 
   return {
     id: prod.id,
     businessId: prod.business_id,
     name: prod.name,
+    type: (meta.material_type === "supply" ? "supply" : "ingredient") as "ingredient" | "supply",
+    sku: meta.sku || null,
+    barcode: meta.barcode || null,
     unit: meta.unit || "unidad",
     costPerUnit: Number(primaryStock?.cost ?? meta.cost ?? 0),
     stockQuantity: totalStock,
@@ -71,10 +84,12 @@ function mapProductToIngredient(prod: any, stockRows?: any[]): Ingredient {
     locationId: primaryStock?.location_id || null,
     locationName: primaryStock?.locations?.name || null,
     categoryId: prod.category_id || null,
+    categoryName: catName,
+    imageUrl: prod.image_url || null,
     availableInPos: Boolean(prod.available_in_pos ?? meta.available_in_pos ?? false),
     availableInQr: Boolean(prod.available_in_qr ?? meta.available_in_qr ?? false),
     availableOnline: Boolean(meta.available_online ?? false),
-    isAvailable: Boolean(prod.is_available),
+    isAvailable: Boolean(prod.is_available && prod.status !== "inactive" && prod.status !== "archived"),
     notes: prod.description || null,
     createdAt: prod.created_at,
     updatedAt: prod.updated_at,
@@ -87,47 +102,49 @@ function mapProductToIngredient(prod: any, stockRows?: any[]): Ingredient {
 async function ensureIngredientCategory(businessId: string): Promise<string> {
   const supabase = await getDbClient();
 
+  // 1. Buscar si ya existe una categoría de ingredientes
   const { data: existing } = await supabase
     .from("categories")
-    .select("id")
+    .select("id, name")
     .eq("business_id", businessId)
     .ilike("name", "%ingrediente%")
+    .limit(1)
     .maybeSingle();
 
   if (existing) {
     return existing.id;
   }
 
-  // Si no existe, crearla
+  // 2. Si no existe, crear categoría "Insumos e Ingredientes"
   const { data: created, error } = await supabase
     .from("categories")
     .insert({
       business_id: businessId,
       name: "Insumos e Ingredientes",
-      description: "Materia prima, ingredientes y componentes gastronómicos",
+      description: "Materia prima, ingredientes y componentes operacionales",
       sort_order: 999,
       status: "active",
     })
     .select("id")
     .single();
 
-  if (error || !created) {
-    // Si falla, buscar cualquier categoría activa
-    const { data: fallback } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("business_id", businessId)
-      .limit(1)
-      .maybeSingle();
-
-    return fallback?.id || "";
+  if (!error && created) {
+    return created.id;
   }
 
-  return created.id;
+  // Fallback si ya existía por conflicto o hubo error
+  const { data: fallback } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("business_id", businessId)
+    .limit(1)
+    .maybeSingle();
+
+  return fallback?.id || "";
 }
 
 /**
- * Crea un nuevo ingrediente como producto tipo "ingredient" con inicialización en el Kardex y stock.
+ * Crea un nuevo ingrediente o insumo como producto tipo "ingredient" con inicialización en el Kardex y stock.
  */
 export async function createIngredient(
   businessId: string,
@@ -137,14 +154,45 @@ export async function createIngredient(
   const parsed = CreateIngredientInputSchema.parse(input);
   const supabase = await getDbClient();
 
-  // 1. Resolver categoría
-  let categoryId = parsed.categoryId;
-  if (!categoryId) {
-    categoryId = await ensureIngredientCategory(businessId);
+  // Validar unicidad de SKU en el negocio si fue provisto
+  if (parsed.sku && parsed.sku.trim().length > 0) {
+    const cleanSku = parsed.sku.trim();
+    const { data: existingSku } = await supabase
+      .from("products")
+      .select("id, name, metadata")
+      .eq("business_id", businessId)
+      .neq("status", "archived");
+
+    const skuConflict = (existingSku || []).find(
+      (p: any) => (p.metadata as any)?.sku?.toLowerCase() === cleanSku.toLowerCase()
+    );
+    if (skuConflict) {
+      throw new Error(`El código SKU «${cleanSku}» ya está en uso por «${skuConflict.name}».`);
+    }
   }
 
+  // Validar unicidad de Código de Barras en el negocio si fue provisto
+  if (parsed.barcode && parsed.barcode.trim().length > 0) {
+    const cleanBarcode = parsed.barcode.trim();
+    const { data: existingBarcode } = await supabase
+      .from("products")
+      .select("id, name, metadata")
+      .eq("business_id", businessId)
+      .neq("status", "archived");
+
+    const barcodeConflict = (existingBarcode || []).find(
+      (p: any) => (p.metadata as any)?.barcode?.toLowerCase() === cleanBarcode.toLowerCase()
+    );
+    if (barcodeConflict) {
+      throw new Error(`El código de barras «${cleanBarcode}» ya está en uso por «${barcodeConflict.name}».`);
+    }
+  }
+
+  // 1. Resolver categoría (respeta si el usuario no asignó categoría sin forzar categorías genéricas)
+  const categoryId = parsed.categoryId && parsed.categoryId.trim().length > 0 ? parsed.categoryId.trim() : null;
+
   // 2. Resolver ubicación
-  let locationId = parsed.locationId;
+  let locationId = parsed.locationId && parsed.locationId.trim().length > 0 ? parsed.locationId.trim() : null;
   if (!locationId) {
     const defaultLoc = await ensureDefaultLocation(businessId);
     locationId = defaultLoc.id;
@@ -153,16 +201,19 @@ export async function createIngredient(
   // 3. Crear el producto en la tabla `products` con product_type = 'ingredient'
   const metadata = {
     product_type: "ingredient",
+    material_type: parsed.type || "ingredient",
     unit: parsed.unit,
     cost: parsed.costPerUnit,
     track_stock: true,
     stock_quantity: parsed.initialStock,
     min_stock: parsed.minStock,
-    max_stock: parsed.maxStock || null,
-    available_in_pos: parsed.availableInPos,
-    available_in_qr: parsed.availableInQr,
-    show_in_qr_menu: parsed.availableInQr,
-    available_online: parsed.availableOnline,
+    max_stock: parsed.maxStock !== undefined ? parsed.maxStock : null,
+    sku: parsed.sku?.trim() || null,
+    barcode: parsed.barcode?.trim() || null,
+    available_in_pos: parsed.availableInPos ?? false,
+    available_in_qr: parsed.availableInQr ?? false,
+    show_in_qr_menu: parsed.availableInQr ?? false,
+    available_online: parsed.availableOnline ?? false,
   };
 
   const insertPayload: Record<string, any> = {
@@ -170,11 +221,13 @@ export async function createIngredient(
     category_id: categoryId || null,
     name: parsed.name.trim(),
     description: parsed.notes?.trim() || null,
+    image_url: parsed.imageUrl || null,
     price: 0,
     is_available: true,
     status: "active",
-    available_in_pos: parsed.availableInPos,
-    available_in_qr: parsed.availableInQr,
+    available_in_pos: parsed.availableInPos ?? false,
+    available_in_qr: parsed.availableInQr ?? false,
+    available_online: parsed.availableOnline ?? false,
     metadata,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -189,10 +242,12 @@ export async function createIngredient(
   if (
     prodErr &&
     (prodErr.code === "PGRST204" ||
-      String(prodErr.message || "").includes("available_in_"))
+      String(prodErr.message || "").includes("available_in_") ||
+      String(prodErr.message || "").includes("available_online"))
   ) {
     delete insertPayload.available_in_pos;
     delete insertPayload.available_in_qr;
+    delete insertPayload.available_online;
     const retry = await supabase
       .from("products")
       .insert(insertPayload)
@@ -221,7 +276,7 @@ export async function createIngredient(
           quantity: parsed.initialStock,
           unitCost: parsed.costPerUnit,
           referenceType: "adjustment",
-          notes: "Inventario inicial al dar de alta el ingrediente",
+          notes: "Inventario inicial al dar de alta el material",
         },
         userId
       );
@@ -262,7 +317,7 @@ export async function createIngredient(
 }
 
 /**
- * Consulta la lista de ingredientes del comercio aplicando filtros.
+ * Consulta la lista de ingredientes e insumos del comercio aplicando filtros.
  */
 export async function getIngredients(
   businessId: string,
@@ -270,14 +325,28 @@ export async function getIngredients(
 ): Promise<Ingredient[]> {
   const supabase = await getDbClient();
 
-  // Consultar productos de tipo ingrediente
-  let query = supabase
-    .from("products")
-    .select("*")
-    .eq("business_id", businessId)
-    .neq("status", "archived");
+  // Consultar concurrentemente categorías y productos
+  const [catRes, prodRes] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("id, name")
+      .eq("business_id", businessId),
+    supabase
+      .from("products")
+      .select("*")
+      .eq("business_id", businessId)
+      .neq("status", "archived"),
+  ]);
 
-  const { data: products, error: pErr } = await query;
+  const categories = catRes.data;
+  const categoriesMap = new Map<string, string>();
+  if (categories) {
+    for (const c of categories) {
+      categoriesMap.set(c.id, c.name);
+    }
+  }
+
+  const { data: products, error: pErr } = prodRes;
   if (pErr) {
     console.error("[getIngredients] Error al consultar productos:", pErr);
     throw new Error(`Error al listar ingredientes: ${pErr.message}`);
@@ -302,8 +371,27 @@ export async function getIngredients(
     .in("product_id", prodIds);
 
   let ingredients = ingredientProducts.map((p) =>
-    mapProductToIngredient(p, stockRows || [])
+    mapProductToIngredient(p, stockRows || [], categoriesMap)
   );
+
+  // Filtro por tipo de material ("ingredient" vs "supply")
+  if (filters.type && filters.type !== "all") {
+    ingredients = ingredients.filter((ing) => ing.type === filters.type);
+  }
+
+  // Filtro por categoría
+  if (filters.categoryId && filters.categoryId !== "all") {
+    ingredients = ingredients.filter((ing) => ing.categoryId === filters.categoryId);
+  }
+
+  // Filtro por estado activo / inactivo
+  if (filters.status && filters.status !== "all") {
+    if (filters.status === "active") {
+      ingredients = ingredients.filter((ing) => ing.isAvailable);
+    } else if (filters.status === "inactive") {
+      ingredients = ingredients.filter((ing) => !ing.isAvailable);
+    }
+  }
 
   // Filtro por ubicación
   if (filters.locationId && filters.locationId !== "all") {
@@ -328,10 +416,16 @@ export async function getIngredients(
     }
   }
 
-  // Búsqueda de texto
+  // Búsqueda de texto (por nombre, SKU, código de barras o categoría)
   if (filters.search && filters.search.trim().length > 0) {
     const q = filters.search.toLowerCase().trim();
-    ingredients = ingredients.filter((ing) => ing.name.toLowerCase().includes(q));
+    ingredients = ingredients.filter(
+      (ing) =>
+        ing.name.toLowerCase().includes(q) ||
+        (ing.sku && ing.sku.toLowerCase().includes(q)) ||
+        (ing.barcode && ing.barcode.toLowerCase().includes(q)) ||
+        (ing.categoryName && ing.categoryName.toLowerCase().includes(q))
+    );
   }
 
   // Ordenar alfabéticamente
@@ -341,11 +435,13 @@ export async function getIngredients(
 }
 
 /**
- * Calcula los KPIs consolidados de ingredientes para el negocio.
+ * Calcula los KPIs consolidados de ingredientes e insumos para el negocio.
  */
 export async function getIngredientKPIs(businessId: string): Promise<IngredientKPIs> {
   const ingredients = await getIngredients(businessId);
 
+  let activeIngredients = 0;
+  let activeSupplies = 0;
   let lowStockCount = 0;
   let outOfStockCount = 0;
   let totalCostValuation = 0;
@@ -356,6 +452,14 @@ export async function getIngredientKPIs(businessId: string): Promise<IngredientK
 
     totalCostValuation += stock * cost;
 
+    if (ing.isAvailable) {
+      if (ing.type === "supply") {
+        activeSupplies++;
+      } else {
+        activeIngredients++;
+      }
+    }
+
     if (stock <= 0) {
       outOfStockCount++;
     } else if (stock <= ing.minStock) {
@@ -365,6 +469,8 @@ export async function getIngredientKPIs(businessId: string): Promise<IngredientK
 
   return {
     totalIngredients: ingredients.length,
+    activeIngredients,
+    activeSupplies,
     lowStockCount,
     outOfStockCount,
     totalCostValuation: Number(totalCostValuation.toFixed(2)),
@@ -372,7 +478,7 @@ export async function getIngredientKPIs(businessId: string): Promise<IngredientK
 }
 
 /**
- * Actualiza los datos de un ingrediente.
+ * Actualiza los datos de un ingrediente o insumo.
  */
 export async function updateIngredient(
   businessId: string,
@@ -392,18 +498,57 @@ export async function updateIngredient(
     .single();
 
   if (cErr || !current) {
-    throw new Error("El ingrediente no existe o no pertenece a este comercio.");
+    throw new Error("El ingrediente o insumo no existe o no pertenece a este comercio.");
   }
 
   const currentMeta = (current.metadata as Record<string, any>) || {};
 
+  // Validar unicidad de SKU si fue modificado
+  if (parsed.sku !== undefined && parsed.sku && parsed.sku.trim().length > 0) {
+    const cleanSku = parsed.sku.trim();
+    const { data: existingSku } = await supabase
+      .from("products")
+      .select("id, name, metadata")
+      .eq("business_id", businessId)
+      .neq("id", ingredientId)
+      .neq("status", "archived");
+
+    const skuConflict = (existingSku || []).find(
+      (p: any) => (p.metadata as any)?.sku?.toLowerCase() === cleanSku.toLowerCase()
+    );
+    if (skuConflict) {
+      throw new Error(`El código SKU «${cleanSku}» ya está en uso por «${skuConflict.name}».`);
+    }
+  }
+
+  // Validar unicidad de Código de Barras si fue modificado
+  if (parsed.barcode !== undefined && parsed.barcode && parsed.barcode.trim().length > 0) {
+    const cleanBarcode = parsed.barcode.trim();
+    const { data: existingBarcode } = await supabase
+      .from("products")
+      .select("id, name, metadata")
+      .eq("business_id", businessId)
+      .neq("id", ingredientId)
+      .neq("status", "archived");
+
+    const barcodeConflict = (existingBarcode || []).find(
+      (p: any) => (p.metadata as any)?.barcode?.toLowerCase() === cleanBarcode.toLowerCase()
+    );
+    if (barcodeConflict) {
+      throw new Error(`El código de barras «${cleanBarcode}» ya está en uso por «${barcodeConflict.name}».`);
+    }
+  }
+
   const updatedMeta = {
     ...currentMeta,
     product_type: "ingredient",
+    material_type: parsed.type ?? currentMeta.material_type ?? "ingredient",
     unit: parsed.unit ?? currentMeta.unit,
-    cost: parsed.costPerUnit ?? currentMeta.cost,
-    min_stock: parsed.minStock ?? currentMeta.min_stock,
+    cost: parsed.costPerUnit !== undefined ? parsed.costPerUnit : currentMeta.cost,
+    min_stock: parsed.minStock !== undefined ? parsed.minStock : currentMeta.min_stock,
     max_stock: parsed.maxStock !== undefined ? parsed.maxStock : currentMeta.max_stock,
+    sku: parsed.sku !== undefined ? (parsed.sku?.trim() || null) : currentMeta.sku,
+    barcode: parsed.barcode !== undefined ? (parsed.barcode?.trim() || null) : currentMeta.barcode,
     available_in_pos: parsed.availableInPos ?? currentMeta.available_in_pos ?? false,
     available_in_qr: parsed.availableInQr ?? currentMeta.available_in_qr ?? false,
     show_in_qr_menu: parsed.availableInQr ?? currentMeta.show_in_qr_menu ?? false,
@@ -419,8 +564,35 @@ export async function updateIngredient(
   if (parsed.notes !== undefined) productUpdatePayload.description = parsed.notes?.trim() || null;
   if (parsed.availableInPos !== undefined) productUpdatePayload.available_in_pos = parsed.availableInPos;
   if (parsed.availableInQr !== undefined) productUpdatePayload.available_in_qr = parsed.availableInQr;
-  if (parsed.isAvailable !== undefined) productUpdatePayload.is_available = parsed.isAvailable;
-  if (parsed.categoryId) productUpdatePayload.category_id = parsed.categoryId;
+  if (parsed.availableOnline !== undefined) productUpdatePayload.available_online = parsed.availableOnline;
+
+  if (parsed.isAvailable !== undefined) {
+    productUpdatePayload.is_available = parsed.isAvailable;
+    productUpdatePayload.status = parsed.isAvailable ? "active" : "inactive";
+  }
+  if (parsed.status !== undefined) {
+    productUpdatePayload.status = parsed.status;
+    if (parsed.status === "inactive" || parsed.status === "archived") {
+      productUpdatePayload.is_available = false;
+    } else if (parsed.status === "active") {
+      productUpdatePayload.is_available = true;
+    }
+  }
+  if (parsed.categoryId !== undefined) {
+    productUpdatePayload.category_id =
+      parsed.categoryId && parsed.categoryId.trim().length > 0 ? parsed.categoryId.trim() : null;
+  }
+  if (parsed.imageUrl !== undefined) {
+    productUpdatePayload.image_url = parsed.imageUrl || null;
+    if (current.image_url && current.image_url !== parsed.imageUrl) {
+      try {
+        const { deleteProductImageFile } = await import("@/lib/storage/supabase-storage");
+        await deleteProductImageFile(supabase, businessId, current.image_url);
+      } catch (delErr) {
+        console.warn("[updateIngredient] No se pudo eliminar imagen previa:", delErr);
+      }
+    }
+  }
 
   let { data: updatedProd, error: uErr } = await supabase
     .from("products")
@@ -433,10 +605,12 @@ export async function updateIngredient(
   if (
     uErr &&
     (uErr.code === "PGRST204" ||
-      String(uErr.message || "").includes("available_in_"))
+      String(uErr.message || "").includes("available_in_") ||
+      String(uErr.message || "").includes("available_online"))
   ) {
     delete productUpdatePayload.available_in_pos;
     delete productUpdatePayload.available_in_qr;
+    delete productUpdatePayload.available_online;
     const retry = await supabase
       .from("products")
       .update(productUpdatePayload)
@@ -452,11 +626,12 @@ export async function updateIngredient(
     throw new Error(`Error al actualizar ingrediente: ${uErr.message}`);
   }
 
-  // 2. Si se actualizó el costo o min_stock, propagar a inventory_stock
-  if (parsed.costPerUnit !== undefined || parsed.minStock !== undefined) {
+  // 2. Si se actualizó el costo, min_stock o existencias físicas, propagar a inventory_stock
+  if (parsed.costPerUnit !== undefined || parsed.minStock !== undefined || parsed.currentStock !== undefined) {
     const stockUpdatePayload: Record<string, any> = { updated_at: new Date().toISOString() };
     if (parsed.costPerUnit !== undefined) stockUpdatePayload.cost = parsed.costPerUnit;
     if (parsed.minStock !== undefined) stockUpdatePayload.min_stock = parsed.minStock;
+    if (parsed.currentStock !== undefined) stockUpdatePayload.quantity = parsed.currentStock;
 
     await supabase
       .from("inventory_stock")
@@ -466,6 +641,38 @@ export async function updateIngredient(
   }
 
   return mapProductToIngredient(updatedProd);
+}
+
+/**
+ * Consulta qué recetas activas o inactivas utilizan determinado ingrediente.
+ */
+export async function getRecipesUsingIngredient(
+  businessId: string,
+  ingredientId: string
+): Promise<Array<{ recipeId: string; recipeName: string; productName: string; status: string }>> {
+  const supabase = await getDbClient();
+
+  const { data: rows, error } = await supabase
+    .from("recipe_ingredients")
+    .select("recipe_id, recipes(id, name, status, product_id, products(name))")
+    .eq("ingredient_id", ingredientId);
+
+  if (error || !rows) return [];
+
+  const results: Array<{ recipeId: string; recipeName: string; productName: string; status: string }> = [];
+  for (const r of rows) {
+    const rec = (r as any).recipes;
+    if (rec) {
+      results.push({
+        recipeId: rec.id,
+        recipeName: rec.name,
+        productName: rec.products?.name || "Sin producto",
+        status: rec.status,
+      });
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -517,22 +724,33 @@ export function computeRecipeCalculations(
   let limiting: LimitingIngredientInfo | null = null;
   let hasMandatory = false;
 
-  // 1. Determinar cuello de botella y acumular costos
+  // 1. Determinar cuello de botella y acumular costos con conversión de unidades
   for (const ri of rawIngredients) {
     const ingProduct = ingredientsProductData.get(ri.ingredient_id) || {};
-    const unitCost = costMap.get(ri.ingredient_id) ?? Number(ingProduct?.metadata?.cost || 0);
+    const rawCost = costMap.get(ri.ingredient_id) ?? Number(ingProduct?.metadata?.cost || 0);
     const quantity = Number(ri.quantity) || 0;
-    const subtotalCost = Number((quantity * unitCost).toFixed(4));
     const isOptional = Boolean(ri.is_optional);
     const stockQuantity = Math.max(0, stockMap.get(ri.ingredient_id) ?? 0);
-    const requiredPerPortion = portions > 0 ? quantity / portions : quantity;
+    const stockUnit = ingProduct.metadata?.unit || ingProduct.unit || "unidad";
+    const recipeUnit = ri.unit || stockUnit;
+
+    const lineCalc = calculateLineCostWithConversion({
+      recipeQuantity: quantity,
+      recipeUnit,
+      ingredientStockUnit: stockUnit,
+      ingredientUnitCost: rawCost,
+    });
+
+    const subtotalCost = lineCalc.subtotalCost;
+    const requiredInStockUnit = lineCalc.quantityInStockUnit;
+    const requiredPerPortionInStockUnit = portions > 0 ? requiredInStockUnit / portions : requiredInStockUnit;
 
     if (!isOptional) {
       hasMandatory = true;
       totalCost += subtotalCost;
 
-      const ingredientPortionsAvailable = requiredPerPortion > 0
-        ? stockQuantity / requiredPerPortion
+      const ingredientPortionsAvailable = requiredPerPortionInStockUnit > 0
+        ? stockQuantity / requiredPerPortionInStockUnit
         : 0;
 
       if (ingredientPortionsAvailable < minExactPortions) {
@@ -542,8 +760,8 @@ export function computeRecipeCalculations(
           ingredientId: ri.ingredient_id,
           name: ingProduct.name || "Ingrediente",
           currentStock: stockQuantity,
-          requiredPerPortion: Number(requiredPerPortion.toFixed(4)),
-          unit: ri.unit || ingProduct.metadata?.unit || "unidad",
+          requiredPerPortion: Number((quantity / portions).toFixed(4)),
+          unit: recipeUnit,
           availablePortions: formattedPortions,
           displayText: `${ingProduct.name || "Ingrediente"} (alcanza para ${formattedPortions} ${formattedPortions === 1 ? "porción" : "porciones"})`,
         };
@@ -561,18 +779,30 @@ export function computeRecipeCalculations(
   // 2. Proyectar stock restante por ingrediente
   const ingredients: RecipeIngredient[] = rawIngredients.map((ri) => {
     const ingProduct = ingredientsProductData.get(ri.ingredient_id) || {};
-    const unitCost = costMap.get(ri.ingredient_id) ?? Number(ingProduct?.metadata?.cost || 0);
+    const rawCost = costMap.get(ri.ingredient_id) ?? Number(ingProduct?.metadata?.cost || 0);
     const quantity = Number(ri.quantity) || 0;
-    const subtotalCost = Number((quantity * unitCost).toFixed(4));
     const isOptional = Boolean(ri.is_optional);
     const stockQuantity = Math.max(0, stockMap.get(ri.ingredient_id) ?? 0);
+    const stockUnit = ingProduct.metadata?.unit || ingProduct.unit || "unidad";
+    const recipeUnit = ri.unit || stockUnit;
+
+    const lineCalc = calculateLineCostWithConversion({
+      recipeQuantity: quantity,
+      recipeUnit,
+      ingredientStockUnit: stockUnit,
+      ingredientUnitCost: rawCost,
+    });
+
+    const requiredInStockUnit = lineCalc.quantityInStockUnit;
+    const requiredPerPortionInStockUnit = portions > 0 ? requiredInStockUnit / portions : requiredInStockUnit;
     const requiredPerPortion = portions > 0 ? quantity / portions : quantity;
-    const availablePortions = requiredPerPortion > 0
-      ? Number((stockQuantity / requiredPerPortion).toFixed(2))
+
+    const availablePortions = requiredPerPortionInStockUnit > 0
+      ? Number((stockQuantity / requiredPerPortionInStockUnit).toFixed(2))
       : 0;
     const projectedRemainingStock = Math.max(
       0,
-      Number((stockQuantity - requiredPerPortion * portionsAvailable).toFixed(4))
+      Number((stockQuantity - requiredPerPortionInStockUnit * portionsAvailable).toFixed(4))
     );
 
     return {
@@ -581,9 +811,9 @@ export function computeRecipeCalculations(
       ingredientId: ri.ingredient_id,
       ingredientName: ingProduct.name || "Ingrediente",
       quantity,
-      unit: ri.unit || ingProduct.metadata?.unit || "unidad",
-      unitCost,
-      subtotalCost,
+      unit: recipeUnit,
+      unitCost: lineCalc.unitCostInRecipeUnit,
+      subtotalCost: lineCalc.subtotalCost,
       isOptional,
       sortOrder: Number(ri.sort_order) || 0,
       stockQuantity,
@@ -821,27 +1051,25 @@ export async function getRecipes(
     new Set((riData || []).map((ri: any) => ri.ingredient_id))
   );
 
-  // 2. Consultar datos de los productos ingrediente
+  // 2 y 3. Consultar concurrentemente productos ingrediente y stock consolidado
   let productsMap = new Map<string, any>();
-  if (allIngredientIds.length > 0) {
-    const { data: pData } = await supabase
-      .from("products")
-      .select("id, name, metadata, price")
-      .in("id", allIngredientIds);
-
-    (pData || []).forEach((p: any) => productsMap.set(p.id, p));
-  }
-
-  // 3. Consultar stock consolidado de cada ingrediente
   let stockRows: any[] = [];
-  if (allIngredientIds.length > 0) {
-    const { data: sData } = await supabase
-      .from("inventory_stock")
-      .select("product_id, location_id, quantity, cost")
-      .eq("business_id", businessId)
-      .in("product_id", allIngredientIds);
 
-    stockRows = sData || [];
+  if (allIngredientIds.length > 0) {
+    const [pRes, sRes] = await Promise.all([
+      supabase
+        .from("products")
+        .select("id, name, metadata, price")
+        .in("id", allIngredientIds),
+      supabase
+        .from("inventory_stock")
+        .select("product_id, location_id, quantity, cost")
+        .eq("business_id", businessId)
+        .in("product_id", allIngredientIds),
+    ]);
+
+    (pRes.data || []).forEach((p: any) => productsMap.set(p.id, p));
+    stockRows = sRes.data || [];
   }
 
   // 4. Mapear cada receta con sus cálculos
@@ -1438,7 +1666,12 @@ export async function deductRecipeIngredientsForSale(
 
       const ingProd = Array.isArray(ri.products) ? ri.products[0] : ri.products;
       const ingName = ingProd?.name || "Ingrediente";
-      const deductionPerItem = (item.quantity * Number(ri.quantity)) / portions;
+      const stockUnit = ingProd?.metadata?.unit || (ingProd as any)?.unit || ri.unit || "unidad";
+      const recipeUnit = ri.unit || stockUnit;
+
+      const rawDeductionPerItem = (item.quantity * Number(ri.quantity)) / portions;
+      const converted = convertQuantity(rawDeductionPerItem, recipeUnit, stockUnit);
+      const deductionPerItem = converted.convertedQuantity;
 
       const key = `${ri.ingredient_id}_${targetLocationId}`;
       const existing = requiredMap.get(key);
@@ -1451,7 +1684,7 @@ export async function deductRecipeIngredientsForSale(
         requiredMap.set(key, {
           ingredientId: ri.ingredient_id,
           ingredientName: ingName,
-          unit: ri.unit || "unidad",
+          unit: stockUnit,
           locationId: targetLocationId,
           requiredQty: deductionPerItem,
           unitCost,
@@ -1499,8 +1732,8 @@ export async function deductRecipeIngredientsForSale(
 
   // 4. FASE 2: Deducción de inventario y registro en Kardex
   const deductedResults: IngredientDeductionResult[] = [];
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const validReferenceId = referenceId && uuidRegex.test(referenceId) ? referenceId : null;
+  const isValidUuid = referenceId && z.string().uuid().safeParse(referenceId).success;
+  const validReferenceId = isValidUuid ? referenceId : null;
 
   for (const req of Array.from(requiredMap.values())) {
     await recordInventoryMovement(

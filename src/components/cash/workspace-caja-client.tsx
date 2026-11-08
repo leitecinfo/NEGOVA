@@ -48,6 +48,9 @@ import {
 import { OpenCashShiftModal } from "./open-cash-shift-modal";
 import { CloseCashShiftModal } from "./close-cash-shift-modal";
 import { CreateCashRegisterModal } from "./create-cash-register-modal";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 import { CashMovementModal } from "./cash-movement-modal";
 import { ShiftMovementsHistoryModal } from "./shift-movements-history-modal";
 import { DailyClosurePanel } from "./daily-closure-panel";
@@ -604,17 +607,17 @@ export function WorkspaceCajaClient({
                   {openRegisters.length > 1 && (
                     <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-2">
                       <span>Ver:</span>
-                      <select
+                      <Select
+                        selectSize="sm"
                         value={activeRegisterWithSession.register.id}
                         onChange={(e) => setSelectedActiveRegisterId(e.target.value)}
-                        className="px-2 py-0.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground focus:outline-none"
                       >
                         {openRegisters.map((r) => (
                           <option key={r.register.id} value={r.register.id}>
                             {r.register.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
                 </div>
@@ -890,91 +893,18 @@ export function WorkspaceCajaClient({
       {/* ===================================================================== */}
       <div className="space-y-4">
         {/* Barra de pestañas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-1 text-xs">
-          {/* Pestaña 1: Movimientos */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("movements")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "movements"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-            <span>Movimientos</span>
-          </button>
-
-          {/* Pestaña 2: Historial de turnos */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("shift_history")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "shift_history"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>Historial de turnos</span>
-          </button>
-
-          {/* Pestaña 3: Cajeros */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("cashiers")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "cashiers"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Cajeros</span>
-          </button>
-
-          {/* Pestaña: Terminales de caja */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("terminals")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "terminals"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <Landmark className="w-4 h-4" />
-            <span>Terminales ({data.registers.length})</span>
-          </button>
-
-          {/* Pestaña: Cierre diario (Z) */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("daily_closure")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "daily_closure"
-                ? "bg-[#ED500A] text-white shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <Receipt className="w-4 h-4" />
-            <span>Cierre diario (Z)</span>
-          </button>
-
-          {/* Pestaña: Cierre por rango */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("range_closure")}
-            className={`px-4 py-2.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === "range_closure"
-                ? "bg-[#ED500A] text-white shadow-xs"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <CalendarRange className="w-4 h-4" />
-            <span>Cierre por Rango</span>
-          </button>
-        </div>
+        <Tabs<CashManagementTab>
+          tabs={[
+            { id: "movements", label: "Movimientos", icon: <ArrowLeftRight className="w-4 h-4" /> },
+            { id: "shift_history", label: "Historial de turnos", icon: <History className="w-4 h-4" /> },
+            { id: "cashiers", label: "Cajeros", icon: <Users className="w-4 h-4" /> },
+            { id: "terminals", label: `Terminales (${data.registers.length})`, icon: <Landmark className="w-4 h-4" /> },
+            { id: "daily_closure", label: "Cierre diario (Z)", icon: <Receipt className="w-4 h-4" /> },
+            { id: "range_closure", label: "Cierre por Rango", icon: <CalendarRange className="w-4 h-4" /> },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
 
         {/* =================================================================== */}
         {/* CONTENIDO PESTAÑA 1: MOVIMIENTOS                                   */}
@@ -985,22 +915,19 @@ export function WorkspaceCajaClient({
             <div className="p-4 rounded-2xl bg-card border border-border shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2.5 flex-1">
                 {/* Buscador libre */}
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground" />
-                  <input
-                    type="text"
+                <div className="flex-1 min-w-[200px]">
+                  <SearchInput
                     value={movementSearchQuery}
                     onChange={(e) => setMovementSearchQuery(e.target.value)}
+                    onClear={() => setMovementSearchQuery("")}
                     placeholder="Buscar por concepto o referencia..."
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
                   />
                 </div>
 
                 {/* Filtro por Tipo */}
-                <select
+                <Select
                   value={movementTypeFilter}
                   onChange={(e) => setMovementTypeFilter(e.target.value)}
-                  className="px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs"
                 >
                   <option value="all">Todos los tipos</option>
                   <option value="sale_cash">Ventas en Efectivo</option>
@@ -1008,14 +935,13 @@ export function WorkspaceCajaClient({
                   <option value="expense">Gastos de Caja</option>
                   <option value="withdrawal">Retiros de Efectivo</option>
                   <option value="sale_digital">Ventas Digitales / Transferencias</option>
-                </select>
+                </Select>
 
                 {/* Filtro por Caja */}
                 {data.registers.length > 1 && (
-                  <select
+                  <Select
                     value={movementRegisterFilter}
                     onChange={(e) => setMovementRegisterFilter(e.target.value)}
-                    className="px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs"
                   >
                     <option value="all">Todas las cajas</option>
                     {data.registers.map((r) => (
@@ -1023,7 +949,7 @@ export function WorkspaceCajaClient({
                         {r.register.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 )}
               </div>
 

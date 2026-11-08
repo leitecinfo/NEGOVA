@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { SupportTicket, SupportCategory, TicketPriority, TicketStatus } from "@/lib/support/types";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
 import {
   createWorkspaceTicketAction,
   getWorkspaceTicketDetailAction,
@@ -293,22 +294,22 @@ export function WorkspaceSoporteClient({
 
             {/* Filtros de Estado y Categoría */}
             <div className="grid grid-cols-2 gap-2">
-              <select
+              <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                selectSize="sm"
               >
                 <option value="all">Todos los estados</option>
                 <option value="open">Abierta</option>
                 <option value="in_progress">En proceso</option>
                 <option value="resolved">Resuelta</option>
                 <option value="closed">Cerrada</option>
-              </select>
+              </Select>
 
-              <select
+              <Select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                selectSize="sm"
               >
                 <option value="all">Todas las categorías</option>
                 <option value="technical">Técnico</option>
@@ -316,7 +317,7 @@ export function WorkspaceSoporteClient({
                 <option value="billing">Facturación</option>
                 <option value="account">Cuenta y accesos</option>
                 <option value="general">General</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -558,7 +559,7 @@ export function WorkspaceSoporteClient({
         <ModalPortal>
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div
-              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
               onClick={() => setIsCreateModalOpen(false)}
             />
 
@@ -604,36 +605,30 @@ export function WorkspaceSoporteClient({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Categoría
-                    </label>
-                    <select
+                    <Select
+                      label="Categoría"
                       value={formCategory}
                       onChange={(e) => setFormCategory(e.target.value as SupportCategory)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     >
                       <option value="technical">Fallo técnico o error</option>
                       <option value="usage_inquiry">Duda de funcionamiento</option>
                       <option value="billing">Facturación o pagos</option>
                       <option value="account">Cuenta y accesos</option>
                       <option value="general">Consulta general</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Prioridad
-                    </label>
-                    <select
+                    <Select
+                      label="Prioridad"
                       value={formPriority}
                       onChange={(e) => setFormPriority(e.target.value as TicketPriority)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                     >
                       <option value="low">Baja - Consulta general</option>
                       <option value="medium">Media - Operación normal</option>
                       <option value="high">Alta - Afecta ventas o emisión</option>
                       <option value="urgent">Urgente - Bloqueo total</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
 import {
   loginDriverAction,
   getDriverOrdersAction,
@@ -662,7 +663,7 @@ export function DriverAppClient({ businessId, businessName }: DriverAppClientPro
       {/* MODAL DE CONFIRMACIÓN CON CÓDIGO DEL CLIENTE */}
       {verifyModal.isOpen && verifyModal.order && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -769,7 +770,7 @@ export function DriverAppClient({ businessId, businessName }: DriverAppClientPro
       {/* MODAL DE EXCEPCIÓN SUPERVISADA */}
       {exceptionModal.isOpen && exceptionModal.order && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
               <div className="flex items-center gap-2.5 text-amber-600">
                 <AlertCircle className="w-5 h-5 shrink-0" />
@@ -834,7 +835,7 @@ export function DriverAppClient({ businessId, businessName }: DriverAppClientPro
       {/* MODAL DE REPORTE DE NOVEDAD */}
       {issueModal.isOpen && issueModal.order && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
               <div className="flex items-center gap-2.5 text-rose-600">
                 <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -849,24 +850,20 @@ export function DriverAppClient({ businessId, businessName }: DriverAppClientPro
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                    Tipo de Incidencia
-                  </label>
-                  <select
+                <Select
+                    label="Tipo de Incidencia"
                     value={issueModal.type}
                     onChange={(e) =>
                       setIssueModal((prev) => ({ ...prev, type: e.target.value }))
                     }
-                    className="w-full px-3 py-2 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-900 dark:text-white"
+                    selectSize="sm"
                   >
                     <option value="customer_absent">Cliente ausente / No contesta</option>
                     <option value="address_not_found">Dirección no encontrada / Incompleta</option>
                     <option value="customer_rejected">Pedido rechazado por cliente</option>
                     <option value="accident_or_delay">Demora en ruta / Incidente vial</option>
                     <option value="other">Otra novedad</option>
-                  </select>
-                </div>
+                  </Select>
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">

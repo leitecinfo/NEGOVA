@@ -1,5 +1,6 @@
 "use client";
 
+import { Tabs } from "@/components/ui/tabs";
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -35,6 +36,9 @@ import {
   KpiCard,
   KpiGrid,
   EmptyState,
+  Select,
+  Input,
+  SearchInput,
 } from "@/components/ui";
 import { ReportNavTabs } from "@/components/reports/report-nav-tabs";
 import {
@@ -423,7 +427,7 @@ export function InventoryReportClient({
 
           {/* Filtro Ubicación */}
           <div>
-            <select
+            <Select
               value={filters.locationId || "all"}
               onChange={(e) => handleFilterChange("locationId", e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-[#ED500A] text-slate-900 dark:text-white"
@@ -433,12 +437,12 @@ export function InventoryReportClient({
                   {loc.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Filtro Categoría */}
           <div>
-            <select
+            <Select
               value={filters.categoryId || "all"}
               onChange={(e) => handleFilterChange("categoryId", e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-[#ED500A] text-slate-900 dark:text-white"
@@ -448,12 +452,12 @@ export function InventoryReportClient({
                   {cat.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Filtro Estado (para existencias) */}
           <div>
-            <select
+            <Select
               value={filters.status || "all"}
               onChange={(e) => handleFilterChange("status", e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-[#ED500A] text-slate-900 dark:text-white"
@@ -462,7 +466,7 @@ export function InventoryReportClient({
               <option value="normal">Normal</option>
               <option value="low">Stock Bajo</option>
               <option value="out_of_stock">Agotado</option>
-            </select>
+            </Select>
           </div>
 
           {/* Botón Reset */}
@@ -509,7 +513,7 @@ export function InventoryReportClient({
             {/* Selector Tipo de Movimiento */}
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-slate-400">Tipo:</span>
-              <select
+              <Select
                 value={filters.movementType || "all"}
                 onChange={(e) => handleFilterChange("movementType", e.target.value)}
                 className="px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white"
@@ -522,7 +526,7 @@ export function InventoryReportClient({
                 <option value="transfer_out">Transferencias (Salida)</option>
                 <option value="sale">Ventas</option>
                 <option value="spoilage">Mermas</option>
-              </select>
+              </Select>
             </div>
 
             {filters.preset === "custom" && (
@@ -550,54 +554,16 @@ export function InventoryReportClient({
       </div>
 
       {/* 5. NAVEGACIÓN DE PESTAÑAS (VISTAS DEL REPORTE) */}
-      <div className="flex border-b border-slate-200 dark:border-white/[0.08]">
-        <button
-          onClick={() => setActiveTab("existencias")}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 text-sm font-semibold transition-colors ${
-            activeTab === "existencias"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <Boxes className="w-4 h-4" />
-          <span>Existencias Actuales</span>
-          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
-            {data.stockRows.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("movimientos")}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 text-sm font-semibold transition-colors ${
-            activeTab === "movimientos"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Movimientos del Período</span>
-          <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
-            {data.movementsRows.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("bajo_stock")}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 text-sm font-semibold transition-colors ${
-            activeTab === "bajo_stock"
-              ? "border-[#ED500A] text-[#ED500A]"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <span>Productos con Stock Bajo</span>
-          {data.lowStockRows.length > 0 && (
-            <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700">
-              {data.lowStockRows.length}
-            </span>
-          )}
-        </button>
-      </div>
+      <Tabs<InventoryViewTab>
+        variant="underline"
+        tabs={[
+          { id: "existencias", label: "Existencias Actuales", icon: <Boxes className="w-4 h-4" />, count: data.stockRows.length },
+          { id: "movimientos", label: "Movimientos del Período", icon: <Clock className="w-4 h-4" />, count: data.movementsRows.length },
+          { id: "bajo_stock", label: "Productos con Stock Bajo", icon: <AlertTriangle className="w-4 h-4 text-amber-500" />, count: data.lowStockRows.length },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* 6. CONTENIDO DE LAS VISTAS */}
       {/* VISTA 1: EXISTENCIAS ACTUALES */}

@@ -3,6 +3,7 @@ import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
 import { getBusinessDocumentConfig } from "@/lib/documents/document-service";
 import { getBusinessProductCount } from "@/lib/products/products-service";
 import { getBusinessSubscriptionDetails } from "@/lib/subscriptions/subscriptions-service";
+import { getBusinessActiveUserCount } from "@/lib/subscriptions/plan-limits-service";
 import { WorkspaceShell } from "@/components/workspace/workspace-shell";
 
 interface CachedLayoutMetadata {
@@ -45,27 +46,7 @@ async function fetchLayoutMetadata(businessId: string, businessName: string): Pr
       email: null,
     })),
     getBusinessProductCount(businessId).catch(() => 0),
-    (async () => {
-      try {
-        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-          return 1;
-        }
-        const { createClient: createAdminClient } = await import("@supabase/supabase-js");
-        const adminClient = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
-          { auth: { autoRefreshToken: false, persistSession: false } }
-        );
-        const { count } = await adminClient
-          .from("business_users")
-          .select("*", { count: "exact", head: true })
-          .eq("business_id", businessId)
-          .eq("status", "active");
-        return count || 1;
-      } catch {
-        return 1;
-      }
-    })(),
+    getBusinessActiveUserCount(businessId).catch(() => 1),
     getBusinessSubscriptionDetails(businessId).catch(() => null),
   ]);
 
@@ -105,6 +86,7 @@ export default async function WorkspaceRootLayout({
       logoUrl={config.logoUrl || null}
       primaryColor={config.primaryColor || "#0284C7"}
       productCount={productCount}
+      userCount={activeUserCount}
       employeeCount={activeUserCount}
       trialRemainingDays={subDetails?.trialRemainingDays ?? null}
       isTrialing={subDetails?.isTrial ?? false}

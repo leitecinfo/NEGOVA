@@ -53,11 +53,11 @@ export function Badge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-lg font-semibold font-body border select-none ${sizeClass} ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg font-semibold font-body border select-none whitespace-nowrap ${sizeClass} ${variantStyles[variant]} ${className}`}
     >
       {dot && <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />}
-      {icon && <span className="shrink-0">{icon}</span>}
-      <span>{children}</span>
+      {icon && <span className="shrink-0 inline-flex items-center justify-center">{icon}</span>}
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">{children}</span>
     </span>
   );
 }

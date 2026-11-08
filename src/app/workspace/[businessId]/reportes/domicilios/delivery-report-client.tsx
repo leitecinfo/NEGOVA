@@ -1,5 +1,7 @@
 "use client";
 
+import { Tabs } from "@/components/ui/tabs";
+import { Input, Select, SearchInput } from "@/components/ui";
 import React, { useState, useTransition } from "react";
 import {
   Bike,
@@ -390,7 +392,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
               Repartidor
             </label>
-            <select
+            <Select
               value={filters.driverName || "all"}
               onChange={(e) => handleFilterChange("driverName", e.target.value)}
               className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden transition-colors"
@@ -403,7 +405,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
                     {name}
                   </option>
                 ))}
-            </select>
+            </Select>
           </div>
 
           {/* Selector de Zona */}
@@ -411,7 +413,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
               Zona de Reparto
             </label>
-            <select
+            <Select
               value={filters.zoneId || "all"}
               onChange={(e) => handleFilterChange("zoneId", e.target.value)}
               className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden transition-colors"
@@ -421,7 +423,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
                   {z.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Selector de Estado */}
@@ -429,7 +431,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
               Estado de Entrega
             </label>
-            <select
+            <Select
               value={filters.status || "all"}
               onChange={(e) => handleFilterChange("status", e.target.value)}
               className="w-full px-3 py-1.5 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden transition-colors"
@@ -439,7 +441,7 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
               <option value="delivering">En Camino</option>
               <option value="cancelled">Cancelados</option>
               <option value="rejected">Rechazados / Fallidos</option>
-            </select>
+            </Select>
           </div>
 
           {/* Buscador */}
@@ -462,55 +464,15 @@ export function DeliveryReportClient({ businessId, initialData }: Props) {
       </div>
 
       {/* PESTAÑAS DE TABLAS: POR REPARTIDOR | POR ZONA | REGISTRO DE PEDIDOS */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200/80 dark:border-white/[0.08] pb-1 overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveTab("drivers")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "drivers"
-              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Ranking por Repartidor</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-            {data.drivers.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("zones")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "zones"
-              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>Análisis por Zonas</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-            {data.zones.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("orders")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
-            activeTab === "orders"
-              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <Bike className="w-4 h-4" />
-          <span>Registro de Pedidos</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300">
-            {data.orders.length}
-          </span>
-        </button>
-      </div>
+      <Tabs<"drivers" | "zones" | "orders">
+        tabs={[
+          { id: "drivers", label: "Ranking por Repartidor", icon: <Users className="w-4 h-4" />, count: data.drivers.length },
+          { id: "zones", label: "Análisis por Zonas", icon: <MapPin className="w-4 h-4" />, count: data.zones.length },
+          { id: "orders", label: "Registro de Pedidos", icon: <Bike className="w-4 h-4" />, count: data.orders.length },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* TABLA 1: RANKING POR REPARTIDOR */}
       {activeTab === "drivers" && (

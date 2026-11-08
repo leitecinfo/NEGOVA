@@ -495,7 +495,7 @@ export function DeliveryZonesTab({ businessId }: DeliveryZonesTabProps) {
 
       {/* MODAL PERSONALIZADO DE CONFIRMACIÓN DE ELIMINACIÓN (SIN ALERTAS NATIVAS) */}
       {zoneToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-white dark:bg-[#0D0F16] rounded-2xl p-5 border border-slate-200 dark:border-white/[0.08] shadow-2xl space-y-3">
             <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
               <Trash2 className="w-5 h-5" />

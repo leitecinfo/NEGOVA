@@ -691,7 +691,7 @@ export function WorkspaceNotificacionesClient({
       {/* MODAL DE DETALLE DE NOTIFICACIÓN */}
       {selectedNotif && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-150">
               <button
                 type="button"
@@ -813,7 +813,7 @@ export function WorkspaceNotificacionesClient({
       {/* DIÁLOGO DE CONFIRMACIÓN DE ELIMINACIÓN CON MODAL PORTAL (CUMPLE REGLA SIN ALERTS NATIVAS) */}
       {deleteConfirmId && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600">

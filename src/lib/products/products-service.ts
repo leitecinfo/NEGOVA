@@ -48,18 +48,43 @@ export async function getDbClient() {
 
 export async function getBusinessProductCount(businessId: string): Promise<number> {
   const supabase = await getDbClient();
-  const { count, error } = await supabase
+  // Solo se contabilizan productos y servicios comerciales. Las materias primas e insumos internos
+  // (metadata->>product_type === 'ingredient') no consumen el límite de productos del plan [AUD-005]
+  try {
+    const base = supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .eq("business_id", businessId)
+      .neq("status", "archived");
+
+    const query = typeof (base as any).or === "function"
+      ? (base as any).or("metadata->>product_type.neq.ingredient,metadata->>product_type.is.null")
+      : base;
+
+    const { count, error } = await query;
+    if (!error && typeof count === "number") {
+      return count;
+    }
+  } catch {
+    // Continuar al fallback seguro en memoria
+  }
+
+  // Fallback resiliente en memoria para entornos con drivers mockeados o sintaxis alternativa
+  const { data: allProds, error: allErr } = await supabase
     .from("products")
-    .select("*", { count: "exact", head: true })
+    .select("id, metadata")
     .eq("business_id", businessId)
     .neq("status", "archived");
 
-  if (error) {
-    console.error("[getBusinessProductCount] Error al contar productos:", error);
+  if (allErr) {
+    console.error("[getBusinessProductCount] Error al contar productos:", allErr);
     throw new Error("No se pudo verificar el conteo actual de productos.");
   }
 
-  return count || 0;
+  const filtered = (allProds || []).filter(
+    (p: any) => (p.metadata as any)?.product_type !== "ingredient"
+  );
+  return filtered.length;
 }
 
 export async function checkProductPlanLimit(businessId: string): Promise<{
@@ -233,7 +258,11 @@ function attachCategoryParents(cats: Category[]): Category[] {
   });
 }
 
-export async function getCategories(businessId: string, _businessType?: string): Promise<Category[]> {
+export async function getCategories(
+  businessId: string,
+  _businessType?: string,
+  filterScope?: "commercial" | "internal" | "both" | "all"
+): Promise<Category[]> {
   const supabase = await getDbClient();
   const { data, error } = await supabase
     .from("categories")
@@ -248,7 +277,30 @@ export async function getCategories(businessId: string, _businessType?: string):
     throw new Error("No se pudieron cargar las categorías.");
   }
 
-  return attachCategoryParents((data || []) as Category[]);
+  let result = attachCategoryParents((data || []) as Category[]);
+
+  // Filtrado resiliente por alcance (scope) [CAT-SCOPE-001]
+  if (filterScope && filterScope !== "all") {
+    result = result.filter((cat: any) => {
+      // Compatibilidad con registros antiguos donde scope es null/undefined:
+      // Si el nombre contiene palabras clave de insumos o ingredientes se infiere 'internal', sino 'commercial'
+      const inferredScope =
+        cat.scope ||
+        (/\b(ingrediente|insumo|materia\s*prima|empaque)\b/i.test(cat.name || "")
+          ? "internal"
+          : "commercial");
+
+      if (filterScope === "commercial") {
+        return inferredScope === "commercial" || inferredScope === "both";
+      }
+      if (filterScope === "internal") {
+        return inferredScope === "internal" || inferredScope === "both";
+      }
+      return true;
+    });
+  }
+
+  return result;
 }
 
 export async function getCategoryProductCount(businessId: string, categoryId: string): Promise<number> {
@@ -314,16 +366,34 @@ export async function createCategory(businessId: string, payload: Omit<CreateCat
     sort_order: payload.sort_order || 0,
     status: payload.status || "active",
     default_tax_rate: payload.default_tax_rate !== undefined ? payload.default_tax_rate : null,
+    scope: (payload as any).scope || "commercial",
   };
   if (parentId) {
     insertPayload.parent_category_id = parentId;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("categories")
     .insert(insertPayload)
     .select()
     .single();
+
+  // Resiliencia: si la columna 'scope' aún no ha sido aplicada en la base de datos remota
+  if (
+    error &&
+    (error.code === "PGRST204" ||
+      String(error.message || "").toLowerCase().includes("scope") ||
+      String(error.details || "").toLowerCase().includes("scope"))
+  ) {
+    const { scope: _scope, ...fallbackPayload } = insertPayload;
+    const retry = await supabase
+      .from("categories")
+      .insert(fallbackPayload)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error("[createCategory] Error:", error);
@@ -376,13 +446,32 @@ export async function updateCategory(businessId: string, categoryId: string, pay
     updatePayload.parent_category_id = null;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("categories")
     .update(updatePayload)
     .eq("id", categoryId)
     .eq("business_id", businessId)
     .select()
     .single();
+
+  // Resiliencia ante columna 'scope' si no existe remotamente
+  if (
+    error &&
+    (error.code === "PGRST204" ||
+      String(error.message || "").toLowerCase().includes("scope") ||
+      String(error.details || "").toLowerCase().includes("scope"))
+  ) {
+    delete updatePayload.scope;
+    const retry = await supabase
+      .from("categories")
+      .update(updatePayload)
+      .eq("id", categoryId)
+      .eq("business_id", businessId)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error("[updateCategory] Error:", error);
@@ -613,7 +702,9 @@ export async function createProduct(
   // Validación estricta de capacidad del plan en el servidor
   const limitCheck = await checkProductPlanLimit(businessId);
   if (!limitCheck.allowed) {
-    throw new Error(limitCheck.error || "Capacidad de productos alcanzada para el plan actual.");
+    throw new Error(
+      `Has alcanzado el límite máximo de ${limitCheck.maxProducts} productos en tu plan (${limitCheck.planName}). Mejora tu plan para continuar.`
+    );
   }
 
   const supabase = await getDbClient();
@@ -661,6 +752,48 @@ export async function createProduct(
     console.error("[createProduct] Error:", error);
     throw new Error("No se pudo crear el producto.");
   }
+
+  // Sincronizar existencia única en inventory_stock si el producto controla existencias [TAREA-03]
+  if (data && (syncedPayload as any).metadata?.track_stock) {
+    try {
+      const { ensureDefaultLocation, upsertInventoryStock, recordInventoryMovement } = await import(
+        "@/lib/inventory/inventory-service"
+      );
+      const defaultLoc = await ensureDefaultLocation(businessId);
+      const meta = (syncedPayload as any).metadata || {};
+      const initialStock = Number(meta.stock_quantity ?? 0);
+      const minStock = Number(meta.min_stock ?? 0);
+      const cost = Number(meta.cost ?? 0);
+
+      await upsertInventoryStock(businessId, {
+        productId: data.id,
+        locationId: defaultLoc.id,
+        quantity: initialStock,
+        minStock,
+        cost,
+      });
+
+      if (initialStock > 0) {
+        await recordInventoryMovement(
+          businessId,
+          {
+            productId: data.id,
+            locationId: defaultLoc.id,
+            movementType: "entry",
+            quantity: initialStock,
+            unitCost: cost > 0 ? cost : undefined,
+            referenceType: "adjustment",
+            notes: "Inventario inicial al crear producto",
+          },
+          null,
+          { skipStockUpdate: true }
+        );
+      }
+    } catch (syncErr) {
+      console.warn("[createProduct] Advertencia al sincronizar inventario inicial:", syncErr);
+    }
+  }
+
   return normalizeProductChannels(data);
 }
 
@@ -719,6 +852,31 @@ export async function updateProduct(
     console.error("[updateProduct] Error:", error);
     throw new Error("No se pudo actualizar el producto.");
   }
+
+  // Sincronizar existencia única en inventory_stock si el producto controla existencias [TAREA-03]
+  if (data && (syncedPayload as any).metadata?.track_stock) {
+    try {
+      const { ensureDefaultLocation, upsertInventoryStock } = await import(
+        "@/lib/inventory/inventory-service"
+      );
+      const defaultLoc = await ensureDefaultLocation(businessId);
+      const meta = (syncedPayload as any).metadata || {};
+      const currentStock = Number(meta.stock_quantity ?? 0);
+      const minStock = Number(meta.min_stock ?? 0);
+      const cost = Number(meta.cost ?? 0);
+
+      await upsertInventoryStock(businessId, {
+        productId: data.id,
+        locationId: defaultLoc.id,
+        quantity: currentStock,
+        minStock,
+        cost,
+      });
+    } catch (syncErr) {
+      console.warn("[updateProduct] Advertencia al sincronizar stock en inventario:", syncErr);
+    }
+  }
+
   return normalizeProductChannels(data);
 }
 

@@ -345,19 +345,21 @@ export function WorkspaceUserFormClient({
 
           {/* Agregar otro cargo al vuelo */}
           <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Otro cargo (ej. Repartidor, Barista, Auxiliar de cocina)..."
-              value={newCargoInput}
-              onChange={(e) => setNewCargoInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAddCustomCargo();
-                }
-              }}
-              className="flex-1 h-9 px-3 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-            />
+            <div className="flex-1">
+              <Input
+                type="text"
+                placeholder="Otro cargo (ej. Repartidor, Barista, Auxiliar de cocina)..."
+                value={newCargoInput}
+                onChange={(e) => setNewCargoInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomCargo();
+                  }
+                }}
+                inputSize="sm"
+              />
+            </div>
             <button
               type="button"
               onClick={() => handleAddCustomCargo()}
@@ -475,7 +477,7 @@ export function WorkspaceUserFormClient({
       {/* MODAL DE CREDENCIALES GENERADAS */}
       {credentialsModal.isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">

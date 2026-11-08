@@ -138,16 +138,28 @@ export async function seedDefaultMeasurementUnits(businessId: string): Promise<v
     .single();
 
   if (unData?.id) {
-    await supabase.from("measurement_units").insert({
-      business_id: businessId,
-      name: "Porción",
-      abbreviation: "porc",
-      type: "count",
-      is_base: false,
-      conversion_factor: 1.0,
-      base_unit_id: unData.id,
-      is_system: true,
-    });
+    await supabase.from("measurement_units").insert([
+      {
+        business_id: businessId,
+        name: "Porción",
+        abbreviation: "porc",
+        type: "count",
+        is_base: false,
+        conversion_factor: 1.0,
+        base_unit_id: unData.id,
+        is_system: true,
+      },
+      {
+        business_id: businessId,
+        name: "Paquete",
+        abbreviation: "paq",
+        type: "count",
+        is_base: false,
+        conversion_factor: 1.0,
+        base_unit_id: unData.id,
+        is_system: true,
+      },
+    ]);
   }
 }
 
@@ -176,32 +188,36 @@ export async function getMeasurementUnits(
     query = query.eq("type", filterType);
   }
 
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(`Error al consultar unidades de medida: ${error.message}`);
-  }
+  try {
+    const { data, error } = await query;
+    if (error) {
+      console.warn("Aviso: No se pudieron consultar unidades de medida:", error.message);
+      return [];
+    }
 
-  // Si no existen unidades para el negocio, inicializarlas automáticamente
-  if (!data || data.length === 0) {
-    await seedDefaultMeasurementUnits(businessId);
-    return getMeasurementUnits(businessId, filterType);
-  }
+    if (!data || data.length === 0) {
+      return [];
+    }
 
-  return data.map((row: any) => ({
-    id: row.id,
-    businessId: row.business_id,
-    name: row.name,
-    abbreviation: row.abbreviation,
-    type: row.type as MeasurementUnitType,
-    isBase: Boolean(row.is_base),
-    conversionFactor: Number(row.conversion_factor),
-    baseUnitId: row.base_unit_id || null,
-    baseUnitName: row.base_unit?.name || null,
-    baseUnitAbbreviation: row.base_unit?.abbreviation || null,
-    isSystem: Boolean(row.is_system),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }));
+    return data.map((row: any) => ({
+      id: row.id,
+      businessId: row.business_id,
+      name: row.name,
+      abbreviation: row.abbreviation,
+      type: row.type as MeasurementUnitType,
+      isBase: Boolean(row.is_base),
+      conversionFactor: Number(row.conversion_factor),
+      baseUnitId: row.base_unit_id || null,
+      baseUnitName: row.base_unit?.name || null,
+      baseUnitAbbreviation: row.base_unit?.abbreviation || null,
+      isSystem: Boolean(row.is_system),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  } catch (err: any) {
+    console.warn("Excepción al consultar unidades de medida:", err?.message);
+    return [];
+  }
 }
 
 /**

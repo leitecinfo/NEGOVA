@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition, useRef, useEffect, useMemo } from "react";
 import { CustomModal } from "@/components/ui/custom-modal";
+import { Input, Select } from "@/components/ui";
 import {
   Product,
   Category,
@@ -62,6 +63,7 @@ import {
   ArrowUp,
   ArrowDown,
   Tag,
+  Pencil,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/scanner/barcode-scanner-modal";
 import {
@@ -69,9 +71,11 @@ import {
   getDefaultActivitiesForBusinessType,
   hasCommercialActivity,
 } from "@/config/commercial-activities";
-import { getModifierGroupsAction, createModifierGroupAction, syncProductModifierGroupLinksAction } from "./modifiers-actions";
+import { getModifierGroupsAction, createModifierGroupAction,
+  updateModifierGroupAction, syncProductModifierGroupLinksAction } from "./modifiers-actions";
 import { ModifierGroup, CreateModifierGroupInput } from "@/lib/modifiers/types";
 import { SingleModifierModal } from "@/components/products/modifiers/single-modifier-modal";
+import { ModifierGroupModal } from "@/components/products/modifiers/modifier-group-modal";
 
 interface Props {
   businessId: string;
@@ -302,6 +306,8 @@ export function ProductFormModal({
   const [modifierGroups, setModifierGroups] = useState<ProductModifierGroup[]>(initialGroups);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
   const [isSingleModifierModalOpen, setIsSingleModifierModalOpen] = useState<boolean>(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
+  const [editingGroupForModal, setEditingGroupForModal] = useState<ModifierGroup | null>(null);
 
   // Impuestos
   const [taxPercentage, setTaxPercentage] = useState<number>(
@@ -692,6 +698,75 @@ export function ProductFormModal({
       throw new Error(res.error || "No se pudo crear el modificador");
     }
   };
+
+  const handleSaveGroupInProduct = async (data: CreateModifierGroupInput) => {
+    if (editingGroupForModal) {
+      const res = await updateModifierGroupAction(businessId, editingGroupForModal.id, data);
+      if (res.success && res.data) {
+        toast.success("Grupo de modificadores actualizado");
+        const updatedLocalGroup: ProductModifierGroup = {
+          id: res.data.id,
+          name: res.data.name,
+          type: (res.data.commercial_type || (res.data as any).type || (res.data.selection_type === "single" ? "size" : "additional")) as "additional" | "size" | "replacement",
+          commercial_type: res.data.commercial_type || undefined,
+          required: Boolean(res.data.required),
+          selection_type: res.data.selection_type || "multiple",
+          min_select: res.data.min_select ?? 0,
+          max_select: res.data.max_select ?? 1,
+          options: (res.data.options || []).map((o) => ({
+            id: o.id,
+            name: o.name,
+            price: Number(o.price) || 0,
+            is_available: o.status !== "inactive",
+            status: o.status || "active",
+          })),
+        };
+        setModifierGroups((prev) =>
+          prev.map((g) => (g.id === editingGroupForModal.id ? updatedLocalGroup : g))
+        );
+        setIsGroupModalOpen(false);
+        setEditingGroupForModal(null);
+      } else {
+        throw new Error(res.error || "No se pudo actualizar el grupo de modificadores");
+      }
+    } else {
+      const productIdsToAssign = product?.id
+        ? Array.from(new Set([...(data.product_ids || []), product.id]))
+        : data.product_ids || [];
+
+      const res = await createModifierGroupAction(businessId, {
+        ...data,
+        product_ids: productIdsToAssign,
+      });
+
+      if (res.success && res.data) {
+        toast.success("Grupo de modificadores creado y asignado");
+        const newLocalGroup: ProductModifierGroup = {
+          id: res.data.id,
+          name: res.data.name,
+          type: (res.data.commercial_type || (res.data as any).type || (res.data.selection_type === "single" ? "size" : "additional")) as "additional" | "size" | "replacement",
+          commercial_type: res.data.commercial_type || undefined,
+          required: Boolean(res.data.required),
+          selection_type: res.data.selection_type || "multiple",
+          min_select: res.data.min_select ?? 0,
+          max_select: res.data.max_select ?? 1,
+          options: (res.data.options || []).map((o) => ({
+            id: o.id,
+            name: o.name,
+            price: Number(o.price) || 0,
+            is_available: o.status !== "inactive",
+            status: o.status || "active",
+          })),
+        };
+        setModifierGroups((prev) => [...prev, newLocalGroup]);
+        setIsGroupModalOpen(false);
+        setEditingGroupForModal(null);
+      } else {
+        throw new Error(res.error || "No se pudo crear el grupo de modificadores");
+      }
+    }
+  };
+
 
   const handleRemoveGroup = (index: number) => {
     setModifierGroups(modifierGroups.filter((_, idx) => idx !== index));
@@ -1155,33 +1230,29 @@ export function ProductFormModal({
                 </span>
 
                 {/* Nombre */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nombre del {productType === "service" ? "servicio" : "producto"} *
-                  </label>
-                  <input
-                    {...register("name")}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all font-medium"
-                    placeholder={
-                      productType === "service"
-                        ? "Ej. Corte de cabello degradado, Asesoría contable..."
-                        : isFoodBusiness
-                        ? "Ej. Hamburguesa Doble Carne, Salchipapa Especial..."
-                        : "Ej. Camiseta Polo Algodón, Pintura Acrílica 1 Gal..."
-                    }
-                  />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-                </div>
+                <Input
+                  label={`Nombre del ${productType === "service" ? "servicio" : "producto"}`}
+                  required
+                  {...register("name")}
+                  placeholder={
+                    productType === "service"
+                      ? "Ej. Corte de cabello degradado, Asesoría contable..."
+                      : isFoodBusiness
+                      ? "Ej. Hamburguesa Doble Carne, Salchipapa Especial..."
+                      : "Ej. Camiseta Polo Algodón, Pintura Acrílica 1 Gal..."
+                  }
+                  error={errors.name?.message}
+                />
 
                 {/* Descripción */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Descripción comercial
                   </label>
                   <textarea
                     {...register("description")}
                     rows={2}
-                    className="w-full px-3.5 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 resize-none transition-all"
+                    className="w-full px-3.5 py-2 bg-slate-50/70 dark:bg-[#0B0D14] border border-slate-200/80 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 resize-none transition-all placeholder:text-slate-400"
                     placeholder="Detalles, porciones, beneficios o preparación..."
                   />
                 </div>
@@ -1189,26 +1260,20 @@ export function ProductFormModal({
                 {/* Unidad de Medida y Categoría */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* Unidad de Medida */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Unidad de Medida
-                    </label>
-                    <select
-                      value={unit}
-                      onChange={(e) => setUnit(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
-                    >
-                      {PRODUCT_UNITS.map((u) => (
-                        <option key={u.value} value={u.value}>
-                          {u.label}
-                        </option>
-                      ))}
-                      {/* En caso de que tenga un valor personalizado antiguo */}
-                      {!PRODUCT_UNITS.some((u) => u.value === unit) && unit && (
-                        <option value={unit}>{unit}</option>
-                      )}
-                    </select>
-                  </div>
+                  <Select
+                    label="Unidad de Medida"
+                    value={unit}
+                    onChange={setUnit}
+                  >
+                    {PRODUCT_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                    {!PRODUCT_UNITS.some((u) => u.value === unit) && unit && (
+                      <option value={unit}>{unit}</option>
+                    )}
+                  </Select>
 
                   {/* Categoría */}
                   <div>
@@ -1228,12 +1293,11 @@ export function ProductFormModal({
 
                     {showQuickCategory ? (
                       <div className="p-2 bg-white dark:bg-[#0D0F16] border border-[#ED500A]/40 rounded-xl space-y-2 animate-in fade-in duration-100">
-                        <input
-                          type="text"
+                        <Input
+                          inputSize="sm"
                           value={quickCategoryName}
                           onChange={(e) => setQuickCategoryName(e.target.value)}
                           placeholder="Nombre de categoría..."
-                          className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs"
                           autoFocus
                           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleQuickCategoryCreate())}
                         />
@@ -1256,7 +1320,7 @@ export function ProductFormModal({
                         </div>
                       </div>
                     ) : (
-                      <select
+                      <Select
                         {...register("category_id")}
                         onChange={(e) => {
                           const catId = e.target.value;
@@ -1272,7 +1336,6 @@ export function ProductFormModal({
                             }
                           }
                         }}
-                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all truncate"
                       >
                         <option value="">Sin categoría asignada</option>
                         {hierarchicalCategories.map((c) => (
@@ -1280,48 +1343,41 @@ export function ProductFormModal({
                             {c.label}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     )}
                   </div>
                 </div>
 
                 {/* SKU y Código de Barras Base */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Código SKU
-                    </label>
-                    <input
-                      type="text"
-                      value={sku}
-                      onChange={(e) => setSku(e.target.value)}
-                      placeholder="Ej. REF-001"
-                      className="w-full px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
-                    />
-                  </div>
+                  <Input
+                    label="Código SKU"
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                    placeholder="Ej. REF-001"
+                    className="font-mono"
+                  />
 
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                       Código de Barras
                     </label>
                     <div className="flex gap-1.5">
-                      <div className="relative flex-1">
-                        <Barcode className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          value={barcode}
-                          onChange={(e) => setBarcode(e.target.value)}
-                          placeholder="770... o escanear"
-                          className="w-full pl-8 pr-2.5 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50"
-                        />
-                      </div>
+                      <Input
+                        value={barcode}
+                        onChange={(e) => setBarcode(e.target.value)}
+                        placeholder="770... o escanear"
+                        leftIcon={<Barcode className="w-3.5 h-3.5 text-slate-400" />}
+                        className="font-mono flex-1"
+                        containerClassName="flex-1"
+                      />
                       <button
                         type="button"
                         onClick={() => {
                           setBarcodeTarget("product");
                           setIsBarcodeScannerOpen(true);
                         }}
-                        className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-white/[0.08] transition-colors cursor-pointer shrink-0"
+                        className="px-2.5 h-10 bg-[#ED500A]/10 hover:bg-[#ED500A]/20 text-[#ED500A] rounded-xl text-xs flex items-center gap-1.5 border border-[#ED500A]/25 transition-all cursor-pointer shrink-0 font-bold active:scale-95 shadow-xs"
                         title="Escanear con cámara"
                       >
                         <Camera className="w-3.5 h-3.5 text-[#ED500A]" />
@@ -1481,62 +1537,44 @@ export function ProductFormModal({
                   <div className="space-y-3.5 pt-3 border-t border-slate-200/60 dark:border-white/5 animate-in fade-in duration-150">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       {/* Precio de Venta Base */}
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                          Precio de Venta (COP) *
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
-                            $
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={priceDisplay}
-                            onChange={(e) => {
-                              const raw = parseNumberFromDots(e.target.value);
-                              const formatted = formatNumberWithDots(e.target.value);
-                              setPriceDisplay(formatted);
-                              setValue("price", raw, { shouldValidate: true });
-                            }}
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
-                            placeholder="0"
-                          />
-                        </div>
-                        {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
-                      </div>
+                      <Input
+                        label="Precio de Venta (COP)"
+                        required
+                        inputMode="numeric"
+                        value={priceDisplay}
+                        onChange={(e) => {
+                          const raw = parseNumberFromDots(e.target.value);
+                          const formatted = formatNumberWithDots(e.target.value);
+                          setPriceDisplay(formatted);
+                          setValue("price", raw, { shouldValidate: true });
+                        }}
+                        placeholder="0"
+                        startAdornment={<span className="text-sm font-bold text-slate-400">$</span>}
+                        className="font-bold"
+                        error={errors.price?.message}
+                      />
 
                       {/* Costo del Producto */}
                       {productType === "product" && (
-                        <div>
-                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                            Costo de Adquisición (COP)
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
-                              $
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={costDisplay}
-                              onChange={(e) => {
-                                const raw = parseNumberFromDots(e.target.value);
-                                const formatted = formatNumberWithDots(e.target.value);
-                                setCostDisplay(formatted);
-                                setAverageCost(raw);
-                              }}
-                              placeholder="0"
-                              className="w-full pl-8 pr-3.5 py-2.5 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all font-mono"
-                            />
-                          </div>
-                          {Number(priceWatch) > 0 && averageCost > 0 && (
-                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">
-                              Margen estimado:{" "}
-                              {(((Number(priceWatch) - averageCost) / Number(priceWatch)) * 100).toFixed(1)}%
-                            </p>
-                          )}
-                        </div>
+                        <Input
+                          label="Costo de Adquisición (COP)"
+                          inputMode="numeric"
+                          value={costDisplay}
+                          onChange={(e) => {
+                            const raw = parseNumberFromDots(e.target.value);
+                            const formatted = formatNumberWithDots(e.target.value);
+                            setCostDisplay(formatted);
+                            setAverageCost(raw);
+                          }}
+                          placeholder="0"
+                          startAdornment={<span className="text-sm font-bold text-slate-400">$</span>}
+                          className="font-mono font-bold"
+                          helperText={
+                            Number(priceWatch) > 0 && averageCost > 0
+                              ? `Margen estimado: ${(((Number(priceWatch) - averageCost) / Number(priceWatch)) * 100).toFixed(1)}%`
+                              : undefined
+                          }
+                        />
                       )}
                     </div>
 
@@ -1547,56 +1585,48 @@ export function ProductFormModal({
                           Niveles de Stock Físico
                         </span>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                              Stock Inicial *
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={stockQuantity}
-                              onChange={(e) => setStockQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                              placeholder="0"
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-[#ED500A]"
-                            />
-                            <p className="text-[10px] text-slate-400 mt-0.5">Unidades disponibles</p>
-                          </div>
+                          <Input
+                            label="Stock Inicial"
+                            required
+                            type="number"
+                            min="0"
+                            value={stockQuantity}
+                            onChange={(e) => setStockQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            placeholder="0"
+                            helperText="Unidades disponibles"
+                            className="font-mono font-bold"
+                            inputSize="sm"
+                          />
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                              Stock Mínimo
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={minStock ?? ""}
-                              onChange={(e) => {
-                                const v = e.target.value.trim();
-                                setMinStock(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
-                              }}
-                              placeholder="Opcional"
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-[#ED500A]"
-                            />
-                            <p className="text-[10px] text-slate-400 mt-0.5">Alerta de reposición</p>
-                          </div>
+                          <Input
+                            label="Stock Mínimo"
+                            type="number"
+                            min="0"
+                            value={minStock ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value.trim();
+                              setMinStock(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
+                            }}
+                            placeholder="Opcional"
+                            helperText="Alerta de reposición"
+                            className="font-mono font-bold"
+                            inputSize="sm"
+                          />
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                              Stock Máximo
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={maxStock ?? ""}
-                              onChange={(e) => {
-                                const v = e.target.value.trim();
-                                setMaxStock(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
-                              }}
-                              placeholder="Opcional"
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-[#ED500A]"
-                            />
-                            <p className="text-[10px] text-slate-400 mt-0.5">Capacidad máxima</p>
-                          </div>
+                          <Input
+                            label="Stock Máximo"
+                            type="number"
+                            min="0"
+                            value={maxStock ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value.trim();
+                              setMaxStock(v === "" ? null : Math.max(0, parseInt(v, 10) || 0));
+                            }}
+                            placeholder="Opcional"
+                            helperText="Capacidad máxima"
+                            className="font-mono font-bold"
+                            inputSize="sm"
+                          />
                         </div>
                       </div>
                     )}
@@ -1662,12 +1692,11 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Nombre *
                                 </label>
-                                <input
-                                  type="text"
+                                <Input
+                                  inputSize="sm"
                                   value={v.name}
                                   onChange={(e) => handleUpdateVariant(vIdx, { name: e.target.value })}
                                   placeholder="Ej. Pequeño, Mediano, Talla L..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:ring-1 focus:ring-[#ED500A]"
                                 />
                               </div>
 
@@ -1675,12 +1704,12 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   SKU
                                 </label>
-                                <input
-                                  type="text"
+                                <Input
+                                  inputSize="sm"
                                   value={v.sku || ""}
                                   onChange={(e) => handleUpdateVariant(vIdx, { sku: e.target.value })}
                                   placeholder="REF-MED"
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono focus:ring-1 focus:ring-[#ED500A]"
+                                  className="font-mono"
                                 />
                               </div>
 
@@ -1689,20 +1718,22 @@ export function ProductFormModal({
                                   Código de Barras
                                 </label>
                                 <div className="flex gap-1">
-                                  <input
-                                    type="text"
-                                    value={v.barcode || ""}
-                                    onChange={(e) => handleUpdateVariant(vIdx, { barcode: e.target.value })}
-                                    placeholder="770..."
-                                    className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono focus:ring-1 focus:ring-[#ED500A]"
-                                  />
+                                  <div className="flex-1">
+                                    <Input
+                                      inputSize="sm"
+                                      value={v.barcode || ""}
+                                      onChange={(e) => handleUpdateVariant(vIdx, { barcode: e.target.value })}
+                                      placeholder="770..."
+                                      className="font-mono"
+                                    />
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setBarcodeTarget(vIdx);
                                       setIsBarcodeScannerOpen(true);
                                     }}
-                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 rounded-lg text-slate-600 dark:text-slate-300"
+                                    className="p-1.5 bg-[#ED500A]/10 hover:bg-[#ED500A]/20 text-[#ED500A] border border-[#ED500A]/25 rounded-lg transition-colors cursor-pointer shrink-0 self-stretch flex items-center justify-center"
                                     title="Escanear código para esta variante"
                                   >
                                     <Camera className="w-3.5 h-3.5 text-[#ED500A]" />
@@ -1717,7 +1748,8 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Costo (COP)
                                 </label>
-                                <input
+                                <Input
+                                  inputSize="sm"
                                   type="number"
                                   min="0"
                                   value={v.cost ?? ""}
@@ -1727,7 +1759,7 @@ export function ProductFormModal({
                                     })
                                   }
                                   placeholder="0"
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono focus:ring-1 focus:ring-[#ED500A]"
+                                  className="font-mono"
                                 />
                               </div>
 
@@ -1735,23 +1767,18 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Precio Venta *
                                 </label>
-                                <div className="relative">
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
-                                    $
-                                  </span>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={v.price ? formatNumberWithDots(v.price) : ""}
-                                    onChange={(e) =>
-                                      handleUpdateVariant(vIdx, {
-                                        price: parseNumberFromDots(e.target.value),
-                                      })
-                                    }
-                                    placeholder="0"
-                                    className="w-full pl-5 pr-2 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#ED500A]"
-                                  />
-                                </div>
+                                <Input
+                                  inputSize="sm"
+                                  startAdornment={<span className="text-[10px] font-bold text-slate-400">$</span>}
+                                  value={v.price ? formatNumberWithDots(v.price) : ""}
+                                  onChange={(e) =>
+                                    handleUpdateVariant(vIdx, {
+                                      price: parseNumberFromDots(e.target.value),
+                                    })
+                                  }
+                                  placeholder="0"
+                                  className="font-bold"
+                                />
                               </div>
 
                               {stockMode === "limited" ? (
@@ -1759,7 +1786,8 @@ export function ProductFormModal({
                                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                     Stock Inicial
                                   </label>
-                                  <input
+                                  <Input
+                                    inputSize="sm"
                                     type="number"
                                     min="0"
                                     value={v.stock_quantity ?? ""}
@@ -1770,7 +1798,7 @@ export function ProductFormModal({
                                       })
                                     }
                                     placeholder="0"
-                                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-mono font-bold focus:ring-1 focus:ring-[#ED500A]"
+                                    className="font-mono font-bold"
                                   />
                                 </div>
                               ) : (
@@ -1778,7 +1806,7 @@ export function ProductFormModal({
                                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                     Stock
                                   </label>
-                                  <div className="px-2 py-1.5 bg-slate-50 dark:bg-white/5 rounded-lg text-[11px] text-slate-400 italic">
+                                  <div className="h-8 flex items-center px-2 bg-slate-50 dark:bg-white/5 rounded-lg text-[11px] text-slate-400 italic">
                                     Ilimitado
                                   </div>
                                 </div>
@@ -1788,21 +1816,21 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Impuesto
                                 </label>
-                                <select
+                                <Select
+                                  selectSize="sm"
                                   value={v.tax_percentage !== null && v.tax_percentage !== undefined ? v.tax_percentage : ""}
                                   onChange={(e) =>
                                     handleUpdateVariant(vIdx, {
                                       tax_percentage: e.target.value === "" ? null : Number(e.target.value),
                                     })
                                   }
-                                  className="w-full px-2 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-medium focus:ring-1 focus:ring-[#ED500A]"
                                 >
                                   <option value="">Heredar ({taxPercentage}%)</option>
                                   <option value="0">0% Exento</option>
                                   <option value="5">5% Especial</option>
                                   <option value="8">8% Impoconsumo</option>
                                   <option value="19">19% General</option>
-                                </select>
+                                </Select>
                               </div>
                             </div>
                           </div>
@@ -2180,7 +2208,7 @@ export function ProductFormModal({
                       if (singles > 0) parts.push(`${singles} ${singles === 1 ? "individual" : "individuales"}`);
                       if (groups > 0) parts.push(`${groups} ${groups === 1 ? "grupo" : "grupos"}`);
                       return (
-                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/[0.06] shrink-0">
+                        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20 font-bold shrink-0">
                           {parts.length > 0 ? parts.join(" · ") : "0 configurados"}
                         </span>
                       );
@@ -2209,13 +2237,16 @@ export function ProductFormModal({
                     {/* Tarjeta 2: Nuevo Grupo */}
                     <button
                       type="button"
-                      onClick={handleAddGroup}
-                      className="flex flex-col items-center justify-center p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] hover:bg-purple-500/5 hover:border-purple-500/50 text-slate-800 dark:text-slate-200 transition-all cursor-pointer group shadow-2xs active:scale-[0.98] text-center"
+                      onClick={() => {
+                        setEditingGroupForModal(null);
+                        setIsGroupModalOpen(true);
+                      }}
+                      className="flex flex-col items-center justify-center p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] hover:border-[#ED500A]/50 text-slate-800 dark:text-slate-200 transition-all cursor-pointer group shadow-2xs active:scale-[0.98] text-center"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 flex items-center justify-center mb-2 group-hover:scale-110 group-hover:text-[#ED500A] transition-all">
                         <Layers className="w-4 h-4" />
                       </div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-[#ED500A] transition-colors">
                         Nuevo grupo
                       </span>
                       <span className="text-[10px] text-slate-400 mt-0.5 leading-tight">
@@ -2296,8 +2327,8 @@ export function ProductFormModal({
                                   {group.type === "replacement" ? "Reemplazo" : "Adicional"}
                                 </span>
                               </div>
-                              <input
-                                type="text"
+                              <Input
+                                inputSize="sm"
                                 value={group.name}
                                 onChange={(e) => {
                                   const val = e.target.value;
@@ -2307,7 +2338,6 @@ export function ProductFormModal({
                                   });
                                 }}
                                 placeholder="Nombre del modificador"
-                                className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#ED500A]"
                               />
                             </div>
 
@@ -2318,22 +2348,17 @@ export function ProductFormModal({
                                   Precio adicional
                                 </span>
                               </div>
-                              <div className="relative">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                  +$
-                                </span>
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={opt.price ? formatNumberWithDots(opt.price) : "0"}
-                                  onChange={(e) => {
-                                    const raw = parseNumberFromDots(e.target.value);
-                                    handleUpdateOption(gIdx, 0, { price: raw });
-                                  }}
-                                  placeholder="0"
-                                  className="w-full pl-7 pr-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-bold font-mono text-slate-900 dark:text-white focus:ring-1 focus:ring-[#ED500A]"
-                                />
-                              </div>
+                              <Input
+                                inputSize="sm"
+                                startAdornment={<span className="text-xs font-bold text-slate-400">+$</span>}
+                                value={opt.price ? formatNumberWithDots(opt.price) : "0"}
+                                onChange={(e) => {
+                                  const raw = parseNumberFromDots(e.target.value);
+                                  handleUpdateOption(gIdx, 0, { price: raw });
+                                }}
+                                placeholder="0"
+                                className="font-bold font-mono"
+                              />
                             </div>
 
                             {/* Acción: Eliminar */}
@@ -2363,12 +2388,11 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Nombre del grupo *
                                 </label>
-                                <input
-                                  type="text"
+                                <Input
+                                  inputSize="sm"
                                   value={group.name}
                                   onChange={(e) => handleUpdateGroup(gIdx, { name: e.target.value })}
                                   placeholder="Ej. Opciones de presentación, Tamaños..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:ring-1 focus:ring-[#ED500A]"
                                 />
                               </div>
 
@@ -2376,30 +2400,67 @@ export function ProductFormModal({
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                   Tipo de modificador
                                 </label>
-                                <select
+                                <Select
+                                  selectSize="sm"
                                   value={group.type || "additional"}
                                   onChange={(e) =>
                                     handleUpdateGroup(gIdx, {
                                       type: e.target.value as "additional" | "size" | "replacement",
                                     })
                                   }
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-semibold focus:ring-1 focus:ring-[#ED500A]"
                                 >
                                   <option value="additional">Adicional (Extra, accesorio, suplemento...)</option>
                                   <option value="size">Tamaño (Pequeño, Mediano, Grande...)</option>
                                   <option value="replacement">Reemplazo (Sustitución de componente...)</option>
-                                </select>
+                                </Select>
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveGroup(gIdx)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 rounded transition-colors mt-5 cursor-pointer"
-                              title="Eliminar grupo"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1 mt-5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const foundBg = businessGroups.find((bg) => bg.id === group.id);
+                                  const groupToEdit: ModifierGroup = foundBg || {
+                                    id: group.id || generateId("grp"),
+                                    business_id: businessId,
+                                    name: group.name,
+                                    description: null,
+                                    commercial_type: group.type || "additional",
+                                    required: Boolean(group.required),
+                                    selection_type: (group.max_select ?? 1) === 1 ? "single" : "multiple",
+                                    min_select: group.min_select ?? 0,
+                                    max_select: group.max_select ?? 1,
+                                    sort_order: 0,
+                                    status: "active",
+                                    applied_product_ids: product?.id ? [product.id] : [],
+                                    applied_category_ids: [],
+                                    options: group.options.map((o, idx) => ({
+                                      id: o.id || generateId("opt"),
+                                      option_group_id: group.id || "",
+                                      name: o.name,
+                                      price: Number(o.price) || 0,
+                                      status: o.is_available === false ? "inactive" : "active",
+                                      sort_order: idx,
+                                    })),
+                                  };
+                                  setEditingGroupForModal(groupToEdit);
+                                  setIsGroupModalOpen(true);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+                                title="Editar grupo en ventana completa"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveGroup(gIdx)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                                title="Eliminar grupo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
 
                         {/* Fila 2: Casilla Obligatorio y Cantidad Máxima */}
@@ -2416,17 +2477,20 @@ export function ProductFormModal({
 
                           <div className="flex items-center gap-2">
                             <label className="text-[11px] text-slate-500">Cantidad máxima:</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={group.max_select ?? 1}
-                              onChange={(e) =>
-                                handleUpdateGroup(gIdx, {
-                                  max_select: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                })
-                              }
-                              className="w-14 px-2 py-1 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded text-xs font-mono font-bold text-center focus:ring-1 focus:ring-[#ED500A]"
-                            />
+                            <div className="w-16">
+                              <Input
+                                inputSize="sm"
+                                type="number"
+                                min="1"
+                                value={group.max_select ?? 1}
+                                onChange={(e) =>
+                                  handleUpdateGroup(gIdx, {
+                                    max_select: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                  })
+                                }
+                                className="font-mono font-bold text-center"
+                              />
+                            </div>
                           </div>
                         </div>
 
@@ -2452,23 +2516,21 @@ export function ProductFormModal({
                                 key={opt.id || oIdx}
                                 className="flex items-center gap-2 p-1.5 bg-slate-50 dark:bg-white/[0.03] rounded-lg border border-slate-200/50 dark:border-white/5"
                               >
-                                <input
-                                  type="text"
-                                  value={opt.name}
-                                  onChange={(e) =>
-                                    handleUpdateOption(gIdx, oIdx, { name: e.target.value })
-                                  }
-                                  placeholder="Nombre (ej. Queso cheddar)"
-                                  className="flex-1 px-2.5 py-1 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded text-xs font-medium focus:ring-1 focus:ring-[#ED500A]"
-                                />
+                                <div className="flex-1">
+                                  <Input
+                                    inputSize="sm"
+                                    value={opt.name}
+                                    onChange={(e) =>
+                                      handleUpdateOption(gIdx, oIdx, { name: e.target.value })
+                                    }
+                                    placeholder="Nombre (ej. Queso cheddar)"
+                                  />
+                                </div>
 
-                                <div className="w-24 relative">
-                                  <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-semibold">
-                                    +$
-                                  </span>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
+                                <div className="w-28">
+                                  <Input
+                                    inputSize="sm"
+                                    startAdornment={<span className="text-[10px] text-slate-400 font-bold">+$</span>}
                                     value={opt.price ? formatNumberWithDots(opt.price) : ""}
                                     onChange={(e) =>
                                       handleUpdateOption(gIdx, oIdx, {
@@ -2476,7 +2538,7 @@ export function ProductFormModal({
                                       })
                                     }
                                     placeholder="0"
-                                    className="w-full pl-5 pr-1.5 py-1 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded text-xs font-mono font-semibold"
+                                    className="font-mono font-bold"
                                   />
                                 </div>
 
@@ -2772,6 +2834,23 @@ export function ProductFormModal({
           initialProductId={product?.id || null}
           onClose={() => setIsSingleModifierModalOpen(false)}
           onSave={handleSaveSingleModifierInProduct}
+        />
+      )}
+
+      {/* Modal de Crear / Editar Grupo de Modificadores */}
+      {isGroupModalOpen && (
+        <ModifierGroupModal
+          isOpen={isGroupModalOpen}
+          businessId={businessId}
+          categories={categories}
+          products={existingProducts || []}
+          group={editingGroupForModal}
+          initialProductId={product?.id || null}
+          onClose={() => {
+            setIsGroupModalOpen(false);
+            setEditingGroupForModal(null);
+          }}
+          onSave={handleSaveGroupInProduct}
         />
       )}
     </>

@@ -11,6 +11,7 @@ interface Props {
   locations: Location[];
   initialTab?: "recipes" | "ingredients";
   availableUnits?: { value: string; label: string }[];
+  categories?: { id: string; name: string }[];
 }
 
 export function RecetasManagerClient({
@@ -18,35 +19,38 @@ export function RecetasManagerClient({
   locations,
   initialTab = "recipes",
   availableUnits,
+  categories,
 }: Props) {
   const [activeTab, setActiveTab] = useState<"recipes" | "ingredients">(initialTab);
 
   return (
     <div className="space-y-6">
-      {/* Selector de Pestañas */}
-      <div className="flex items-center gap-2 border-b border-border pb-3">
+      {/* Selector de Pestañas (Estilo Productos / Inventario) */}
+      <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-1 overflow-x-auto no-scrollbar">
         <button
+          type="button"
           onClick={() => setActiveTab("recipes")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             activeTab === "recipes"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
           }`}
         >
           <ChefHat className="w-4 h-4" />
-          Recetas
+          <span>Recetas</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab("ingredients")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             activeTab === "ingredients"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
           }`}
         >
           <Apple className="w-4 h-4" />
-          Ingredientes
+          <span>Ingredientes e Insumos</span>
         </button>
       </div>
 
@@ -62,6 +66,7 @@ export function RecetasManagerClient({
           businessId={businessId}
           locations={locations}
           availableUnits={availableUnits}
+          categories={categories}
         />
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui";
 import { User, Phone, Mail, MapPin, X, Loader2, Sparkles } from "lucide-react";
 import { createCustomerAction } from "@/app/workspace/[businessId]/clientes/actions";
 import { toast } from "sonner";
@@ -84,7 +85,7 @@ export function PosQuickCreateCustomerModal({
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={onClose}
       >
         <div
@@ -127,75 +128,46 @@ export function PosQuickCreateCustomerModal({
             )}
 
             {/* Nombre completo */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Nombre completo <span className="text-[#ED500A] ml-1">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Valentina Morales"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                  autoFocus
-                />
-              </div>
-            </div>
+            <Input
+              label="Nombre completo"
+              required
+              autoFocus
+              placeholder="Ej. Valentina Morales"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              leftIcon={<User className="w-4 h-4" />}
+            />
 
             {/* Teléfono */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Teléfono / WhatsApp <span className="text-[#ED500A] ml-1">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="tel"
-                  required
-                  placeholder="Ej. 301 234 5678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-mono"
-                />
-              </div>
-            </div>
+            <Input
+              label="Teléfono / WhatsApp"
+              required
+              type="tel"
+              placeholder="Ej. 301 234 5678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              leftIcon={<Phone className="w-4 h-4" />}
+              className="font-mono"
+            />
 
             {/* Correo */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Correo electrónico <span className="text-slate-400 font-normal">(Opcional)</span>
-              </label>
-              <div className="relative flex items-center">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="email"
-                  placeholder="cliente@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                />
-              </div>
-            </div>
+            <Input
+              label="Correo electrónico (Opcional)"
+              type="email"
+              placeholder="cliente@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              leftIcon={<Mail className="w-4 h-4" />}
+            />
 
             {/* Dirección */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Dirección de entrega <span className="text-slate-400 font-normal">(Opcional)</span>
-              </label>
-              <div className="relative flex items-center">
-                <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Ej. Calle 10 # 5-20 Apto 402"
-                  value={addressLine}
-                  onChange={(e) => setAddressLine(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                />
-              </div>
-            </div>
+            <Input
+              label="Dirección de entrega (Opcional)"
+              placeholder="Ej. Calle 10 # 5-20 Apto 402"
+              value={addressLine}
+              onChange={(e) => setAddressLine(e.target.value)}
+              leftIcon={<MapPin className="w-4 h-4" />}
+            />
 
             {/* Acciones */}
             <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-white/[0.06]">

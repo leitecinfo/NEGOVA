@@ -1,5 +1,6 @@
 "use client";
 
+import { Tabs } from "@/components/ui/tabs";
 import React, { useState, useTransition, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -45,6 +46,9 @@ import { toast } from "sonner";
 import {
   Button,
   EmptyState,
+  Select,
+  Input,
+  SearchInput,
 } from "@/components/ui";
 import { ReportNavTabs } from "@/components/reports/report-nav-tabs";
 import {
@@ -253,47 +257,14 @@ export function ExpensesReportClient({
 
       {/* 2. Pestañas de Vista (Gastos vs Compras) */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/[0.06] pb-2">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setActiveTab("gastos")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === "gastos"
-                ? "bg-[#ED500A] text-white shadow-sm shadow-[#ED500A]/20"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]"
-            }`}
-          >
-            <TrendingDown className="w-4 h-4" />
-            <span>Reporte de Gastos Operativos</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                activeTab === "gastos" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-white/[0.06]"
-              }`}
-            >
-              {data.expenses.summary.transactionsCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("compras")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === "compras"
-                ? "bg-[#ED500A] text-white shadow-sm shadow-[#ED500A]/20"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]"
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Reporte de Compras a Proveedores</span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                activeTab === "compras" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-white/[0.06]"
-              }`}
-            >
-              {data.purchases.summary.confirmedPurchasesCount}
-            </span>
-          </button>
-        </div>
+        <Tabs<ActiveViewTab>
+          tabs={[
+            { id: "gastos", label: "Reporte de Gastos Operativos", icon: <TrendingDown className="w-4 h-4" />, count: data.expenses.summary.transactionsCount },
+            { id: "compras", label: "Reporte de Compras a Proveedores", icon: <ShoppingBag className="w-4 h-4" />, count: data.purchases.summary.confirmedPurchasesCount },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
 
         {isPending && (
           <div className="flex items-center gap-2 text-xs text-slate-500 animate-pulse">
@@ -359,7 +330,7 @@ export function ExpensesReportClient({
           {activeTab === "gastos" && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-500 font-medium">Categoría:</span>
-              <select
+              <Select
                 value={filters.category || "all"}
                 onChange={(e) => handleFilterChange("category", e.target.value)}
                 className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
@@ -372,14 +343,14 @@ export function ExpensesReportClient({
                       {cat}
                     </option>
                   ))}
-              </select>
+              </Select>
             </div>
           )}
 
           {/* Filtro de proveedor (aplica a ambos) */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500 font-medium">Proveedor:</span>
-            <select
+            <Select
               value={filters.supplierId || "all"}
               onChange={(e) => handleFilterChange("supplierId", e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
@@ -389,13 +360,13 @@ export function ExpensesReportClient({
                   {sup.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Filtro de estado */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500 font-medium">Estado:</span>
-            <select
+            <Select
               value={filters.status || "all"}
               onChange={(e) => handleFilterChange("status", e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#ED500A]"
@@ -403,7 +374,7 @@ export function ExpensesReportClient({
               <option value="all">Todos los estados</option>
               <option value="completed">Completados / Confirmados</option>
               <option value="cancelled">Anulados</option>
-            </select>
+            </Select>
           </div>
 
           {/* Rango de fechas si está en custom */}

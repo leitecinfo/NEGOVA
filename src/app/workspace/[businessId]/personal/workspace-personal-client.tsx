@@ -58,6 +58,10 @@ import { DataTable } from "@/components/ui/data-table";
 import { TableToolbar } from "@/components/ui/table-toolbar";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
+import { Pagination } from "@/components/ui/pagination";
+import { SearchInput } from "@/components/ui/search-input";
+import { Input } from "@/components/ui/input";
 import { KpiGrid, KpiCard } from "@/components/ui";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -109,6 +113,7 @@ export function WorkspacePersonalClient({
   const [employees, setEmployees] = useState<EmployeeModel[]>(initialData?.employees || []);
   const [total, setTotal] = useState(initialData?.total || 0);
   const [page, setPage] = useState(initialData?.page || 1);
+  const [totalPages, setTotalPages] = useState(initialData?.totalPages || 1);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -202,6 +207,7 @@ export function WorkspacePersonalClient({
         setEmployees(res.data.employees);
         setTotal(res.data.total);
         setPage(res.data.page);
+        setTotalPages(res.data.totalPages);
       }
     });
   };
@@ -494,74 +500,45 @@ export function WorkspacePersonalClient({
       {/* 2. BARRA DE CONTROL: BÚSQUEDA, FILTROS Y ACCIÓN PRINCIPAL "+ AGREGAR CAMARERO" */}
       <div className="p-4 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Pestañas de estado rápido */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-xl border border-slate-200/60 dark:border-white/[0.06] overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("all");
-              fetchEmployees(1, "all");
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-              statusFilter === "all"
-                ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-xs"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            Todos ({total})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("active");
-              fetchEmployees(1, "active");
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              statusFilter === "active"
-                ? "bg-white dark:bg-white/10 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Activos ({activeCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStatusFilter("inactive");
-              fetchEmployees(1, "inactive");
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-              statusFilter === "inactive"
-                ? "bg-white dark:bg-white/10 text-slate-700 dark:text-slate-200 shadow-xs"
-                : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-slate-400" />
-            Inactivos ({inactiveCount})
-          </button>
-        </div>
+        <Tabs<"all" | "active" | "inactive">
+          tabs={[
+            { id: "all", label: "Todos", count: total },
+            {
+              id: "active",
+              label: "Activos",
+              count: activeCount,
+              icon: <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />,
+            },
+            {
+              id: "inactive",
+              label: "Inactivos",
+              count: inactiveCount,
+              icon: <span className="w-2 h-2 rounded-full bg-slate-400" />,
+            },
+          ]}
+          activeTab={statusFilter}
+          onChange={(val) => {
+            setStatusFilter(val);
+            fetchEmployees(1, val);
+          }}
+          size="sm"
+        />
 
         {/* Buscador y selector de vista */}
         <div className="flex flex-1 max-w-md items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre, código (#css1), teléfono..."
-              className="w-full pl-9 pr-8 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            placeholder="Buscar por nombre, código (#css1), teléfono..."
+            value={searchQuery}
+            onChange={(val) => {
+              setSearchQuery(val);
+              fetchEmployees(1, statusFilter, val);
+            }}
+            onClear={() => {
+              setSearchQuery("");
+              fetchEmployees(1, statusFilter, "");
+            }}
+            className="flex-1"
+          />
 
           {/* Toggle de vistas: Tarjetas / Tabla */}
           <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-xl border border-slate-200/60 dark:border-white/[0.06]">
@@ -648,7 +625,8 @@ export function WorkspacePersonalClient({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredEmployees.map((emp) => {
               const code = getEmployeeDisplayCode(emp);
               const isActive = emp.status === "active";
@@ -809,6 +787,20 @@ export function WorkspacePersonalClient({
               );
             })}
           </div>
+          {totalPages > 1 && (
+            <div className="pt-2">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={total}
+                currentCount={employees.length}
+                itemLabel="colaboradores"
+                onPageChange={(p: number) => fetchEmployees(p)}
+                isPending={isPending}
+              />
+            </div>
+          )}
+          </>
         )
       ) : (
         /* 4. VISTA EN TABLA DETALLADA */
@@ -927,13 +919,26 @@ export function WorkspacePersonalClient({
             onReset: () => setCamareroModalOpen(true),
             resetLabel: "+ Agregar Camarero",
           }}
+          pagination={
+            totalPages > 1
+              ? {
+                  currentPage: page,
+                  totalPages: totalPages,
+                  totalItems: total,
+                  currentCount: employees.length,
+                  itemLabel: "colaboradores",
+                  onPageChange: (p: number) => fetchEmployees(p),
+                  isPending: isPending,
+                }
+              : undefined
+          }
         />
       )}
 
       {/* MODAL 1: AGREGAR CAMARERO (ESPECIFICACIÓN EXACTA DEL USUARIO) */}
       {camareroModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-6"
               onClick={(e) => e.stopPropagation()}
@@ -1072,7 +1077,7 @@ export function WorkspacePersonalClient({
       {/* MODAL 2: EDITAR CAMARERO / EMPLEADO */}
       {editEmployeeModalOpen && editingEmployee && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-6"
               onClick={(e) => e.stopPropagation()}
@@ -1186,19 +1191,16 @@ export function WorkspacePersonalClient({
 
                 {/* Estado */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Estado en el negocio
-                  </label>
-                  <select
+                  <Select
+                    label="Estado en el negocio"
                     value={editForm.status}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as EmployeeStatus })}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white focus:outline-blue-500"
                   >
                     <option value="active">Activo (Disponible para turnos)</option>
                     <option value="inactive">Inactivo (Fuera de turno)</option>
                     <option value="on_leave">En permiso / Licencia</option>
                     <option value="terminated">Retirado</option>
-                  </select>
+                  </Select>
                 </div>
 
                 {/* Botones */}
@@ -1255,7 +1257,7 @@ export function WorkspacePersonalClient({
       {/* MODAL 5: FICHA COMPLETA (CREAR TRABAJADOR DETALLADO) */}
       {fullCreateModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-body animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-body animate-in fade-in duration-150">
             <div
               className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-8 space-y-6"
               onClick={(e) => e.stopPropagation()}

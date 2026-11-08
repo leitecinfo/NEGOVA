@@ -36,6 +36,20 @@ export const CreateSupplierInputSchema = z.object({
 
 export type CreateSupplierInput = z.infer<typeof CreateSupplierInputSchema>;
 
+export const UpdateSupplierInputSchema = z.object({
+  name: z.string().trim().min(1, "El nombre del proveedor es obligatorio").optional(),
+  contactName: z.string().trim().nullable().optional(),
+  phone: z.string().trim().nullable().optional(),
+  email: z.string().trim().email("Correo electrónico no válido").nullable().optional().or(z.literal("")),
+  address: z.string().trim().nullable().optional(),
+  taxId: z.string().trim().nullable().optional(),
+  paymentTermsDays: z.coerce.number().min(0).optional(),
+  notes: z.string().trim().nullable().optional(),
+  status: SupplierStatusSchema.optional(),
+});
+
+export type UpdateSupplierInput = z.infer<typeof UpdateSupplierInputSchema>;
+
 // ==========================================
 // ÍTEMS DE COMPRA (PURCHASE ITEMS)
 // ==========================================
@@ -52,8 +66,14 @@ export interface PurchaseItem {
   unitCost: number;
   totalCost: number;
   locationId?: string | null;
+  locationName?: string | null;
   isInventoryItem: boolean;
   itemCategory?: PurchaseItemCategory;
+  purchaseUnit?: string | null;
+  inventoryUnit?: string | null;
+  conversionFactor?: number | null;
+  inventoryQuantity?: number | null;
+  discount?: number | null;
   createdAt: string;
 }
 
@@ -65,6 +85,10 @@ export const PurchaseItemInputSchema = z.object({
   locationId: z.string().uuid().nullable().optional(),
   isInventoryItem: z.boolean().default(true),
   itemCategory: z.enum(["ingredient", "resale", "free"]).optional(),
+  purchaseUnit: z.string().trim().optional(),
+  inventoryUnit: z.string().trim().optional(),
+  conversionFactor: z.coerce.number().positive().default(1).optional(),
+  discount: z.coerce.number().min(0).default(0).optional(),
 });
 
 export type PurchaseItemInput = z.infer<typeof PurchaseItemInputSchema>;
@@ -108,24 +132,55 @@ export type PaymentType = z.infer<typeof PaymentTypeSchema>;
 export const PurchaseStatusSchema = z.enum(["confirmed", "cancelled"]);
 export type PurchaseStatus = z.infer<typeof PurchaseStatusSchema>;
 
+export const PurchasePaymentStatusSchema = z.enum([
+  "paid",
+  "partially_paid",
+  "pending",
+  "cancelled",
+]);
+export type PurchasePaymentStatus = z.infer<typeof PurchasePaymentStatusSchema>;
+
+export const DocumentTypeSchema = z.enum([
+  "factura",
+  "remision",
+  "cuenta_cobro",
+  "ticket",
+  "documento_equivalente",
+  "otro",
+]);
+export type DocumentType = z.infer<typeof DocumentTypeSchema>;
+export type PurchaseDocumentType = DocumentType;
+
 export interface Purchase {
   id: string;
   businessId: string;
   purchaseNumber: string; // e.g. COMP-00001
   supplierId?: string | null;
   supplierName?: string | null;
+  supplierTaxId?: string | null;
   invoiceNumber?: string | null;
+  documentType?: DocumentType | string | null;
   purchaseDate: string;
+  dueDate?: string | null;
   subtotal: number;
+  discountAmount?: number;
   taxAmount: number;
+  retentionAmount?: number;
   total: number;
+  paidAmount: number;
+  balance: number;
   paymentType: PaymentType;
   paymentMethod: string;
+  paymentStatus: PurchasePaymentStatus;
   status: PurchaseStatus;
+  itemsCount?: number;
   notes?: string | null;
   deductFromCashRegister?: boolean;
   cashRegisterName?: string | null;
   createdBy?: string | null;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
   createdAt: string;
   updatedAt: string;
   items?: PurchaseItem[];
@@ -136,12 +191,16 @@ export interface Purchase {
 export const CreatePurchaseInputSchema = z.object({
   supplierId: z.string().uuid().nullable().optional(),
   invoiceNumber: z.string().trim().nullable().optional(),
+  documentType: z.string().trim().default("factura").optional(),
   purchaseDate: z.string().optional(),
   paymentType: PaymentTypeSchema.default("cash"),
   paymentMethod: z.string().trim().default("cash"),
   dueDate: z.string().optional(), // Para compras a crédito
+  discountAmount: z.coerce.number().min(0).default(0).optional(),
   taxPercentage: z.coerce.number().min(0).max(100).default(0), // e.g. 19%
   retentionPercentage: z.coerce.number().min(0).max(100).default(0),
+  initialPaymentAmount: z.coerce.number().min(0).default(0).optional(),
+  initialPaymentMethod: z.string().trim().optional(),
   notes: z.string().trim().nullable().optional(),
   items: z.array(PurchaseItemInputSchema).min(1, "La compra debe incluir al menos un artículo"),
   deductFromCashRegister: z.boolean().optional(),
@@ -250,11 +309,15 @@ export type PurchasePeriodPreset =
 
 export interface PurchaseKPIs {
   totalPurchased: number;
-  uniqueSuppliersCount?: number;
+  totalPurchasesCount: number;
+  totalPaid: number;
+  paidPurchasesCount: number;
+  totalPendingBalance: number;
+  pendingPurchasesCount: number;
+  uniqueSuppliersCount: number;
   totalCash: number;
   totalCredit: number;
   dueTodayOrOverdue: number;
-  totalPurchasesCount: number;
 }
 
 export interface PurchaseFilters {
@@ -264,7 +327,10 @@ export interface PurchaseFilters {
   supplierId?: string;
   paymentType?: "cash" | "credit" | "all";
   paymentMethod?: string;
+  paymentStatus?: "all" | "paid" | "partially_paid" | "pending";
+  purchaseStatus?: "all" | "confirmed" | "cancelled";
   statusTab?: "all" | "cash" | "credit" | "pending" | "overdue";
   search?: string;
+  documentType?: string;
 }
 

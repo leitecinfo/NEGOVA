@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { Layers, X, Loader2, AlertCircle, PlusCircle } from "lucide-react";
 import { createRestaurantRoomAction } from "@/app/workspace/[businessId]/mesas/actions";
 import { toast } from "sonner";
@@ -72,7 +73,7 @@ export function CreateRoomModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -114,20 +115,13 @@ export function CreateRoomModal({
 
             {/* NOMBRE DE LA SALA */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="room-name-input"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Nombre de la Sala / Ambiente <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="room-name-input"
+              <Input
+                label="Nombre de la Sala / Ambiente *"
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Terraza, Interior, Barra..."
-                className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
               />
 
               {/* ATAJOS RÁPIDOS */}
@@ -147,18 +141,11 @@ export function CreateRoomModal({
 
             {/* UBICACIÓN ASOCIADA (OPCIONAL) */}
             {locations.length > 0 && (
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="room-location-select"
-                  className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-                >
-                  Ubicación Física (Opcional)
-                </label>
-                <select
-                  id="room-location-select"
+              <div>
+                <Select
+                  label="Ubicación Física (Opcional)"
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
                 >
                   <option value="">Ubicación Principal</option>
                   {locations.map((loc) => (
@@ -166,7 +153,7 @@ export function CreateRoomModal({
                       {loc.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
 

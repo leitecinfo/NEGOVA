@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import {
   X,
   Building2,
@@ -21,6 +22,7 @@ import { Supplier } from "@/lib/purchases/types";
 interface Props {
   businessId: string;
   isOpen: boolean;
+  initialName?: string;
   onClose: () => void;
   onSuccess: (newSupplier: Supplier) => void;
 }
@@ -40,6 +42,7 @@ export const PAYMENT_TERMS_OPTIONS = [
 export function QuickSupplierModal({
   businessId,
   isOpen,
+  initialName = "",
   onClose,
   onSuccess,
 }: Props) {
@@ -59,6 +62,21 @@ export function QuickSupplierModal({
   const [customDays, setCustomDays] = useState("30");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setName(initialName || "");
+      setNitBase("");
+      setDv("");
+      setContactName("");
+      setPhone("");
+      setEmail("");
+      setAddress("");
+      setTermSelection("30");
+      setCustomDays("30");
+      setNotes("");
+    }
+  }, [isOpen, initialName]);
 
   // Resumen del plazo para el pie del modal
   const resolvedTermLabel = useMemo(() => {
@@ -152,7 +170,7 @@ export function QuickSupplierModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
@@ -202,17 +220,15 @@ export function QuickSupplierModal({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Nombre o razón social <span className="text-rose-500 font-bold">*</span>
                 </label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ej: Distribuidora Avícola San Antonio S.A.S."
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] font-medium"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Distribuidora Avícola San Antonio S.A.S."
+                  startAdornment={<Building2 className="w-4 h-4 text-slate-400" />}
+                  inputSize="sm"
+                />
               </div>
 
               {/* NIT o cédula (opcional) con campo independiente para DV */}
@@ -221,26 +237,28 @@ export function QuickSupplierModal({
                   NIT o cédula <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Hash className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
+                  <div className="flex-1">
+                    <Input
                       type="text"
                       value={nitBase}
                       onChange={(e) => setNitBase(e.target.value)}
                       placeholder="Ej: 901234567"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] font-mono"
+                      startAdornment={<Hash className="w-4 h-4 text-slate-400" />}
+                      inputSize="sm"
+                      className="font-mono"
                     />
                   </div>
                   <span className="text-slate-400 font-bold font-mono">-</span>
                   <div className="w-16">
-                    <input
+                    <Input
                       type="text"
                       maxLength={1}
                       value={dv}
                       onChange={(e) => setDv(e.target.value.replace(/\D/g, ""))}
                       placeholder="DV"
                       title="Dígito de verificación (1 dígito)"
-                      className="w-full px-2.5 py-2 text-xs text-center rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] font-mono font-bold"
+                      inputSize="sm"
+                      className="text-center font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -269,16 +287,14 @@ export function QuickSupplierModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Persona de contacto <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Ej: Laura Gómez (Asesora comercial)"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Ej: Laura Gómez (Asesora comercial)"
+                    startAdornment={<User className="w-4 h-4 text-slate-400" />}
+                    inputSize="sm"
+                  />
                 </div>
 
                 {/* Teléfono o celular (opcional) */}
@@ -286,16 +302,15 @@ export function QuickSupplierModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Teléfono o celular <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Ej: +57 310 123 4567"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] font-mono"
-                    />
-                  </div>
+                  <Input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Ej: +57 310 123 4567"
+                    startAdornment={<Phone className="w-4 h-4 text-slate-400" />}
+                    inputSize="sm"
+                    className="font-mono"
+                  />
                 </div>
               </div>
 
@@ -305,16 +320,14 @@ export function QuickSupplierModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Correo <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="pedidos@proveedor.com"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="pedidos@proveedor.com"
+                    startAdornment={<Mail className="w-4 h-4 text-slate-400" />}
+                    inputSize="sm"
+                  />
                 </div>
 
                 {/* Dirección física de entrega (opcional) */}
@@ -322,16 +335,14 @@ export function QuickSupplierModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Dirección física de entrega <span className="text-slate-400 font-normal">(opcional)</span>
                   </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Ej: Carrera 45 # 12-34 Bodega 3, Medellín"
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Ej: Carrera 45 # 12-34 Bodega 3, Medellín"
+                    startAdornment={<MapPin className="w-4 h-4 text-slate-400" />}
+                    inputSize="sm"
+                  />
                 </div>
               </div>
             </div>
@@ -353,20 +364,17 @@ export function QuickSupplierModal({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Plazo de pago
                 </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <select
-                    value={termSelection}
-                    onChange={(e) => setTermSelection(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] cursor-pointer"
-                  >
-                    {PAYMENT_TERMS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <Select
+                  value={termSelection}
+                  onChange={(e) => setTermSelection(e.target.value)}
+                  selectSize="sm"
+                >
+                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Automatiza el cálculo de vencimientos en compras a crédito.
                 </p>
@@ -378,14 +386,15 @@ export function QuickSupplierModal({
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Días de crédito pactados
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     max="365"
                     value={customDays}
                     onChange={(e) => setCustomDays(e.target.value)}
                     placeholder="Ej: 21"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] font-mono"
+                    inputSize="sm"
+                    className="font-mono"
                   />
                 </div>
               )}

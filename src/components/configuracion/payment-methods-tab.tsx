@@ -23,6 +23,7 @@ import {
   isPaymentMethodComplete,
 } from "@/lib/payments/payment-methods-catalog";
 import { PaymentMethodLogo } from "@/components/payments/payment-method-logo";
+import { Select } from "@/components/ui/select";
 import {
   getPaymentMethodsAction,
   savePaymentMethodAction,
@@ -390,7 +391,7 @@ function EditPaymentMethodModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
       <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* ENCABEZADO */}
         <div className="sticky top-0 bg-white dark:bg-[#0D0F16] p-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between z-10">
@@ -418,13 +419,10 @@ function EditPaymentMethodModal({
           {/* CASO BRE-B: TIPO DE LLAVE */}
           {isBreB ? (
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Tipo de Llave Bre-B <span className="text-red-500">*</span>
-              </label>
-              <select
+              <Select
+                label="Tipo de Llave Bre-B *"
                 value={breBKeyType}
                 onChange={(e) => setBreBKeyType(e.target.value as BreBKeyType)}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px] dark:[color-scheme:dark] cursor-pointer"
               >
                 <option value="phone" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
                   Número de celular
@@ -438,7 +436,7 @@ function EditPaymentMethodModal({
                 <option value="merchant_code" className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
                   Código de comercio
                 </option>
-              </select>
+              </Select>
               <p className="text-[11px] text-slate-500">
                 Selecciona la forma en que tu cuenta bancaria o billetera recibe transferencias Bre-B.
               </p>
@@ -446,20 +444,17 @@ function EditPaymentMethodModal({
           ) : meta.allowedDestinationTypes.length > 1 ? (
             /* CASO BANCOS: TIPO DE CUENTA */
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Tipo de Cuenta <span className="text-red-500">*</span>
-              </label>
-              <select
+              <Select
+                label="Tipo de Cuenta *"
                 value={destinationType}
                 onChange={(e) => setDestinationType(e.target.value as PaymentDestinationType)}
-                className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ED500A]/20 focus:border-[#ED500A] text-slate-900 dark:text-white min-h-[44px] dark:[color-scheme:dark] cursor-pointer"
               >
                 {meta.allowedDestinationTypes.map((t) => (
                   <option key={t.value} value={t.value} className="bg-white dark:bg-[#0D0F16] text-slate-900 dark:text-white py-1">
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           ) : null}
 

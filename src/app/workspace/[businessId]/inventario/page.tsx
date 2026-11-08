@@ -7,6 +7,9 @@ import {
   getInventoryStock,
 } from "@/lib/inventory/inventory-service";
 import { getCategories, getProducts } from "@/lib/products/products-service";
+import { getRecipes } from "@/lib/recipes/recipe-service";
+import { RecipeWithDetails } from "@/lib/recipes/types";
+import { Boxes } from "lucide-react";
 import { WorkspaceInventarioClient } from "./workspace-inventario-client";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 
@@ -26,17 +29,21 @@ export default async function InventarioPage({
     locations = await getBusinessLocations(businessId);
   }
 
-  const [categories, products, kpis, stockList] = await Promise.all([
+  const [categories, products, kpis, stockList, recipes] = await Promise.all([
     getCategories(businessId),
     getProducts(businessId),
     getInventoryKPIs(businessId),
     getInventoryStock(businessId),
+    getRecipes(businessId).catch((err) => {
+      console.warn("[InventarioPage] Error al obtener recetas:", err);
+      return [] as RecipeWithDetails[];
+    }),
   ]);
 
   const badge = (
-    <span className="text-2xs font-bold uppercase tracking-wider text-[#ED500A] bg-[#ED500A]/10 px-2.5 py-1 rounded-md border border-[#ED500A]/20">
-      Operación de Inventario
-    </span>
+    <div className="p-1.5 rounded-md bg-orange-50 dark:bg-orange-500/10 text-[#ED500A]">
+      <Boxes className="w-4 h-4" />
+    </div>
   );
 
   return (
@@ -44,7 +51,7 @@ export default async function InventarioPage({
       title="Inventario"
       description="Controla existencias y movimientos desde un solo lugar."
       badge={badge}
-      maxWidth="7xl"
+      maxWidth="full"
     >
       <WorkspaceInventarioClient
         businessId={businessId}
@@ -53,6 +60,7 @@ export default async function InventarioPage({
         products={products}
         initialKPIs={kpis}
         initialStock={stockList}
+        recipes={recipes}
       />
     </AppPageContainer>
   );

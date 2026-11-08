@@ -629,7 +629,7 @@ export function SaleDetailClient({
       {/* MODAL PERSONALIZADO: ANULAR COMPROBANTE (Sin alertas nativas) */}
       {showCancelModal && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-base">
@@ -741,7 +741,7 @@ export function SaleDetailClient({
       {/* MODAL PERSONALIZADO: ENVIAR POR WHATSAPP */}
       {showWhatsappModal && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-base">

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -61,12 +60,13 @@ export function ErrorState({
           )}
 
           {secondaryActionLabel && secondaryActionHref && (
-            <Link
+            <Button
+              variant="secondary"
+              size="sm"
               href={secondaryActionHref}
-              className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] transition-colors"
             >
               {secondaryActionLabel}
-            </Link>
+            </Button>
           )}
 
           {secondaryActionLabel && !secondaryActionHref && onSecondaryAction && (

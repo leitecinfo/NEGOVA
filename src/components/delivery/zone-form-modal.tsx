@@ -15,6 +15,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import {
   DeliveryZone,
   CreateDeliveryZoneInput,
@@ -164,7 +165,7 @@ export function ZoneFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
       <div className="relative w-full max-w-lg bg-white dark:bg-[#0D0F16] rounded-3xl border border-slate-200 dark:border-white/[0.08] shadow-2xl overflow-hidden my-8">
         {/* ENCABEZADO */}
         <div className="p-5 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
@@ -196,111 +197,77 @@ export function ZoneFormModal({
         {/* FORMULARIO */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* NOMBRE Y DESCRIPCIÓN */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Nombre de la zona *
-            </label>
-            <input
-              type="text"
+          <Input
+              label="Nombre de la zona *"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej. Zona 1 - Centro / Chapinero"
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+              inputSize="sm"
             />
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Descripción o notas (opcional)
-            </label>
-            <input
-              type="text"
+          <Input
+              label="Descripción o notas (opcional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ej. Desde Calle 26 hasta Calle 72"
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+              inputSize="sm"
             />
-          </div>
 
           {/* TARIFA Y PEDIDO MÍNIMO */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Tarifa de domicilio (COP) *
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                  $
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  required
-                  value={tariff}
-                  onChange={(e) => setTariff(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 text-xs font-mono font-bold bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-              </div>
-            </div>
+            <Input
+                label="Tarifa de domicilio (COP) *"
+                type="number"
+                min="0"
+                step="500"
+                required
+                value={tariff}
+                onChange={(e) => setTariff(e.target.value)}
+                startAdornment={<span className="text-xs text-slate-400">$</span>}
+                className="font-mono font-bold"
+                inputSize="sm"
+              />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Pedido mínimo (COP)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                  $
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={minOrder}
-                  onChange={(e) => setMinOrder(e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 text-xs font-mono bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-              </div>
-            </div>
+            <Input
+                label="Pedido mínimo (COP)"
+                type="number"
+                min="0"
+                step="1000"
+                value={minOrder}
+                onChange={(e) => setMinOrder(e.target.value)}
+                startAdornment={<span className="text-xs text-slate-400">$</span>}
+                className="font-mono"
+                inputSize="sm"
+              />
           </div>
 
           {/* TIEMPO ESTIMADO Y PRIORIDAD */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Tiempo estimado (min) *
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="5"
-                  max="180"
-                  required
-                  value={estimatedTimeMin}
-                  onChange={(e) => setEstimatedTimeMin(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-mono font-bold bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
-                  min
-                </span>
-              </div>
-            </div>
+            <Input
+                label="Tiempo estimado (min) *"
+                type="number"
+                min="5"
+                max="180"
+                required
+                value={estimatedTimeMin}
+                onChange={(e) => setEstimatedTimeMin(e.target.value)}
+                endAdornment={<span className="text-xs text-slate-400 font-medium">min</span>}
+                className="font-mono font-bold"
+                inputSize="sm"
+              />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Prioridad de solapamiento
-              </label>
-              <input
+            <Input
+                label="Prioridad de solapamiento"
                 type="number"
                 min="1"
                 max="100"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 title="Si dos zonas se cruzan, aplica la de mayor prioridad"
-                className="w-full px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                className="font-mono"
+                inputSize="sm"
               />
-            </div>
           </div>
 
           {/* COLOR DISTINTIVO */}

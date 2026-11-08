@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { MapPin, X, Loader2, AlertCircle, ArrowRight, Landmark } from "lucide-react";
 import { createCashRegisterAction } from "@/app/workspace/[businessId]/cajas/actions";
 import { toast } from "sonner";
@@ -92,7 +93,7 @@ export function CreateCashRegisterModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 m-0 p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -134,56 +135,38 @@ export function CreateCashRegisterModal({
             )}
 
             {/* 1. NOMBRE DE LA CAJA (*) */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="register-name-input"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Nombre de la caja <span className="text-rose-500">*</span>
-              </label>
-              <input
-                id="register-name-input"
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Caja Principal, Caja Barra, Caja Domicilios..."
-                className="w-full px-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                autoFocus
-              />
-            </div>
+            <Input
+              label="Nombre de la caja"
+              required
+              id="register-name-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej. Caja Principal, Caja Barra, Caja Domicilios..."
+              autoFocus
+            />
 
-            {/* 2. PUNTO FÍSICO (OPCIONAL) CON ICONO DE UBICACIÓN */}
+            {/* 2. PUNTO FÍSICO (OPCIONAL) */}
             <div className="space-y-1.5">
-              <label
-                htmlFor="register-physical-point-input"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Punto físico (opcional)
-              </label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="register-physical-point-input"
-                  type="text"
-                  value={physicalPoint}
-                  onChange={(e) => setPhysicalPoint(e.target.value)}
-                  placeholder="Ej. Barra principal, Salón piso 1, Mostrador entrada..."
-                  className="w-full pl-9 pr-3 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                />
-              </div>
+              <Input
+                label="Punto físico (opcional)"
+                id="register-physical-point-input"
+                value={physicalPoint}
+                onChange={(e) => setPhysicalPoint(e.target.value)}
+                placeholder="Ej. Barra principal, Salón piso 1, Mostrador entrada..."
+                leftIcon={<MapPin className="w-4 h-4" />}
+              />
 
               {/* Si hay ubicaciones físicas registradas en el negocio */}
               {locations.length > 0 && (
                 <div className="pt-1">
-                  <select
+                  <Select
                     value={locationId}
-                    onChange={(e) => {
-                      setLocationId(e.target.value);
-                      const loc = locations.find((l) => l.id === e.target.value);
+                    onChange={(val) => {
+                      setLocationId(val);
+                      const loc = locations.find((l) => l.id === val);
                       if (loc) setPhysicalPoint(loc.name);
                     }}
-                    className="w-full px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-300 focus:outline-none"
+                    selectSize="sm"
                   >
                     <option value="">Vincular a ubicación del sistema (opcional)</option>
                     {locations.map((loc) => (
@@ -191,37 +174,23 @@ export function CreateCashRegisterModal({
                         {loc.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               )}
             </div>
 
             {/* 3. BASE SUGERIDA PARA ABRIR ($ COP) */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="register-suggested-base-input"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Base sugerida para abrir ($ COP)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs font-mono">
-                  $ COP
-                </span>
-                <input
-                  id="register-suggested-base-input"
-                  type="text"
-                  inputMode="numeric"
-                  value={suggestedBase}
-                  onChange={handleSuggestedBaseChange}
-                  placeholder="0"
-                  className="w-full pl-16 pr-3 py-2.5 text-xs font-bold font-mono rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
-                />
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Monto de efectivo recomendado con el que habitualmente se inicia el turno en esta caja para dar cambio.
-              </p>
-            </div>
+            <Input
+              label="Base sugerida para abrir ($ COP)"
+              id="register-suggested-base-input"
+              inputMode="numeric"
+              value={suggestedBase}
+              onChange={handleSuggestedBaseChange}
+              placeholder="0"
+              startAdornment={<span className="text-slate-400 font-bold text-xs font-mono">$ COP</span>}
+              helperText="Monto de efectivo recomendado con el que habitualmente se inicia el turno en esta caja para dar cambio."
+              className="font-mono font-bold"
+            />
 
             {/* BOTONES DE ACCIÓN */}
             <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-white/5">

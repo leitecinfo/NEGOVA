@@ -1172,7 +1172,7 @@ export function NegocioDetailClient({
       {/* MODAL PARA ASIGNAR PROPIETARIO O AGREGAR COLABORADOR */}
       {assignModal.isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center">
@@ -1268,7 +1268,7 @@ export function NegocioDetailClient({
       {/* MODAL DE CONFIRMACIÓN DE CAMBIO DE ESTADO */}
       {statusModal.isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
               <h3 className="font-bold text-base text-slate-900 dark:text-white font-title">
                 Cambiar Estado Operacional
@@ -1333,7 +1333,7 @@ export function NegocioDetailClient({
       {/* MODAL PARA RENOVAR / EXTENDER SUSCRIPCIÓN (GESTIÓN MANUAL) */}
       {renewModal.isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-lg bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
@@ -1367,9 +1367,9 @@ export function NegocioDetailClient({
                     value={renewModal.planId}
                     onChange={(val) => setRenewModal({ ...renewModal, planId: val as PlanId })}
                     options={[
-                      { value: "inicio", label: "Inicio — Hasta 1 usuario ($29.900/mes)" },
-                      { value: "crece", label: "Crece — Hasta 3 usuarios + IA ($59.900/mes)" },
-                      { value: "negocio", label: "Negocio — Hasta 6 usuarios + IA Avanzada ($99.900/mes)" },
+                      { value: "inicio", label: "Inicio — Hasta 4 usuarios ($29.900/mes)" },
+                      { value: "crece", label: "Crece — Hasta 6 usuarios + IA ($59.900/mes)" },
+                      { value: "negocio", label: "Negocio — Hasta 10 usuarios + IA Avanzada ($99.900/mes)" },
                     ]}
                   />
                 </div>
@@ -1457,7 +1457,7 @@ export function NegocioDetailClient({
       {/* 5. MODAL DE EDICIÓN RÁPIDA DE NEGOCIO Y RUBRO */}
       {isEditModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95 duration-150 font-body max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}

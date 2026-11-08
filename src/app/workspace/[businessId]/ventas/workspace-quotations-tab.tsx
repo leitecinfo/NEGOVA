@@ -413,7 +413,7 @@ export function WorkspaceQuotationsTab({ businessId }: WorkspaceQuotationsTabPro
 
       {/* MODAL DETALLE DE COTIZACIÓN */}
       {selectedQuotation && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white dark:bg-[#121624] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl max-w-lg w-full p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
               <div>

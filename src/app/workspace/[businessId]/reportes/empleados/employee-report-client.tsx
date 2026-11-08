@@ -32,6 +32,9 @@ import {
   KpiCard,
   KpiGrid,
   EmptyState,
+  Select,
+  Input,
+  SearchInput,
 } from "@/components/ui";
 import { ReportNavTabs } from "@/components/reports/report-nav-tabs";
 import {
@@ -320,7 +323,7 @@ export function EmployeeReportClient({
             </label>
             <div className="relative">
               <Building2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <select
+              <Select
                 value={filters.locationId || "all"}
                 onChange={(e) => handleFilterChange("locationId", e.target.value)}
                 className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
@@ -330,7 +333,7 @@ export function EmployeeReportClient({
                     {loc.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -341,7 +344,7 @@ export function EmployeeReportClient({
             </label>
             <div className="relative">
               <ShieldCheck className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <select
+              <Select
                 value={filters.roleCode || "all"}
                 onChange={(e) => handleFilterChange("roleCode", e.target.value)}
                 className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
@@ -351,7 +354,7 @@ export function EmployeeReportClient({
                     {role.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 

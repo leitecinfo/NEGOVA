@@ -1,5 +1,5 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { CENTRALIZED_PLAN_EMPLOYEE_LIMITS, getPlanMaxEmployees } from "@/config/plans";
+import { CENTRALIZED_PLAN_EMPLOYEE_LIMITS, getPlanMaxEmployees, NEGOVA_PLANS } from "@/config/plans";
 // Dynamic import of createClient inside getSupabase to avoid next/headers leakage
 
 export type LimitedResource =
@@ -23,7 +23,7 @@ export interface ResourceLimits {
 
 export const RESOURCE_LABELS: Record<LimitedResource, string> = {
   products: "productos",
-  employees: "empleados",
+  employees: "usuarios",
   locations: "ubicaciones/sucursales",
   registers: "cajas registradoras",
   recipes: "recetas",
@@ -33,7 +33,8 @@ export const RESOURCE_LABELS: Record<LimitedResource, string> = {
 
 /**
  * Matriz de límites canónicos por plan [SUB-001]
- * -1 representa capacidad ilimitada (Enterprise).
+ * Sincronizada con la fuente única de verdad en @/config/plans.ts
+ * -1 representa capacidad ilimitada.
  */
 export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
   starter: {
@@ -55,7 +56,7 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
     customers: 100,
   },
   professional: {
-    products: 500,
+    products: 200,
     employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
     locations: 3,
     registers: 5,
@@ -64,7 +65,16 @@ export const PLAN_RESOURCE_LIMITS: Record<string, ResourceLimits> = {
     customers: 1000,
   },
   crece: {
-    products: 500,
+    products: 200,
+    employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
+    locations: 3,
+    registers: 5,
+    recipes: 200,
+    sales: 3000,
+    customers: 1000,
+  },
+  avanzado: {
+    products: 200,
     employees: CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers,
     locations: 3,
     registers: 5,
@@ -166,8 +176,10 @@ export function normalizePlanCode(rawPlan?: string | null): { code: string; name
     p.includes("professional") ||
     p.includes("pro") ||
     p.includes("crece") ||
+    p.includes("avanzado") ||
     p === "professional" ||
-    p === "crece"
+    p === "crece" ||
+    p === "avanzado"
   ) {
     return { code: "professional", name: "Profesional" };
   }
@@ -196,13 +208,23 @@ export async function getBusinessPlan(businessId: string): Promise<{
       };
     }
 
-    const { data: sub } = await subQuery
+    let subQueryChain: any = subQuery
       .select("plan_id, status, plans(code, name, limits)")
-      .eq("business_id", businessId)
-      .in("status", ["active", "trial", "trialing", "past_due"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("business_id", businessId);
+
+    if (typeof subQueryChain.in === "function") {
+      subQueryChain = subQueryChain.in("status", ["active", "trial", "trialing", "past_due"]);
+    }
+    if (typeof subQueryChain.order === "function") {
+      subQueryChain = subQueryChain.order("created_at", { ascending: false });
+    }
+    if (typeof subQueryChain.limit === "function") {
+      subQueryChain = subQueryChain.limit(1);
+    }
+
+    const { data: sub } = await (typeof subQueryChain.maybeSingle === "function"
+      ? subQueryChain.maybeSingle()
+      : subQueryChain);
 
     if (sub) {
       const rawPlans = sub.plans as any;
@@ -252,6 +274,53 @@ async function countRows(
 }
 
 /**
+ * Conteo canónico de usuarios activos en un negocio [SUB-USER-COUNT].
+ * 
+ * Regla de negocio oficial:
+ * 1. El propietario ocupa un cupo.
+ * 2. Los colaboradores / auxiliares activos vinculados al negocio ocupan cupos.
+ * 3. Total de usuarios ocupados = Propietario (1) + Colaboradores activos (N).
+ * 4. Invitaciones pendientes ('invited'), cuentas desactivadas ('inactive') o suspendidas ('suspended')
+ *    NO se contabilizan como usuarios activos.
+ * 5. Cuentas globales desactivadas en public.users NO se contabilizan como usuarios activos.
+ * 6. Estricto aislamiento por business_id: nunca contabiliza usuarios de otros negocios.
+ */
+export async function getBusinessActiveUserCount(businessId: string): Promise<number> {
+  const supabase = await getSupabase();
+  try {
+    const firstEq = supabase
+      .from("business_users")
+      .select("id, users!inner(id, status)", { count: "exact", head: true })
+      .eq("business_id", businessId);
+
+    const secondEq = typeof (firstEq as any)?.eq === "function"
+      ? (firstEq as any).eq("status", "active")
+      : firstEq;
+
+    const finalQuery = typeof (secondEq as any)?.eq === "function"
+      ? (secondEq as any).eq("users.status", "active")
+      : secondEq;
+
+    const { count, error } = await finalQuery;
+
+    if (error) {
+      console.warn("[getBusinessActiveUserCount] Fallback a conteo de business_users activos:", error);
+      const { count: fallbackCount } = await supabase
+        .from("business_users")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId)
+        .eq("status", "active");
+      return fallbackCount || 1;
+    }
+
+    return count ?? 1;
+  } catch (err) {
+    console.warn("[getBusinessActiveUserCount] Fallback por error:", err);
+    return 1;
+  }
+}
+
+/**
  * Obtiene el conteo actual de un recurso específico para el comercio.
  */
 export async function getResourceCurrentCount(
@@ -261,15 +330,49 @@ export async function getResourceCurrentCount(
   const supabase = await getSupabase();
 
   switch (resource) {
-    case "products":
-      return countRows(supabase, "products", (q) =>
-        q.eq("business_id", businessId).neq("status", "archived")
-      );
+    case "products": {
+      // Regla de Negocio [AUD-005]: Solo los artículos y servicios comerciales consumen cupo del plan.
+      // Las materias primas, insumos y materiales internos (product_type === 'ingredient') no se contabilizan.
+      try {
+        const base = supabase
+          .from("products")
+          .select("id, metadata", { count: "exact", head: true })
+          .eq("business_id", businessId)
+          .neq("status", "archived");
+
+        const q = typeof (base as any).or === "function"
+          ? (base as any).or("metadata->>product_type.neq.ingredient,metadata->>product_type.is.null")
+          : base;
+
+        const { count, error, data } = await q;
+        if (!error && typeof count === "number") {
+          return count;
+        }
+        if (Array.isArray(data)) {
+          return data.filter((p: any) => (p.metadata as any)?.product_type !== "ingredient").length;
+        }
+      } catch {
+        // Continuar al fallback resiliente
+      }
+
+      try {
+        const { data: allProds } = await supabase
+          .from("products")
+          .select("id, metadata")
+          .eq("business_id", businessId)
+          .neq("status", "archived");
+
+        if (Array.isArray(allProds)) {
+          return allProds.filter((p: any) => (p.metadata as any)?.product_type !== "ingredient").length;
+        }
+      } catch {
+        // Ignorar
+      }
+      return 0;
+    }
 
     case "employees":
-      return countRows(supabase, "business_users", (q) =>
-        q.eq("business_id", businessId).neq("status", "inactive")
-      );
+      return getBusinessActiveUserCount(businessId);
 
     case "locations":
       return countRows(supabase, "locations", (q) =>
@@ -336,6 +439,11 @@ export async function checkPlanLimit(
   const allowed = currentCount < maxLimit;
 
   if (!allowed) {
+    const userBreakdown =
+      resource === "employees"
+        ? ` (1 propietario + ${Math.max(0, maxLimit - 1)} colaboradores adicionales)`
+        : "";
+
     return {
       allowed: false,
       resource,
@@ -345,7 +453,7 @@ export async function checkPlanLimit(
       isUnlimited: false,
       planCode: planInfo.planCode,
       planName: planInfo.planName,
-      error: `Has alcanzado el límite de ${resourceLabel} en tu plan (${planInfo.planName}). Límite: ${maxLimit}. Mejora tu plan para continuar.`,
+      error: `Has alcanzado el límite de ${resourceLabel} en tu plan (${planInfo.planName}). Límite: ${maxLimit}${userBreakdown}. Mejora tu plan para continuar.`,
     };
   }
 

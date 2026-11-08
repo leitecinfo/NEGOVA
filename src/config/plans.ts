@@ -134,22 +134,22 @@ export interface PlanEmployeeLimitConfig {
 
 export const CENTRALIZED_PLAN_EMPLOYEE_LIMITS: Record<PlanId, PlanEmployeeLimitConfig> = {
   inicio: {
-    maxMembers: 2, // 1 Propietario + 1 Empleado
-    maxAuxiliares: 1,
+    maxMembers: 4, // 1 Propietario + 3 Empleados
+    maxAuxiliares: 3,
     planName: "Plan Inicio",
-    description: "Hasta 2 usuarios (1 Propietario + 1 Colaborador)",
+    description: "Hasta 4 usuarios (1 Propietario + 3 Colaboradores)",
   },
   crece: {
-    maxMembers: 3, // 1 Propietario + 2 Empleados
-    maxAuxiliares: 2,
-    planName: "Plan Crece",
-    description: "Hasta 3 usuarios (1 Propietario + 2 Colaboradores)",
-  },
-  negocio: {
     maxMembers: 6, // 1 Propietario + 5 Empleados
     maxAuxiliares: 5,
-    planName: "Plan Negocio",
+    planName: "Plan Crece",
     description: "Hasta 6 usuarios (1 Propietario + 5 Colaboradores)",
+  },
+  negocio: {
+    maxMembers: 10, // 1 Propietario + 9 Empleados
+    maxAuxiliares: 9,
+    planName: "Plan Negocio",
+    description: "Hasta 10 usuarios (1 Propietario + 9 Colaboradores)",
   },
 };
 
@@ -159,7 +159,12 @@ export const CENTRALIZED_PLAN_EMPLOYEE_LIMITS: Record<PlanId, PlanEmployeeLimitC
 export function getPlanMaxEmployees(planKey: string | PlanId | null | undefined): number {
   if (!planKey) return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers;
   const key = planKey.toLowerCase();
-  if (key.includes("crece") || key.includes("pro")) {
+  if (
+    key.includes("crece") ||
+    key.includes("avanzado") ||
+    key.includes("professional") ||
+    key.includes("pro")
+  ) {
     return CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers;
   }
   if (key.includes("negocio") || key.includes("enterprise")) {
@@ -200,7 +205,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Ventas y caja",
         items: [
-          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers} usuarios de acceso (Dueño y ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxAuxiliares} colaborador)`,
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxMembers} usuarios de acceso (Dueño y ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.inicio.maxAuxiliares} colaboradores)`,
           "Registro rápido de ventas",
           "Registro de gastos diarios",
           "Control básico de apertura y cierre de caja",
@@ -254,7 +259,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Todo lo de Inicio, más:",
         items: [
-          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers} usuarios de acceso`,
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxMembers} usuarios de acceso (Dueño y ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.crece.maxAuxiliares} colaboradores)`,
           "Catálogo ampliado de hasta 1.000 productos",
           "Inventario con variantes y categorías",
           "Control de fiados y cuentas por cobrar a clientes",
@@ -301,7 +306,7 @@ export const NEGOVA_PLANS: Record<PlanId, CommercialPlan> = {
       {
         category: "Todo lo de Crece, más:",
         items: [
-          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers} colaboradores con roles y permisos específicos`,
+          `Hasta ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxMembers} usuarios de acceso (Dueño y ${CENTRALIZED_PLAN_EMPLOYEE_LIMITS.negocio.maxAuxiliares} colaboradores con roles y permisos específicos)`,
           "Catálogo extendido de hasta 3.000 productos",
           "Múltiples turnos y puntos de cobro dentro del local",
           "Reportes avanzados de márgenes y rentabilidad",
@@ -367,7 +372,7 @@ export const COMPARISON_FEATURES: ComparisonFeature[] = [
   { name: "Reportes avanzados de márgenes y rendimiento", inicio: false, crece: false, negocio: true, category: "Reportes e Inteligencia" },
 
   // Equipo y Roles
-  { name: "Usuarios incluidos", inicio: true, crece: true, negocio: true, category: "Equipo y Roles", notes: "Inicio: 2 | Crece: 3 | Negocio: 6" },
+  { name: "Usuarios incluidos", inicio: true, crece: true, negocio: true, category: "Equipo y Roles", notes: "Inicio: 4 | Crece: 6 | Negocio: 10" },
   { name: "Roles y permisos para colaboradores", inicio: false, crece: false, negocio: true, category: "Equipo y Roles" },
 
   // Plataforma y Soporte

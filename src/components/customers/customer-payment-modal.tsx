@@ -16,6 +16,7 @@ import {
   Phone,
 } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { toast } from "sonner";
 import { formatNumberWithDots, parseNumberFromDots } from "@/lib/pos/types";
 import {
@@ -157,7 +158,7 @@ export function CustomerPaymentModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="relative w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
@@ -190,10 +191,9 @@ export function CustomerPaymentModal({
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Seleccionar Cuenta por Cobrar *
                 </label>
-                <select
+                <Select
                   value={selectedReceivableId}
                   onChange={(e) => setSelectedReceivableId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/40"
                   required
                 >
                   <option value="">-- Elige una cuenta --</option>
@@ -203,7 +203,7 @@ export function CustomerPaymentModal({
                       {new Date(r.dueDate).toLocaleDateString("es-CO")})
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
 
@@ -288,79 +288,58 @@ export function CustomerPaymentModal({
                   <button
                     type="button"
                     onClick={handlePayFullBalance}
-                    className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>Pagar saldo total ({formatCOP(currentBalance)})</span>
                   </button>
                 )}
               </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">
-                  $
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={amountDisplay}
-                  onChange={(e) => {
-                    const raw = parseNumberFromDots(e.target.value);
-                    setAmountDisplay(formatNumberWithDots(raw));
-                  }}
-                  placeholder="0"
-                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-input bg-background text-foreground text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-primary/40"
-                  required
-                />
-              </div>
+              <Input
+                inputMode="numeric"
+                value={amountDisplay}
+                onChange={(e) => {
+                  const raw = parseNumberFromDots(e.target.value);
+                  setAmountDisplay(formatNumberWithDots(raw));
+                }}
+                placeholder="0"
+                startAdornment={<span className="text-sm font-bold text-muted-foreground">$</span>}
+                required
+                className="text-base font-bold"
+              />
             </div>
 
             {/* Medio de Pago y Fecha */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Medio de Pago *
-                </label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/40 font-medium"
-                >
-                  <option value="cash">Efectivo</option>
-                  <option value="transfer">Transferencia Bancaria</option>
-                  <option value="check">Cheque</option>
-                  <option value="other">Otro</option>
-                </select>
-              </div>
+              <Select
+                label="Medio de Pago"
+                required
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                options={[
+                  { value: "cash", label: "Efectivo" },
+                  { value: "transfer", label: "Transferencia Bancaria" },
+                  { value: "check", label: "Cheque" },
+                  { value: "other", label: "Otro" },
+                ]}
+              />
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Fecha del Pago *
-                </label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-input bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/40 font-medium"
-                    required
-                  />
-                </div>
-              </div>
+              <Input
+                label="Fecha del Pago"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                leftIcon={<Calendar className="w-4 h-4" />}
+                required
+              />
             </div>
 
             {/* Referencia o Comprobante */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                N° de Referencia / Comprobante (Opcional)
-              </label>
-              <input
-                type="text"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Ej. Transf. Nequi #198283, Recibo caja #45..."
-                className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-foreground text-xs focus:outline-hidden focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
+            <Input
+              label="N° de Referencia / Comprobante (Opcional)"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Ej. Transf. Nequi #198283, Recibo caja #45..."
+            />
 
             {/* Notas / Observaciones */}
             <div className="space-y-1.5">

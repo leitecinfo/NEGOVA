@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import {
   createPurchase,
   getPurchases,
+  getPurchaseById,
   getPurchaseKPIs,
   cancelPurchase,
   getSuppliers,
@@ -51,11 +52,13 @@ export async function getPurchasesAction(
 }
 
 /**
- * Consulta los KPIs consolidados de compras y cuentas por pagar.
+ * Consulta los KPIs consolidados de compras y cuentas por pagar,
+ * respetando el período y los filtros aplicados cuando corresponda.
  * Permiso requerido: purchases.view
  */
 export async function getPurchaseKPIsAction(
-  businessId: string
+  businessId: string,
+  filters: PurchaseFilters = {}
 ): Promise<{ success: boolean; data?: PurchaseKPIs; error?: string }> {
   const auth = await verifyWorkspaceAction(businessId, "purchases.view");
   if (!auth.success || !auth.context) {
@@ -63,10 +66,34 @@ export async function getPurchaseKPIsAction(
   }
 
   try {
-    const data = await getPurchaseKPIs(businessId);
+    const data = await getPurchaseKPIs(businessId, filters);
     return { success: true, data };
   } catch (err: any) {
     return { success: false, error: err?.message || "Error al calcular métricas de compras." };
+  }
+}
+
+/**
+ * Consulta el detalle completo de una compra por su ID.
+ * Permiso requerido: purchases.view
+ */
+export async function getPurchaseByIdAction(
+  businessId: string,
+  purchaseId: string
+): Promise<{ success: boolean; data?: Purchase; error?: string }> {
+  const auth = await verifyWorkspaceAction(businessId, "purchases.view");
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para ver compras." };
+  }
+
+  try {
+    const data = await getPurchaseById(businessId, purchaseId);
+    if (!data) {
+      return { success: false, error: "La compra no existe o fue eliminada." };
+    }
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al consultar la compra." };
   }
 }
 
@@ -100,7 +127,8 @@ export async function createPurchaseAction(
  */
 export async function cancelPurchaseAction(
   businessId: string,
-  purchaseId: string
+  purchaseId: string,
+  reason?: string
 ): Promise<{ success: boolean; error?: string }> {
   const auth = await verifyWorkspaceAction(businessId, "purchases.cancel");
   if (!auth.success || !auth.context) {
@@ -108,7 +136,7 @@ export async function cancelPurchaseAction(
   }
 
   try {
-    await cancelPurchase(businessId, purchaseId, auth.context.userId);
+    await cancelPurchase(businessId, purchaseId, auth.context.userId, reason);
     revalidatePath(`/workspace/${businessId}/compras`);
     revalidatePath(`/workspace/${businessId}/inventario`);
     revalidatePath(`/workspace/${businessId}/productos`);

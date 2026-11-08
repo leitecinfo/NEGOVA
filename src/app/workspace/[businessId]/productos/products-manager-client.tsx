@@ -69,6 +69,12 @@ import {
   EmptyState,
   ErrorState,
   CardSkeleton,
+  SearchInput,
+  Select,
+  Tabs,
+  Pagination,
+  KpiCard,
+  KpiGrid,
 } from "@/components/ui";
 import {
   toggleProductAvailabilityAction,
@@ -578,11 +584,11 @@ export function ProductsManagerClient({
           onClick={() => setActiveTab("modifiers")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
             activeTab === "modifiers"
-              ? "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 font-bold"
+              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20 font-bold"
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
           }`}
         >
-          <Layers className="w-4 h-4 text-purple-500" />
+          <Layers className={`w-4 h-4 ${activeTab === "modifiers" ? "text-[#ED500A]" : "text-slate-400"}`} />
           <span>Modificadores</span>
         </button>
       </div>
@@ -602,64 +608,37 @@ export function ProductsManagerClient({
         />
       ) : (
         <div className="space-y-5">
-          {/* 1. KPIS SUPERIORES */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Total Productos */}
-            <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">Total Productos</span>
-                <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1 block">
-                  {kpiTotal}
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">En catálogo comercial</span>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <Package className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Activos */}
-            <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">Activos</span>
-                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
-                  {kpiActivos}
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">Disponibles para venta</span>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Inactivos */}
-            <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">Inactivos</span>
-                <span className="text-2xl font-bold font-mono text-slate-600 dark:text-slate-400 mt-1 block">
-                  {kpiInactivos}
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">Agotados u ocultos</span>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0">
-                <XCircle className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Stock Bajo */}
-            <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">Stock Bajo</span>
-                <span className={`text-2xl font-bold font-mono mt-1 block ${kpiStockBajo > 0 ? "text-amber-500 dark:text-amber-400" : "text-slate-900 dark:text-white"}`}>
-                  {kpiStockBajo}
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">Por debajo del mínimo</span>
-              </div>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${kpiStockBajo > 0 ? "bg-amber-500/10 text-amber-500 dark:text-amber-400" : "bg-slate-100 dark:bg-white/[0.04] text-slate-400"}`}>
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-            </div>
-          </div>
+          {/* 1. KPIS SUPERIORES NORMALIZADOS */}
+          <KpiGrid cols={4}>
+            <KpiCard
+              title="Total Productos"
+              value={kpiTotal}
+              subtext="En catálogo comercial"
+              icon={<Package className="w-5 h-5" />}
+              variant="blue"
+            />
+            <KpiCard
+              title="Activos"
+              value={kpiActivos}
+              subtext="Disponibles para venta"
+              icon={<CheckCircle2 className="w-5 h-5" />}
+              variant="emerald"
+            />
+            <KpiCard
+              title="Inactivos"
+              value={kpiInactivos}
+              subtext="Agotados u ocultos"
+              icon={<XCircle className="w-5 h-5" />}
+              variant="default"
+            />
+            <KpiCard
+              title="Stock Bajo"
+              value={kpiStockBajo}
+              subtext="Por debajo del mínimo"
+              icon={<AlertTriangle className="w-5 h-5" />}
+              variant={kpiStockBajo > 0 ? "amber" : "default"}
+            />
+          </KpiGrid>
 
           {/* 2. BARRA SUPERIOR: ACCIONES Y SELECTOR DE VISTA */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -732,52 +711,40 @@ export function ProductsManagerClient({
           {/* 3. BARRA DE FILTROS */}
           <div className="p-3.5 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs space-y-3">
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Búsqueda libre */}
-              <div className="relative flex-1 min-w-[240px]">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
+              {/* Búsqueda libre con botón de escáner */}
+              <div className="flex-1 min-w-[240px]">
+                <SearchInput
                   placeholder="Buscar por nombre, SKU, código de barras o variantes..."
                   value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
+                  onChange={(val) => {
+                    setSearch(val);
                     setCurrentPage(1);
                   }}
-                  className="pl-9 pr-16 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/50 w-full"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  {search && (
+                  onClear={() => {
+                    setSearch("");
+                    setCurrentPage(1);
+                  }}
+                  endAdornment={
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearch("");
-                        setCurrentPage(1);
-                      }}
-                      className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                      title="Borrar búsqueda"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      title="Escanear código de barras o SKU con cámara"
+                      className="p-1 text-slate-400 hover:text-[#ED500A] transition-colors cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Barcode className="w-4 h-4" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setIsBarcodeScannerOpen(true)}
-                    title="Escanear código de barras o SKU con cámara"
-                    className="p-1 text-slate-400 hover:text-[#ED500A] transition-colors cursor-pointer"
-                  >
-                    <Barcode className="w-4 h-4" />
-                  </button>
-                </div>
+                  }
+                />
               </div>
 
               {/* Categoría */}
-              <select
+              <Select
                 value={selectedCategory}
                 onChange={(e) => {
                   setSelectedCategory(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+                className="w-auto min-w-[190px]"
               >
                 <option value="all">Todas las categorías ({kpiTotal})</option>
                 {hierarchicalCategories.map(({ category: c, displayName, count }) => (
@@ -785,35 +752,35 @@ export function ProductsManagerClient({
                     {displayName} ({count})
                   </option>
                 ))}
-              </select>
+              </Select>
 
               {/* Estado */}
-              <select
+              <Select
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+                className="w-auto min-w-[150px]"
               >
                 <option value="all">Todos los estados</option>
                 <option value="active">Activos ({kpiActivos})</option>
                 <option value="inactive">Inactivos ({kpiInactivos})</option>
-              </select>
+              </Select>
 
               {/* Variantes */}
-              <select
+              <Select
                 value={variantsFilter}
                 onChange={(e) => {
                   setVariantsFilter(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+                className="w-auto min-w-[170px]"
               >
                 <option value="all">Todas las presentaciones</option>
                 <option value="with_variants">Con variantes</option>
                 <option value="without_variants">Sin variantes</option>
-              </select>
+              </Select>
 
               {/* Botón 'Limpiar filtros' */}
               {hasActiveFilters && (
@@ -1390,106 +1357,22 @@ export function ProductsManagerClient({
 
           {/* 6. PAGINACIÓN */}
           {filteredProducts.length > 0 && (
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] text-xs">
-              {/* Selector de Filas por página y conteo */}
-              <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <span>Filas por página:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-
-                <span className="hidden sm:inline-block">•</span>
-
-                <span>
-                  Mostrando {(safeCurrentPage - 1) * pageSize + 1} -{" "}
-                  {Math.min(safeCurrentPage * pageSize, filteredProducts.length)} de{" "}
-                  <strong className="text-slate-900 dark:text-white font-mono">{filteredProducts.length}</strong>{" "}
-                  productos
-                </span>
-              </div>
-
-              {/* Navegación de páginas */}
-              <div className="flex items-center gap-1">
-                {/* Primera página */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={safeCurrentPage === 1}
-                  title="Primera página"
-                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                >
-                  <ChevronsLeft className="w-4 h-4" />
-                </button>
-
-                {/* Página anterior */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={safeCurrentPage === 1}
-                  title="Página anterior"
-                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {/* Números de página */}
-                <div className="flex items-center gap-1 px-1">
-                  {pageNumbers.map((p, i) =>
-                    typeof p === "number" ? (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setCurrentPage(p)}
-                        className={`min-w-8 h-8 px-2 rounded-lg font-mono text-xs font-semibold transition-all cursor-pointer ${
-                          safeCurrentPage === p
-                            ? "bg-[#ED500A] text-white shadow-2xs font-bold"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ) : (
-                      <span key={i} className="px-1 text-slate-400 font-mono">
-                        ...
-                      </span>
-                    )
-                  )}
-                </div>
-
-                {/* Página siguiente */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={safeCurrentPage === totalPages}
-                  title="Página siguiente"
-                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-
-                {/* Última página */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={safeCurrentPage === totalPages}
-                  title="Última página"
-                  className="p-1.5 rounded-lg border border-slate-200/80 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
-                >
-                  <ChevronsRight className="w-4 h-4" />
-                </button>
-              </div>
+            <div className="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                totalItems={filteredProducts.length}
+                currentCount={paginatedProducts.length}
+                pageSize={pageSize}
+                itemLabel="productos"
+                onPageChange={(pg) => setCurrentPage(pg)}
+                onPageSizeChange={(newSize: number) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showFirstLast
+              />
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input, Select } from "@/components/ui";
 import { FileText, X, Plus, Minus, DollarSign, Layers } from "lucide-react";
 import { formatCOP } from "@/lib/pos/types";
 
@@ -50,7 +51,7 @@ export function PosItemLibreModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"
@@ -83,41 +84,22 @@ export function PosItemLibreModal({
 
           <form onSubmit={handleAdd} className="p-6 space-y-5 text-xs overflow-y-auto">
             {/* Paso 1: Descripción */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <span>Descripción</span>
-                  <span className="px-1.5 py-0.2 rounded-md bg-orange-500/10 text-[#ED500A] text-[10px] font-bold">
-                    PASO 1
-                  </span>
-                </label>
-                <span className="text-[11px] text-slate-400">
-                  Así aparecerá en el pedido y la factura
-                </span>
-              </div>
-              <input
-                type="text"
-                required
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ej: Cargo extra por empaque especial"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-              />
-            </div>
+            <Input
+              label="Descripción (Paso 1)"
+              required
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej: Cargo extra por empaque especial"
+              helperText="Así aparecerá en el pedido y la factura"
+            />
 
             {/* Paso 2: Cantidad y unidad */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <span>Cantidad y unidad</span>
-                  <span className="px-1.5 py-0.2 rounded-md bg-orange-500/10 text-[#ED500A] text-[10px] font-bold">
-                    PASO 2
-                  </span>
-                </label>
-                <span className="text-[11px] text-slate-400">Solo cantidades enteras</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center border border-slate-200 dark:border-white/[0.08] rounded-xl overflow-hidden bg-slate-50 dark:bg-white/[0.03]">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Cantidad y unidad (Paso 2)
+              </label>
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div className="flex items-center border border-slate-200/80 dark:border-white/10 rounded-xl overflow-hidden bg-slate-50/70 dark:bg-[#0B0D14]">
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -141,47 +123,34 @@ export function PosItemLibreModal({
                   </button>
                 </div>
 
-                <select
+                <Select
                   value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 cursor-pointer font-medium"
-                >
-                  <option value="Unidad">Unidad</option>
-                  <option value="Porción">Porción</option>
-                  <option value="Servicio">Servicio</option>
-                  <option value="Plato">Plato</option>
-                  <option value="Combo">Combo</option>
-                </select>
+                  onChange={setUnit}
+                  options={[
+                    { value: "Unidad", label: "Unidad" },
+                    { value: "Porción", label: "Porción" },
+                    { value: "Servicio", label: "Servicio" },
+                    { value: "Plato", label: "Plato" },
+                    { value: "Combo", label: "Combo" },
+                  ]}
+                />
               </div>
             </div>
 
             {/* Paso 3: Precio unitario */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <span>Precio unitario</span>
-                  <span className="px-1.5 py-0.2 rounded-md bg-orange-500/10 text-[#ED500A] text-[10px] font-bold">
-                    PASO 3
-                  </span>
-                </label>
-                <span className="text-[11px] text-slate-400">Precio por unidad</span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono font-bold text-slate-400 text-xs">
-                  $
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  required
-                  value={unitPrice || ""}
-                  onChange={(e) => setUnitPrice(Math.max(0, Number(e.target.value) || 0))}
-                  placeholder="0"
-                  className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white text-xs font-mono font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
-                />
-              </div>
-            </div>
+            <Input
+              label="Precio unitario (Paso 3)"
+              type="number"
+              min="0"
+              step="500"
+              required
+              value={unitPrice || ""}
+              onChange={(e) => setUnitPrice(Math.max(0, Number(e.target.value) || 0))}
+              placeholder="0"
+              startAdornment={<span className="font-mono font-bold text-slate-400 text-xs">$</span>}
+              className="font-mono font-bold"
+              helperText="Precio por unidad"
+            />
 
             {/* Pie del modal */}
             <div className="pt-4 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between gap-3">

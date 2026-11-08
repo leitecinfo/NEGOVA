@@ -1,20 +1,28 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, Ban, X, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Ban, X, Info, Trash2 } from "lucide-react";
 import { Button } from "./button";
 import { ModalPortal } from "./modal-portal";
 
-export type ConfirmVariant = "destructive" | "warning" | "primary" | "success";
+export type ConfirmVariant =
+  | "destructive"
+  | "danger"
+  | "warning"
+  | "primary"
+  | "default"
+  | "success";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   description: string;
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
+  cancelText?: string;
   variant?: ConfirmVariant;
   isLoading?: boolean;
   itemDetails?: { label: string; value: string }[];
@@ -22,30 +30,46 @@ export interface ConfirmDialogProps {
   onReasonChange?: (reason: string) => void;
   reasonLabel?: string;
   reasonPlaceholder?: string;
+  children?: React.ReactNode;
+  lockScroll?: boolean;
 }
 
 const variantConfig: Record<
-  ConfirmVariant,
-  { icon: React.ReactNode; iconBg: string; buttonVariant: "destructive" | "primary" | "success" }
+  string,
+  {
+    icon: React.ReactNode;
+    iconBg: string;
+    buttonVariant: "destructive" | "primary" | "success" | "warning";
+  }
 > = {
   destructive: {
     icon: <Ban className="w-5 h-5 text-red-600 dark:text-red-400" />,
-    iconBg: "bg-red-50 dark:bg-red-500/10",
+    iconBg: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20",
+    buttonVariant: "destructive",
+  },
+  danger: {
+    icon: <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />,
+    iconBg: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20",
     buttonVariant: "destructive",
   },
   warning: {
     icon: <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
-    iconBg: "bg-amber-50 dark:bg-amber-500/10",
-    buttonVariant: "destructive",
+    iconBg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
+    buttonVariant: "warning",
   },
   primary: {
     icon: <Info className="w-5 h-5 text-[#ED500A]" />,
-    iconBg: "bg-orange-50 dark:bg-orange-500/10",
+    iconBg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20",
+    buttonVariant: "primary",
+  },
+  default: {
+    icon: <Info className="w-5 h-5 text-[#ED500A]" />,
+    iconBg: "bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20",
     buttonVariant: "primary",
   },
   success: {
     icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
-    iconBg: "bg-emerald-50 dark:bg-emerald-500/10",
+    iconBg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20",
     buttonVariant: "success",
   },
 };
@@ -56,8 +80,10 @@ export function ConfirmDialog({
   onConfirm,
   title,
   description,
-  confirmLabel = "Confirmar",
-  cancelLabel = "Cancelar",
+  confirmLabel,
+  confirmText,
+  cancelLabel,
+  cancelText,
   variant = "destructive",
   isLoading = false,
   itemDetails,
@@ -65,10 +91,13 @@ export function ConfirmDialog({
   onReasonChange,
   reasonLabel = "Motivo / Justificación (Opcional):",
   reasonPlaceholder = "Ingresa el motivo de auditoría...",
+  children,
+  lockScroll = true,
 }: ConfirmDialogProps) {
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isLoading) {
+      if (e.key === "Escape" && !isLoading) {
         onClose();
       }
     };
@@ -78,24 +107,45 @@ export function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  const config = variantConfig[variant];
+  const effectiveConfirmText = confirmLabel || confirmText || "Confirmar";
+  const effectiveCancelText = cancelLabel || cancelText || "Cancelar";
+
+  const config = variantConfig[variant] || variantConfig.destructive;
+
+  const handleConfirm = async () => {
+    if (isLoading) return;
+    await onConfirm();
+  };
 
   return (
-    <ModalPortal>
-      <div 
-        role="dialog"
+    <ModalPortal lockScroll={lockScroll}>
+      <div
+        role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-150"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isLoading) {
+            onClose();
+          }
+        }}
       >
-        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${config.iconBg}`}>
+        <div
+          className="bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${config.iconBg}`}
+              >
                 {config.icon}
               </div>
-              <div>
-                <h3 id="confirm-dialog-title" className="text-sm font-bold font-title text-slate-900 dark:text-white">
+              <div className="space-y-0.5 pt-0.5">
+                <h3
+                  id="confirm-dialog-title"
+                  className="text-base font-bold font-title text-slate-900 dark:text-white"
+                >
                   {title}
                 </h3>
               </div>
@@ -104,7 +154,7 @@ export function ConfirmDialog({
               type="button"
               disabled={isLoading}
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.06] cursor-pointer disabled:opacity-30"
               aria-label="Cerrar modal"
             >
               <X className="w-4 h-4" />
@@ -144,22 +194,24 @@ export function ConfirmDialog({
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+          {children}
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               disabled={isLoading}
               onClick={onClose}
             >
-              {cancelLabel}
+              {effectiveCancelText}
             </Button>
             <Button
               variant={config.buttonVariant}
               size="sm"
               isLoading={isLoading}
-              onClick={onConfirm}
+              onClick={handleConfirm}
             >
-              {confirmLabel}
+              {effectiveConfirmText}
             </Button>
           </div>
         </div>
@@ -168,9 +220,8 @@ export function ConfirmDialog({
   );
 }
 
-// Aliases para retrocompatibilidad
+// Aliases para retrocompatibilidad total
 export {
   ConfirmDialog as AdminConfirmDialog,
   type ConfirmDialogProps as AdminConfirmDialogProps,
-  type ConfirmVariant as AdminConfirmVariant,
 };

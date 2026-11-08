@@ -34,7 +34,16 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname() || branding.homeUrl;
   const searchParams = useSearchParams();
-  const { startNavigation } = useNavigationProgress();
+  const { isNavigating, navigatingHref, startNavigation } = useNavigationProgress();
+
+  // Helper para determinar si una ruta está activa o en proceso de navegación
+  const checkActive = (targetHref: string, exactMatch?: boolean) => {
+    const isCurrentActive = isRouteActive(targetHref, pathname, searchParams, exactMatch);
+    const isPendingTarget = Boolean(
+      isNavigating && navigatingHref && isRouteActive(targetHref, navigatingHref, undefined, exactMatch)
+    );
+    return isPendingTarget || (isCurrentActive && !isNavigating);
+  };
 
   // Estado de grupos desglosables en modo expandido
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -62,15 +71,16 @@ export function AppSidebar({
 
   // Asegurar que la sección que contiene la ruta activa esté abierta cuando esté expandido
   useEffect(() => {
+    const targetPath = isNavigating && navigatingHref ? navigatingHref : pathname;
     navSections.forEach((section) => {
       const hasActive = section.items.some((item) =>
-        isRouteActive(item.href, pathname, searchParams, item.exactMatch)
+        isRouteActive(item.href, targetPath, isNavigating ? undefined : searchParams, item.exactMatch)
       );
       if (hasActive) {
         setOpenSections((prev) => ({ ...prev, [section.id]: true }));
       }
     });
-  }, [pathname, searchParams, navSections]);
+  }, [pathname, searchParams, navSections, isNavigating, navigatingHref]);
 
   const toggleSection = (sectionId: string) => {
     setOpenSections((prev) => ({
@@ -111,16 +121,16 @@ export function AppSidebar({
   const isAnyHiddenActive = useMemo(() => {
     return hiddenSections.some((section) =>
       section.items.some((item) => {
-        if (isRouteActive(item.href, pathname, searchParams, item.exactMatch)) {
+        if (checkActive(item.href, item.exactMatch)) {
           return true;
         }
-        if (item.subItems?.some((sub) => isRouteActive(sub.href, pathname, searchParams))) {
+        if (item.subItems?.some((sub) => checkActive(sub.href))) {
           return true;
         }
         return false;
       })
     );
-  }, [hiddenSections, pathname, searchParams]);
+  }, [hiddenSections, pathname, searchParams, isNavigating, navigatingHref]);
 
   // Filtrar las opciones ocultas según la búsqueda
   const filteredHiddenSections = useMemo(() => {
@@ -363,12 +373,13 @@ export function AppSidebar({
                   <div className="space-y-1 animate-in fade-in-50 duration-150">
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
-                      const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
+                      const isActive = checkActive(item.href, item.exactMatch);
 
                       return (
                         <div key={item.id} className="relative">
                           <Link
                             href={item.href}
+                            prefetch={true}
                             onClick={() => {
                               if (!isActive) {
                                 startNavigation(item.href);
@@ -413,11 +424,12 @@ export function AppSidebar({
                             <div className="ml-7 mt-1 space-y-0.5 border-l border-slate-200 dark:border-white/[0.08] pl-2.5 animate-in fade-in-50 duration-150">
                               {item.subItems.map((subItem) => {
                                 const SubIcon = subItem.icon;
-                                const isSubActive = isRouteActive(subItem.href, pathname, searchParams);
+                                const isSubActive = checkActive(subItem.href);
                                 return (
                                   <Link
                                     key={subItem.id}
                                     href={subItem.href}
+                                    prefetch={true}
                                     onClick={() => {
                                       if (!isSubActive) {
                                         startNavigation(subItem.href);
@@ -452,12 +464,13 @@ export function AppSidebar({
           <div className="space-y-1.5">
             {visibleCollapsedItems.map((item) => {
               const Icon = item.icon;
-              const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
+              const isActive = checkActive(item.href, item.exactMatch);
 
               return (
                 <Link
                   key={item.id}
                   href={item.href}
+                  prefetch={true}
                   onClick={() => {
                     if (!isActive) {
                       startNavigation(item.href);
@@ -593,12 +606,13 @@ export function AppSidebar({
                     <div className="space-y-1">
                       {section.items.map((item) => {
                         const Icon = item.icon;
-                        const isActive = isRouteActive(item.href, pathname, searchParams, item.exactMatch);
+                        const isActive = checkActive(item.href, item.exactMatch);
 
                         return (
                           <div key={item.id} className="space-y-0.5">
                             <Link
                               href={item.href}
+                              prefetch={true}
                               onClick={() => {
                                 closeFlyout();
                                 if (!isActive) startNavigation(item.href);
@@ -647,11 +661,12 @@ export function AppSidebar({
                               <div className="ml-8 space-y-0.5 border-l border-white/[0.08] pl-2 pt-0.5">
                                 {item.subItems.map((subItem) => {
                                   const SubIcon = subItem.icon;
-                                  const isSubActive = isRouteActive(subItem.href, pathname, searchParams);
+                                  const isSubActive = checkActive(subItem.href);
                                   return (
                                     <Link
                                       key={subItem.id}
                                       href={subItem.href}
+                                      prefetch={true}
                                       onClick={() => {
                                         closeFlyout();
                                         if (!isSubActive) startNavigation(subItem.href);

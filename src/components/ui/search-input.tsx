@@ -1,11 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, X, Loader2 } from "lucide-react";
+
+export type SearchInputSize = "sm" | "md" | "lg";
 
 export interface SearchInputProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (e: any) => void;
+  onValueChange?: (value: string) => void;
   onSubmit?: (e: React.FormEvent) => void;
   placeholder?: string;
   className?: string;
@@ -14,11 +17,21 @@ export interface SearchInputProps {
   showSubmitButton?: boolean;
   submitButtonLabel?: string;
   onClear?: () => void;
+  debounceMs?: number;
+  inputSize?: SearchInputSize;
+  endAdornment?: React.ReactNode;
 }
+
+const sizeClasses: Record<SearchInputSize, string> = {
+  sm: "h-8 text-[11px] rounded-lg",
+  md: "h-10 text-xs rounded-xl",
+  lg: "h-12 text-sm rounded-xl",
+};
 
 export function SearchInput({
   value,
   onChange,
+  onValueChange,
   onSubmit,
   placeholder = "Buscar...",
   className = "",
@@ -27,17 +40,71 @@ export function SearchInput({
   showSubmitButton = false,
   submitButtonLabel = "Buscar",
   onClear,
+  debounceMs,
+  inputSize = "md",
+  endAdornment,
 }: SearchInputProps) {
+  // Manejo de estado local cuando debounceMs está presente
+  const [internalValue, setInternalValue] = useState(value);
+  const isFirstMount = useRef(true);
+
+  useEffect(() => {
+    setInternalValue(value);
+  }, [value]);
+
+  const triggerChange = (val: string, originalEvent?: React.ChangeEvent<HTMLInputElement>) => {
+    if (onValueChange) {
+      onValueChange(val);
+    }
+    if (onChange) {
+      try {
+        const fnStr = onChange.toString();
+        if (fnStr.includes(".target")) {
+          onChange(originalEvent || { target: { value: val } });
+        } else {
+          onChange(val);
+        }
+      } catch {
+        onChange(originalEvent || { target: { value: val } });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (debounceMs === undefined || debounceMs <= 0) return;
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    const handler = setTimeout(() => {
+      triggerChange(internalValue);
+    }, debounceMs);
+
+    return () => clearTimeout(handler);
+  }, [internalValue, debounceMs]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVal = e.target.value;
+    if (debounceMs !== undefined && debounceMs > 0) {
+      setInternalValue(nextVal);
+    } else {
+      triggerChange(nextVal, e);
+    }
+  };
+
   const handleClear = () => {
-    onChange("");
+    setInternalValue("");
+    triggerChange("");
     if (onClear) {
       onClear();
     }
   };
 
+  const currentDisplayValue = debounceMs && debounceMs > 0 ? internalValue : value;
+
   const content = (
     <div className={`relative flex items-center flex-1 ${className}`}>
-      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">
         {isLoading ? (
           <Loader2 className="w-4 h-4 animate-spin text-[#ED500A]" />
         ) : (
@@ -47,27 +114,36 @@ export function SearchInput({
 
       <input
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={currentDisplayValue}
+        onChange={handleChange}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full h-10 pl-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all disabled:opacity-50 ${
-          showSubmitButton ? "pr-24" : value ? "pr-10" : "pr-3.5"
+        className={`w-full pl-10 border bg-slate-50/70 dark:bg-[#0B0D14] border-slate-200/80 dark:border-white/10 font-body text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 hover:border-slate-300 dark:hover:border-white/20 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all disabled:opacity-50 ${
+          sizeClasses[inputSize]
+        } ${
+          showSubmitButton
+            ? "pr-24"
+            : endAdornment && currentDisplayValue
+            ? "pr-16"
+            : endAdornment || currentDisplayValue
+            ? "pr-10"
+            : "pr-3.5"
         }`}
       />
 
-      {value && !disabled && (
-        <button
-          type="button"
-          onClick={handleClear}
-          className={`absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-md ${
-            showSubmitButton ? "right-16" : "right-3"
-          }`}
-          title="Limpiar búsqueda"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
+      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        {currentDisplayValue && !disabled && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-md"
+            title="Limpiar búsqueda"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {endAdornment}
+      </div>
 
       {showSubmitButton && (
         <button

@@ -37,6 +37,8 @@ import {
   AdminInput,
 } from "@/components/admin/ui";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   fetchBillingListAction,
   registerPaymentAction,
@@ -521,7 +523,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {/* 4. MODAL: DETALLE DEL COMPROBANTE / REGISTRAR PAGO MANUAL */}
       {selectedInvoice && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/[0.06]">
               <div className="flex items-center gap-3">
@@ -614,7 +616,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                       <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Método Manual:
                       </label>
-                      <select
+                      <Select
                         value={paymentForm.paymentMethod}
                         onChange={(e) => {
                           const method = e.target.value as PaymentMethod;
@@ -628,23 +630,23 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                           }
                           setPaymentForm({ ...paymentForm, paymentMethod: method, paymentReference: newRef });
                         }}
-                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                        selectSize="sm"
                       >
                         <option value="transfer">Transferencia Bancaria</option>
                         <option value="cash">Efectivo / Consignación</option>
                         <option value="manual">Autorizado / Manual</option>
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         {paymentForm.paymentMethod === "transfer" ? "Ref. Bancaria / Transacción:" : "Referencia de Control:"}
                       </label>
-                      <input
+                      <Input
                         type="text"
                         value={paymentForm.paymentReference}
                         onChange={(e) => setPaymentForm({ ...paymentForm, paymentReference: e.target.value })}
                         placeholder={paymentForm.paymentMethod === "transfer" ? "Ej: 039401831" : "Ej: CAJA-CMP-001"}
-                        className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                        inputSize="sm"
                         required
                       />
                     </div>
@@ -687,12 +689,12 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                   <label className="block text-[11px] text-slate-600 dark:text-slate-400">
                     Correo electrónico del destinatario:
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={customEmail}
                     onChange={(e) => setCustomEmail(e.target.value)}
                     placeholder="Ej: propietario@comercio.com"
-                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white"
+                    inputSize="sm"
                   />
                   <p className="text-[10px] text-slate-400">
                     Se adjuntará automáticamente el comprobante PDF oficial con plantilla institucional de NEGOVA.
@@ -732,7 +734,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {/* 5. MODAL: ELIMINAR */}
       {isDeleteModalOpen && selectedInvoice && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl space-y-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">¿Eliminar Comprobante?</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -752,7 +754,7 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
       {/* 6. MODAL: EDITAR */}
       {isEditModalOpen && selectedInvoice && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
               <button
                 type="button"
@@ -767,32 +769,51 @@ export function FacturacionClient({ initialData }: FacturacionClientProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Monto (COP):</label>
-                    <input type="number" required value={editForm.amount || 0} onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
+                    <Input
+                      type="number"
+                      required
+                      value={editForm.amount || 0}
+                      onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})}
+                      inputSize="sm"
+                    />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Estado:</label>
-                    <select value={editForm.status} onChange={e => setEditForm({...editForm, status: e.target.value as InvoiceStatus})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white">
+                    <Select
+                      value={editForm.status}
+                      onChange={e => setEditForm({...editForm, status: e.target.value as InvoiceStatus})}
+                      selectSize="sm"
+                    >
                       <option value="pending">Pendiente</option>
                       <option value="paid">Pagado</option>
                       <option value="failed">Fallido</option>
                       <option value="void">Anulado</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Método de Pago:</label>
-                    <select value={editForm.paymentMethod} onChange={e => setEditForm({...editForm, paymentMethod: e.target.value as PaymentMethod})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white">
+                    <Select
+                      value={editForm.paymentMethod}
+                      onChange={e => setEditForm({...editForm, paymentMethod: e.target.value as PaymentMethod})}
+                      selectSize="sm"
+                    >
                       <option value="transfer">Transferencia</option>
                       <option value="cash">Efectivo</option>
                       <option value="manual">Manual</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Referencia:</label>
-                    <input type="text" value={editForm.paymentReference || ""} onChange={e => setEditForm({...editForm, paymentReference: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
+                    <Input
+                      type="text"
+                      value={editForm.paymentReference || ""}
+                      onChange={e => setEditForm({...editForm, paymentReference: e.target.value})}
+                      inputSize="sm"
+                    />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Observaciones / Notas:</label>
-                    <textarea rows={3} value={editForm.notes || ""} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full p-2 rounded-lg border border-slate-300 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white" />
+                    <textarea rows={3} value={editForm.notes || ""} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="w-full p-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]" />
                   </div>
                 </div>
                 

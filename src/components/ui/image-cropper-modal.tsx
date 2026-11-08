@@ -258,10 +258,10 @@ export function ImageCropperModal({
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200"
         onMouseUp={handleMouseUp}
       >
-        <div className="bg-white dark:bg-[#0D0F16] rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col">
+        <div className="bg-white dark:bg-[#0D0F16] rounded-3xl border border-slate-200/80 dark:border-white/[0.08] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
             <div className="flex items-center gap-2.5">

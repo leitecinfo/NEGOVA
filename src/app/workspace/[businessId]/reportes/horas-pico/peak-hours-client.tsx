@@ -1,5 +1,6 @@
 "use client";
 
+import { Input, Select, SearchInput } from "@/components/ui";
 import React, { useState, useTransition } from "react";
 import {
   Flame,
@@ -199,7 +200,7 @@ export function PeakHoursClient({ businessId, initialData }: Props) {
               <Filter className="w-3.5 h-3.5" />
               Canal:
             </span>
-            <select
+            <Select
               value={channel}
               onChange={(e) => handleChannelChange(e.target.value)}
               disabled={isPending}
@@ -210,7 +211,7 @@ export function PeakHoursClient({ businessId, initialData }: Props) {
                   {c.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {preset === "custom" && (

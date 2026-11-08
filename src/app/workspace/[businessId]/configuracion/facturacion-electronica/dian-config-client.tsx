@@ -36,6 +36,8 @@ import {
   sendTestInvoiceToDianAction,
 } from "./actions";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 
 interface DianConfigClientProps {
   initialConfig: DianBillingConfig;
@@ -204,52 +206,17 @@ export function DianConfigClient({
       )}
 
       {/* 3. TABS DE CONFIGURACIÓN */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/[0.08] pb-1 overflow-x-auto text-xs">
-        <button
-          type="button"
-          onClick={() => setActiveTab("issuer")}
-          className={`px-4 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-            activeTab === "issuer"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
-          }`}
-        >
-          1. Datos del Emisor
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("resolution")}
-          className={`px-4 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-            activeTab === "resolution"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
-          }`}
-        >
-          2. Resolución DIAN y Prefijo
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("provider")}
-          className={`px-4 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-            activeTab === "provider"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
-          }`}
-        >
-          3. Conexión con Proveedor
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("documents")}
-          className={`px-4 py-2 rounded-xl font-semibold transition-colors cursor-pointer ${
-            activeTab === "documents"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
-          }`}
-        >
-          4. Historial de Documentos ({documents.length})
-        </button>
-      </div>
+      <Tabs<"issuer" | "resolution" | "provider" | "documents">
+        variant="underline"
+        tabs={[
+          { id: "issuer", label: "1. Datos del Emisor" },
+          { id: "resolution", label: "2. Resolución DIAN y Prefijo" },
+          { id: "provider", label: "3. Conexión con Proveedor" },
+          { id: "documents", label: "4. Historial de Documentos", count: documents.length },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* TAB 1: DATOS DEL EMISOR */}
       {activeTab === "issuer" && (
@@ -348,7 +315,7 @@ export function DianConfigClient({
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Régimen Tributario *
               </label>
-              <select
+              <Select
                 value={issuer.taxRegime}
                 onChange={(e) => setIssuer({ ...issuer, taxRegime: e.target.value as TaxRegime })}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white cursor-pointer"
@@ -356,14 +323,14 @@ export function DianConfigClient({
                 <option value="responsable_iva">Responsable de IVA (Régimen Común)</option>
                 <option value="no_responsable_iva">No Responsable de IVA (Régimen Simplificado)</option>
                 <option value="simple">Régimen Simple de Tributación (RST)</option>
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Responsabilidad Fiscal *
               </label>
-              <select
+              <Select
                 value={issuer.fiscalResponsibility}
                 onChange={(e) => setIssuer({ ...issuer, fiscalResponsibility: e.target.value as FiscalResponsibility })}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white cursor-pointer"
@@ -373,7 +340,7 @@ export function DianConfigClient({
                 <option value="O-15">O-15 (Autorretenedor)</option>
                 <option value="O-23">O-23 (Agente de retención IVA)</option>
                 <option value="O-47">O-47 (Régimen Simple)</option>
-              </select>
+              </Select>
             </div>
 
             <div>
@@ -555,7 +522,7 @@ export function DianConfigClient({
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Proveedor de Facturación Electrónica *
               </label>
-              <select
+              <Select
                 value={providerConfig.provider}
                 onChange={(e) => setProviderConfig({ ...providerConfig, provider: e.target.value as DianProvider })}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white cursor-pointer font-semibold"
@@ -564,21 +531,21 @@ export function DianConfigClient({
                 <option value="alegra">Alegra (API)</option>
                 <option value="siigo">Siigo Nube (API)</option>
                 <option value="facturapi">FacturAPI</option>
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Ambiente de Conexión *
               </label>
-              <select
+              <Select
                 value={providerConfig.environment}
                 onChange={(e) => setProviderConfig({ ...providerConfig, environment: e.target.value as DianEnvironment })}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white cursor-pointer font-semibold"
               >
                 <option value="test">Habilitación / Set de Pruebas DIAN (Sandbox)</option>
                 <option value="production">Producción en Vivo (Validez Fiscal Oficial)</option>
-              </select>
+              </Select>
             </div>
 
             <div>

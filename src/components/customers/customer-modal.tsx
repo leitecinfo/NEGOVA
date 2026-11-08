@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, User, Building2, Phone, Mail, MapPin, FileText, Sparkles } from "lucide-react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui";
 import { createCustomerAction, updateCustomerAction } from "@/app/workspace/[businessId]/clientes/actions";
 import { Customer } from "@/lib/customers/types";
 import { toast } from "sonner";
@@ -135,7 +136,7 @@ export function CustomerModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           role="dialog"
           aria-modal="true"
@@ -211,104 +212,67 @@ export function CustomerModal({
             )}
 
             {/* Nombre / Razón Social */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {customerType === "business" ? "Razón social / Empresa" : "Nombre completo"}
-                <span className="text-[#ED500A] ml-1">*</span>
-              </label>
-              <div className="relative flex items-center">
-                {customerType === "business" ? (
-                  <Building2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              label={customerType === "business" ? "Razón social / Empresa" : "Nombre completo"}
+              required
+              placeholder={
+                customerType === "business"
+                  ? "Ej. Distribuidora del Norte S.A.S."
+                  : "Ej. Andrés Ramírez"
+              }
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              leftIcon={
+                customerType === "business" ? (
+                  <Building2 className="w-4 h-4" />
                 ) : (
-                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                )}
-                <input
-                  type="text"
-                  required
-                  placeholder={
-                    customerType === "business"
-                      ? "Ej. Distribuidora del Norte S.A.S."
-                      : "Ej. Andrés Ramírez"
-                  }
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                />
-              </div>
-            </div>
+                  <User className="w-4 h-4" />
+                )
+              }
+            />
 
             {/* Persona de Contacto (exclusivo para Empresa) */}
             {customerType === "business" && (
-              <div className="space-y-1.5 animate-in fade-in duration-150">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Persona de contacto / Representante{" "}
-                  <span className="text-slate-400 font-normal">(Opcional)</span>
-                </label>
-                <div className="relative flex items-center">
-                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Ej. Carlos Mendoza (Gerente de Compras)"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                  />
-                </div>
-              </div>
+              <Input
+                label="Persona de contacto / Representante (Opcional)"
+                placeholder="Ej. Carlos Mendoza (Gerente de Compras)"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                leftIcon={<User className="w-4 h-4" />}
+              />
             )}
 
             {/* Teléfono y Documento/NIT en 2 columnas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Teléfono / WhatsApp
-                </label>
-                <div className="relative flex items-center">
-                  <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="tel"
-                    placeholder="Ej. 300 123 4567"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-mono"
-                  />
-                </div>
-              </div>
+              <Input
+                label="Teléfono / WhatsApp"
+                type="tel"
+                placeholder="Ej. 300 123 4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                leftIcon={<Phone className="w-4 h-4" />}
+                className="font-mono"
+              />
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {customerType === "business" ? "NIT / RUT" : "Cédula / Documento"}{" "}
-                  <span className="text-slate-400 font-normal">(Opcional)</span>
-                </label>
-                <div className="relative flex items-center">
-                  <FileText className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder={customerType === "business" ? "Ej. 901234567-1" : "Ej. 1045234890"}
-                    value={taxId}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all font-mono"
-                  />
-                </div>
-              </div>
+              <Input
+                label={customerType === "business" ? "NIT / RUT (Opcional)" : "Cédula / Documento (Opcional)"}
+                placeholder={customerType === "business" ? "Ej. 901234567-1" : "Ej. 1045234890"}
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                leftIcon={<FileText className="w-4 h-4" />}
+                className="font-mono"
+              />
             </div>
 
             {/* Correo electrónico */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Correo electrónico <span className="text-slate-400 font-normal">(Opcional)</span>
-              </label>
-              <div className="relative flex items-center">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="email"
-                  placeholder="contacto@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                />
-              </div>
-            </div>
+            <Input
+              label="Correo electrónico (Opcional)"
+              type="email"
+              placeholder="contacto@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              leftIcon={<Mail className="w-4 h-4" />}
+            />
 
             {/* Si es creación nueva, pedir dirección inicial */}
             {!isEditing && (
@@ -317,28 +281,18 @@ export function CustomerModal({
                   Dirección principal <span className="text-slate-400 font-normal">(Opcional)</span>
                 </span>
 
-                <div className="space-y-1.5">
-                  <div className="relative flex items-center">
-                    <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Ej. Calle 45 # 12-34 Oficina 301"
-                      value={addressLine}
-                      onChange={(e) => setAddressLine(e.target.value)}
-                      className="w-full h-10 pl-10 pr-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                    />
-                  </div>
-                </div>
+                <Input
+                  placeholder="Ej. Calle 45 # 12-34 Oficina 301"
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  leftIcon={<MapPin className="w-4 h-4" />}
+                />
 
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    placeholder="Punto de referencia o barrio (ej. Frente al parque, entrada norte)"
-                    value={addressReference}
-                    onChange={(e) => setAddressReference(e.target.value)}
-                    className="w-full h-10 px-3.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-                  />
-                </div>
+                <Input
+                  placeholder="Punto de referencia o barrio (ej. Frente al parque, entrada norte)"
+                  value={addressReference}
+                  onChange={(e) => setAddressReference(e.target.value)}
+                />
               </div>
             )}
 
@@ -352,7 +306,7 @@ export function CustomerModal({
                 placeholder="Observaciones de entrega, preferencias comerciales o detalles clave..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full p-3 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all resize-none"
+                className="w-full p-3 text-xs rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-[#0B0D14] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all resize-none"
               />
             </div>
 

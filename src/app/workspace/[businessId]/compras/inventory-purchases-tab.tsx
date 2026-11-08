@@ -23,6 +23,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
+import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
 import { formatCOP } from "@/config/plans";
 import {
   Purchase,
@@ -41,9 +44,9 @@ import {
   getSuppliersAction,
 } from "./actions";
 import { PurchaseFormModal } from "./purchase-form-modal";
+import { PurchaseDetailModal } from "./purchase-detail-modal";
 import { AccountsPayableTab } from "./accounts-payable-tab";
 import { PaymentModal } from "./payment-modal";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 interface Props {
@@ -86,6 +89,10 @@ export function InventoryPurchasesTab({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [kpis, setKpis] = useState<PurchaseKPIs>({
     totalPurchased: 0,
+    totalPaid: 0,
+    totalPendingBalance: 0,
+    paidPurchasesCount: 0,
+    pendingPurchasesCount: 0,
     uniqueSuppliersCount: 0,
     totalCash: 0,
     totalCredit: 0,
@@ -103,6 +110,9 @@ export function InventoryPurchasesTab({
     "all" | "cash" | "credit" | "pending" | "overdue"
   >("all");
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState<string>("all");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [paymentMethod, setPaymentMethod] = useState<string>("all");
   const [search, setSearch] = useState("");
 
@@ -115,6 +125,7 @@ export function InventoryPurchasesTab({
   const [purchaseToCancel, setPurchaseToCancel] = useState<Purchase | null>(
     null
   );
+  const [cancellationReason, setCancellationReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
   // Modal Ver Detalle
@@ -134,17 +145,27 @@ export function InventoryPurchasesTab({
   const loadData = async () => {
     setIsLoading(true);
     try {
+      const filterPayload: PurchaseFilters = {
+        period,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        supplierId: selectedSupplier,
+        paymentType: (paymentTypeFilter as any) || undefined,
+        paymentMethod,
+        paymentStatus: (paymentStatusFilter as any) || undefined,
+        purchaseStatus: (purchaseStatusFilter as any) || undefined,
+        statusTab,
+        search,
+      };
+
       const [pRes, kpiRes, sRes] = await Promise.all([
-        getPurchasesAction(businessId, {
+        getPurchasesAction(businessId, filterPayload),
+        getPurchaseKPIsAction(businessId, {
           period,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           supplierId: selectedSupplier,
-          paymentMethod,
-          statusTab,
-          search,
         }),
-        getPurchaseKPIsAction(businessId),
         getSuppliersAction(businessId),
       ]);
 
@@ -166,6 +187,9 @@ export function InventoryPurchasesTab({
     startDate,
     endDate,
     selectedSupplier,
+    paymentStatusFilter,
+    purchaseStatusFilter,
+    paymentTypeFilter,
     paymentMethod,
     statusTab,
   ]);
@@ -201,6 +225,9 @@ export function InventoryPurchasesTab({
     setEndDate("");
     setStatusTab("all");
     setSelectedSupplier("all");
+    setPaymentStatusFilter("all");
+    setPurchaseStatusFilter("all");
+    setPaymentTypeFilter("all");
     setPaymentMethod("all");
     setSearch("");
   };
@@ -211,6 +238,9 @@ export function InventoryPurchasesTab({
     Boolean(endDate) ||
     statusTab !== "all" ||
     selectedSupplier !== "all" ||
+    paymentStatusFilter !== "all" ||
+    purchaseStatusFilter !== "all" ||
+    paymentTypeFilter !== "all" ||
     paymentMethod !== "all" ||
     Boolean(search.trim());
 
@@ -219,7 +249,7 @@ export function InventoryPurchasesTab({
     if (!purchaseToCancel) return;
     setIsCancelling(true);
     try {
-      const res = await cancelPurchaseAction(businessId, purchaseToCancel.id);
+      const res = await cancelPurchaseAction(businessId, purchaseToCancel.id, cancellationReason);
       if (!res.success) {
         toast.error("Error al anular compra", {
           description: res.error || "No se pudo anular la compra.",
@@ -230,6 +260,7 @@ export function InventoryPurchasesTab({
         description: `Se revirtieron existencias de ${purchaseToCancel.purchaseNumber}.`,
       });
       setPurchaseToCancel(null);
+      setCancellationReason("");
       loadData();
     } catch (err: any) {
       toast.error("Error inesperado", { description: err.message });
@@ -253,46 +284,62 @@ export function InventoryPurchasesTab({
 
   return (
     <div className="space-y-6">
-      {/* 1. ENCABEZADO: TÍTULO 'Compras', DESCRIPCIÓN Y BOTONES DE ACCIÓN */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-white/[0.08]">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              Compras
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
-              Módulo de Compras
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            Control integral de compras de contado y a crédito, sincronización con egresos de caja activa y actualización automática de existencias y costos promedio.
-          </p>
+      {/* 1. NAVEGACIÓN ENTRE COMPRAS Y CUENTAS POR PAGAR CON ACCIONES */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200/80 dark:border-white/[0.08] pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveModuleTab("purchases")}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeModuleTab === "purchases"
+                ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4 text-[#ED500A]" />
+            <span>Compras y Facturas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveModuleTab("accounts_payable")}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeModuleTab === "accounts_payable"
+                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+            }`}
+          >
+            <CreditCard className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span>Cuentas por Pagar</span>
+            {kpis.dueTodayOrOverdue > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-3xs font-black bg-rose-500 text-white">
+                {formatCOP(kpis.dueTodayOrOverdue)}
+              </span>
+            )}
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Botón: Proveedores */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap">
           <Link
             href={`/workspace/${businessId}/proveedores`}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-all cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors shadow-2xs"
           >
-            <Building2 className="w-4 h-4 text-slate-500" />
+            <Building2 className="w-3.5 h-3.5 text-slate-500" />
             <span>Proveedores</span>
           </Link>
 
-          {/* Botón: Informe de compras */}
           <Link
             href={`/workspace/${businessId}/reportes?tab=purchases`}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-white dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-all cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-white dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors shadow-2xs"
           >
-            <FileText className="w-4 h-4 text-[#ED500A]" />
-            <span>Informe de compras</span>
+            <FileText className="w-3.5 h-3.5 text-[#ED500A]" />
+            <span>Informe</span>
           </Link>
 
-          {/* Botón: + Nueva compra */}
           <button
             type="button"
             onClick={() => setIsNewPurchaseOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer active:scale-98"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer active:scale-98"
           >
             <Plus className="w-4 h-4" />
             <span>+ Nueva compra</span>
@@ -300,126 +347,41 @@ export function InventoryPurchasesTab({
         </div>
       </div>
 
-      {/* SUB-NAVEGACIÓN ENTRE COMPRAS Y CUENTAS POR PAGAR */}
-      <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveModuleTab("purchases")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-            activeModuleTab === "purchases"
-              ? "bg-[#ED500A]/10 text-[#ED500A] dark:bg-[#ED500A]/20"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <ShoppingCart className="w-4 h-4 text-[#ED500A]" />
-          <span>Compras y Facturas</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveModuleTab("accounts_payable")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-            activeModuleTab === "accounts_payable"
-              ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold"
-              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-          }`}
-        >
-          <CreditCard className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <span>Cuentas por Pagar</span>
-          {kpis.dueTodayOrOverdue > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-3xs font-black bg-rose-500 text-white">
-              {formatCOP(kpis.dueTodayOrOverdue)}
-            </span>
-          )}
-        </button>
-      </div>
-
       {activeModuleTab === "accounts_payable" ? (
         <AccountsPayableTab businessId={businessId} />
       ) : (
         <>
-          {/* 2. KPIS DE COMPRAS: Comprado, De contado, A crédito, Por pagar hoy */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Comprado (Total y Nº de proveedores) */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Comprado
-                </span>
-                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <ShoppingCart className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="mt-2 text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                {formatCOP(kpis.totalPurchased)}
-              </p>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
-                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                  {kpis.uniqueSuppliersCount}{" "}
-                  {kpis.uniqueSuppliersCount === 1 ? "proveedor" : "proveedores"}
-                </span>
-                <span>•</span>
-                <span>
-                  {kpis.totalPurchasesCount}{" "}
-                  {kpis.totalPurchasesCount === 1 ? "compra" : "compras"}
-                </span>
-              </div>
-            </div>
-
-            {/* De contado (Pagado) */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  De contado
-                </span>
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <Banknote className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="mt-2 text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                {formatCOP(kpis.totalCash)}
-              </p>
-              <span className="mt-1 inline-block text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                Pagado de inmediato
-              </span>
-            </div>
-
-            {/* A crédito (Deuda pendiente) */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  A crédito
-                </span>
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  <CreditCard className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="mt-2 text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                {formatCOP(kpis.totalCredit)}
-              </p>
-              <span className="mt-1 inline-block text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                Financiadas por proveedores
-              </span>
-            </div>
-
-            {/* Por pagar hoy (Vencimientos del día) */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Por pagar hoy
-                </span>
-                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="mt-2 text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-                {formatCOP(kpis.dueTodayOrOverdue)}
-              </p>
-              <span className="mt-1 inline-block text-[11px] text-slate-400 font-medium">
-                Vencimientos del día o atrasados
-              </span>
-            </div>
-          </div>
+          {/* 2. KPIS DE COMPRAS NORMALIZADOS */}
+          <KpiGrid cols={4}>
+            <KpiCard
+              title="Comprado"
+              value={formatCOP(kpis.totalPurchased)}
+              subtext={`${kpis.uniqueSuppliersCount} ${kpis.uniqueSuppliersCount === 1 ? "proveedor" : "proveedores"} · ${kpis.totalPurchasesCount} compras`}
+              icon={<ShoppingCart className="w-5 h-5" />}
+              variant="blue"
+            />
+            <KpiCard
+              title="Total Pagado"
+              value={formatCOP(kpis.totalPaid || kpis.totalCash)}
+              subtext={`${kpis.paidPurchasesCount ?? 0} ${kpis.paidPurchasesCount === 1 ? "compra saldada" : "compras saldadas"}`}
+              icon={<Banknote className="w-5 h-5" />}
+              variant="emerald"
+            />
+            <KpiCard
+              title="Saldo Pendiente"
+              value={formatCOP(kpis.totalPendingBalance ?? kpis.totalCredit)}
+              subtext={`${kpis.pendingPurchasesCount ?? 0} ${kpis.pendingPurchasesCount === 1 ? "factura pendiente" : "facturas pendientes"}`}
+              icon={<CreditCard className="w-5 h-5" />}
+              variant={kpis.totalPendingBalance > 0 ? "amber" : "default"}
+            />
+            <KpiCard
+              title="Por pagar hoy"
+              value={formatCOP(kpis.dueTodayOrOverdue)}
+              subtext={kpis.dueTodayOrOverdue > 0 ? "Requiere pago urgente" : "Al día sin mora"}
+              icon={<AlertCircle className="w-5 h-5" />}
+              variant={kpis.dueTodayOrOverdue > 0 ? "red" : "default"}
+            />
+          </KpiGrid>
 
           {/* 3. FILTROS DE PERÍODO (ACCESOS RÁPIDOS Y RANGO DE FECHAS) */}
           <div className="space-y-3 p-4 rounded-2xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.06]">
@@ -448,7 +410,7 @@ export function InventoryPurchasesTab({
 
               {/* Selector de rango de fechas */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-xs shadow-2xs">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] border-slate-200/80 dark:border-white/10 text-xs">
                   <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="text-slate-400 text-2xs uppercase font-bold">
                     Desde:
@@ -461,7 +423,7 @@ export function InventoryPurchasesTab({
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-xs shadow-2xs">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] border-slate-200/80 dark:border-white/10 text-xs">
                   <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="text-slate-400 text-2xs uppercase font-bold">
                     Hasta:
@@ -488,36 +450,24 @@ export function InventoryPurchasesTab({
               </div>
             </div>
 
-            {/* 4. FILTROS ADICIONALES: Buscador, Proveedor, Medio de pago */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/[0.04]">
-              {/* Buscador (nº factura, proveedor o notas) */}
-              <div className="relative sm:col-span-2">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
+            {/* 4. FILTROS ADICIONALES */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-200/60 dark:border-white/[0.04]">
+              {/* Buscador */}
+              <div className="sm:col-span-2">
+                <SearchInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nº factura, proveedor o notas..."
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/30"
+                  onClear={() => setSearch("")}
+                  placeholder="Buscar por factura, proveedor o artículo..."
                 />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
               </div>
 
-              {/* Proveedor (desplegable) */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800">
-                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <select
+              {/* Proveedor */}
+              <div>
+                <Select
                   value={selectedSupplier}
                   onChange={(e) => setSelectedSupplier(e.target.value)}
-                  className="w-full text-xs bg-transparent border-none text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                  selectSize="sm"
                 >
                   <option value="all">Todos los proveedores</option>
                   {suppliers.map((s) => (
@@ -525,28 +475,52 @@ export function InventoryPurchasesTab({
                       {s.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
-              {/* Medio de pago (desplegable) */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-slate-800">
-                <Banknote className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full text-xs bg-transparent border-none text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+              {/* Estado de Pago */}
+              <div>
+                <Select
+                  value={paymentStatusFilter}
+                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                  selectSize="sm"
                 >
-                  <option value="all">Todos los medios de pago</option>
-                  <option value="cash">Efectivo</option>
-                  <option value="transfer">Transferencia bancaria</option>
-                  <option value="card">Tarjeta Débito/Crédito</option>
-                  <option value="other">Otro</option>
-                </select>
+                  <option value="all">Estado pago: Todos</option>
+                  <option value="paid">Pagadas</option>
+                  <option value="partially_paid">Abono Parcial</option>
+                  <option value="pending">Pendientes de Pago</option>
+                </Select>
+              </div>
+
+              {/* Estado de Compra */}
+              <div>
+                <Select
+                  value={purchaseStatusFilter}
+                  onChange={(e) => setPurchaseStatusFilter(e.target.value)}
+                  selectSize="sm"
+                >
+                  <option value="all">Estado compra: Todos</option>
+                  <option value="confirmed">Confirmadas</option>
+                  <option value="cancelled">Anuladas</option>
+                </Select>
+              </div>
+
+              {/* Condición / Tipo de Pago */}
+              <div>
+                <Select
+                  value={paymentTypeFilter}
+                  onChange={(e) => setPaymentTypeFilter(e.target.value)}
+                  selectSize="sm"
+                >
+                  <option value="all">Tipo: Contado / Crédito</option>
+                  <option value="cash">De Contado</option>
+                  <option value="credit">A Crédito</option>
+                </Select>
               </div>
             </div>
           </div>
 
-          {/* 5. FILTROS POR ESTADO DE PAGO: Todas, De contado, A crédito, Por pagar, Vencidas */}
+          {/* 5. FILTROS POR ESTADO DE PAGO (PESTAÑAS) */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 rounded-2xl bg-slate-100 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/[0.06]">
               {STATUS_TABS.map((tab) => (
@@ -577,7 +551,7 @@ export function InventoryPurchasesTab({
             )}
           </div>
 
-          {/* 6. LISTADO DE COMPRAS CON ESTADO VACÍO INFORMATIVO Y BOTÓN 'VER TODO' */}
+          {/* 6. LISTADO DE COMPRAS (TABLA CON 14 COLUMNAS EXIGIDAS) */}
           <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm">
             {isLoading ? (
               <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
@@ -601,7 +575,7 @@ export function InventoryPurchasesTab({
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                     {hasActiveFilters
-                      ? "Intenta modificar o restablecer los filtros de período, proveedor, medio o estado de pago para ver resultados."
+                      ? "Intenta modificar o restablecer los filtros de período, proveedor, tipo o estado para ver resultados."
                       : "Registra facturas de tus compras a proveedores para aumentar existencias automáticamente, recalcular el costo promedio ponderado y controlar tus cuentas por pagar."}
                   </p>
                 </div>
@@ -631,21 +605,27 @@ export function InventoryPurchasesTab({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-100 dark:border-white/[0.06] text-slate-500 font-semibold">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Compra</th>
-                      <th className="px-4 py-3 font-semibold">Fecha</th>
-                      <th className="px-4 py-3 font-semibold">Pago</th>
-                      <th className="px-4 py-3 font-semibold text-right">Valor ($)</th>
-                      <th className="px-4 py-3 font-semibold text-center">Saldo</th>
-                      <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Factura / Ref</th>
+                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Proveedor</th>
+                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Fecha Compra</th>
+                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Vencimiento</th>
+                      <th className="px-3 py-3 font-semibold text-center whitespace-nowrap">Líneas</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Subtotal</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Impuestos</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Retención</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Total</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Pagado</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Saldo</th>
+                      <th className="px-3.5 py-3 font-semibold text-center whitespace-nowrap">Estado Pago</th>
+                      <th className="px-3.5 py-3 font-semibold text-center whitespace-nowrap">Estado Compra</th>
+                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                     {filteredPurchases.map((purchase) => {
                       const isCredit = purchase.paymentType === "credit";
-                      const hasDebt =
-                        purchase.accountPayable &&
-                        purchase.accountPayable.balance > 0;
                       const isCancelled = purchase.status === "cancelled";
+                      const hasPending = (purchase.balance ?? 0) > 0 && !isCancelled;
 
                       return (
                         <tr
@@ -654,31 +634,44 @@ export function InventoryPurchasesTab({
                             isCancelled ? "opacity-60 bg-slate-50/30" : ""
                           }`}
                         >
-                          {/* 1. Compra (Proveedor y código COMP-XXXXX) */}
-                          <td className="px-4 py-3.5 whitespace-nowrap">
+                          {/* 1. Factura / Ref */}
+                          <td className="px-3.5 py-3 whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
-                              <span className="font-bold text-slate-900 dark:text-white">
+                              <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                                {purchase.purchaseNumber}
+                              </span>
+                              {purchase.invoiceNumber ? (
+                                <span className="font-mono text-slate-500 text-3xs">
+                                  Ref: {purchase.invoiceNumber}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-3xs capitalize">
+                                  {purchase.documentType || "Factura"}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 2. Proveedor */}
+                          <td className="px-3.5 py-3 whitespace-nowrap">
+                            <div className="flex flex-col gap-0.5 max-w-[170px]">
+                              <span className="font-bold text-slate-900 dark:text-white truncate">
                                 {purchase.supplierName || (
-                                  <span className="text-slate-400 italic">
+                                  <span className="text-slate-400 italic font-normal">
                                     Compra libre
                                   </span>
                                 )}
                               </span>
-                              <div className="flex items-center gap-1.5 text-2xs">
-                                <span className="font-mono font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 border border-slate-200/70 dark:border-white/[0.08]">
-                                  {purchase.purchaseNumber}
+                              {purchase.supplierTaxId && (
+                                <span className="text-3xs text-slate-400 font-mono">
+                                  NIT: {purchase.supplierTaxId}
                                 </span>
-                                {purchase.invoiceNumber && (
-                                  <span className="font-mono text-slate-400 text-3xs">
-                                    Fact: {purchase.invoiceNumber}
-                                  </span>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </td>
 
-                          {/* 2. Fecha */}
-                          <td className="px-4 py-3.5 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                          {/* 3. Fecha Compra */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
                             <span className="text-xs">
                               {new Date(purchase.purchaseDate).toLocaleDateString(
                                 "es-CO",
@@ -691,118 +684,142 @@ export function InventoryPurchasesTab({
                             </span>
                           </td>
 
-                          {/* 3. Pago (Badges compuestos: condición, medio y caja origen) */}
-                          <td className="px-4 py-3.5 whitespace-nowrap">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {/* Condición: De Contado / A Crédito */}
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                  isCredit
-                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                }`}
-                              >
-                                {isCredit ? "A Crédito" : "De Contado"}
+                          {/* 4. Vencimiento */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                            {purchase.dueDate ? (
+                              <span className="text-xs font-medium">
+                                {new Date(purchase.dueDate).toLocaleDateString(
+                                  "es-CO",
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )}
                               </span>
-
-                              {/* Medio de pago */}
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/[0.08] capitalize">
-                                {purchase.paymentMethod === "cash"
-                                  ? "Efectivo"
-                                  : purchase.paymentMethod === "transfer"
-                                  ? "Transferencia"
-                                  : purchase.paymentMethod === "card"
-                                  ? "Tarjeta"
-                                  : purchase.paymentMethod || "Otro"}
-                              </span>
-
-                              {/* Caja de origen si aplica egreso de caja */}
-                              {(purchase.deductFromCashRegister ||
-                                (!isCredit &&
-                                  purchase.paymentMethod === "cash")) && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                  <Store className="w-2.5 h-2.5" />
-                                  <span>
-                                    {purchase.cashRegisterName
-                                      ? `Salió de ${purchase.cashRegisterName}`
-                                      : "Salió de Caja Principal"}
-                                  </span>
-                                </span>
-                              )}
-                            </div>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
                           </td>
 
-                          {/* 4. Valor ($) */}
-                          <td className="px-4 py-3.5 whitespace-nowrap text-right font-mono font-bold text-slate-900 dark:text-white">
+                          {/* 5. Cantidad de artículos / Líneas */}
+                          <td className="px-3 py-3 whitespace-nowrap text-center">
+                            <span className="inline-block px-2 py-0.5 rounded-md font-mono text-2xs font-semibold bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300">
+                              {purchase.itemsCount || purchase.items?.length || 0}
+                            </span>
+                          </td>
+
+                          {/* 6. Subtotal */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono text-slate-700 dark:text-slate-300">
+                            {formatCOP(purchase.subtotal)}
+                          </td>
+
+                          {/* 7. Impuestos */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono text-slate-600 dark:text-slate-400">
+                            {purchase.taxAmount > 0 ? `+${formatCOP(purchase.taxAmount)}` : "$ 0"}
+                          </td>
+
+                          {/* 8. Retenciones */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono text-amber-600 dark:text-amber-400">
+                            {(purchase.retentionAmount ?? 0) > 0 ? `-${formatCOP(purchase.retentionAmount ?? 0)}` : "—"}
+                          </td>
+
+                          {/* 9. Total de la compra */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono font-black text-slate-900 dark:text-white">
                             {formatCOP(purchase.total)}
                           </td>
 
-                          {/* 5. Saldo (Pagada o saldo pendiente) */}
-                          <td className="px-4 py-3.5 whitespace-nowrap text-center">
+                          {/* 10. Total pagado */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCOP(purchase.paidAmount ?? 0)}
+                          </td>
+
+                          {/* 11. Saldo pendiente */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right font-mono">
+                            {hasPending ? (
+                              <span className="font-bold text-rose-600 dark:text-rose-400">
+                                {formatCOP(purchase.balance ?? 0)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-normal">$ 0</span>
+                            )}
+                          </td>
+
+                          {/* 12. Estado de pago (Badge claro y diferenciado) */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-center">
                             {isCancelled ? (
                               <span className="inline-block px-2.5 py-0.5 rounded-full text-2xs font-bold bg-slate-100 text-slate-500 dark:bg-white/[0.05] dark:text-slate-400">
                                 Anulada
                               </span>
-                            ) : !isCredit ||
-                              !purchase.accountPayable ||
-                              purchase.accountPayable.balance === 0 ? (
+                            ) : purchase.paymentStatus === "paid" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 <CheckCircle2 className="w-3 h-3" />
                                 <span>Pagada</span>
                               </span>
+                            ) : purchase.paymentStatus === "partially_paid" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <Clock className="w-3 h-3" />
+                                <span>Abono Parcial</span>
+                              </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                <span>
-                                  Saldo: {formatCOP(purchase.accountPayable.balance)}{" "}
-                                  pendiente
-                                </span>
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Pendiente</span>
                               </span>
                             )}
                           </td>
 
-                          {/* 6. Acciones (Ver detalle, Imprimir, Anular con modal) */}
-                          <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                          {/* 13. Estado de la compra */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-center">
+                            {isCancelled ? (
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-2xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                Anulada
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-2xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                Confirmada
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 14. Acciones */}
+                          <td className="px-3.5 py-3 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Abonar si tiene saldo pendiente */}
-                              {purchase.accountPayable &&
-                                purchase.accountPayable.balance > 0 &&
-                                !isCancelled && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
+                              {/* Abonar si tiene saldo pendiente y no está anulada */}
+                              {hasPending && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (purchase.accountPayable) {
                                       setAccountToPay({
-                                        ...purchase.accountPayable!,
-                                        amount:
-                                          purchase.accountPayable!.totalAmount,
+                                        ...purchase.accountPayable,
+                                        amount: purchase.accountPayable.totalAmount,
                                         supplierName: purchase.supplierName,
                                         purchaseNumber: purchase.purchaseNumber,
-                                        isOverdue:
-                                          purchase.accountPayable!.status ===
-                                          "overdue",
+                                        isOverdue: purchase.accountPayable.status === "overdue",
                                         daysUntilDue: 0,
                                       });
-                                    }}
-                                    title="Registrar abono a esta compra a crédito"
-                                    className="px-2 py-1 rounded-lg text-2xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <Banknote className="w-3.5 h-3.5" />
-                                    <span>Abonar</span>
-                                  </button>
-                                )}
+                                    }
+                                  }}
+                                  title="Registrar abono a esta compra"
+                                  className="px-2 py-1 rounded-lg text-2xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Banknote className="w-3.5 h-3.5" />
+                                  <span>Abonar</span>
+                                </button>
+                              )}
 
-                              {/* Ver detalle */}
+                              {/* Ver detalle completo */}
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setSelectedPurchaseDetails(purchase)
-                                }
+                                onClick={() => setSelectedPurchaseDetails(purchase)}
                                 title="Ver detalle de compra"
                                 className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
                               >
                                 <FileText className="w-4 h-4" />
                               </button>
 
-                              {/* Imprimir */}
+                              {/* Imprimir comprobante */}
                               <button
                                 type="button"
                                 onClick={() => setPurchaseToPrint(purchase)}
@@ -812,7 +829,7 @@ export function InventoryPurchasesTab({
                                 <Printer className="w-4 h-4" />
                               </button>
 
-                              {/* Anular */}
+                              {/* Anular compra si está activa */}
                               {!isCancelled && (
                                 <button
                                   type="button"
@@ -835,181 +852,37 @@ export function InventoryPurchasesTab({
           </div>
 
           {/* MODAL DETALLE DE COMPRA */}
-          {selectedPurchaseDetails && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
-                  <div>
-                    <span className="font-mono text-xs font-bold text-[#ED500A]">
-                      {selectedPurchaseDetails.purchaseNumber}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Detalle de Compra
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPurchaseDetails(null)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="p-6 space-y-4 overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-slate-400">Proveedor:</span>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {selectedPurchaseDetails.supplierName || "Compra libre"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Nº Factura:</span>
-                      <p className="font-semibold text-slate-900 dark:text-white font-mono">
-                        {selectedPurchaseDetails.invoiceNumber || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Fecha de compra:</span>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {new Date(
-                          selectedPurchaseDetails.purchaseDate
-                        ).toLocaleDateString("es-CO", {
-                          dateStyle: "medium",
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Tipo de Pago:</span>
-                      <p className="font-semibold text-slate-900 dark:text-white capitalize">
-                        {selectedPurchaseDetails.paymentType === "credit"
-                          ? "A Crédito"
-                          : "Contado"}{" "}
-                        ({selectedPurchaseDetails.paymentMethod})
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedPurchaseDetails.notes && (
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.06] text-xs">
-                      <span className="text-slate-400 font-medium">Notas:</span>
-                      <p className="text-slate-700 dark:text-slate-300 mt-0.5">
-                        {selectedPurchaseDetails.notes}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Cuentas por pagar asociada si aplica */}
-                  {selectedPurchaseDetails.accountPayable && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-                      <div className="flex justify-between font-bold text-amber-700 dark:text-amber-400">
-                        <span>Estado de Cuenta por Pagar:</span>
-                        <span className="capitalize">
-                          {selectedPurchaseDetails.accountPayable.status}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                        <span>Saldo pendiente:</span>
-                        <span className="font-bold text-rose-600">
-                          {formatCOP(
-                            selectedPurchaseDetails.accountPayable.balance
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-slate-500 text-3xs">
-                        <span>Vencimiento:</span>
-                        <span>
-                          {new Date(
-                            selectedPurchaseDetails.accountPayable.dueDate
-                          ).toLocaleDateString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Desglose de ítems */}
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Artículos Adquiridos (
-                      {selectedPurchaseDetails.items?.length || 0})
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedPurchaseDetails.items?.map((it) => (
-                        <div
-                          key={it.id}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-xs"
-                        >
-                          <div>
-                            <p className="font-bold text-slate-900 dark:text-white">
-                              {it.itemName}
-                            </p>
-                            <span className="text-[11px] text-slate-400">
-                              {it.quantity} x {formatCOP(it.unitCost)}{" "}
-                              {it.isInventoryItem
-                                ? "(Ingresó a inventario)"
-                                : "(Gasto libre)"}
-                            </span>
-                          </div>
-                          <span className="font-bold text-slate-900 dark:text-white">
-                            {formatCOP(it.totalCost)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] space-y-1.5 text-xs">
-                    <div className="flex justify-between text-slate-500">
-                      <span>Subtotal:</span>
-                      <span>{formatCOP(selectedPurchaseDetails.subtotal)}</span>
-                    </div>
-                    {selectedPurchaseDetails.taxAmount > 0 && (
-                      <div className="flex justify-between text-slate-500">
-                        <span>IVA:</span>
-                        <span>
-                          +{formatCOP(selectedPurchaseDetails.taxAmount)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-bold text-slate-900 dark:text-white text-sm pt-2 border-t">
-                      <span>Total Facturado:</span>
-                      <span className="text-[#ED500A]">
-                        {formatCOP(selectedPurchaseDetails.total)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const p = selectedPurchaseDetails;
-                      setSelectedPurchaseDetails(null);
-                      setPurchaseToPrint(p);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ED500A]/10 text-[#ED500A] hover:bg-[#ED500A]/20 transition-colors cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Imprimir comprobante</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPurchaseDetails(null)}
-                    className="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-200 dark:bg-white/[0.1] text-slate-700 dark:text-white hover:bg-slate-300 transition-colors cursor-pointer"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <PurchaseDetailModal
+            businessId={businessId}
+            purchase={selectedPurchaseDetails}
+            isOpen={Boolean(selectedPurchaseDetails)}
+            onClose={() => setSelectedPurchaseDetails(null)}
+            onOpenPayment={(p) => {
+              if (p.accountPayable) {
+                setAccountToPay({
+                  ...p.accountPayable,
+                  amount: p.accountPayable.totalAmount,
+                  supplierName: p.supplierName,
+                  purchaseNumber: p.purchaseNumber,
+                  isOverdue: p.accountPayable.status === "overdue",
+                  daysUntilDue: 0,
+                });
+              }
+            }}
+            onRequestCancel={(p) => {
+              setSelectedPurchaseDetails(null);
+              setPurchaseToCancel(p);
+            }}
+            onPrint={(p) => {
+              setSelectedPurchaseDetails(null);
+              setPurchaseToPrint(p);
+            }}
+          />
 
           {/* MODAL IMPRIMIR COMPROBANTE DE COMPRA */}
           {purchaseToPrint && (
             <ModalPortal>
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                   {/* Encabezado del modal */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
@@ -1247,20 +1120,111 @@ export function InventoryPurchasesTab({
             initialProductId={initialProductId}
           />
 
-          {/* MODAL DE CONFIRMACIÓN DE ANULACIÓN */}
-          <ConfirmModal
-            isOpen={Boolean(purchaseToCancel)}
-            onClose={() => setPurchaseToCancel(null)}
-            onConfirm={handleConfirmCancel}
-            title="¿Anular esta compra?"
-            description={`Se anulará ${purchaseToCancel?.purchaseNumber} (${formatCOP(
-              purchaseToCancel?.total || 0
-            )}). Las existencias ingresadas se revertirán automáticamente del inventario y la cuenta por pagar será cancelada.`}
-            confirmText="Sí, anular compra"
-            cancelText="Conservar compra"
-            variant="danger"
-            isLoading={isCancelling}
-          />
+          {/* MODAL DE ANULACIÓN CON MOTIVO Y ADVERTENCIAS */}
+          {purchaseToCancel && (
+            <ModalPortal>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                  {/* Encabezado */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/[0.06] bg-rose-50/50 dark:bg-rose-950/20">
+                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                      <div className="p-2 rounded-xl bg-rose-100 dark:bg-rose-900/40">
+                        <Ban className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                          Anular Compra
+                        </h3>
+                        <p className="text-2xs font-mono text-slate-500">
+                          {purchaseToCancel.purchaseNumber}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurchaseToCancel(null);
+                        setCancellationReason("");
+                      }}
+                      disabled={isCancelling}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Contenido */}
+                  <div className="p-6 space-y-4">
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Consecuencias de la anulación</span>
+                      </div>
+                      <ul className="list-disc list-inside space-y-1 text-2xs pl-1 text-rose-600/90 dark:text-rose-300/90">
+                        <li>Se generará una salida de inventario para revertir existencias.</li>
+                        <li>Si fue compra de contado en caja activa, se reintegrará el egreso.</li>
+                        <li>La cuenta por pagar asociada quedará cancelada.</li>
+                        <li>Esta acción no se puede deshacer.</li>
+                      </ul>
+                    </div>
+
+                    <div className="text-xs space-y-1">
+                      <span className="text-slate-500 dark:text-slate-400">Total de la compra:</span>
+                      <p className="text-base font-black text-slate-900 dark:text-white font-mono">
+                        {formatCOP(purchaseToCancel.total)}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Motivo de anulación <span className="text-slate-400 font-normal">(opcional)</span>
+                      </label>
+                      <textarea
+                        value={cancellationReason}
+                        onChange={(e) => setCancellationReason(e.target.value)}
+                        placeholder="Ej: Factura digitada por error, devolución al proveedor, etc."
+                        rows={3}
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] focus:border-[#ED500A] focus:outline-none transition-colors resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="p-4 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurchaseToCancel(null);
+                        setCancellationReason("");
+                      }}
+                      disabled={isCancelling}
+                      className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-white/[0.1] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                    >
+                      Conservar compra
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCancel}
+                      disabled={isCancelling}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Anulando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="w-4 h-4" />
+                          <span>Sí, anular compra</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </ModalPortal>
+          )}
         </>
       )}
 

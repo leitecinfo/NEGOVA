@@ -33,8 +33,12 @@ import { CustomerLoyaltyAccount, LoyaltyTransaction } from "@/lib/loyalty/types"
 import { adjustCustomerLoyaltyPointsAction } from "../loyalty-actions";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { Button, IconButton } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Tabs, Pagination } from "@/components/ui";
 import { CustomerDetailView } from "@/lib/customers/types";
 import { CustomerModal } from "@/components/customers/customer-modal";
 import {
@@ -537,74 +541,67 @@ export function CustomerDetailClient({
           <div className="lg:col-span-2 space-y-4">
             {/* Selector de Pestañas con diseño oficial NEGOVA */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 shrink-0">
-                <button
-                  onClick={() => {
-                    setActiveTab("orders");
-                    setOrdersPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
-                    activeTab === "orders"
-                      ? "bg-[#ED500A] text-white font-semibold shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Historial de Pedidos ({customer.recentOrders.length})</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab("sales");
-                    setSalesPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
-                    activeTab === "sales"
-                      ? "bg-[#ED500A] text-white font-semibold shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  <span>Comprobantes de Venta ({customer.recentSales.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("loyalty")}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
-                    activeTab === "loyalty"
-                      ? "bg-[#ED500A] text-white font-semibold shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <Award className="w-3.5 h-3.5" />
-                  <span>
-                    Puntos de Fidelización ({loyaltyAccount.pointsBalance} pts)
-                  </span>
-                </button>
-              </div>
+              <Tabs
+                tabs={[
+                  {
+                    id: "orders",
+                    label: "Historial de Pedidos",
+                    icon: <ShoppingBag className="w-3.5 h-3.5" />,
+                    count: customer.recentOrders.length,
+                  },
+                  {
+                    id: "sales",
+                    label: "Comprobantes de Venta",
+                    icon: <Receipt className="w-3.5 h-3.5" />,
+                    count: customer.recentSales.length,
+                  },
+                  {
+                    id: "loyalty",
+                    label: "Puntos de Fidelización",
+                    icon: <Award className="w-3.5 h-3.5" />,
+                    badge: (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-[#ED500A]/10 text-[#ED500A]">
+                        {loyaltyAccount.pointsBalance} pts
+                      </span>
+                    ),
+                  },
+                ]}
+                activeTab={activeTab}
+                onChange={(id) => {
+                  const tabId = id as "orders" | "sales" | "loyalty";
+                  setActiveTab(tabId);
+                  if (tabId === "orders") setOrdersPage(1);
+                  if (tabId === "sales") setSalesPage(1);
+                }}
+                size="sm"
+              />
 
               {/* Filtro y buscador contextual según la pestaña activa */}
               {activeTab === "orders" ? (
                 <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
+                  <div className="w-56">
+                    <SearchInput
+                      inputSize="sm"
                       placeholder="Buscar por # o detalle..."
                       value={ordersSearch}
                       onChange={(e) => {
                         setOrdersSearch(e.target.value);
                         setOrdersPage(1);
                       }}
-                      className="h-8 pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                      onClear={() => {
+                        setOrdersSearch("");
+                        setOrdersPage(1);
+                      }}
                     />
                   </div>
 
-                  <select
+                  <Select
+                    selectSize="sm"
                     value={ordersFilterStatus}
                     onChange={(e) => {
                       setOrdersFilterStatus(e.target.value);
                       setOrdersPage(1);
                     }}
-                    className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-xs text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                   >
                     <option value="all">Todos los estados</option>
                     <option value="received">Recibidos</option>
@@ -612,38 +609,40 @@ export function CustomerDetailClient({
                     <option value="ready">Listos</option>
                     <option value="delivered">Entregados</option>
                     <option value="cancelled">Cancelados</option>
-                  </select>
+                  </Select>
                 </div>
               ) : activeTab === "sales" ? (
                 <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
+                  <div className="w-56">
+                    <SearchInput
+                      inputSize="sm"
                       placeholder="Buscar # factura o medio..."
                       value={salesSearch}
                       onChange={(e) => {
                         setSalesSearch(e.target.value);
                         setSalesPage(1);
                       }}
-                      className="h-8 pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
+                      onClear={() => {
+                        setSalesSearch("");
+                        setSalesPage(1);
+                      }}
                     />
                   </div>
 
-                  <select
+                  <Select
+                    selectSize="sm"
                     value={salesFilterStatus}
                     onChange={(e) => {
                       setSalesFilterStatus(e.target.value);
                       setSalesPage(1);
                     }}
-                    className="h-8 px-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-xs text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
                   >
                     <option value="all">Todos los estados</option>
                     <option value="completed">Completada</option>
                     <option value="paid">Pagada</option>
                     <option value="pending">Pendiente</option>
                     <option value="cancelled">Cancelada</option>
-                  </select>
+                  </Select>
                 </div>
               ) : null}
             </div>
@@ -726,50 +725,20 @@ export function CustomerDetailClient({
                     </div>
 
                     {/* Barra de Paginación para Pedidos */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.01] text-xs text-slate-500">
-                      <span>
-                        Mostrando {(ordersPage - 1) * ordersPageSize + 1} a{" "}
-                        {Math.min(ordersPage * ordersPageSize, filteredOrders.length)} de{" "}
-                        {filteredOrders.length} pedidos
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={ordersPageSize}
-                          onChange={(e) => {
-                            setOrdersPageSize(Number(e.target.value));
-                            setOrdersPage(1);
-                          }}
-                          className="h-7 px-1.5 rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-[11px]"
-                        >
-                          <option value={5}>5 / pág</option>
-                          <option value={10}>10 / pág</option>
-                          <option value={20}>20 / pág</option>
-                        </select>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
-                            disabled={ordersPage <= 1}
-                            className="p-1 rounded-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Página anterior"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="font-mono text-slate-800 dark:text-slate-200 text-xs px-1">
-                            {ordersPage} / {totalOrdersPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setOrdersPage((p) => Math.min(totalOrdersPages, p + 1))}
-                            disabled={ordersPage >= totalOrdersPages}
-                            className="p-1 rounded-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Página siguiente"
-                          >
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                    <div className="p-3 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.01]">
+                      <Pagination
+                        currentPage={ordersPage}
+                        totalPages={totalOrdersPages}
+                        totalCount={filteredOrders.length}
+                        pageSize={ordersPageSize}
+                        pageSizeOptions={[5, 10, 20]}
+                        onPageSizeChange={(newSize) => {
+                          setOrdersPageSize(newSize);
+                          setOrdersPage(1);
+                        }}
+                        onPageChange={(p) => setOrdersPage(p)}
+                        itemLabel="pedidos"
+                      />
                     </div>
                   </>
                 )}
@@ -848,50 +817,20 @@ export function CustomerDetailClient({
                     </div>
 
                     {/* Barra de Paginación para Ventas */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.01] text-xs text-slate-500">
-                      <span>
-                        Mostrando {(salesPage - 1) * salesPageSize + 1} a{" "}
-                        {Math.min(salesPage * salesPageSize, filteredSales.length)} de{" "}
-                        {filteredSales.length} comprobantes
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={salesPageSize}
-                          onChange={(e) => {
-                            setSalesPageSize(Number(e.target.value));
-                            setSalesPage(1);
-                          }}
-                          className="h-7 px-1.5 rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0D0F16] text-[11px]"
-                        >
-                          <option value={5}>5 / pág</option>
-                          <option value={10}>10 / pág</option>
-                          <option value={20}>20 / pág</option>
-                        </select>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setSalesPage((p) => Math.max(1, p - 1))}
-                            disabled={salesPage <= 1}
-                            className="p-1 rounded-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Página anterior"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="font-mono text-slate-800 dark:text-slate-200 text-xs px-1">
-                            {salesPage} / {totalSalesPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setSalesPage((p) => Math.min(totalSalesPages, p + 1))}
-                            disabled={salesPage >= totalSalesPages}
-                            className="p-1 rounded-md border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Página siguiente"
-                          >
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                    <div className="p-3 border-t border-slate-100 dark:border-white/[0.06] bg-slate-50/40 dark:bg-white/[0.01]">
+                      <Pagination
+                        currentPage={salesPage}
+                        totalPages={totalSalesPages}
+                        totalCount={filteredSales.length}
+                        pageSize={salesPageSize}
+                        pageSizeOptions={[5, 10, 20]}
+                        onPageSizeChange={(newSize) => {
+                          setSalesPageSize(newSize);
+                          setSalesPage(1);
+                        }}
+                        onPageChange={(p) => setSalesPage(p)}
+                        itemLabel="comprobantes"
+                      />
                     </div>
                   </>
                 )}
@@ -914,7 +853,7 @@ export function CustomerDetailClient({
       {/* Modal Agregar Dirección */}
       {isAddAddressOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div
               role="dialog"
               aria-modal="true"
@@ -925,44 +864,29 @@ export function CustomerDetailClient({
               </h4>
 
               <form onSubmit={handleAddAddress} className="space-y-3 text-xs">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Etiqueta (Ej. Casa, Trabajo, Pareja)
-                  </label>
-                  <input
-                    type="text"
-                    value={newAddressLabel}
-                    onChange={(e) => setNewAddressLabel(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                  />
-                </div>
+                <Input
+                  label="Etiqueta (Ej. Casa, Trabajo, Pareja)"
+                  inputSize="sm"
+                  value={newAddressLabel}
+                  onChange={(e) => setNewAddressLabel(e.target.value)}
+                />
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Dirección completa <span className="text-[#ED500A]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej. Calle 45 # 23-10"
-                    value={newAddressLine}
-                    onChange={(e) => setNewAddressLine(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                  />
-                </div>
+                <Input
+                  label="Dirección completa *"
+                  inputSize="sm"
+                  required
+                  placeholder="Ej. Calle 45 # 23-10"
+                  value={newAddressLine}
+                  onChange={(e) => setNewAddressLine(e.target.value)}
+                />
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Referencia / Indicaciones
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Apto 401, edificio azul"
-                    value={newAddressReference}
-                    onChange={(e) => setNewAddressReference(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                  />
-                </div>
+                <Input
+                  label="Referencia / Indicaciones"
+                  inputSize="sm"
+                  placeholder="Ej. Apto 401, edificio azul"
+                  value={newAddressReference}
+                  onChange={(e) => setNewAddressReference(e.target.value)}
+                />
 
                 <div className="flex items-center gap-2 pt-1">
                   <input
@@ -1006,7 +930,7 @@ export function CustomerDetailClient({
       {/* Modal Ajuste Manual de Puntos [FID-001] */}
       {isAdjustPointsModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
             <div
               role="dialog"
               aria-modal="true"
@@ -1027,35 +951,27 @@ export function CustomerDetailClient({
               </div>
 
               <form onSubmit={handleAdjustPointsSubmit} className="space-y-3 text-xs">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Puntos (+ para sumar, - para restar) <span className="text-[#ED500A]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    required
-                    placeholder="Ej. 100 o -50"
-                    value={adjustPointsDelta}
-                    onChange={(e) => setAdjustPointsDelta(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 font-mono focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                  />
-                </div>
+                <Input
+                  label="Puntos (+ para sumar, - para restar) *"
+                  type="number"
+                  step="1"
+                  required
+                  placeholder="Ej. 100 o -50"
+                  value={adjustPointsDelta}
+                  onChange={(e) => setAdjustPointsDelta(e.target.value)}
+                  className="font-mono"
+                  inputSize="sm"
+                />
 
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    Motivo del ajuste <span className="text-[#ED500A]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    minLength={5}
-                    placeholder="Ej. Bonificación cortesía por aniversario"
-                    value={adjustPointsReason}
-                    onChange={(e) => setAdjustPointsReason(e.target.value)}
-                    className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.03] text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A]"
-                  />
-                </div>
+                <Input
+                  label="Motivo del ajuste *"
+                  required
+                  minLength={5}
+                  placeholder="Ej. Bonificación cortesía por aniversario"
+                  value={adjustPointsReason}
+                  onChange={(e) => setAdjustPointsReason(e.target.value)}
+                  inputSize="sm"
+                />
 
                 <div className="pt-2 flex items-center justify-end gap-2">
                   <Button

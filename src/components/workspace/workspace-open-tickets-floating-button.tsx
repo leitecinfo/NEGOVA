@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   OpenTicketDetails,
   OpenTicketsSummary,
@@ -360,7 +362,7 @@ export function WorkspaceOpenTicketsFloatingButton({
       {/* DRAWER LATERAL DE TICKETS ABIERTOS */}
       {isOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-[9989] bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-[9989] bg-black/75 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsOpen(false)} />
 
           <aside
             aria-label="Panel de tickets abiertos"
@@ -494,57 +496,57 @@ export function WorkspaceOpenTicketsFloatingButton({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-1">Origen</label>
-                    <select
+                    <Select
+                      selectSize="sm"
                       value={originFilter}
                       onChange={(e) => setOriginFilter(e.target.value)}
-                      className="w-full p-1.5 rounded-lg bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white text-xs"
                     >
                       <option value="all">Todos los orígenes</option>
                       <option value="pos">POS</option>
                       <option value="tables">Mesas</option>
                       <option value="whatsapp">WhatsApp</option>
                       <option value="digital_menu">Menú QR</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-1">Estado</label>
-                    <select
+                    <Select
+                      selectSize="sm"
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full p-1.5 rounded-lg bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white text-xs"
                     >
                       <option value="all">Todos los estados</option>
                       <option value="received">Recibido</option>
                       <option value="in_preparation">En preparación</option>
                       <option value="ready">Listo</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-1">Servicio</label>
-                    <select
+                    <Select
+                      selectSize="sm"
                       value={serviceFilter}
                       onChange={(e) => setServiceFilter(e.target.value)}
-                      className="w-full p-1.5 rounded-lg bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white text-xs"
                     >
                       <option value="all">Todos los servicios</option>
                       <option value="dine_in">Comer aquí</option>
                       <option value="takeout">Para llevar</option>
                       <option value="delivery">A domicilio</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-1">Ordenar por</label>
-                    <select
+                    <Select
+                      selectSize="sm"
                       value={sortOrder}
                       onChange={(e) => setSortOrder(e.target.value as any)}
-                      className="w-full p-1.5 rounded-lg bg-white dark:bg-[#131620] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white text-xs"
                     >
                       <option value="newest">Más recientes</option>
                       <option value="oldest">Más antiguos</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
               </div>

@@ -10,7 +10,8 @@ export type ButtonVariant =
   | "outline"
   | "ghost"
   | "destructive"
-  | "success";
+  | "success"
+  | "warning";
 
 export type ButtonSize = "sm" | "md" | "lg";
 
@@ -22,6 +23,7 @@ export interface ButtonProps
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   href?: string;
+  fullWidth?: boolean;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -37,6 +39,8 @@ const variantStyles: Record<ButtonVariant, string> = {
     "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-xs border border-transparent",
   success:
     "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-xs border border-transparent",
+  warning:
+    "bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 shadow-xs border border-transparent",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -54,6 +58,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       leftIcon,
       rightIcon,
       href,
+      fullWidth = false,
       children,
       disabled,
       className = "",
@@ -62,7 +67,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const baseClasses = `inline-flex items-center justify-center font-body transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+    const baseClasses = `inline-flex items-center justify-center font-body transition-all select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+      fullWidth ? "w-full" : ""
+    } ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
 
     if (href && !disabled) {
       return (

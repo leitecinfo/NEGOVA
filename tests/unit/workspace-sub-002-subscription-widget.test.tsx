@@ -38,8 +38,8 @@ describe("[SUB-002] Widget de plan y límites en UI (Sidebar y Configuración)",
     expect(html).toContain("Productos");
     expect(html).toContain("45 / 500 (9%)");
 
-    // Barra de Empleados: 8 / 15 (53%)
-    expect(html).toContain("Empleados");
+    // Barra de Usuarios: 8 / 15 (53%)
+    expect(html).toContain("Usuarios");
     expect(html).toContain("8 / 15 (53%)");
 
     // Enlace Mejorar plan
@@ -47,7 +47,7 @@ describe("[SUB-002] Widget de plan y límites en UI (Sidebar y Configuración)",
     expect(html).toContain('href="/workspace/biz-123/configuracion?tab=mi-negocio"');
   });
 
-  it("cambia a color de advertencia (amarillo/ámbar) y muestra badge de 80%+ cuando se alcanza el 80% del límite", () => {
+  it("cambia a color de advertencia (amarillo/ámbar) en la barra cuando se alcanza el 80% del límite sin alarmar la cabecera", () => {
     const html = renderToStaticMarkup(
       <WorkspaceSidebarSubscriptionWidget
         businessId="biz-warning"
@@ -68,10 +68,11 @@ describe("[SUB-002] Widget de plan y límites en UI (Sidebar y Configuración)",
       />
     );
 
-    // Barra en amarillo / ámbar
+    // Barra en amarillo / ámbar para el recurso al 80%
     expect(html).toContain("bg-amber-500");
-    // Badge de alerta en cabecera
-    expect(html).toContain("80%+ límite");
+    // Cabecera mantiene estado habitual Activo y no alarma global falsa
+    expect(html).toContain("Activo");
+    expect(html).not.toContain("Límite alcanzado");
   });
 
   it("cambia a color rojo y muestra 'Límite alcanzado' cuando se alcanza el 100% de un recurso", () => {
@@ -124,8 +125,8 @@ describe("[SUB-002] Widget de plan y límites en UI (Sidebar y Configuración)",
 
     // Tooltip de productos
     expect(html).toContain('title="Productos: 45 de 500 usados (9%). Te quedan 455 disponibles."');
-    // Tooltip de empleados
-    expect(html).toContain('title="Empleados: 8 de 15 usados (53%). Te quedan 7 disponibles."');
+    // Tooltip de usuarios
+    expect(html).toContain('title="Usuarios: 8 de 15 usados (53%). Te quedan 7 disponibles."');
   });
 
   it("renderiza correctamente en modo colapsado para el sidebar", () => {

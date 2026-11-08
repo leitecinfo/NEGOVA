@@ -7,10 +7,8 @@ import {
   ModifierGroupKPIs,
   ModifierOption,
   ModifierStatus,
-  UpdateModifierGroupInput,
 } from "@/lib/modifiers/types";
 import { Category, Product } from "@/lib/products/types";
-import { formatCOP } from "@/lib/pos/types";
 import {
   addModifierOptionAction,
   createModifierGroupAction,
@@ -25,30 +23,24 @@ import {
 import { ModifierGroupModal } from "./modifier-group-modal";
 import { ModifierOptionModal } from "./modifier-option-modal";
 import { SingleModifierModal } from "./single-modifier-modal";
+import { ModifierGroupDetailModal } from "./modifier-group-detail-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button, Badge, KpiCard, SearchInput, Select } from "@/components/ui";
+import { DataTable, DataTableColumn } from "@/components/ui/data-table";
 import {
   Layers,
   Sparkles,
-  Plus,
   Search,
-  X,
-  ChevronDown,
   ChevronRight,
   Pencil,
   Trash2,
   Power,
   RotateCcw,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
   Package,
-  SlidersHorizontal,
-  Check,
-  FolderTree,
-  Loader2,
+  Eye,
   Tag,
-  CheckSquare,
   ArrowRightLeft,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -78,10 +70,14 @@ export function ModifierGroupsTab({
   const [typeFilter, setTypeFilter] = useState<"all" | "single" | "multiple">("all");
   const [commercialTypeFilter, setCommercialTypeFilter] = useState<"all" | "additional" | "replacement">("all");
 
-  // Estado del acordeón (qué grupos están expandidos)
-  const [expandedGroupIds, setExpandedGroupIds] = useState<Record<string, boolean>>({});
+  // Paginación Canónica
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // Modales
+  // Modal de Detalle al hacer clic en una fila
+  const [selectedDetailGroup, setSelectedDetailGroup] = useState<ModifierGroup | null>(null);
+
+  // Modales de Creación y Edición
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ModifierGroup | null>(null);
 
@@ -99,7 +95,7 @@ export function ModifierGroupsTab({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Cargar datos
-  const loadData = async () => {
+  const loadData = async (keepDetailId?: string) => {
     try {
       setIsLoading(true);
       const res = await getModifierGroupsAction(businessId);
@@ -107,9 +103,11 @@ export function ModifierGroupsTab({
         setGroups(res.data.groups);
         setKpis(res.data.kpis);
 
-        // Expandir por defecto el primer grupo si hay datos
-        if (res.data.groups.length > 0 && Object.keys(expandedGroupIds).length === 0) {
-          setExpandedGroupIds({ [res.data.groups[0].id]: true });
+        // Mantener sincronizado el grupo en vista de detalle si está abierto
+        const activeDetailId = keepDetailId || selectedDetailGroup?.id;
+        if (activeDetailId) {
+          const freshGroup = res.data.groups.find((g) => g.id === activeDetailId);
+          setSelectedDetailGroup(freshGroup || null);
         }
       } else {
         toast.error(res.error || "Error al cargar grupos de modificadores");
@@ -124,26 +122,6 @@ export function ModifierGroupsTab({
   useEffect(() => {
     loadData();
   }, [businessId]);
-
-  // Manejo de acordeón
-  const toggleGroupAccordion = (groupId: string) => {
-    setExpandedGroupIds((prev) => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }));
-  };
-
-  const expandAll = () => {
-    const all: Record<string, boolean> = {};
-    groups.forEach((g) => {
-      all[g.id] = true;
-    });
-    setExpandedGroupIds(all);
-  };
-
-  const collapseAll = () => {
-    setExpandedGroupIds({});
-  };
 
   // Filtrado reactivo por nombre de grupo o nombre de cualquiera de sus opciones
   const filteredGroups = useMemo(() => {
@@ -181,6 +159,18 @@ export function ModifierGroupsTab({
     });
   }, [groups, search, statusFilter, requiredFilter, typeFilter, commercialTypeFilter]);
 
+  // Restablecer a página 1 al filtrar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, requiredFilter, typeFilter, commercialTypeFilter]);
+
+  // Segmentación para paginación
+  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / pageSize));
+  const paginatedGroups = useMemo(() => {
+    const from = (currentPage - 1) * pageSize;
+    return filteredGroups.slice(from, from + pageSize);
+  }, [filteredGroups, currentPage, pageSize]);
+
   const hasActiveFilters =
     search.trim() !== "" ||
     statusFilter !== "all" ||
@@ -206,7 +196,7 @@ export function ModifierGroupsTab({
       const res = await unassignProductFromGroupAction(businessId, groupId, productId);
       if (res.success) {
         toast.success(`Producto «${productName}» retirado del grupo`);
-        await loadData();
+        await loadData(groupId);
       } else {
         toast.error(res.error || "No se pudo retirar el producto del grupo");
       }
@@ -221,7 +211,7 @@ export function ModifierGroupsTab({
       const res = await updateModifierGroupAction(businessId, editingGroup.id, data);
       if (res.success) {
         toast.success("Grupo de modificadores actualizado correctamente");
-        await loadData();
+        await loadData(editingGroup.id);
       } else {
         throw new Error(res.error || "No se pudo actualizar el grupo");
       }
@@ -229,8 +219,7 @@ export function ModifierGroupsTab({
       const res = await createModifierGroupAction(businessId, data);
       if (res.success && res.data) {
         toast.success("Grupo de modificadores creado correctamente");
-        setExpandedGroupIds((prev) => ({ ...prev, [res.data!.id]: true }));
-        await loadData();
+        await loadData(res.data.id);
       } else {
         throw new Error(res.error || "No se pudo crear el grupo");
       }
@@ -243,16 +232,19 @@ export function ModifierGroupsTab({
       const res = await updateModifierGroupAction(businessId, editingSingleModifier.id, data);
       if (res.success) {
         toast.success("Modificador actualizado correctamente");
-        await loadData();
+        await loadData(editingSingleModifier.id);
       } else {
         throw new Error(res.error || "No se pudo actualizar el modificador");
       }
     } else {
       const res = await createModifierGroupAction(businessId, data);
       if (res.success && res.data) {
-        toast.success(data.product_ids && data.product_ids.length > 0 ? "Modificador creado y asignado a productos" : "Modificador creado correctamente");
-        setExpandedGroupIds((prev) => ({ ...prev, [res.data!.id]: true }));
-        await loadData();
+        toast.success(
+          data.product_ids && data.product_ids.length > 0
+            ? "Modificador creado y asignado a productos"
+            : "Modificador creado correctamente"
+        );
+        await loadData(res.data.id);
       } else {
         throw new Error(res.error || "No se pudo crear el modificador");
       }
@@ -273,6 +265,9 @@ export function ModifierGroupsTab({
       const res = await deleteModifierGroupAction(businessId, groupToDelete.id);
       if (res.success) {
         toast.success(`Grupo «${groupToDelete.name}» eliminado`);
+        if (selectedDetailGroup?.id === groupToDelete.id) {
+          setSelectedDetailGroup(null);
+        }
         setGroupToDelete(null);
         await loadData();
       } else {
@@ -296,7 +291,7 @@ export function ModifierGroupsTab({
             ? `Grupo «${group.name}» activado`
             : `Grupo «${group.name}» pausado`
         );
-        await loadData();
+        await loadData(group.id);
       } else {
         toast.error(res.error || "Error al cambiar estado");
       }
@@ -317,7 +312,7 @@ export function ModifierGroupsTab({
       const res = await updateModifierOptionAction(businessId, editingOption.id, data);
       if (res.success) {
         toast.success("Opción actualizada");
-        await loadData();
+        await loadData(targetGroupId);
       } else {
         throw new Error(res.error || "Error al actualizar opción");
       }
@@ -325,7 +320,7 @@ export function ModifierGroupsTab({
       const res = await addModifierOptionAction(businessId, targetGroupId, data);
       if (res.success) {
         toast.success("Opción agregada al grupo");
-        await loadData();
+        await loadData(targetGroupId);
       } else {
         throw new Error(res.error || "Error al agregar opción");
       }
@@ -345,7 +340,7 @@ export function ModifierGroupsTab({
             ? `Opción «${opt.name}» activada`
             : `Opción «${opt.name}» pausada`
         );
-        await loadData();
+        await loadData(selectedDetailGroup?.id);
       } else {
         toast.error(res.error || "Error al actualizar estado");
       }
@@ -363,7 +358,7 @@ export function ModifierGroupsTab({
       if (res.success) {
         toast.success(`Opción «${optionToDelete.name}» eliminada`);
         setOptionToDelete(null);
-        await loadData();
+        await loadData(selectedDetailGroup?.id);
       } else {
         toast.error(res.error || "Error al eliminar la opción");
       }
@@ -372,6 +367,246 @@ export function ModifierGroupsTab({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Definición de Columnas de la Tabla Canónica
+  const columns: DataTableColumn<ModifierGroup>[] = [
+    {
+      header: "Modificador / Grupo",
+      accessor: "name",
+      render: (group) => {
+        const isSingleModifier =
+          group.options.length === 1 && group.max_select === 1 && !group.required;
+
+        return (
+          <div className="space-y-1 py-1 max-w-xs sm:max-w-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-slate-900 dark:text-white text-sm">
+                {group.name}
+              </span>
+
+              {group.commercial_type === "replacement" ? (
+                <Badge variant="blue" size="sm" icon={<ArrowRightLeft className="w-2.5 h-2.5" />}>
+                  Reemplazo
+                </Badge>
+              ) : group.commercial_type === "size" ? (
+                <Badge variant="slate" size="sm">
+                  Tamaño
+                </Badge>
+              ) : (
+                <Badge variant="orange" size="sm" icon={<Tag className="w-2.5 h-2.5" />}>
+                  Adicional
+                </Badge>
+              )}
+
+              {isSingleModifier && (
+                <Badge variant="emerald" size="sm" icon={<Sparkles className="w-2.5 h-2.5" />}>
+                  Individual
+                </Badge>
+              )}
+            </div>
+
+            {group.description && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {group.description}
+              </p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      header: "Reglas de Selección",
+      render: (group) => (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant={group.required ? "amber" : "slate"} size="sm">
+            {group.required ? "Obligatorio" : "Opcional"}
+          </Badge>
+          <Badge variant="slate" size="sm">
+            {group.selection_type === "single"
+              ? "Única (Radio)"
+              : `Múltiple (Máx ${group.max_select})`}
+          </Badge>
+          <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.04] px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-white/[0.06]">
+            {group.min_select} - {group.max_select}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Opciones",
+      render: (group) => {
+        const activeCount = group.options.filter((o) => o.status === "active").length;
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="font-semibold">{group.options.length}</span>
+            <span className="text-slate-400 text-[11px]">({activeCount} activas)</span>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Productos",
+      render: (group) => {
+        const count = group.applied_product_ids.length;
+        return (
+          <div className="flex items-center gap-1.5 text-xs">
+            <Package
+              className={`w-3.5 h-3.5 shrink-0 ${
+                count > 0 ? "text-[#ED500A]" : "text-slate-400"
+              }`}
+            />
+            <span
+              className={
+                count > 0
+                  ? "font-semibold text-slate-800 dark:text-slate-200"
+                  : "text-slate-400"
+              }
+            >
+              {count === 0
+                ? "Sin vincular"
+                : `${count} ${count === 1 ? "producto" : "productos"}`}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Estado",
+      align: "center",
+      render: (group) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleGroupStatus(group);
+          }}
+          className="cursor-pointer"
+          title={group.status === "active" ? "Pausar grupo" : "Activar grupo"}
+        >
+          <Badge
+            size="sm"
+            variant={group.status === "active" ? "emerald" : "slate"}
+            dot
+          >
+            {group.status === "active" ? "Activo" : "Pausado"}
+          </Badge>
+        </button>
+      ),
+    },
+    {
+      header: "Acciones",
+      align: "center",
+      render: (group) => {
+        const isSingleModifier =
+          group.options.length === 1 && group.max_select === 1 && !group.required;
+
+        return (
+          <div
+            className="flex items-center justify-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedDetailGroup(group)}
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+              title="Ver detalle del modificador"
+            >
+              <Eye className="w-4 h-4 text-[#ED500A]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (isSingleModifier) {
+                  setEditingSingleModifier(group);
+                  setIsSingleModalOpen(true);
+                } else {
+                  setEditingGroup(group);
+                  setIsGroupModalOpen(true);
+                }
+              }}
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+              title="Editar configuración"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setGroupToDelete(group)}
+              className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
+              title="Eliminar grupo"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
+
+  // Render para Tarjetas Móviles
+  const renderMobileCard = (group: ModifierGroup) => {
+    const isSingleModifier =
+      group.options.length === 1 && group.max_select === 1 && !group.required;
+    const activeCount = group.options.filter((o) => o.status === "active").length;
+
+    return (
+      <div
+        onClick={() => setSelectedDetailGroup(group)}
+        className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs space-y-3 cursor-pointer hover:border-[#ED500A]/40 transition-colors"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+              {group.name}
+            </h4>
+            {group.description && (
+              <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">
+                {group.description}
+              </p>
+            )}
+          </div>
+          <Badge
+            size="sm"
+            variant={group.status === "active" ? "emerald" : "slate"}
+            dot
+          >
+            {group.status === "active" ? "Activo" : "Pausado"}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {group.commercial_type === "replacement" ? (
+            <Badge variant="blue" size="sm">
+              Reemplazo
+            </Badge>
+          ) : (
+            <Badge variant="orange" size="sm">
+              Adicional
+            </Badge>
+          )}
+          {isSingleModifier && (
+            <Badge variant="emerald" size="sm">
+              Individual
+            </Badge>
+          )}
+          <Badge variant={group.required ? "amber" : "slate"} size="sm">
+            {group.required ? "Obligatorio" : "Opcional"}
+          </Badge>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-white/[0.04]">
+          <span className="flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+            {group.options.length} opciones ({activeCount} activas)
+          </span>
+          <span className="text-[#ED500A] font-semibold inline-flex items-center gap-0.5">
+            Ver detalles <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -393,161 +628,110 @@ export function ModifierGroupsTab({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
-          {/* Botón 1: Nuevo Modificador (Individual) */}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => {
               setEditingSingleModifier(null);
               setIsSingleModalOpen(true);
             }}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#ED500A] hover:bg-[#ED500A]/90 active:scale-[0.99] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer"
             title="Crear un modificador o adicional individual (ej. Queso extra, Tocineta)"
           >
             <Sparkles className="w-4 h-4" />
-            <span>+ Nuevo modificador</span>
-          </button>
+            <span>Nuevo modificador</span>
+          </Button>
 
-          {/* Botón 2: Nuevo Grupo (Múltiples opciones) */}
-          <button
-            type="button"
+          <Button
+            variant="outline"
             onClick={() => {
               setEditingGroup(null);
               setIsGroupModalOpen(true);
             }}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-[0.99]"
             title="Crear un grupo con múltiples opciones (ej. Tamaños, Presentaciones, Opciones de personalización)"
           >
             <Layers className="w-4 h-4 text-[#ED500A]" />
-            <span>+ Nuevo grupo</span>
-          </button>
+            <span>Nuevo grupo</span>
+          </Button>
         </div>
       </div>
 
-      {/* 1. KPIS SUPERIORES */}
+      {/* 1. KPIS SUPERIORES (CANÓNICOS DEL SISTEMA DE DISEÑO) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {/* Total Grupos */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Total Grupos
-            </span>
-            <span className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1 block">
-              {kpis.totalGroups}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Contenedores de personalización
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-            <Layers className="w-5 h-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Total Grupos"
+          value={kpis.totalGroups}
+          subtext="Contenedores de personalización"
+          icon={<Layers className="w-5 h-5 text-slate-700 dark:text-slate-300" />}
+          variant="default"
+        />
 
-        {/* Opciones Activas */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Opciones Activas
-            </span>
-            <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">
-              {kpis.activeOptions}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Modificadores listos para venta
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Opciones Activas"
+          value={kpis.activeOptions}
+          subtext="Modificadores listos para venta"
+          icon={<Sparkles className="w-5 h-5" />}
+          variant="emerald"
+        />
 
-        {/* Productos Vinculados */}
-        <div className="p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-              Productos Vinculados
-            </span>
-            <span className="text-2xl font-bold font-mono text-[#ED500A] mt-1 block">
-              {kpis.linkedProductsCount}
-            </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              Productos con modificadores
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5" />
-          </div>
-        </div>
+        <KpiCard
+          title="Productos Vinculados"
+          value={kpis.linkedProductsCount}
+          subtext="Productos con modificadores"
+          icon={<Package className="w-5 h-5" />}
+          variant="orange"
+        />
       </div>
 
-      {/* 2. BARRA DE HERRAMIENTAS: BÚSQUEDA, FILTROS Y ACCIÓN NUEVO GRUPO */}
+      {/* 2. BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-3 sm:p-4 shadow-xs">
-        {/* Buscador y Filtros */}
         <div className="flex items-center gap-2 flex-1 flex-wrap">
-          {/* Buscador */}
-          <div className="relative flex-1 min-w-[200px] sm:min-w-[260px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+          <div className="flex-1 min-w-[200px] sm:min-w-[260px]">
+            <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
+              onClear={() => setSearch("")}
               placeholder="Buscar por grupo u opción (ej: Tamaño, Extra, Color)..."
-              className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]"
             />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
-          {/* Filtro Estado */}
-          <select
+          <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+            className="w-auto min-w-[150px]"
           >
             <option value="all">Todos los estados</option>
             <option value="active">Activos</option>
             <option value="inactive">Inactivos</option>
-          </select>
+          </Select>
 
-          {/* Filtro Requerido */}
-          <select
+          <Select
             value={requiredFilter}
             onChange={(e) => setRequiredFilter(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+            className="w-auto min-w-[160px]"
           >
             <option value="all">Obligatorio / Opcional</option>
             <option value="required">Obligatorios (Mín 1)</option>
             <option value="optional">Opcionales (Mín 0)</option>
-          </select>
+          </Select>
 
-          {/* Filtro Selección */}
-          <select
+          <Select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+            className="w-auto min-w-[160px]"
           >
             <option value="all">Tipo de selección</option>
             <option value="single">Única (Radio, Máx 1)</option>
             <option value="multiple">Múltiple (Checkboxes)</option>
-          </select>
+          </Select>
 
-          {/* Filtro Modalidad */}
-          <select
+          <Select
             value={commercialTypeFilter}
             onChange={(e) => setCommercialTypeFilter(e.target.value as any)}
-            className="px-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs focus:outline-hidden cursor-pointer"
+            className="w-auto min-w-[170px]"
           >
             <option value="all">Todas las modalidades</option>
             <option value="additional">Adicionales / Extras</option>
             <option value="replacement">Reemplazos / Sustituciones</option>
-          </select>
+          </Select>
 
           {hasActiveFilters && (
             <button
@@ -560,490 +744,88 @@ export function ModifierGroupsTab({
             </button>
           )}
         </div>
-
-        {/* Acciones Globales */}
-        <div className="flex items-center gap-2 justify-end shrink-0">
-          <div className="hidden sm:flex items-center gap-1 border-r border-slate-200/80 dark:border-white/[0.08] pr-2">
-            <button
-              onClick={expandAll}
-              className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-              title="Expandir todos los grupos"
-            >
-              Expandir todos
-            </button>
-            <button
-              onClick={collapseAll}
-              className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-              title="Colapsar todos los grupos"
-            >
-              Colapsar
-            </button>
-          </div>
-
-          {/* Botón 1: Nuevo Modificador (Creación individual rápida) */}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingSingleModifier(null);
-              setIsSingleModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 active:scale-[0.99] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs cursor-pointer shrink-0"
-            title="Crear un modificador o adicional individual rápidamente (ej. Queso extra, Tocineta)"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>+ Nuevo modificador</span>
-          </button>
-
-          {/* Botón 2: Nuevo Grupo (Creación de grupo con varias opciones) */}
-          <button
-            type="button"
-            onClick={() => {
-              setEditingGroup(null);
-              setIsGroupModalOpen(true);
-            }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 active:scale-[0.99]"
-            title="Crear un grupo con múltiples opciones y reglas avanzadas"
-          >
-            <Layers className="w-4 h-4 text-[#ED500A]" />
-            <span>+ Nuevo grupo</span>
-          </button>
-        </div>
       </div>
 
-      {/* 3. VISTA TIPO ACORDEÓN / TABLA CON SUBFILAS */}
-      {isLoading ? (
-        <div className="p-12 text-center bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-3">
-          <Loader2 className="w-7 h-7 animate-spin text-[#ED500A] mx-auto" />
-          <p className="text-xs text-slate-500 font-medium">Cargando grupos de modificadores...</p>
-        </div>
-      ) : filteredGroups.length === 0 ? (
-        <div className="p-10 text-center bg-white dark:bg-[#0D0F16] border border-dashed border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              {hasActiveFilters
-                ? "No se encontraron modificadores con los filtros aplicados"
-                : "No tienes grupos de modificadores creados"}
-            </h4>
-            <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-              {hasActiveFilters
-                ? "Intenta modificar el término de búsqueda o limpia los filtros activos."
-                : "Crea modificadores o grupos de opciones (ej. Tamaños, Adicionales, Variantes) para que tus clientes personalicen sus productos."}
-            </p>
-          </div>
-          {!hasActiveFilters && (
-            <div className="flex items-center justify-center gap-2.5 flex-wrap mt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSingleModifier(null);
-                  setIsSingleModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>+ Nuevo modificador</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingGroup(null);
-                  setIsGroupModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                <Layers className="w-4 h-4 text-[#ED500A]" />
-                <span>+ Nuevo grupo</span>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredGroups.map((group) => {
-            const isExpanded = Boolean(expandedGroupIds[group.id]);
-            const activeOptionsCount = group.options.filter((o) => o.status === "active").length;
+      {/* 3. TABLA CANÓNICA DE MODIFICADORES (DATATABLE CON PAGINACIÓN) */}
+      <DataTable
+        columns={columns}
+        data={paginatedGroups}
+        keyExtractor={(group) => group.id}
+        isLoading={isLoading}
+        onRowClick={(group) => setSelectedDetailGroup(group)}
+        renderMobileCard={renderMobileCard}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalItems: filteredGroups.length,
+          pageSize,
+          pageSizeOptions: [10, 20, 50],
+          itemLabel: "modificadores",
+          onPageChange: (page) => setCurrentPage(page),
+          onPageSizeChange: (size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          },
+        }}
+        emptyState={{
+          title: hasActiveFilters
+            ? "No se encontraron modificadores con los filtros aplicados"
+            : "No tienes grupos de modificadores creados",
+          description: hasActiveFilters
+            ? "Intenta modificar el término de búsqueda o limpia los filtros activos."
+            : "Crea modificadores o grupos de opciones (ej. Tamaños, Adicionales, Variantes) para que tus clientes personalicen sus productos.",
+          icon: Layers,
+          actionLabel: !hasActiveFilters ? "Nuevo modificador" : undefined,
+          onAction: !hasActiveFilters
+            ? () => {
+                setEditingSingleModifier(null);
+                setIsSingleModalOpen(true);
+              }
+            : undefined,
+          resetLabel: hasActiveFilters ? "Limpiar filtros" : undefined,
+          onReset: hasActiveFilters ? clearFilters : undefined,
+        }}
+      />
+
+      {/* MODAL DE DETALLE COMPLETO (AL HACER CLIC EN CUALQUIER FILA) */}
+      {selectedDetailGroup && (
+        <ModifierGroupDetailModal
+          isOpen={Boolean(selectedDetailGroup)}
+          onClose={() => setSelectedDetailGroup(null)}
+          group={selectedDetailGroup}
+          products={products}
+          onEdit={(group) => {
             const isSingleModifier =
               group.options.length === 1 && group.max_select === 1 && !group.required;
-
-            // Nombres de los productos vinculados
-            const linkedProducts = products.filter((p) =>
-              group.applied_product_ids.includes(p.id)
-            );
-
-            return (
-              <div
-                key={group.id}
-                className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xs overflow-hidden transition-all"
-              >
-                {/* FILA PRINCIPAL: ACORDEÓN / GRUPO */}
-                <div
-                  className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                    isExpanded
-                      ? "bg-purple-500/[0.03] dark:bg-purple-500/[0.06] border-b border-slate-200/60 dark:border-white/[0.06]"
-                      : "hover:bg-slate-50/70 dark:hover:bg-white/[0.02]"
-                  }`}
-                >
-                  {/* Lado izquierdo: Botón expandir, Nombre, Reglas y Badges */}
-                  <div
-                    onClick={() => toggleGroupAccordion(group.id)}
-                    className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none"
-                  >
-                    <button
-                      type="button"
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition-transform mt-0.5 sm:mt-0"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      ) : (
-                        <ChevronRight className="w-5 h-5" />
-                      )}
-                    </button>
-
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                          {group.name}
-                        </h4>
-
-                        {/* Modalidad Comercial */}
-                        {group.commercial_type === "replacement" ? (
-                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 inline-flex items-center gap-1">
-                            <ArrowRightLeft className="w-2.5 h-2.5" />
-                            <span>Reemplazo</span>
-                          </span>
-                        ) : group.commercial_type === "size" ? (
-                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 inline-flex items-center gap-1">
-                            <span>Tamaño (Legacy)</span>
-                          </span>
-                        ) : (
-                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20 inline-flex items-center gap-1">
-                            <Tag className="w-2.5 h-2.5" />
-                            <span>Adicional</span>
-                          </span>
-                        )}
-
-                        {/* Indicador de Modificador Individual vs Grupo de Opciones */}
-                        {isSingleModifier && (
-                          <span className="text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 inline-flex items-center gap-1">
-                            <Sparkles className="w-2.5 h-2.5" />
-                            <span>Modificador individual</span>
-                          </span>
-                        )}
-
-                        {/* Badge de Obligatorio / Opcional */}
-                        <span
-                          className={`text-2xs px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                            group.required
-                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                              : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400"
-                          }`}
-                        >
-                          {group.required ? "Obligatorio" : "Opcional"}
-                        </span>
-
-                        {/* Badge de Tipo de Selección */}
-                        <span
-                          className={`text-2xs px-2 py-0.5 rounded-full font-semibold ${
-                            group.selection_type === "single"
-                              ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
-                              : "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20"
-                          }`}
-                        >
-                          {group.selection_type === "single"
-                            ? "Única (Radio, Máx 1)"
-                            : `Múltiple (Checkboxes, Máx ${group.max_select})`}
-                        </span>
-
-                        {/* Regla Min / Max */}
-                        <span className="text-2xs font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded-md">
-                          Mín: {group.min_select} · Máx: {group.max_select}
-                        </span>
-                      </div>
-
-                      {group.description && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-                          {group.description}
-                        </p>
-                      )}
-
-                      {/* Resumen de opciones y productos vinculados */}
-                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                        <span className="inline-flex items-center gap-1 font-medium">
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>
-                            {group.options.length}{" "}
-                            {group.options.length === 1 ? "opción" : "opciones"} (
-                            {activeOptionsCount} activas)
-                          </span>
-                        </span>
-
-                        <span>·</span>
-
-                        <span
-                          className={`inline-flex items-center gap-1 font-medium ${
-                            linkedProducts.length === 0
-                              ? "text-slate-400 dark:text-slate-500"
-                              : "text-slate-600 dark:text-slate-300"
-                          }`}
-                        >
-                          <Package className={`w-3.5 h-3.5 ${linkedProducts.length === 0 ? "text-slate-400" : "text-[#ED500A]"}`} />
-                          <span>
-                            {linkedProducts.length === 0
-                              ? "Sin productos vinculados"
-                              : `${linkedProducts.length} ${
-                                  linkedProducts.length === 1
-                                    ? "producto vinculado"
-                                    : "productos vinculados"
-                                }`}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lado derecho: Acciones del Grupo */}
-                  <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
-                    {/* Botón para convertir modificador individual en grupo */}
-                    {isSingleModifier && (
-                      <button
-                        type="button"
-                        onClick={() => handleConvertToGroup(group)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                        title="Añadir más opciones para convertirlo en un grupo completo de modificadores"
-                      >
-                        <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        <span className="hidden md:inline">Convertir en grupo</span>
-                      </button>
-                    )}
-
-                    {!isSingleModifier && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTargetGroupId(group.id);
-                          setTargetGroupName(group.name);
-                          setEditingOption(null);
-                          setIsOptionModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-                        title="Añadir opción rápida a este grupo"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-[#ED500A]" />
-                        <span className="hidden md:inline">Añadir opción</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isSingleModifier) {
-                          setEditingSingleModifier(group);
-                          setIsSingleModalOpen(true);
-                        } else {
-                          setEditingGroup(group);
-                          setIsGroupModalOpen(true);
-                        }
-                      }}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                      title={
-                        isSingleModifier
-                          ? "Editar modificador individual y asignación a productos"
-                          : "Editar grupo de modificadores y productos asignados"
-                      }
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleGroupStatus(group)}
-                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                        group.status === "active"
-                          ? "text-emerald-600 hover:bg-emerald-500/10"
-                          : "text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
-                      }`}
-                      title={group.status === "active" ? "Pausar todo el grupo" : "Activar grupo"}
-                    >
-                      <Power className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setGroupToDelete(group)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-                      title="Eliminar grupo"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* SUBFILAS EXPANDIDAS: TABLA DE OPCIONES DEL GRUPO */}
-                {isExpanded && (
-                  <div className="p-3.5 sm:p-5 space-y-4 bg-slate-50/40 dark:bg-white/[0.01]">
-                    {/* Tabla de opciones */}
-                    <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16]">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                            <th className="py-2.5 px-3 w-10 text-center">#</th>
-                            <th className="py-2.5 px-4 min-w-[200px]">Nombre de la opción</th>
-                            <th className="py-2.5 px-4 text-right">Ajuste de Precio</th>
-                            <th className="py-2.5 px-4 text-center">Estado</th>
-                            <th className="py-2.5 px-4 text-center w-24">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                          {group.options.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="py-6 text-center text-slate-500">
-                                Sin opciones configuradas en este grupo.{" "}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTargetGroupId(group.id);
-                                    setTargetGroupName(group.name);
-                                    setEditingOption(null);
-                                    setIsOptionModalOpen(true);
-                                  }}
-                                  className="text-[#ED500A] font-semibold hover:underline cursor-pointer"
-                                >
-                                  + Añadir primera opción
-                                </button>
-                              </td>
-                            </tr>
-                          ) : (
-                            group.options.map((opt, oIdx) => {
-                              const isPositivePrice = opt.price > 0;
-
-                              return (
-                                <tr
-                                  key={opt.id}
-                                  className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02] transition-colors"
-                                >
-                                  <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
-                                    {oIdx + 1}
-                                  </td>
-                                  <td className="py-2.5 px-4 font-semibold text-slate-900 dark:text-white">
-                                    {opt.name}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-right">
-                                    {isPositivePrice ? (
-                                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                                        +{formatCOP(opt.price)}
-                                      </span>
-                                    ) : (
-                                      <span className="font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded-md">
-                                        $0 COP (Sin recargo)
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-4 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleOptionStatus(opt)}
-                                      className={`px-2.5 py-1 rounded-full text-2xs font-bold transition-all cursor-pointer ${
-                                        opt.status === "active"
-                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                          : "bg-slate-200 dark:bg-white/10 text-slate-500"
-                                      }`}
-                                    >
-                                      {opt.status === "active" ? "Activo" : "Inactivo"}
-                                    </button>
-                                  </td>
-                                  <td className="py-2.5 px-4 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setTargetGroupId(group.id);
-                                          setTargetGroupName(group.name);
-                                          setEditingOption(opt);
-                                          setIsOptionModalOpen(true);
-                                        }}
-                                        className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
-                                        title="Editar opción"
-                                      >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setOptionToDelete({ id: opt.id, name: opt.name })
-                                        }
-                                        className="p-1 text-slate-400 hover:text-rose-500 rounded-md hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                        title="Eliminar opción"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Resumen de Productos donde aplica */}
-                    <div className="p-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                          Aplica en:
-                        </span>
-                        {linkedProducts.length === 0 ? (
-                          <span className="text-xs text-amber-600 dark:text-amber-400 italic">
-                            No está vinculado a ningún producto todavía.
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {linkedProducts.slice(0, 6).map((p) => (
-                              <span
-                                key={p.id}
-                                className="inline-flex items-center gap-1 text-[11px] pl-2 pr-1.5 py-0.5 bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 rounded-md font-medium group/pbadge"
-                              >
-                                <Package className="w-3 h-3 text-[#ED500A]" />
-                                <span>{p.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnassignProduct(group.id, p.id, p.name)}
-                                  className="ml-0.5 text-slate-400 hover:text-rose-500 rounded cursor-pointer"
-                                  title={`Retirar grupo de «${p.name}»`}
-                                >
-                                  <X className="w-2.5 h-2.5" />
-                                </button>
-                              </span>
-                            ))}
-                            {linkedProducts.length > 6 && (
-                              <span className="text-[11px] px-2 py-0.5 bg-[#ED500A]/10 text-[#ED500A] rounded-md font-bold">
-                                +{linkedProducts.length - 6} más
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingGroup(group);
-                          setIsGroupModalOpen(true);
-                        }}
-                        className="text-xs font-semibold text-[#ED500A] hover:underline self-end sm:self-auto cursor-pointer"
-                      >
-                        Gestionar productos vinculados →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+            if (isSingleModifier) {
+              setEditingSingleModifier(group);
+              setIsSingleModalOpen(true);
+            } else {
+              setEditingGroup(group);
+              setIsGroupModalOpen(true);
+            }
+          }}
+          onDelete={(group) => setGroupToDelete(group)}
+          onConvertToGroup={handleConvertToGroup}
+          onAddOption={(groupId, groupName) => {
+            setTargetGroupId(groupId);
+            setTargetGroupName(groupName);
+            setEditingOption(null);
+            setIsOptionModalOpen(true);
+          }}
+          onEditOption={(groupId, groupName, option) => {
+            setTargetGroupId(groupId);
+            setTargetGroupName(groupName);
+            setEditingOption(option);
+            setIsOptionModalOpen(true);
+          }}
+          onDeleteOption={(optionId, optionName) => {
+            setOptionToDelete({ id: optionId, name: optionName });
+          }}
+          onToggleOptionStatus={handleToggleOptionStatus}
+          onToggleGroupStatus={handleToggleGroupStatus}
+          onUnassignProduct={handleUnassignProduct}
+        />
       )}
 
       {/* MODAL CREAR / EDITAR MODIFICADOR INDIVIDUAL */}
@@ -1060,7 +842,7 @@ export function ModifierGroupsTab({
         />
       )}
 
-      {/* MODAL CREAR / EDITAR GRUPO */}
+      {/* MODAL CREAR / EDITAR GRUPO DE MODIFICADORES */}
       {isGroupModalOpen && (
         <ModifierGroupModal
           isOpen={isGroupModalOpen}
@@ -1074,10 +856,10 @@ export function ModifierGroupsTab({
       )}
 
       {/* MODAL CREAR / EDITAR OPCIÓN INDIVIDUAL */}
-      {isOptionModalOpen && targetGroupId && (
+      {isOptionModalOpen && (
         <ModifierOptionModal
           isOpen={isOptionModalOpen}
-          groupId={targetGroupId}
+          groupId={targetGroupId || ""}
           groupName={targetGroupName}
           option={editingOption}
           onClose={() => setIsOptionModalOpen(false)}
@@ -1086,28 +868,34 @@ export function ModifierGroupsTab({
       )}
 
       {/* MODAL CONFIRMAR ELIMINACIÓN DE GRUPO */}
-      <ConfirmModal
-        isOpen={Boolean(groupToDelete)}
-        onClose={() => setGroupToDelete(null)}
-        onConfirm={handleConfirmDeleteGroup}
-        title="¿Eliminar grupo de modificadores?"
-        description={`¿Estás seguro de que deseas eliminar «${groupToDelete?.name}»? Esta acción lo desvinculará de todos los productos asociados y no se podrá deshacer.`}
-        confirmText="Eliminar grupo"
-        variant="danger"
-        isLoading={isDeleting}
-      />
+      {groupToDelete && (
+        <ConfirmModal
+          isOpen={Boolean(groupToDelete)}
+          title={`¿Eliminar grupo «${groupToDelete.name}»?`}
+          description="Esta acción eliminará el grupo y todas sus opciones configuradas. Los productos vinculados dejarán de mostrar este modificador en caja y tienda en línea."
+          confirmText="Sí, eliminar grupo"
+          cancelText="Cancelar"
+          variant="destructive"
+          isLoading={isDeleting}
+          onConfirm={handleConfirmDeleteGroup}
+          onClose={() => setGroupToDelete(null)}
+        />
+      )}
 
       {/* MODAL CONFIRMAR ELIMINACIÓN DE OPCIÓN */}
-      <ConfirmModal
-        isOpen={Boolean(optionToDelete)}
-        onClose={() => setOptionToDelete(null)}
-        onConfirm={handleConfirmDeleteOption}
-        title="¿Eliminar opción de modificador?"
-        description={`¿Estás seguro de que deseas eliminar «${optionToDelete?.name}»?`}
-        confirmText="Eliminar opción"
-        variant="danger"
-        isLoading={isDeleting}
-      />
+      {optionToDelete && (
+        <ConfirmModal
+          isOpen={Boolean(optionToDelete)}
+          title={`¿Eliminar opción «${optionToDelete.name}»?`}
+          description="Esta opción será retirada permanentemente de este grupo de modificadores."
+          confirmText="Sí, eliminar opción"
+          cancelText="Cancelar"
+          variant="destructive"
+          isLoading={isDeleting}
+          onConfirm={handleConfirmDeleteOption}
+          onClose={() => setOptionToDelete(null)}
+        />
+      )}
     </div>
   );
 }

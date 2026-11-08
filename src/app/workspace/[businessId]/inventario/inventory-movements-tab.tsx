@@ -27,6 +27,8 @@ import {
 import { getInventoryMovementsHistoryAction } from "./actions";
 import { MovementFormModal } from "./movement-form-modal";
 import { formatCOP } from "@/lib/pos/types";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface Props {
   businessId: string;
@@ -163,22 +165,19 @@ export function InventoryMovementsTab({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           {/* Buscador */}
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+          <div className="flex-1 sm:w-64">
+            <SearchInput
               placeholder="Buscar por producto, SKU o notas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3.5 py-2 bg-slate-50/50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/40 w-full transition-colors"
+              onClear={() => setSearch("")}
             />
           </div>
 
           {/* Tipo de movimiento */}
-          <select
+          <Select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="px-3 py-2 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden transition-colors cursor-pointer"
           >
             <option value="all">Todos los Tipos</option>
             <option value="entry">Entrada (+)</option>
@@ -188,13 +187,12 @@ export function InventoryMovementsTab({
             <option value="transfer_out">Transferencia (Salida)</option>
             <option value="spoilage">Merma</option>
             <option value="sale">Venta</option>
-          </select>
+          </Select>
 
           {/* Ubicación */}
-          <select
+          <Select
             value={selectedLocation}
             onChange={(e) => setSelectedLocation(e.target.value)}
-            className="px-3 py-2 bg-slate-50/50 dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden transition-colors cursor-pointer"
           >
             <option value="all">Todas las Ubicaciones</option>
             {locations.map((loc) => (
@@ -202,7 +200,7 @@ export function InventoryMovementsTab({
                 {loc.name}
               </option>
             ))}
-          </select>
+          </Select>
 
           {/* Recargar */}
           <button

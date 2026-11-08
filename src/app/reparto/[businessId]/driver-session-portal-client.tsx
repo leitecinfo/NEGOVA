@@ -513,7 +513,7 @@ export function DriverSessionPortalClient({
       {/* MODAL / FICHA DETALLADA DE ENTREGA (Usando ModalPortal) */}
       {selectedOrder && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col justify-end sm:justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col justify-end sm:justify-center p-0 sm:p-4 animate-in fade-in duration-200">
             <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-t-3xl sm:rounded-2xl w-full max-w-md mx-auto max-h-[92vh] flex flex-col overflow-hidden text-neutral-900 dark:text-white shadow-2xl">
               {/* Cabecera de la ficha */}
               <div className="px-5 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-900/50">

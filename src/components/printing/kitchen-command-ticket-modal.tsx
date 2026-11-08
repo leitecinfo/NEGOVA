@@ -179,7 +179,7 @@ export function KitchenCommandTicketModal({
         }}
       />
 
-      <div className="pos-print-modal-overlay fixed inset-0 m-0 p-3 sm:p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="pos-print-modal-overlay fixed inset-0 m-0 p-3 sm:p-4 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           role="dialog"
           aria-modal="true"

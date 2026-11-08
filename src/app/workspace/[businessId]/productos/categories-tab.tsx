@@ -27,6 +27,8 @@ import {
 } from "./actions";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
+import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 
 interface CategoriesTabProps {
   businessId: string;
@@ -219,14 +221,12 @@ export function CategoriesTab({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl shadow-2xs">
         <div className="flex flex-1 items-center gap-2.5">
           {/* Buscador */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
+          <div className="flex-1 max-w-md">
+            <SearchInput
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onClear={() => setSearch("")}
               placeholder="Buscar categoría por nombre o descripción..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#ED500A]/50 transition-all"
             />
           </div>
 
@@ -503,10 +503,9 @@ export function CategoriesTab({
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Reasignar productos a otra categoría (opcional):
               </label>
-              <select
+              <Select
                 value={reassignTargetId}
                 onChange={(e) => setReassignTargetId(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs"
               >
                 <option value="">Dejar productos sin categoría asignada</option>
                 {categories
@@ -516,7 +515,7 @@ export function CategoriesTab({
                       {c.name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </div>
           )}
         </ConfirmModal>

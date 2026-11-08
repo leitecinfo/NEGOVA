@@ -1147,7 +1147,7 @@ export function KdsScreenClient({
       {/* MODAL CONFIGURACIÓN DE UMBRALES DE TIEMPO [KDS-002] */}
       {isConfigModalOpen && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-sans">
             <div className="relative w-full max-w-md bg-white dark:bg-[#0D0F16] border border-slate-200/90 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               <div className="p-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">

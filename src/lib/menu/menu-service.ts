@@ -390,7 +390,7 @@ export async function getPublicDigitalMenu(
   const [categoriesRes, productsRes, paymentMethods] = await Promise.all([
     supabase
       .from("categories")
-      .select("id, business_id, parent_category_id, name, description, sort_order, status, created_at, updated_at")
+      .select("*")
       .eq("business_id", business.id)
       .eq("status", "active")
       .order("sort_order", { ascending: true })
@@ -412,10 +412,18 @@ export async function getPublicDigitalMenu(
     .map(normalizeProductChannels)
     .filter((p) => isProductAvailableInQr(p));
 
+  // Filtrar categorías comerciales (excluir categorías exclusivamente internas de materias primas e insumos)
+  const commercialCategories = ((categoriesRes.data || []) as any[]).filter((c) => {
+    if (c.scope === "internal") return false;
+    // Si la categoría aún no tiene columna scope pero su nombre es claramente técnico interno, excluirla
+    if (!c.scope && /\b(ingrediente|insumo|materia\s*prima)\b/i.test(c.name || "")) return false;
+    return true;
+  });
+
   return {
     business: publicBusiness,
     menu: effectiveMenu,
-    categories: (categoriesRes.data || []) as any,
+    categories: commercialCategories as any,
     products: qrProducts as any,
     paymentMethods,
   };

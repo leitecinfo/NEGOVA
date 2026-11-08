@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { Select } from "@/components/ui/select";
+import { SearchInput } from "@/components/ui/search-input";
 import Link from "next/link";
 import {
   Building2,
@@ -126,16 +128,16 @@ export function AdminTenantsTable({ initialTenants }: AdminTenantsTableProps) {
             />
           </div>
 
-          <select
+          <Select
+            selectSize="sm"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-[#ED500A]"
           >
             <option value="all">Todos los estados</option>
             <option value="active">Activos</option>
             <option value="trial">En Prueba</option>
             <option value="suspended">Suspendidos</option>
-          </select>
+          </Select>
 
           <Link
             href="/admin/negocios"

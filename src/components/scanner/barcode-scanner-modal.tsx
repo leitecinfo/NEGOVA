@@ -257,7 +257,7 @@ export function BarcodeScannerModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="scanner-modal-title"
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
       >
         <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 text-white font-body">
           {/* Cabecera */}
