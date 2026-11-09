@@ -531,7 +531,7 @@ function mapPurchaseRow(row: any): Purchase {
       locationId: it.location_id ?? null,
       locationName: it.location_name || it.locations?.name || null,
       isInventoryItem: Boolean(it.is_inventory_item),
-      itemCategory: it.item_category || it.itemCategory || undefined,
+      itemCategory: (it.metadata?.item_category || it.item_category || it.itemCategory || (it.is_inventory_item ? "ingredient" : "free")) as any,
       purchaseUnit: it.purchase_unit || it.metadata?.purchase_unit || null,
       inventoryUnit: it.inventory_unit || it.metadata?.inventory_unit || null,
       conversionFactor: Number(it.conversion_factor || it.metadata?.conversion_factor || 1),
@@ -785,24 +785,65 @@ export async function createPurchase(
   const purchaseId = purchaseData.id;
 
   // 6. Insertar ítems de la compra
-  const itemsPayload = itemsToInsert.map((it) => ({
-    purchase_id: purchaseId,
-    business_id: businessId,
-    product_id: it.productId,
-    item_name: it.itemName,
-    quantity: it.quantity,
-    unit_cost: it.unitCost,
-    total_cost: it.totalCost,
-    location_id: it.locationId,
-    is_inventory_item: it.isInventoryItem,
-    item_category: it.itemCategory || (it.isInventoryItem ? "ingredient" : "free"),
-    created_at: new Date().toISOString(),
-  }));
+  // NOTA CRÍTICA: 'purchase_items' almacena 'item_category' dentro del JSONB 'metadata'
+  // y no como columna directa, para evitar errores de 'schema cache' en Supabase.
+  const itemsPayload = itemsToInsert.map((it) => {
+    const itemCategory = it.itemCategory || (it.isInventoryItem ? "ingredient" : "free");
+    return {
+      purchase_id: purchaseId,
+      business_id: businessId,
+      product_id: it.productId,
+      item_name: it.itemName,
+      quantity: it.quantity,
+      unit_cost: it.unitCost,
+      total_cost: it.totalCost,
+      location_id: it.locationId,
+      is_inventory_item: it.isInventoryItem,
+      purchase_unit: it.purchaseUnit || null,
+      inventory_unit: it.inventoryUnit || null,
+      conversion_factor: it.conversionFactor || 1,
+      inventory_quantity: it.quantity * (it.conversionFactor || 1),
+      discount: it.discount || 0,
+      metadata: {
+        item_category: itemCategory,
+        purchase_unit: it.purchaseUnit || null,
+        inventory_unit: it.inventoryUnit || null,
+        conversion_factor: it.conversionFactor || 1,
+        discount: it.discount || 0,
+      },
+      created_at: new Date().toISOString(),
+    };
+  });
 
-  const { data: insertedItems, error: itemsErr } = await supabase
+  let { data: insertedItems, error: itemsErr } = await supabase
     .from("purchase_items")
     .insert(itemsPayload)
     .select();
+
+  // Si falla por columna extendida no migrada en la base de datos, reintentar con el payload base
+  if (itemsErr && (itemsErr.message?.includes("column") || itemsErr.message?.includes("schema cache"))) {
+    console.warn("[createPurchase] Aviso: error de columnas en purchase_items, reintentando con payload base compatible:", itemsErr.message);
+    const fallbackPayload = itemsToInsert.map((it) => ({
+      purchase_id: purchaseId,
+      business_id: businessId,
+      product_id: it.productId,
+      item_name: it.itemName,
+      quantity: it.quantity,
+      unit_cost: it.unitCost,
+      total_cost: it.totalCost,
+      location_id: it.locationId,
+      is_inventory_item: it.isInventoryItem,
+      created_at: new Date().toISOString(),
+    }));
+
+    const retryRes = await supabase
+      .from("purchase_items")
+      .insert(fallbackPayload)
+      .select();
+
+    insertedItems = retryRes.data;
+    itemsErr = retryRes.error;
+  }
 
   if (itemsErr) {
     console.error("[createPurchase] Error al insertar ítems de compra:", itemsErr);

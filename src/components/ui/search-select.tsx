@@ -62,8 +62,13 @@ export function SearchSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({
-    top: 0,
+  const [coords, setCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    maxHeight?: number;
+  }>({
     left: 0,
     width: 0,
   });
@@ -93,7 +98,6 @@ export function SearchSelect({
   const updatePosition = useCallback(() => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const popoverHeight = 280;
     const minWidth = Math.max(rect.width, 240);
 
     // 1. Alineación horizontal
@@ -102,21 +106,30 @@ export function SearchSelect({
       left = Math.max(12, window.innerWidth - minWidth - 12);
     }
 
-    // 2. Alineación vertical (detectar si cabe abajo o abrir arriba)
+    // 2. Alineación vertical (detectar si cabe abajo o abrir arriba pegado al botón)
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    let top = rect.bottom + 6;
+    const estimatedHeight = Math.min(280, (options.length || 1) * 38 + (searchable ? 50 : 16));
 
-    if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
-      top = Math.max(12, rect.top - popoverHeight - 6);
+    // Si no cabe abajo pero sí cabe arriba, abrir hacia arriba pegado justo encima del botón
+    const openUpwards = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+
+    if (openUpwards) {
+      setCoords({
+        bottom: window.innerHeight - rect.top + 6,
+        left,
+        width: minWidth,
+        maxHeight: Math.min(280, Math.max(120, spaceAbove - 16)),
+      });
+    } else {
+      setCoords({
+        top: rect.bottom + 6,
+        left,
+        width: minWidth,
+        maxHeight: Math.min(280, Math.max(120, spaceBelow - 16)),
+      });
     }
-
-    setCoords({
-      top,
-      left,
-      width: minWidth,
-    });
-  }, []);
+  }, [options.length, searchable]);
 
   // Actualizar coordenadas dinámicas al abrir, redimensionar o hacer scroll
   useEffect(() => {
@@ -234,16 +247,17 @@ export function SearchSelect({
           ref={popoverRef}
           style={{
             position: "fixed",
-            top: `${coords.top}px`,
+            ...(coords.bottom !== undefined ? { bottom: `${coords.bottom}px` } : { top: `${coords.top ?? 0}px` }),
             left: `${coords.left}px`,
             width: `${coords.width}px`,
+            maxHeight: coords.maxHeight ? `${coords.maxHeight}px` : undefined,
             zIndex: 99999,
           }}
-          className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+          className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
         >
           {/* Search Field */}
           {searchable && (
-            <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+            <div className="p-2 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -259,7 +273,10 @@ export function SearchSelect({
           )}
 
           {/* Options List */}
-          <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 text-xs">
+          <div
+            style={{ maxHeight: coords.maxHeight ? `${coords.maxHeight - (searchable ? 54 : 12)}px` : undefined }}
+            className="overflow-y-auto p-1.5 space-y-0.5 text-xs flex-1 custom-scrollbar"
+          >
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-slate-400 text-xs">
                 {emptyText}
