@@ -101,7 +101,10 @@ function AppLayoutInner({
           id="app-main-viewport"
           className="app-main-viewport relative flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-[#0B0E14] transition-colors duration-200"
         >
-          {children}
+          {/* Durante la navegación ocultamos el contenido previo para prevenir destellos y congelamientos */}
+          <div className={isNavigating ? "invisible pointer-events-none select-none h-full" : "h-full"}>
+            {children}
+          </div>
 
           {/* Pantalla / Overlay de Carga durante Transición de Módulos */}
           <ModuleLoadingOverlay

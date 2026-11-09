@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Bike,
   Store,
+  Receipt,
   MessageSquare,
   ShoppingBag,
   Layers,
@@ -433,7 +434,7 @@ export function OrdersListClient({
   };
 
   // Badges de Destino / Tipo de Orden
-  const getOrderTypeBadge = (type: string, tableName?: string | null) => {
+  const getOrderTypeBadge = (type: string, tableName?: string | null, isPickup?: boolean) => {
     switch (type) {
       case "dine_in":
         return {
@@ -442,10 +443,17 @@ export function OrdersListClient({
           color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20",
         };
       case "takeout":
+        if (isPickup) {
+          return {
+            label: "Para recoger",
+            icon: Receipt,
+            color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
+          };
+        }
         return {
           label: "Para llevar",
           icon: ShoppingBag,
-          color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
+          color: "text-[#ED500A] dark:text-[#ED500A] bg-orange-50 dark:bg-[#ED500A]/10 border-orange-200 dark:border-[#ED500A]/25",
         };
       case "delivery":
         return {
@@ -743,7 +751,11 @@ export function OrdersListClient({
   const renderOrderCard = (order: RestaurantOrderWithDetails) => {
     const statusBadge = getOrderStatusBadge(order.status);
     const StatusIcon = statusBadge.icon;
-    const typeBadge = getOrderTypeBadge(order.order_type, order.tableName);
+    const typeBadge = getOrderTypeBadge(
+      order.order_type,
+      order.tableName,
+      Boolean(order.pickup_code || order.notes?.includes("[PICKUP_PIN:"))
+    );
     const TypeIcon = typeBadge.icon;
     const channelBadge = getChannelBadge(order.channel_origin);
     const ChannelIcon = channelBadge.icon;
@@ -778,7 +790,7 @@ export function OrdersListClient({
           setDragOverColumnId(null);
         }}
         onClick={() => setDetailModal({ isOpen: true, order })}
-        className={`bg-white dark:bg-[#0D0F16] border rounded-2xl p-3.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 relative select-none group ${statusBadge.headerColor} border-t-4 ${
+        className={`bg-white dark:bg-[#161A24] border rounded-2xl p-3.5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-3 relative select-none group ${statusBadge.headerColor} border-t-2 ${
           !isDeliveredOrCancelled && alert.level === "critical"
             ? "border-rose-400 dark:border-rose-500/80 ring-2 ring-rose-500/30 bg-rose-50/[0.04]"
             : !isDeliveredOrCancelled && alert.level === "warning"
@@ -924,7 +936,7 @@ export function OrdersListClient({
           </div>
 
           {/* Acción rápida de Recogida para modalidad Para recoger */}
-          {order.order_type === "takeout" && order.status !== "delivered" && !isCancelled && (
+          {order.order_type === "takeout" && Boolean(order.pickup_code) && order.status !== "delivered" && !isCancelled && (
             <button
               type="button"
               onClick={(e) => {
@@ -935,11 +947,11 @@ export function OrdersListClient({
               title="Confirmar entrega de recogida con PIN"
             >
               <PackageCheck className="w-3.5 h-3.5" />
-              <span>Confirmar recogida {order.pickup_code ? `(#${order.pickup_code})` : ""}</span>
+              <span>Confirmar recogida (#{order.pickup_code})</span>
             </button>
           )}
 
-          {order.order_type === "takeout" && (order.status === "delivered" || order.pickup_confirmed_at) && (
+          {order.order_type === "takeout" && Boolean(order.pickup_code) && (order.status === "delivered" || order.pickup_confirmed_at) && (
             <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
               <PackageCheck className="w-3 h-3" />
               <span>Recogida confirmada</span>
@@ -1119,7 +1131,7 @@ export function OrdersListClient({
                 <button
                   type="button"
                   onClick={() => setDetailModal({ isOpen: true, order })}
-                  className="h-9 inline-flex items-center justify-center gap-1 px-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                  className="h-9 inline-flex items-center justify-center gap-1 px-2.5 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
                 >
                   <span>Detalles</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1129,7 +1141,7 @@ export function OrdersListClient({
               <button
                 type="button"
                 onClick={() => setDetailModal({ isOpen: true, order })}
-                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border border-slate-200/80 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
               >
                 <span>Ver detalles</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1300,13 +1312,13 @@ export function OrdersListClient({
         {/* 2. BARRA DE CONTROL Y SELECTOR DE VISTA (COLA vs TABLA) */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/[0.08]">
           {/* BOTONES DE VISTA: COLA OPERATIVA vs TABLA */}
-          <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/[0.08] self-start">
+          <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-[#131620] border border-slate-200/80 dark:border-white/[0.08] self-start">
             <button
               type="button"
               onClick={() => setViewMode("queue")}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "queue"
-                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
+                  ? "bg-[#ED500A] text-white shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -1316,9 +1328,9 @@ export function OrdersListClient({
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
+                  ? "bg-[#ED500A] text-white shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -1327,15 +1339,8 @@ export function OrdersListClient({
             </button>
           </div>
 
-          {/* ACCIONES DIRECTAS: DOMICILIOS & POS */}
+          {/* ACCIÓN DIRECTA: POS */}
           <div className="flex items-center gap-2">
-            <Link
-              href={`/workspace/${businessId}/pedidos/domicilios`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
-            >
-              <Bike className="w-4 h-4" />
-              <span>Despacho Domicilios</span>
-            </Link>
             <Link
               href={`/workspace/${businessId}/pos`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ED500A]/10 text-[#ED500A] hover:bg-[#ED500A] hover:text-white transition-colors"
@@ -1493,7 +1498,7 @@ export function OrdersListClient({
                 return (
                   <div
                     key={col.id}
-                    className={`w-[85vw] max-w-[340px] shrink-0 snap-center flex flex-col rounded-2xl bg-slate-50/90 dark:bg-[#0D0F16]/90 border border-slate-200/90 dark:border-white/[0.08] p-3.5 shadow-sm h-[calc(100vh-270px)] min-h-[500px] max-h-[750px] border-t-4 ${col.borderTop}`}
+                    className={`w-[85vw] max-w-[340px] shrink-0 snap-center flex flex-col rounded-2xl bg-slate-100/70 dark:bg-[#10131B] border border-slate-200/90 dark:border-white/[0.08] p-3.5 shadow-sm h-[calc(100vh-270px)] min-h-[500px] max-h-[750px] border-t-4 ${col.borderTop}`}
                   >
                     {/* CABECERA DE LA COLUMNA MÓVIL */}
                     <div className="flex items-center justify-between pb-3 mb-2.5 border-b border-slate-200/80 dark:border-white/5 shrink-0">
@@ -1585,12 +1590,12 @@ export function OrdersListClient({
                       if (!targetOrder || targetOrder.status === col.id) return;
                       handleStatusTransition(targetOrder, col.id as any);
                     }}
-                    className={`bg-slate-50/80 dark:bg-white/[0.02] border rounded-2xl p-3.5 flex flex-col h-[calc(100vh-270px)] min-h-[620px] max-h-[820px] transition-all duration-200 ${
+                    className={`bg-slate-100/70 dark:bg-[#10131B] border rounded-2xl p-3.5 flex flex-col h-[calc(100vh-270px)] min-h-[620px] max-h-[820px] transition-all duration-200 border-t-4 ${col.borderTop} ${
                       isColOver
                         ? isAllowedTarget
-                          ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-500/5 ring-2 ring-emerald-500/30"
-                          : "border-rose-500/80 bg-rose-50/20 dark:bg-rose-500/5 ring-2 ring-rose-500/30"
-                        : "border-slate-200/80 dark:border-white/5"
+                          ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-500/10 ring-2 ring-emerald-500/30"
+                          : "border-rose-500/80 bg-rose-50/20 dark:bg-rose-500/10 ring-2 ring-rose-500/30"
+                        : "border-slate-200/90 dark:border-white/[0.08]"
                     }`}
                   >
                     {/* CABECERA DE LA COLUMNA (FIJA EN LA PARTE SUPERIOR) */}
@@ -1671,17 +1676,20 @@ export function OrdersListClient({
             )}
 
             {/* PAGINACIÓN INFERIOR PARA NAVEGAR HISTORIAL */}
-            <div className="pt-2">
-              <Pagination
-                currentPage={initialData.currentPage}
-                totalPages={initialData.totalPages}
-                totalItems={initialData.totalCount}
-                currentCount={initialData.orders.length}
-                itemLabel="pedidos"
-                onPageChange={handlePageChange}
-                isPending={isPending}
-              />
-            </div>
+            {initialData.totalPages > 1 && (
+              <div className="pt-2">
+                <Pagination
+                  currentPage={initialData.currentPage}
+                  totalPages={initialData.totalPages}
+                  totalItems={initialData.totalCount}
+                  currentCount={initialData.orders.length}
+                  pageSize={30}
+                  itemLabel="pedidos"
+                  onPageChange={handlePageChange}
+                  isPending={isPending}
+                />
+              </div>
+            )}
           </div>
         ) : (
           /* TABLA TRADICIONAL / HISTORIAL COMPLETO */
@@ -1732,7 +1740,11 @@ export function OrdersListClient({
                 headerClassName: "whitespace-nowrap",
                 className: "whitespace-nowrap",
                 render: (order) => {
-                  const typeBadge = getOrderTypeBadge(order.order_type, order.tableName);
+                  const typeBadge = getOrderTypeBadge(
+      order.order_type,
+      order.tableName,
+      Boolean(order.pickup_code || order.notes?.includes("[PICKUP_PIN:"))
+    );
                   const TypeIcon = typeBadge.icon;
                   return (
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${typeBadge.color}`}>
@@ -1874,6 +1886,7 @@ export function OrdersListClient({
               totalPages: initialData.totalPages,
               totalItems: initialData.totalCount,
               currentCount: initialData.orders.length,
+              pageSize: 30,
               itemLabel: "pedidos",
               onPageChange: handlePageChange,
               isPending,

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
 import type { AppNavSection, AppBranding } from "./navigation-types";
 import { NegovaLogoLoader } from "@/components/ui/negova-logo-loader";
 
@@ -67,27 +66,20 @@ export function ModuleLoadingOverlay({
   navigatingHref,
   navSections,
 }: ModuleLoadingOverlayProps) {
-  const currentPathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-
-  const cleanCurrent = (currentPathname || "").split("?")[0].replace(/\/$/, "");
-  const cleanTarget = (navigatingHref || "").split("?")[0].replace(/\/$/, "");
-  const isAlreadyAtTarget = Boolean(
-    cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))
-  );
 
   const target = useMemo(() => resolveModule(navigatingHref, navSections), [navigatingHref, navSections]);
 
   useEffect(() => {
-    if (!isActive || isAlreadyAtTarget) {
+    if (!isActive) {
       setVisible(false);
       setElapsed(0);
       return;
     }
 
-    // Pequeño retardo de 60ms para no parpadear si la navegación es instantánea (ej: prefetched)
-    const showTimer = setTimeout(() => setVisible(true), 60);
+    // Pequeño retardo de 40ms para no parpadear si la navegación es instantánea (ej: cliente en caché)
+    const showTimer = setTimeout(() => setVisible(true), 40);
 
     // Failsafe de seguridad: si la conexión se congela o cancela, liberar overlay tras 8s
     const maxSafetyTimer = setTimeout(() => {
@@ -102,9 +94,9 @@ export function ModuleLoadingOverlay({
       clearTimeout(maxSafetyTimer);
       clearInterval(tick);
     };
-  }, [isActive, navigatingHref, isAlreadyAtTarget]);
+  }, [isActive, navigatingHref]);
 
-  if (!isActive || !visible || isAlreadyAtTarget) return null;
+  if (!isActive || !visible) return null;
 
   const label = target?.label;
   const tipIndex = Math.min(LOADING_TIPS.length - 1, Math.floor(elapsed / 1200));
@@ -112,7 +104,7 @@ export function ModuleLoadingOverlay({
   const subtitle = isSlow ? "La conexión está lenta, seguimos cargando..." : `${LOADING_TIPS[tipIndex]}...`;
 
   return (
-    <div className="absolute inset-0 z-50 animate-in fade-in duration-150">
+    <div className="absolute inset-0 z-50 animate-in fade-in duration-150 flex items-center justify-center bg-slate-50 dark:bg-[#0B0E14] select-none pointer-events-auto">
       <NegovaLogoLoader
         moduleName={label}
         subtitle={subtitle}

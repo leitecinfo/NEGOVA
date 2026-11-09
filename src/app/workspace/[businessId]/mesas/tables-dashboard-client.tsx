@@ -45,7 +45,7 @@ import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { Button, IconButton } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { Input, Select, SearchInput } from "@/components/ui";
+import { Input, Select, SearchSelect, SearchInput } from "@/components/ui";
 import { CreateRoomModal } from "@/components/mesas/create-room-modal";
 import { CloseTableOrderModal } from "@/components/mesas/close-table-order-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -591,14 +591,20 @@ export function TablesDashboardClient({
                 onClick={() => setActiveMainTab(tab.id as any)}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   isActive
-                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs font-bold border border-slate-200/60 dark:border-white/10"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5"
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
                 {typeof tab.count === "number" && (
-                  <span className="text-3xs font-mono px-1.5 py-0.5 rounded-full bg-slate-200/60 dark:bg-white/[0.08]">
+                  <span
+                    className={`text-2xs font-mono px-2 py-0.5 rounded-full font-bold transition-colors ${
+                      isActive
+                        ? "bg-[#ED500A]/15 text-[#ED500A] border border-[#ED500A]/20"
+                        : "bg-slate-200/80 dark:bg-white/10 text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
                     {tab.count}
                   </span>
                 )}
@@ -693,14 +699,14 @@ export function TablesDashboardClient({
 
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   {/* Selector de Modo de Vista: Tarjetas vs Plano 2D */}
-                  <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/[0.08]">
+                  <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/[0.08]">
                     <button
                       type="button"
                       onClick={() => setTablesViewMode("cards")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                         tablesViewMode === "cards"
-                          ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                          ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] font-bold shadow-xs border border-slate-200/60 dark:border-white/10"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5"
                       }`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
@@ -709,10 +715,10 @@ export function TablesDashboardClient({
                     <button
                       type="button"
                       onClick={() => setTablesViewMode("plan")}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
                         tablesViewMode === "plan"
-                          ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] shadow-xs"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                          ? "bg-white dark:bg-[#0D0F16] text-[#ED500A] font-bold shadow-xs border border-slate-200/60 dark:border-white/10"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5"
                       }`}
                     >
                       <MapPin className="w-3.5 h-3.5" />
@@ -1374,10 +1380,12 @@ export function TablesDashboardClient({
       <CreateRoomModal
         isOpen={isCreateRoomModalOpen}
         businessId={businessId}
-        locations={locations}
         onClose={() => setIsCreateRoomModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(newRoom) => {
           setIsCreateRoomModalOpen(false);
+          if (newRoom?.id) {
+            setCreateTableForm((prev) => ({ ...prev, room_id: newRoom.id }));
+          }
           router.refresh();
         }}
       />
@@ -1421,33 +1429,35 @@ export function TablesDashboardClient({
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <Select
+                  <SearchSelect
                     label="Mesa de Origen (Ocupada)"
                     value={transferSourceTableId}
-                    onChange={(e) => setTransferSourceTableId(e.target.value)}
-                  >
-                    {occupiedTables.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name_or_number} ({formatCOP(t.activeOrder?.total || 0)})
-                      </option>
-                    ))}
-                  </Select>
+                    onChange={(val) => setTransferSourceTableId(val)}
+                    options={occupiedTables.map((t) => ({
+                      value: t.id,
+                      label: `${t.name_or_number} (${formatCOP(t.activeOrder?.total || 0)})`,
+                    }))}
+                    placeholder="Seleccionar mesa ocupada..."
+                    clearable={false}
+                    searchable={occupiedTables.length > 4}
+                  />
                 </div>
 
                 <div>
-                  <Select
+                  <SearchSelect
                     label="Mesa de Destino"
                     value={transferTargetTableId}
-                    onChange={(e) => setTransferTargetTableId(e.target.value)}
-                  >
-                    {initialTables
+                    onChange={(val) => setTransferTargetTableId(val)}
+                    options={initialTables
                       .filter((t) => t.id !== transferSourceTableId)
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name_or_number} {t.status === "available" ? "(Libre)" : "(Ocupada - Unir)"}
-                        </option>
-                      ))}
-                  </Select>
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${t.name_or_number} ${t.status === "available" ? "(Libre)" : "(Ocupada - Unir)"}`,
+                      }))}
+                    placeholder="Seleccionar mesa destino..."
+                    clearable={false}
+                    searchable={initialTables.length > 4}
+                  />
                 </div>
 
                 <div>
@@ -1616,23 +1626,47 @@ export function TablesDashboardClient({
                 </div>
 
                 <div>
-                  <Select
-                    label="Sala o Ambiente"
+                  <SearchSelect
+                    label={
+                      <span className="flex items-center justify-between w-full">
+                        <span>Sala o Ambiente</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreateRoomModalOpen(true)}
+                          className="text-[11px] font-semibold text-[#ED500A] hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>+ Crear sala</span>
+                        </button>
+                      </span>
+                    }
                     value={createTableForm.room_id || ""}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setCreateTableForm((prev) => ({
                         ...prev,
-                        room_id: e.target.value || undefined,
+                        room_id: val || undefined,
                       }))
                     }
-                  >
-                    <option value="">Sin sala asignada</option>
-                    {roomsList.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </Select>
+                    options={[
+                      {
+                        value: "",
+                        label: "Sin sala asignada (Zona General)",
+                        description: "La mesa estará visible en el plano general",
+                      },
+                      ...roomsList.map((r) => ({
+                        value: r.id,
+                        label: r.name,
+                        description: `${r.tablesCount || 0} mesas registradas`,
+                      })),
+                    ]}
+                    placeholder="Seleccionar sala o ambiente..."
+                    searchPlaceholder="Buscar sala..."
+                    searchable={roomsList.length > 4}
+                    clearable={false}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Opcional: puedes dejar la mesa en zona general o crear un ambiente (ej. Terraza, Interior) con «+ Crear sala».
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
@@ -1778,23 +1812,32 @@ export function TablesDashboardClient({
                 </div>
 
                 <div>
-                  <Select
-                    label="Sala"
+                  <SearchSelect
+                    label="Sala o Ambiente"
                     value={editTableForm.room_id || ""}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setEditTableForm((prev) => ({
                         ...prev,
-                        room_id: e.target.value || undefined,
+                        room_id: val || undefined,
                       }))
                     }
-                  >
-                    <option value="">Sin sala asignada</option>
-                    {roomsList.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </Select>
+                    options={[
+                      {
+                        value: "",
+                        label: "Sin sala asignada (Zona General)",
+                        description: "La mesa estará visible en el plano general",
+                      },
+                      ...roomsList.map((r) => ({
+                        value: r.id,
+                        label: r.name,
+                        description: `${r.tablesCount || 0} mesas registradas`,
+                      })),
+                    ]}
+                    placeholder="Seleccionar sala o ambiente..."
+                    searchPlaceholder="Buscar sala..."
+                    searchable={roomsList.length > 4}
+                    clearable={false}
+                  />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">

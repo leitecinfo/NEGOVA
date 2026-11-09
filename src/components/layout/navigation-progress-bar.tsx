@@ -8,6 +8,7 @@ interface NavigationProgressContextType {
   navigatingHref: string | null;
   startNavigation: (href: string) => void;
   endNavigation: () => void;
+  notifyRouteMounted: (pathname: string, search?: string) => void;
 }
 
 const NavigationProgressContext = createContext<NavigationProgressContextType>({
@@ -15,6 +16,7 @@ const NavigationProgressContext = createContext<NavigationProgressContextType>({
   navigatingHref: null,
   startNavigation: () => {},
   endNavigation: () => {},
+  notifyRouteMounted: () => {},
 });
 
 export function useNavigationProgress() {
@@ -139,24 +141,41 @@ export function NavigationProgressProvider({ children }: { children: React.React
     };
   }, [startNavigation, endNavigation]);
 
-  // Terminar navegación ÚNICAMENTE cuando la URL cambie efectivamente al destino o a una nueva ruta
+  // Notificación explícita de montaje de ruta: emitida por templates/páginas al renderizar en el DOM
+  const notifyRouteMounted = useCallback(
+    (mountedPathname: string, _search?: string) => {
+      if (!isNavigating) return;
+
+      const cleanMounted = (mountedPathname || "").split("?")[0].replace(/\/$/, "");
+      const cleanStart = startPathnameRef.current;
+      const cleanTarget = (navigatingHref || "").split("?")[0].replace(/\/$/, "");
+
+      // Concluir navegación si montó la ruta esperada o si ya cambió respecto a la pantalla de origen
+      const isTarget = Boolean(cleanTarget && (cleanMounted === cleanTarget || cleanMounted.startsWith(`${cleanTarget}/`)));
+      const isDifferentFromStart = Boolean(cleanStart && cleanMounted !== cleanStart);
+
+      if (isTarget || isDifferentFromStart) {
+        endNavigation();
+      }
+    },
+    [isNavigating, navigatingHref, endNavigation]
+  );
+
+  // Fallback de seguridad: si el router ya actualizó la URL pero la página tardó en notificar
+  // (por ejemplo en rutas externas o sin template), avanzar la barra y concluir con retardo de gracia
   useEffect(() => {
     if (!isNavigating) return;
 
     const cleanCurrent = pathname.split("?")[0].replace(/\/$/, "");
-    const cleanStart = startPathnameRef.current;
     const cleanTarget = (navigatingHref || "").split("?")[0].replace(/\/$/, "");
 
-    // 1. Llegó al destino deseado o a una subruta del destino
-    const hasReachedTarget = Boolean(
-      cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))
-    );
-
-    // 2. Cambió la ruta respecto a la pantalla desde donde se inició la navegación
-    const hasChangedRoute = Boolean(cleanStart && cleanCurrent !== cleanStart);
-
-    if (hasReachedTarget || hasChangedRoute) {
-      endNavigation();
+    if (cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))) {
+      setProgress((p) => Math.max(p, 90));
+      // Tiempo de gracia para permitir que Server Components pesados completen su reconciliación
+      const fallbackTimer = setTimeout(() => {
+        endNavigation();
+      }, 2500);
+      return () => clearTimeout(fallbackTimer);
     }
   }, [pathname, searchParams, isNavigating, navigatingHref, endNavigation]);
 
@@ -167,6 +186,7 @@ export function NavigationProgressProvider({ children }: { children: React.React
         navigatingHref,
         startNavigation,
         endNavigation,
+        notifyRouteMounted,
       }}
     >
       {/* Barra de progreso global micro-animada en la parte superior */}

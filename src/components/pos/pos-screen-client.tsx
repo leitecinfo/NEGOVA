@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -335,6 +335,22 @@ export function PosScreenClient({
     }
   };
   const [selectedTableId, setSelectedTableId] = useState<string>(initialSelectedTableId || "");
+  const [isTableSelectorOpen, setIsTableSelectorOpen] = useState(false);
+  const tableSelectorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutsideTable(event: MouseEvent) {
+      if (tableSelectorRef.current && !tableSelectorRef.current.contains(event.target as Node)) {
+        setIsTableSelectorOpen(false);
+      }
+    }
+    if (isTableSelectorOpen) {
+      document.addEventListener("mousedown", handleClickOutsideTable);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideTable);
+    };
+  }, [isTableSelectorOpen]);
   const [deliveryDetails, setDeliveryDetails] = useState({
     phone: "",
     name: "",
@@ -1719,30 +1735,107 @@ export function PosScreenClient({
 
                   {/* Campos condicionales para Comer aquí */}
                   {serviceType === "DINE_IN" && (
-                    <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 text-xs">
-                      <label className="block text-[10px] font-bold text-blue-900 dark:text-blue-300 mb-1">
-                        Selecciona Mesa
-                      </label>
-                      <Select
-                        selectSize="sm"
-                        value={selectedTableId}
-                        onChange={(e) => setSelectedTableId(e.target.value)}
-                      >
-                        <option value="">Mesa Principal / Mostrador</option>
-                        {tables.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name_or_number} (Capacidad: {t.capacity || 4})
-                          </option>
-                        ))}
-                      </Select>
+                    <div className="mt-2.5 p-3 bg-slate-50/80 dark:bg-[#12151E] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                          <Store className="w-3.5 h-3.5 text-[#ED500A]" />
+                          <span>Mesa / Ubicación</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
+                          En local
+                        </span>
+                      </div>
+
+                      {/* Selector de Mesa Personalizado (Sin select azul nativo) */}
+                      <div className="relative" ref={tableSelectorRef}>
+                        <button
+                          type="button"
+                          onClick={() => setIsTableSelectorOpen(!isTableSelectorOpen)}
+                          className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2 transition hover:border-[#ED500A]/50 focus:outline-none cursor-pointer shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-semibold text-xs truncate">
+                              {tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa Principal / Mostrador"}
+                            </span>
+                            {tables.find((t) => t.id === selectedTableId)?.capacity && (
+                              <span className="text-[10px] font-mono text-slate-400">
+                                ({tables.find((t) => t.id === selectedTableId)?.capacity} pers.)
+                              </span>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${
+                              isTableSelectorOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {isTableSelectorOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 z-40 p-1.5 rounded-xl bg-white dark:bg-[#161A24] border border-slate-200 dark:border-white/10 shadow-xl max-h-56 overflow-y-auto space-y-1 animate-in fade-in">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTableId("");
+                                setIsTableSelectorOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition cursor-pointer text-left ${
+                                !selectedTableId
+                                  ? "bg-[#ED500A]/10 text-[#ED500A] font-bold"
+                                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+                              }`}
+                            >
+                              <span>Mesa Principal / Mostrador</span>
+                              {!selectedTableId && <Check className="w-3.5 h-3.5 text-[#ED500A]" />}
+                            </button>
+
+                            {tables.map((t) => {
+                              const isSelected = selectedTableId === t.id;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTableId(t.id);
+                                    setIsTableSelectorOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition cursor-pointer text-left ${
+                                    isSelected
+                                      ? "bg-[#ED500A]/10 text-[#ED500A] font-bold"
+                                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <span className="font-medium">{t.name_or_number}</span>
+                                    {t.capacity && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        (Cap: {t.capacity})
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#ED500A] shrink-0" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {/* Campos condicionales para Domicilio */}
                   {serviceType === "DELIVERY" && (
-                    <div className="mt-2 p-2.5 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-200 dark:border-purple-900/40 text-xs space-y-2">
+                    <div className="mt-2.5 p-3 bg-slate-50/80 dark:bg-[#12151E] rounded-2xl border border-slate-200/80 dark:border-white/[0.08] text-xs space-y-2.5 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                          <Bike className="w-3.5 h-3.5 text-[#ED500A]" />
+                          <span>Datos del Domicilio</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
+                          Envío
+                        </span>
+                      </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 mb-0.5">
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                           Teléfono *
                         </label>
                         <input
@@ -1750,11 +1843,11 @@ export function PosScreenClient({
                           placeholder="Ej. 300 123 4567"
                           value={deliveryDetails.phone}
                           onChange={(e) => setDeliveryDetails({ ...deliveryDetails, phone: e.target.value })}
-                          className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 mb-0.5">
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                           Nombre del cliente *
                         </label>
                         <input
@@ -1762,11 +1855,11 @@ export function PosScreenClient({
                           placeholder="Nombre receptor"
                           value={deliveryDetails.name}
                           onChange={(e) => setDeliveryDetails({ ...deliveryDetails, name: e.target.value })}
-                          className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 mb-0.5">
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                           Dirección de entrega *
                         </label>
                         <input
@@ -1774,18 +1867,18 @@ export function PosScreenClient({
                           placeholder="Calle, carrera, apto..."
                           value={deliveryDetails.address}
                           onChange={(e) => setDeliveryDetails({ ...deliveryDetails, address: e.target.value })}
-                          className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white"
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-purple-900 dark:text-purple-300 mb-0.5">
+                        <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                           Tarifa de Domicilio ($)
                         </label>
                         <input
                           type="number"
                           value={deliveryDetails.deliveryFee}
                           onChange={(e) => setDeliveryDetails({ ...deliveryDetails, deliveryFee: parseFloat(e.target.value) || 0 })}
-                          className="w-full h-8 px-2 rounded border border-slate-300 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono"
+                          className="w-full h-8 px-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-900 dark:text-white font-mono text-xs"
                         />
                       </div>
                     </div>

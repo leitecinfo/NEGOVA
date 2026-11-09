@@ -176,6 +176,16 @@ export function OrderDetailModal({
     ? "bg-amber-500"
     : "bg-orange-500";
 
+  const statusBadgeClasses = isCompleted
+    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+    : order.status === "cancelled"
+    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+    : order.status === "ready"
+    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25"
+    : order.status === "in_preparation"
+    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+    : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/25";
+
   // Origen
   const originLabel =
     order.channel_origin === "in_person"
@@ -271,7 +281,7 @@ export function OrderDetailModal({
                   {/* Badges de estado: Etiqueta con punto indicador de estado y Etiqueta de origen */}
                   <div className="flex items-center gap-2 pt-1 flex-wrap">
                     {/* Etiqueta con punto indicador de estado */}
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeClasses}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor}`} />
                       <span>{statusLabel}</span>
                     </span>
@@ -321,7 +331,7 @@ export function OrderDetailModal({
                 {/* Disposición visual: Cuadrícula de 2 columnas por 2 filas */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Tarjeta 1 (Cliente) */}
-                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-6 h-6 rounded-lg bg-slate-200/60 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
                         <User className="w-3.5 h-3.5" />
@@ -342,7 +352,7 @@ export function OrderDetailModal({
                   </div>
 
                   {/* Tarjeta 2 (Método de Pago) */}
-                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-6 h-6 rounded-lg bg-slate-200/60 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
                         <CreditCard className="w-3.5 h-3.5" />
@@ -361,7 +371,7 @@ export function OrderDetailModal({
                   </div>
 
                   {/* Tarjeta 3 (Servicio) */}
-                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-6 h-6 rounded-lg bg-slate-200/60 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
                         <ClipboardList className="w-3.5 h-3.5" />
@@ -382,7 +392,7 @@ export function OrderDetailModal({
                   </div>
 
                   {/* Tarjeta 4 (Fecha de creación) */}
-                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-6 h-6 rounded-lg bg-slate-200/60 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-slate-300">
                         <Calendar className="w-3.5 h-3.5" />
@@ -401,7 +411,7 @@ export function OrderDetailModal({
                   </div>
 
                   {/* Tarjeta 5 (Responsable del Pedido) */}
-                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
+                  <div className="relative p-3.5 sm:p-4 rounded-2xl bg-slate-50/80 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] overflow-hidden">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                         <UserCheck className="w-3.5 h-3.5" />
@@ -518,7 +528,7 @@ export function OrderDetailModal({
                     order.items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="p-3 rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between gap-3 shadow-2xs"
+                        className="p-3 rounded-2xl bg-white dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between gap-3 shadow-2xs"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           {/* Imagen / Thumbnail con badge superpuesto en la esquina inferior derecha con la cantidad */}
@@ -577,7 +587,7 @@ export function OrderDetailModal({
                       </div>
                     ))
                   ) : (
-                    <div className="p-4 text-center text-xs text-slate-400 bg-slate-50/50 dark:bg-white/[0.01] rounded-2xl border border-slate-200/80 dark:border-white/[0.08]">
+                    <div className="p-4 text-center text-xs text-slate-400 bg-slate-50/50 dark:bg-[#12151E] rounded-2xl border border-slate-200/80 dark:border-white/[0.08]">
                       Sin desglose de productos registrado
                     </div>
                   )}
@@ -610,7 +620,7 @@ export function OrderDetailModal({
                           documentNumber: `FAC-${order.order_number}`,
                         })
                       }
-                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer"
+                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#12151E] hover:bg-slate-50 dark:hover:bg-white/[0.05] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer"
                       title="Ver e imprimir factura de la orden"
                     >
                       <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -622,7 +632,7 @@ export function OrderDetailModal({
                       type="button"
                       disabled={isDownloadingPhoto}
                       onClick={handleDownloadPhoto}
-                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#12151E] hover:bg-slate-50 dark:hover:bg-white/[0.05] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer disabled:opacity-50"
                       title="Descargar o compartir foto de la factura"
                     >
                       {isDownloadingPhoto ? (
@@ -637,7 +647,7 @@ export function OrderDetailModal({
                     <button
                       type="button"
                       onClick={() => setIsKitchenTicketOpen(true)}
-                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0D0F16] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer"
+                      className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#12151E] hover:bg-slate-50 dark:hover:bg-white/[0.05] text-slate-800 dark:text-slate-200 text-xs font-semibold transition-all shadow-2xs hover:scale-[1.01] cursor-pointer"
                       title="Visualizar tiquete operativo de preparación y despacho"
                     >
                       <FileText className="w-4 h-4 text-amber-500 shrink-0" />
@@ -647,7 +657,7 @@ export function OrderDetailModal({
                 </div>
 
                 {/* Bloque inferior: Resumen de pago */}
-                <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] space-y-2.5">
+                <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-[#12151E] border border-slate-200/80 dark:border-white/[0.08] space-y-2.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
                     RESUMEN DE PAGO
                   </span>
@@ -669,11 +679,11 @@ export function OrderDetailModal({
                   )}
 
                   {/* Total de la orden: Barra destacada a todo el ancho interior con fondo en contraste */}
-                  <div className="p-3.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex justify-between items-center shadow-xs">
-                    <span className="text-xs sm:text-sm font-bold tracking-tight">
+                  <div className="p-3.5 rounded-xl bg-slate-900 text-white dark:bg-[#181C26] dark:text-white dark:border dark:border-white/10 flex justify-between items-center shadow-xs">
+                    <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-200">
                       Total de la orden
                     </span>
-                    <span className="text-base sm:text-lg font-black font-mono">
+                    <span className="text-base sm:text-lg font-black font-mono text-[#ED500A]">
                       {formatCOP(order.total)}
                     </span>
                   </div>

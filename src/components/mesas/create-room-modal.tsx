@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Input, Select } from "@/components/ui";
-import { Layers, X, Loader2, AlertCircle, PlusCircle } from "lucide-react";
+import { Input } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Layers, X, AlertCircle, PlusCircle } from "lucide-react";
 import { createRestaurantRoomAction } from "@/app/workspace/[businessId]/mesas/actions";
 import { toast } from "sonner";
 import { RestaurantRoom } from "@/lib/restaurant/types";
@@ -20,14 +21,12 @@ interface CreateRoomModalProps {
 export function CreateRoomModal({
   isOpen,
   businessId,
-  locations = [],
   onClose,
   onSuccess,
   onCreated,
 }: CreateRoomModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [locationId, setLocationId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +50,6 @@ export function CreateRoomModal({
       const res = await createRestaurantRoomAction(businessId, {
         name: cleanName,
         description: description.trim() || undefined,
-        location_id: locationId || undefined,
         status: "active",
         sort_order: 0,
       });
@@ -126,36 +124,25 @@ export function CreateRoomModal({
 
               {/* ATAJOS RÁPIDOS */}
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {quickNames.map((qn) => (
-                  <button
-                    key={qn}
-                    type="button"
-                    onClick={() => setName(qn)}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-[#ED500A] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/5 transition-colors cursor-pointer"
-                  >
-                    {qn}
-                  </button>
-                ))}
+                {quickNames.map((qn) => {
+                  const isSelected = name.trim().toLowerCase() === qn.toLowerCase();
+                  return (
+                    <button
+                      key={qn}
+                      type="button"
+                      onClick={() => setName(qn)}
+                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-[#ED500A]/15 text-[#ED500A] border-[#ED500A]/30 shadow-2xs font-bold"
+                          : "bg-slate-100 dark:bg-white/5 hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:text-[#ED500A] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-white/5"
+                      }`}
+                    >
+                      {qn}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {/* UBICACIÓN ASOCIADA (OPCIONAL) */}
-            {locations.length > 0 && (
-              <div>
-                <Select
-                  label="Ubicación Física (Opcional)"
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                >
-                  <option value="">Ubicación Principal</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            )}
 
             {/* DESCRIPCIÓN */}
             <div className="space-y-1.5">
@@ -171,37 +158,31 @@ export function CreateRoomModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Ej. Zona al aire libre para fumadores, mesas altas..."
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ED500A]"
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
               />
             </div>
 
             {/* ACCIONES */}
             <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-white/5">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="md"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                disabled={isSubmitting || !name.trim()}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-[#ED500A] hover:bg-[#d64508] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                variant="primary"
+                size="md"
+                disabled={!name.trim()}
+                isLoading={isSubmitting}
+                leftIcon={<PlusCircle className="w-4 h-4" />}
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Guardando sala...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Crear Sala</span>
-                  </>
-                )}
-              </button>
+                Crear Sala
+              </Button>
             </div>
           </form>
         </div>
