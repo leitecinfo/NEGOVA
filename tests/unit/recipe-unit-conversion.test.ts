@@ -129,5 +129,64 @@ describe("[REC-004] Conversión de unidades de medida para recetas y escandallos
       expect(units.map((u) => u.value)).not.toContain("kg");
     });
   });
+
+  describe("Conversión gastronómica realista (lechuga, papas, porciones)", () => {
+    it("permite medir lechuga en gramos cuando se compró por unidad sin bloquear", () => {
+      // Lechuga Batavia comprada a $6.000 / unidad. En receta se usan 50 gramos (base 500g/un)
+      // 50g = 0.1 unidad -> costo = $600
+      const res = calculateLineCostWithConversion({
+        recipeQuantity: 50,
+        recipeUnit: "g",
+        ingredientStockUnit: "unidad",
+        ingredientUnitCost: 6000,
+      });
+
+      expect(res.isCompatible).toBe(true);
+      expect(res.subtotalCost).toBe(600);
+      expect(res.quantityInStockUnit).toBe(0.1);
+    });
+
+    it("mantiene relación 1:1 entre unidad y porción cuando ambos son de conteo discreto (ej. 1 pan, 1 huevo)", () => {
+      const res = calculateLineCostWithConversion({
+        recipeQuantity: 1,
+        recipeUnit: "porcion",
+        ingredientStockUnit: "unidad",
+        ingredientUnitCost: 1500,
+      });
+
+      expect(res.isCompatible).toBe(true);
+      expect(res.subtotalCost).toBe(1500);
+      expect(res.quantityInStockUnit).toBe(1);
+    });
+
+    it("permite medir papas en libras cuando se compraron en kilogramos", () => {
+      // Papas compradas a $4.000 / kg. En receta se usan 0.5 libras (250g = 0.25 kg)
+      // costo = 0.25 * 4000 = $1.000
+      const res = calculateLineCostWithConversion({
+        recipeQuantity: 0.5,
+        recipeUnit: "lb",
+        ingredientStockUnit: "kg",
+        ingredientUnitCost: 4000,
+      });
+
+      expect(res.isCompatible).toBe(true);
+      expect(res.subtotalCost).toBe(1000);
+      expect(res.quantityInStockUnit).toBe(0.25);
+    });
+
+    it("permite medir papas por porción cuando se compraron en kg", () => {
+      // 1 porción gastronómica = 100g = 0.1 kg. Papas a $4.000/kg -> $400
+      const res = calculateLineCostWithConversion({
+        recipeQuantity: 1,
+        recipeUnit: "porcion",
+        ingredientStockUnit: "kg",
+        ingredientUnitCost: 4000,
+      });
+
+      expect(res.isCompatible).toBe(true);
+      expect(res.subtotalCost).toBe(400);
+      expect(res.quantityInStockUnit).toBe(0.1);
+    });
+  });
 });
 

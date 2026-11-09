@@ -42,7 +42,7 @@ import {
 import { getProductsAction } from "../productos/actions";
 import {
   calculateLineCostWithConversion,
-  getCompatibleUnits,
+  getRecipeUnitOptions,
   convertQuantity,
 } from "@/lib/recipes/unit-conversion";
 
@@ -702,22 +702,20 @@ export function RecipeFormModal({
                     <div className="space-y-3">
                       {/* Tabla responsiva de líneas */}
                       <div className="overflow-x-auto -mx-2 sm:mx-0">
-                        <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+                        <table className="w-full text-left text-xs border-collapse min-w-[640px]">
                           <thead>
                             <tr className="border-b border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold">
-                              <th className="py-2 px-2.5 w-[38%]">Ingrediente / Insumo</th>
-                              <th className="py-2 px-2.5 w-[16%]">Cantidad</th>
-                              <th className="py-2 px-2.5 w-[18%]">Unidad</th>
-                              <th className="py-2 px-2.5 w-[18%] text-right">Costo Subtotal</th>
+                              <th className="py-2 px-2.5 w-[36%]">Ingrediente / Insumo</th>
+                              <th className="py-2 px-2.5 w-[15%]">Cantidad</th>
+                              <th className="py-2 px-2.5 w-[23%]">Unidad</th>
+                              <th className="py-2 px-2.5 w-[16%] text-right">Costo Subtotal</th>
                               <th className="py-2 px-2 text-center w-[10%]">Acción</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {calculatedLines.map((line, idx) => {
                               const ing = line.ingredient;
-                              const compatibleUnits = ing
-                                ? getCompatibleUnits(ing.unit)
-                                : [{ value: line.unit, label: line.unit }];
+                              const recipeUnitOptions = getRecipeUnitOptions(ing?.unit);
 
                               // Opciones para el selector de ingrediente (deshabilita los ya usados en otras filas y excluye el producto padre)
                               const ingredientSelectOptions = availableIngredients
@@ -767,23 +765,21 @@ export function RecipeFormModal({
                                     />
                                   </td>
 
-                                  {/* Columna 3: Unidad de Medida Compatible */}
-                                  <td className="py-2.5 px-2.5 align-top">
-                                    <Select
+                                  {/* Columna 3: Selector de Unidad Personalizado NEGOVA */}
+                                  <td className="py-2.5 px-2.5 align-top min-w-[150px]">
+                                    <SearchSelect
+                                      options={recipeUnitOptions}
                                       value={line.unit}
-                                      onChange={(e) =>
-                                        handleUpdateLine(line.tempId, { unit: e.target.value })
+                                      onChange={(val) =>
+                                        handleUpdateLine(line.tempId, { unit: val })
                                       }
-                                      className="text-xs"
-                                    >
-                                      {compatibleUnits.map((u) => (
-                                        <option key={u.value} value={u.value}>
-                                          {u.label}
-                                        </option>
-                                      ))}
-                                    </Select>
+                                      placeholder="Unidad..."
+                                      searchPlaceholder="Buscar unidad (g, lb, porc)..."
+                                      selectSize="sm"
+                                      clearable={false}
+                                    />
                                     {line.conversionExplanation && (
-                                      <span className="block mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+                                      <span className="block mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-mono leading-tight">
                                         {line.conversionExplanation}
                                       </span>
                                     )}
