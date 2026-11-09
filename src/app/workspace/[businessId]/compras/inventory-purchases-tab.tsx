@@ -625,9 +625,7 @@ export function InventoryPurchasesTab({
                       return (
                         <tr
                           key={purchase.id}
-                          className={`hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors ${
-                            isCancelled ? "opacity-60 bg-slate-50/30" : ""
-                          }`}
+                          className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors"
                         >
                           {/* 1. Factura / Ref */}
                           <td className="px-3.5 py-3 whitespace-nowrap">
