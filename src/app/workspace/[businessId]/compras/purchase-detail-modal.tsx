@@ -384,7 +384,7 @@ export function PurchaseDetailModal({
                     className="w-full mt-2 inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm cursor-pointer"
                   >
                     <Banknote className="w-4 h-4" />
-                    <span>+ Registrar Abono a Proveedor</span>
+                    <span>Registrar Abono a Proveedor</span>
                   </button>
                 )}
               </div>

@@ -179,7 +179,7 @@ export function WorkspaceProveedoresClient({
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#ED500A] text-white font-bold text-xs shadow-md shadow-[#ED500A]/20 hover:bg-[#ED500A]/90 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Nuevo proveedor</span>
+          <span>Nuevo proveedor</span>
         </button>
       </div>
 
@@ -283,7 +283,7 @@ export function WorkspaceProveedoresClient({
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#ED500A] text-white font-bold text-xs shadow-md shadow-[#ED500A]/20 hover:bg-[#ED500A]/90 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Registrar mi primer proveedor</span>
