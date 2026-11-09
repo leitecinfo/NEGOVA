@@ -342,7 +342,7 @@ export function InventoryPurchasesTab({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer active:scale-98"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Nueva compra</span>
+            <span>Nueva compra</span>
           </button>
         </div>
       </div>
@@ -399,7 +399,7 @@ export function InventoryPurchasesTab({
                       className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         isActive
                           ? "bg-[#ED500A] text-white shadow-sm"
-                          : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-white/[0.08]"
+                          : "bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-white/[0.08]"
                       }`}
                     >
                       {preset.label}
@@ -530,7 +530,7 @@ export function InventoryPurchasesTab({
                   onClick={() => setStatusTab(tab.id)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     statusTab === tab.id
-                      ? "bg-white dark:bg-slate-800 text-[#ED500A] shadow-sm"
+                      ? "bg-white dark:bg-white/[0.08] text-[#ED500A] shadow-xs"
                       : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
                   }`}
                 >
@@ -584,7 +584,7 @@ export function InventoryPurchasesTab({
                     <button
                       type="button"
                       onClick={handleClearFilters}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] transition-all cursor-pointer shadow-sm"
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-all cursor-pointer shadow-sm"
                     >
                       <Filter className="w-3.5 h-3.5 text-slate-400" />
                       <span>Ver todo</span>
@@ -596,7 +596,7 @@ export function InventoryPurchasesTab({
                     className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>+ Nueva Compra</span>
+                    <span>Nueva compra</span>
                   </button>
                 </div>
               </div>

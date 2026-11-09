@@ -765,21 +765,21 @@ export function PurchaseFormModal({
     <>
       <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-5xl xl:max-w-6xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="relative w-full max-w-5xl xl:max-w-6xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
             {/* Header del Modal */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                <div className="p-2.5 rounded-2xl bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                   <ShoppingCart className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <span>Nueva compra</span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Nueva Compra</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                       Entrada a Inventario & Kardex
                     </span>
                   </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Registro de compras en 2 columnas con selector trifásico para materias primas, reventa y gastos.
                   </p>
                 </div>
@@ -788,7 +788,7 @@ export function PurchaseFormModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -802,25 +802,25 @@ export function PurchaseFormModal({
                 </div>
 
                 <div className="space-y-2">
-                  <span className="inline-block px-3 py-1 rounded-full text-xs font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                     {confirmedPurchase.purchaseNumber}
                   </span>
-                  <h4 className="text-xl font-bold text-foreground">
+                  <h4 className="text-xl font-bold text-slate-900 dark:text-white">
                     ¡Compra Registrada Exitosamente!
                   </h4>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                     Se actualizaron las existencias en inventario, se recalculó el costo promedio ponderado y se registraron los movimientos correspondientes.
                   </p>
                 </div>
 
-                <div className="max-w-md mx-auto p-4 rounded-xl bg-muted/40 border border-border text-left space-y-2 text-xs">
+                <div className="max-w-md mx-auto p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] text-left space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total de la compra:</span>
-                    <strong className="font-mono text-foreground">{formatCOP(confirmedPurchase.total)}</strong>
+                    <span className="text-slate-500 dark:text-slate-400">Total de la compra:</span>
+                    <strong className="font-mono text-slate-900 dark:text-white">{formatCOP(confirmedPurchase.total)}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Condición de pago:</span>
-                    <strong className="capitalize text-foreground">
+                    <span className="text-slate-500 dark:text-slate-400">Condición de pago:</span>
+                    <strong className="capitalize text-slate-900 dark:text-white">
                       {confirmedPurchase.paymentType === "cash" ? "Contado" : "A Crédito"}
                     </strong>
                   </div>
@@ -832,7 +832,7 @@ export function PurchaseFormModal({
                   )}
                 </div>
 
-                <div className="flex items-center justify-center gap-3 pt-4 border-t border-border">
+                <div className="flex items-center justify-center gap-3 pt-4 border-t border-slate-200/80 dark:border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => {
@@ -841,7 +841,7 @@ export function PurchaseFormModal({
                       onClose();
                       if (p) onSuccess(p);
                     }}
-                    className="px-5 py-2.5 rounded-xl border border-border text-xs font-bold hover:bg-muted transition-all cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-all cursor-pointer"
                   >
                     Cerrar ventana
                   </button>
@@ -852,9 +852,10 @@ export function PurchaseFormModal({
                       resetForm();
                       if (p) onSuccess(p);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-md cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#ED500A] text-white text-xs font-bold hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer"
                   >
-                    + Registrar otra compra
+                    <Plus className="w-4 h-4" />
+                    <span>Registrar otra compra</span>
                   </button>
                 </div>
               </div>
@@ -863,14 +864,14 @@ export function PurchaseFormModal({
                 {/* ========================================================= */}
                 {/* COLUMNA IZQUIERDA (POR PASOS)                             */}
                 {/* ========================================================= */}
-                <div className="lg:col-span-7 xl:col-span-7 overflow-y-auto p-5 sm:p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-border">
+                <div className="lg:col-span-7 xl:col-span-7 overflow-y-auto p-5 sm:p-6 space-y-6 border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-white/[0.08]">
                   {/* PASO 1: PROVEEDOR Y FECHA */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 border-b border-border pb-2">
-                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">
+                      <span className="w-5 h-5 rounded-full bg-[#ED500A] text-white text-[11px] font-bold flex items-center justify-center shrink-0 shadow-sm shadow-[#ED500A]/30">
                         1
                       </span>
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                         Paso 1: Proveedor y Fecha de compra
                       </h4>
                     </div>
@@ -878,9 +879,9 @@ export function PurchaseFormModal({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* Proveedor (*) con botón directo '+' al lado del selector */}
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           <span>Proveedor</span>
-                          <span className="text-red-500 font-bold ml-1">*</span>
+                          <span className="text-[#ED500A] font-bold ml-1">*</span>
                         </label>
                         <SupplierSelector
                           suppliers={suppliers}
@@ -896,7 +897,7 @@ export function PurchaseFormModal({
 
                       {/* Tipo de Documento */}
                       <div>
-                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           Tipo de Documento
                         </label>
                         <Select
@@ -913,8 +914,8 @@ export function PurchaseFormModal({
 
                       {/* N° Factura / Remisión (Opcional) */}
                       <div>
-                        <label className="block text-xs font-semibold text-foreground mb-1.5">
-                          N° Factura / Referencia <span className="text-muted-foreground font-normal">(Opcional)</span>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          N° Factura / Referencia <span className="text-slate-400 font-normal">(Opcional)</span>
                         </label>
                         <Input
                           type="text"
@@ -927,8 +928,8 @@ export function PurchaseFormModal({
 
                       {/* Fecha de compra (*) */}
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-foreground mb-1.5">
-                          Fecha de Compra <span className="text-red-500 font-bold">*</span>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Fecha de Compra <span className="text-[#ED500A] font-bold">*</span>
                         </label>
                         <Input
                           type="date"
@@ -943,12 +944,12 @@ export function PurchaseFormModal({
 
                   {/* PASO 2: ÍTEMS DE COMPRA CON SELECTOR TRIFÁSICO */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.08] pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0">
+                        <span className="w-5 h-5 rounded-full bg-[#ED500A] text-white text-[11px] font-bold flex items-center justify-center shrink-0 shadow-sm shadow-[#ED500A]/30">
                           2
                         </span>
-                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                           Paso 2: Ítems de compra
                         </h4>
                       </div>
@@ -956,9 +957,9 @@ export function PurchaseFormModal({
                       <button
                         type="button"
                         onClick={() => setIsCategoryModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground transition-all border border-border cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/[0.04] hover:bg-slate-200/70 dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-200 transition-all border border-slate-200/80 dark:border-white/[0.08] cursor-pointer"
                       >
-                        <FolderKanban className="w-3.5 h-3.5 text-primary" />
+                        <FolderKanban className="w-3.5 h-3.5 text-[#ED500A]" />
                         <span>Categorías</span>
                       </button>
                     </div>
@@ -969,17 +970,17 @@ export function PurchaseFormModal({
                       <button
                         type="button"
                         onClick={() => setTriphasicType("ingredient")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                           triphasicType === "ingredient"
-                            ? "bg-amber-500/10 border-amber-500/60 text-foreground shadow-sm ring-1 ring-amber-500/30"
-                            : "border-border text-muted-foreground hover:bg-muted/40"
+                            ? "bg-[#ED500A]/10 border-[#ED500A]/50 text-slate-900 dark:text-white shadow-sm ring-1 ring-[#ED500A]/30"
+                            : "border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/[0.03]"
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Apple className={`w-4 h-4 ${triphasicType === "ingredient" ? "text-amber-500" : "text-muted-foreground"}`} />
-                          <span className="font-bold text-xs text-foreground">Insumo / Ingrediente</span>
+                          <Apple className={`w-4 h-4 ${triphasicType === "ingredient" ? "text-[#ED500A]" : "text-slate-400"}`} />
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">Insumo / Ingrediente</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight">
                           Materias primas (queso, carne, papas, pan, empaques). Suma existencias y recalcula costo promedio.
                         </p>
                       </button>
@@ -988,17 +989,17 @@ export function PurchaseFormModal({
                       <button
                         type="button"
                         onClick={() => setTriphasicType("resale")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                           triphasicType === "resale"
-                            ? "bg-blue-500/10 border-blue-500/60 text-foreground shadow-sm ring-1 ring-blue-500/30"
-                            : "border-border text-muted-foreground hover:bg-muted/40"
+                            ? "bg-blue-500/10 border-blue-500/50 text-slate-900 dark:text-white shadow-sm ring-1 ring-blue-500/30"
+                            : "border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/[0.03]"
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Package className={`w-4 h-4 ${triphasicType === "resale" ? "text-blue-500" : "text-muted-foreground"}`} />
-                          <span className="font-bold text-xs text-foreground">Producto / Reventa</span>
+                          <Package className={`w-4 h-4 ${triphasicType === "resale" ? "text-blue-500" : "text-slate-400"}`} />
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">Producto / Reventa</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight">
                           Artículos que se compran y venden directamente sin transformación. Aumenta stock en el inventario.
                         </p>
                       </button>
@@ -1007,39 +1008,39 @@ export function PurchaseFormModal({
                       <button
                         type="button"
                         onClick={() => setTriphasicType("free")}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                           triphasicType === "free"
-                            ? "bg-purple-500/10 border-purple-500/60 text-foreground shadow-sm ring-1 ring-purple-500/30"
-                            : "border-border text-muted-foreground hover:bg-muted/40"
+                            ? "bg-purple-500/10 border-purple-500/50 text-slate-900 dark:text-white shadow-sm ring-1 ring-purple-500/30"
+                            : "border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-white/[0.03]"
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Wrench className={`w-4 h-4 ${triphasicType === "free" ? "text-purple-500" : "text-muted-foreground"}`} />
-                          <span className="font-bold text-xs text-foreground">Ítem Libre / Gasto</span>
+                          <Wrench className={`w-4 h-4 ${triphasicType === "free" ? "text-purple-500" : "text-slate-400"}`} />
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">Ítem Libre / Gasto</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight">
                           Compras no gastronómicas (artículos de aseo, bombillos, mantenimiento).
                         </p>
                       </button>
                     </div>
 
-                    {/* Campos de entrada: Selector respectivo, Cantidad (*), Costo unitario (*) y botón '+ Agregar a la lista' */}
-                    <div className="p-4 rounded-xl bg-muted/20 border border-border space-y-3">
+                    {/* Campos de entrada: Selector respectivo, Cantidad (*), Costo unitario (*) y botón 'Agregar a la lista' */}
+                    <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                         {/* Selector dinámico según el Selector Trifásico */}
                         <div className="sm:col-span-5">
-                          <label className="block text-[11px] font-semibold text-foreground mb-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             {triphasicType === "ingredient" ? (
                               <span>
-                                Insumo o Materia Prima <span className="text-red-500 font-bold">*</span>
+                                Insumo o Materia Prima <span className="text-[#ED500A] font-bold">*</span>
                               </span>
                             ) : triphasicType === "resale" ? (
                               <span>
-                                Producto de Reventa Directa <span className="text-red-500 font-bold">*</span>
+                                Producto de Reventa Directa <span className="text-[#ED500A] font-bold">*</span>
                               </span>
                             ) : (
                               <span>
-                                Concepto del Gasto / Ítem Libre <span className="text-red-500 font-bold">*</span>
+                                Concepto del Gasto / Ítem Libre <span className="text-[#ED500A] font-bold">*</span>
                               </span>
                             )}
                           </label>
@@ -1077,8 +1078,8 @@ export function PurchaseFormModal({
 
                         {/* Cantidad (*) */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold text-foreground mb-1">
-                            Cantidad <span className="text-red-500 font-bold">*</span>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Cantidad <span className="text-[#ED500A] font-bold">*</span>
                           </label>
                           <Input
                             type="number"
@@ -1088,13 +1089,13 @@ export function PurchaseFormModal({
                             onChange={(e) => setItemQuantity(e.target.value)}
                             placeholder="1"
                             inputSize="sm"
-                            className="text-right font-mono"
+                            className="text-right font-mono font-bold"
                           />
                         </div>
 
                         {/* Unidad de Compra */}
                         <div className="sm:col-span-2">
-                          <label className="block text-[11px] font-semibold text-foreground mb-1">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Unidad
                           </label>
                           <Select
@@ -1102,22 +1103,21 @@ export function PurchaseFormModal({
                             onChange={(e) => setPurchaseUnit(e.target.value)}
                             selectSize="sm"
                           >
-                            <option value="unidad">Unidad (und)</option>
+                            <option value="unidad">Unidad (un)</option>
                             <option value="kg">Kilogramos (kg)</option>
                             <option value="g">Gramos (g)</option>
                             <option value="lb">Libras (lb)</option>
                             <option value="lt">Litros (lt)</option>
                             <option value="ml">Mililitros (ml)</option>
-                            <option value="paquete">Paquete</option>
-                            <option value="caja">Caja</option>
-                            <option value="docena">Docena</option>
+                            <option value="paquete">Paquete (paq)</option>
+                            <option value="porcion">Porción (porc)</option>
                           </Select>
                         </div>
 
                         {/* Costo unitario (*) */}
                         <div className="sm:col-span-3">
-                          <label className="block text-[11px] font-semibold text-foreground mb-1">
-                            Costo Unitario ($) <span className="text-red-500 font-bold">*</span>
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Costo Unitario ($) <span className="text-[#ED500A] font-bold">*</span>
                           </label>
                           <Input
                             type="number"
@@ -1127,7 +1127,7 @@ export function PurchaseFormModal({
                             onChange={(e) => setItemUnitCost(e.target.value)}
                             placeholder="0"
                             inputSize="sm"
-                            className="text-right font-mono"
+                            className="text-right font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -1154,13 +1154,13 @@ export function PurchaseFormModal({
                               const q = parseFloat(itemQuantity) || 1;
                               const conv = convertQuantity(q, purchaseUnit, targetInvUnit);
                               return (
-                                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-medium">
+                                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20 font-medium">
                                   {conv.isCompatible ? (
                                     <span>
                                       🔄 Conversión: {q} {purchaseUnit} = <strong>{conv.convertedQuantity} {targetInvUnit}</strong> en inventario (factor x{conv.factor})
                                     </span>
                                   ) : (
-                                    <span className="text-red-500">
+                                    <span className="text-rose-500">
                                       ⚠️ {conv.error || "Unidades incompatibles"}
                                     </span>
                                   )}
@@ -1171,7 +1171,7 @@ export function PurchaseFormModal({
                           })()}
                         </div>
                         <div className="sm:col-span-6 flex items-center justify-end gap-2">
-                          <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                          <label className="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                             Descuento línea ($):
                           </label>
                           <div className="w-32">
@@ -1189,11 +1189,11 @@ export function PurchaseFormModal({
                         </div>
                       </div>
 
-                      {/* Subtotal estimado y botón '+ Agregar a la lista' */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border">
-                        <div className="text-[11px] text-muted-foreground">
+                      {/* Subtotal estimado y botón 'Agregar a la lista' */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/[0.08]">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Subtotal estimado:{" "}
-                          <strong className="text-foreground font-mono">
+                          <strong className="text-slate-900 dark:text-white font-mono">
                             {formatCOP(
                               (parseFloat(itemQuantity) || 0) * (parseFloat(itemUnitCost) || 0)
                             )}
@@ -1203,10 +1203,10 @@ export function PurchaseFormModal({
                         <button
                           type="button"
                           onClick={handleAddItemToList}
-                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#ED500A] hover:bg-[#ED500A]/90 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-[#ED500A]/20 cursor-pointer active:scale-98"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>+ Agregar a la lista</span>
+                          <span>Agregar a la lista</span>
                         </button>
                       </div>
                     </div>
@@ -1224,21 +1224,21 @@ export function PurchaseFormModal({
                         )}
                       </div>
 
-                      <div className="border border-border rounded-xl overflow-hidden bg-card">
+                      <div className="border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden bg-white dark:bg-[#0D0F16]">
                         {loadedItems.length === 0 ? (
-                          <div className="p-6 text-center text-muted-foreground space-y-1">
-                            <ShoppingCart className="w-6 h-6 mx-auto text-muted-foreground/40" />
-                            <p className="text-xs font-semibold text-foreground">
+                          <div className="p-6 text-center text-slate-400 space-y-1">
+                            <ShoppingCart className="w-6 h-6 mx-auto text-slate-300 dark:text-slate-600" />
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                               Aún no has agregado artículos a la compra
                             </p>
-                            <p className="text-[11px]">
-                              Usa el selector trifásico arriba y haz clic en «+ Agregar a la lista».
+                            <p className="text-[11px] text-slate-400">
+                              Usa el selector trifásico arriba y haz clic en «Agregar a la lista».
                             </p>
                           </div>
                         ) : (
                           <div className="overflow-x-auto max-h-44 overflow-y-auto">
                             <table className="w-full text-left text-xs">
-                              <thead className="bg-muted/40 border-b border-border text-[10px] font-bold uppercase tracking-wider text-muted-foreground sticky top-0">
+                              <thead className="bg-slate-50/70 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
                                 <tr>
                                   <th className="px-3 py-2">Tipo</th>
                                   <th className="px-3 py-2">Concepto / Producto</th>
@@ -1248,12 +1248,12 @@ export function PurchaseFormModal({
                                   <th className="px-2 py-2 text-center w-8"></th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-border">
+                              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                                 {loadedItems.map((it) => (
-                                  <tr key={it.id} className="hover:bg-muted/20">
+                                  <tr key={it.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
                                     <td className="px-3 py-2">
                                       {it.itemCategory === "ingredient" ? (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#ED500A]/10 text-[#ED500A]">
                                           Insumo
                                         </span>
                                       ) : it.itemCategory === "resale" ? (
@@ -1266,7 +1266,7 @@ export function PurchaseFormModal({
                                         </span>
                                       )}
                                     </td>
-                                    <td className="px-3 py-2 font-medium text-foreground">
+                                    <td className="px-3 py-2 font-medium text-slate-900 dark:text-white">
                                       <div className="truncate max-w-[200px]" title={it.itemName}>
                                         {it.itemName}
                                       </div>
@@ -1274,17 +1274,17 @@ export function PurchaseFormModal({
                                     <td className="px-3 py-2 text-center font-mono font-semibold">
                                       {it.quantity} {it.unit || ""}
                                     </td>
-                                    <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                                    <td className="px-3 py-2 text-right font-mono text-slate-500 dark:text-slate-400">
                                       {formatCOP(it.unitCost)}
                                     </td>
-                                    <td className="px-3 py-2 text-right font-mono font-bold text-foreground">
+                                    <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 dark:text-white">
                                       {formatCOP(it.totalCost)}
                                     </td>
                                     <td className="px-2 py-2 text-center">
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveLoadedItem(it.id)}
-                                        className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                        className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                                         title="Quitar de la compra"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -1302,19 +1302,19 @@ export function PurchaseFormModal({
 
                   {/* PASO 3: IMPUESTOS Y PAGO */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-border pb-2">
-                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-white/[0.08] pb-2">
+                      <span className="w-5 h-5 rounded-full bg-[#ED500A] text-white text-[11px] font-bold flex items-center justify-center shrink-0 shadow-sm shadow-[#ED500A]/30">
                         3
                       </span>
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                         Paso 3: Impuestos y Pago
                       </h4>
                     </div>
 
                     {/* Descuento Comercial Global */}
-                    <div className="p-3.5 rounded-xl border border-border bg-card space-y-2">
+                    <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-foreground">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                           Descuento Comercial Global ($)
                         </label>
                         {parsedGlobalDiscount > 0 && (
@@ -1336,17 +1336,17 @@ export function PurchaseFormModal({
                     </div>
 
                     {/* Subtotal de productos */}
-                    <div className="p-3 rounded-xl bg-muted/20 border border-border flex items-center justify-between text-xs">
-                      <span className="font-semibold text-muted-foreground">
+                    <div className="p-3 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-500 dark:text-slate-400">
                         Subtotal de productos cargados:
                       </span>
-                      <span className="text-sm font-bold font-mono text-foreground">
+                      <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">
                         {formatCOP(rawSubtotal)}
                       </span>
                     </div>
 
                     {/* Configuración de IVA */}
-                    <div className="p-3.5 rounded-xl border border-border bg-card space-y-3">
+                    <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <input
@@ -1359,9 +1359,9 @@ export function PurchaseFormModal({
                                 setSelectedTaxRate(19);
                               }
                             }}
-                            className="w-4 h-4 rounded text-primary border-border focus:ring-primary cursor-pointer"
+                            className="w-4 h-4 rounded text-[#ED500A] border-slate-300 dark:border-white/20 focus:ring-[#ED500A] cursor-pointer"
                           />
-                          <label htmlFor="switch_has_tax" className="text-xs font-bold text-foreground cursor-pointer select-none">
+                          <label htmlFor="switch_has_tax" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                             Configuración de IVA (Impuesto al Valor Agregado)
                           </label>
                         </div>
@@ -1370,26 +1370,26 @@ export function PurchaseFormModal({
                           <button
                             type="button"
                             onClick={() => setIsCustomTaxModalOpen(true)}
-                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                            className="text-[11px] font-semibold text-[#ED500A] hover:underline flex items-center gap-1 cursor-pointer"
                           >
                             <Plus className="w-3 h-3" />
-                            + Nueva tarifa
+                            <span>Nueva tarifa</span>
                           </button>
                         )}
                       </div>
 
                       {hasTax && (
-                        <div className="space-y-2 pt-1 border-t border-border animate-in fade-in">
+                        <div className="space-y-2 pt-1 border-t border-slate-200/80 dark:border-white/[0.08] animate-in fade-in">
                           <div className="flex flex-wrap items-center gap-2">
                             {taxOptions.map((opt) => (
                               <button
                                 key={opt.rate}
                                 type="button"
                                 onClick={() => setSelectedTaxRate(opt.rate)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                                   selectedTaxRate === opt.rate
-                                    ? "bg-primary text-primary-foreground shadow-xs"
-                                    : "bg-muted text-muted-foreground hover:text-foreground"
+                                    ? "bg-[#ED500A] text-white shadow-xs"
+                                    : "bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                                 }`}
                               >
                                 {opt.label}
@@ -1404,13 +1404,13 @@ export function PurchaseFormModal({
                               id="check_iva_included"
                               checked={ivaIncluded}
                               onChange={(e) => setIvaIncluded(e.target.checked)}
-                              className="w-3.5 h-3.5 rounded text-primary border-border focus:ring-primary cursor-pointer"
+                              className="w-3.5 h-3.5 rounded text-[#ED500A] border-slate-300 dark:border-white/20 focus:ring-[#ED500A] cursor-pointer"
                             />
                             <label
                               htmlFor="check_iva_included"
-                              className="text-xs text-muted-foreground cursor-pointer select-none"
+                              className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none"
                             >
-                              Los precios unitarios ingresados ya tienen el <strong className="text-foreground">IVA incluido</strong> (desglosar automáticamente)
+                              Los precios unitarios ingresados ya tienen el <strong className="text-slate-900 dark:text-white">IVA incluido</strong> (desglosar automáticamente)
                             </label>
                           </div>
                         </div>
@@ -1418,7 +1418,7 @@ export function PurchaseFormModal({
                     </div>
 
                     {/* Retención en la fuente */}
-                    <div className="p-3.5 rounded-xl border border-border bg-card space-y-3">
+                    <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <input
@@ -1426,24 +1426,24 @@ export function PurchaseFormModal({
                             id="switch_has_retention"
                             checked={hasRetention}
                             onChange={(e) => setHasRetention(e.target.checked)}
-                            className="w-4 h-4 rounded text-primary border-border focus:ring-primary cursor-pointer"
+                            className="w-4 h-4 rounded text-[#ED500A] border-slate-300 dark:border-white/20 focus:ring-[#ED500A] cursor-pointer"
                           />
-                          <label htmlFor="switch_has_retention" className="text-xs font-bold text-foreground cursor-pointer select-none">
+                          <label htmlFor="switch_has_retention" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                             Retención en la Fuente (Cálculo automático)
                           </label>
                         </div>
 
                         {hasRetention && (
-                          <span className="text-[11px] font-mono font-bold text-red-500">
+                          <span className="text-[11px] font-mono font-bold text-rose-500">
                             -{formatCOP(retentionAmount)}
                           </span>
                         )}
                       </div>
 
                       {hasRetention && (
-                        <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 items-center animate-in fade-in">
+                        <div className="pt-2 border-t border-slate-200/80 dark:border-white/[0.08] grid grid-cols-1 sm:grid-cols-2 gap-3 items-center animate-in fade-in">
                           <div>
-                            <label className="block text-[11px] text-muted-foreground mb-1">
+                            <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                               Tarifa de Retención
                             </label>
                             <Select
@@ -1456,7 +1456,7 @@ export function PurchaseFormModal({
                               <option value="1.0">1.0% (Combustibles / Especial)</option>
                             </Select>
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
+                          <div className="text-[11px] text-slate-400">
                             Se deducirá del total a pagar al proveedor en la liquidación de la compra.
                           </div>
                         </div>
@@ -1465,17 +1465,17 @@ export function PurchaseFormModal({
 
                     {/* Condición de Pago: Contado vs Crédito */}
                     <div className="space-y-3">
-                      <label className="block text-xs font-semibold text-foreground">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Condición de Pago
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setPaymentType("cash")}
-                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
                             paymentType === "cash"
                               ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                              : "border-border text-muted-foreground hover:bg-muted"
+                              : "border-slate-200/80 dark:border-white/[0.08] text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
                           }`}
                         >
                           <Banknote className="w-4 h-4" />
@@ -1485,10 +1485,10 @@ export function PurchaseFormModal({
                         <button
                           type="button"
                           onClick={() => setPaymentType("credit")}
-                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
                             paymentType === "credit"
                               ? "bg-amber-500/10 border-amber-500/50 text-amber-600 dark:text-amber-400 shadow-xs"
-                              : "border-border text-muted-foreground hover:bg-muted"
+                              : "border-slate-200/80 dark:border-white/[0.08] text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
                           }`}
                         >
                           <CreditCard className="w-4 h-4" />
@@ -1498,14 +1498,14 @@ export function PurchaseFormModal({
 
                       {/* Si es crédito: plazo en días, fecha de vencimiento y abono inicial */}
                       {paymentType === "credit" && (
-                        <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in fade-in">
+                        <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in fade-in">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
                             <AlertCircle className="w-3.5 h-3.5" />
                             <span>Se generará una cuenta por pagar automáticamente</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[11px] text-muted-foreground mb-1">
+                              <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                                 Plazo en Días
                               </label>
                               <Input
@@ -1518,7 +1518,7 @@ export function PurchaseFormModal({
                               />
                             </div>
                             <div>
-                              <label className="block text-[11px] text-muted-foreground mb-1">
+                              <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                                 Fecha Vencimiento
                               </label>
                               <Input
@@ -1532,12 +1532,12 @@ export function PurchaseFormModal({
 
                           {/* Abono inicial / Pago parcial opcional */}
                           <div className="pt-2 border-t border-amber-500/20 space-y-2">
-                            <label className="block text-[11px] font-bold text-foreground">
+                            <label className="block text-[11px] font-bold text-slate-900 dark:text-white">
                               ¿Se realizó un abono o anticipo inicial?
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="block text-3xs text-muted-foreground mb-0.5">
+                                <label className="block text-3xs text-slate-400 mb-0.5">
                                   Monto Abonado ($)
                                 </label>
                                 <Input
@@ -1552,7 +1552,7 @@ export function PurchaseFormModal({
                                 />
                               </div>
                               <div>
-                                <label className="block text-3xs text-muted-foreground mb-0.5">
+                                <label className="block text-3xs text-slate-400 mb-0.5">
                                   Medio del Abono
                                 </label>
                                 <Select
@@ -1567,7 +1567,7 @@ export function PurchaseFormModal({
                               </div>
                             </div>
                             {parseFloat(initialPaymentAmount) > 0 && (
-                              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-3xs flex justify-between font-mono">
+                              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-3xs flex justify-between font-mono">
                                 <span>Abono inicial: {formatCOP(parseFloat(initialPaymentAmount))}</span>
                                 <span>Saldo pendiente: {formatCOP(Math.max(0, total - (parseFloat(initialPaymentAmount) || 0)))}</span>
                               </div>
@@ -1580,7 +1580,7 @@ export function PurchaseFormModal({
                     {/* Medio de pago y Salida de caja */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold text-foreground mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           Medio de Pago
                         </label>
                         <Select
@@ -1596,19 +1596,19 @@ export function PurchaseFormModal({
                       </div>
 
                       {/* Salida de caja: Checkbox 'Deducir automáticamente de la caja activa' */}
-                      <div className="sm:col-span-2 p-3 rounded-xl bg-muted/20 border border-border">
+                      <div className="sm:col-span-2 p-3 rounded-2xl bg-slate-50/70 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/[0.08]">
                         <label className="flex items-start gap-2.5 cursor-pointer select-none">
                           <input
                             type="checkbox"
                             checked={deductFromCashRegister}
                             onChange={(e) => setDeductFromCashRegister(e.target.checked)}
-                            className="w-4 h-4 mt-0.5 rounded text-primary focus:ring-primary border-border"
+                            className="w-4 h-4 mt-0.5 rounded text-[#ED500A] focus:ring-[#ED500A] border-slate-300 dark:border-white/20"
                           />
                           <div className="space-y-0.5">
-                            <span className="text-xs font-bold text-foreground block">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white block">
                               Deducir automáticamente de la caja activa
                             </span>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
                               Registra un egreso de efectivo en el turno de caja abierto actual para mantener cuadrado el arqueo de caja.
                             </p>
                           </div>
@@ -1617,15 +1617,15 @@ export function PurchaseFormModal({
 
                       {/* Observaciones */}
                       <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-foreground mb-1">
-                          Observaciones <span className="text-muted-foreground font-normal">(Opcional)</span>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Observaciones <span className="text-slate-400 font-normal">(Opcional)</span>
                         </label>
                         <textarea
                           rows={2}
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
                           placeholder="Ej: Mercancía recibida en bodega central, lote #4902..."
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                          className="w-full px-3 py-2 text-xs rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] resize-none"
                         />
                       </div>
                     </div>
@@ -1635,13 +1635,13 @@ export function PurchaseFormModal({
                 {/* ========================================================= */}
                 {/* COLUMNA DERECHA (RESUMEN EN VIVO)                         */}
                 {/* ========================================================= */}
-                <div className="lg:col-span-5 xl:col-span-5 p-5 sm:p-6 bg-muted/10 border-t lg:border-t-0 lg:border-l border-border flex flex-col justify-between overflow-y-auto space-y-6">
+                <div className="lg:col-span-5 xl:col-span-5 p-5 sm:p-6 bg-slate-50/50 dark:bg-white/[0.02] border-t lg:border-t-0 lg:border-l border-slate-200/80 dark:border-white/[0.08] flex flex-col justify-between overflow-y-auto space-y-6">
                   <div className="space-y-5">
                     {/* Header del Resumen */}
-                    <div className="flex items-center justify-between pb-3 border-b border-border">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/[0.08]">
                       <div className="flex items-center gap-2">
-                        <FileCheck className="w-4 h-4 text-primary" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        <FileCheck className="w-4 h-4 text-[#ED500A]" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                           Resumen en Vivo
                         </h4>
                       </div>
@@ -1654,30 +1654,30 @@ export function PurchaseFormModal({
                     {/* Ficha Informativa del Proveedor y Fecha */}
                     <div className="space-y-2.5 text-xs">
                       {/* Proveedor */}
-                      <div className="p-3 rounded-xl bg-card border border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                           Proveedor
                         </span>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-bold text-foreground truncate">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {selectedSupplierObj ? selectedSupplierObj.name : "Sin proveedor seleccionado"}
                           </span>
-                          <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </div>
                         {selectedSupplierObj?.taxId && (
-                          <span className="text-[10px] font-mono text-muted-foreground block mt-0.5">
+                          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 block mt-0.5">
                             NIT: {selectedSupplierObj.taxId}
                           </span>
                         )}
                       </div>
 
                       {/* Fecha de Compra */}
-                      <div className="p-3 rounded-xl bg-card border border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                           Fecha de Compra
                         </span>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-semibold text-foreground">
+                          <span className="text-xs font-semibold text-slate-900 dark:text-white">
                             {purchaseDate
                               ? new Date(purchaseDate + "T12:00:00").toLocaleDateString("es-CO", {
                                   year: "numeric",
@@ -1686,28 +1686,28 @@ export function PurchaseFormModal({
                                 })
                               : "—"}
                           </span>
-                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         </div>
                       </div>
 
                       {/* Conteo de ítems */}
-                      <div className="p-3 rounded-xl bg-card border border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
                           Conteo de Ítems
                         </span>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-bold text-foreground">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
                             {loadedItems.length} {loadedItems.length === 1 ? "artículo" : "artículos"} cargados
                           </span>
-                          <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+                          <span className="text-xs font-mono font-bold text-[#ED500A] bg-[#ED500A]/10 px-2 py-0.5 rounded-lg border border-[#ED500A]/20">
                             {totalUnits} un.
                           </span>
                         </div>
                       </div>
 
                       {/* Badge de Origen de Fondos */}
-                      <div className="p-3 rounded-xl bg-card border border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] shadow-2xs">
+                        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
                           Origen de Fondos
                         </span>
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${fundsOriginBadge.color}`}>
@@ -1718,15 +1718,15 @@ export function PurchaseFormModal({
                     </div>
 
                     {/* Desglose Financiero */}
-                    <div className="p-4 rounded-xl bg-card border border-border space-y-3">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border pb-1.5">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08] space-y-3 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block border-b border-slate-200/80 dark:border-white/[0.08] pb-1.5">
                         Liquidación de la Compra
                       </span>
 
                       <div className="space-y-2 text-xs">
-                        <div className="flex justify-between text-muted-foreground">
+                        <div className="flex justify-between text-slate-500 dark:text-slate-400">
                           <span>Subtotal Bruto:</span>
-                          <span className="font-mono font-semibold text-foreground">
+                          <span className="font-mono font-semibold text-slate-900 dark:text-white">
                             {formatCOP(rawSubtotal)}
                           </span>
                         </div>
@@ -1740,19 +1740,19 @@ export function PurchaseFormModal({
                           </div>
                         )}
 
-                        <div className="flex justify-between text-muted-foreground">
+                        <div className="flex justify-between text-slate-500 dark:text-slate-400">
                           <span>Subtotal Neto:</span>
-                          <span className="font-mono font-semibold text-foreground">
+                          <span className="font-mono font-semibold text-slate-900 dark:text-white">
                             {formatCOP(subtotal)}
                           </span>
                         </div>
 
                         {activeTaxPercentage > 0 && (
-                          <div className="flex justify-between text-muted-foreground">
+                          <div className="flex justify-between text-slate-500 dark:text-slate-400">
                             <span>
                               IVA ({activeTaxPercentage}%){ivaIncluded ? " [Incluido]" : ""}:
                             </span>
-                            <span className="font-mono font-semibold text-foreground">
+                            <span className="font-mono font-semibold text-slate-900 dark:text-white">
                               {ivaIncluded ? formatCOP(taxAmount) : `+${formatCOP(taxAmount)}`}
                             </span>
                           </div>
@@ -1768,17 +1768,17 @@ export function PurchaseFormModal({
                         )}
 
                         {/* Neto a pagar (Destacado) */}
-                        <div className="pt-2.5 border-t border-border flex items-baseline justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        <div className="pt-2.5 border-t border-slate-200/80 dark:border-white/[0.08] flex items-baseline justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                             Neto a Pagar:
                           </span>
-                          <span className="text-2xl font-black font-mono text-primary">
+                          <span className="text-2xl font-black font-mono text-[#ED500A]">
                             {formatCOP(total)}
                           </span>
                         </div>
 
                         {paymentType === "credit" && (
-                          <div className="pt-2 border-t border-dashed border-border space-y-1">
+                          <div className="pt-2 border-t border-dashed border-slate-200/80 dark:border-white/[0.08] space-y-1">
                             {parseFloat(initialPaymentAmount) > 0 && (
                               <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                                 <span>Abono inicial inmediato:</span>
@@ -1800,11 +1800,11 @@ export function PurchaseFormModal({
                   </div>
 
                   {/* BOTONES DE ACCIÓN: 'Registrar compra' y 'Cancelar' */}
-                  <div className="pt-4 border-t border-border space-y-2">
+                  <div className="pt-4 border-t border-slate-200/80 dark:border-white/[0.08] space-y-2">
                     <button
                       type="submit"
                       disabled={isSubmitting || loadedItems.length === 0 || !supplierId}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 disabled:opacity-50 cursor-pointer active:scale-98"
                     >
                       {isSubmitting ? (
                         <>
@@ -1823,7 +1823,7 @@ export function PurchaseFormModal({
                       type="button"
                       onClick={onClose}
                       disabled={isSubmitting}
-                      className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all text-center cursor-pointer"
+                      className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04] transition-all text-center cursor-pointer"
                     >
                       Cancelar
                     </button>

@@ -146,7 +146,7 @@ export function PaymentModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden my-8 flex flex-col max-h-[90vh]">
+        <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden my-8 flex flex-col max-h-[90vh]">
           {/* ENCABEZADO */}
           <div className="flex items-center justify-between p-5 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
