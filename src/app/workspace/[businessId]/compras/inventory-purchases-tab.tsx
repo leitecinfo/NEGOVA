@@ -1113,6 +1113,7 @@ export function InventoryPurchasesTab({
             locations={locations}
             categories={categories}
             initialProductId={initialProductId}
+            initialSuppliers={suppliers}
           />
 
           {/* MODAL DE ANULACIÓN CON MOTIVO Y ADVERTENCIAS */}

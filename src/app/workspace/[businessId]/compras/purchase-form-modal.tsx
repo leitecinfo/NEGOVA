@@ -44,7 +44,7 @@ import { convertQuantity } from "@/lib/recipes/unit-conversion";
 import { createPurchaseAction, getSuppliersAction } from "./actions";
 import { getCategoriesAction } from "@/app/workspace/[businessId]/productos/actions";
 import { getIngredientsAction, getRecipesAction } from "@/app/workspace/[businessId]/recetas/actions";
-import { QuickSupplierModal } from "./quick-supplier-modal";
+import { SupplierFormModal } from "@/app/workspace/[businessId]/proveedores/supplier-form-modal";
 import { SupplierSelector } from "@/components/purchases/supplier-selector";
 import { CategoryManagerModal } from "@/app/workspace/[businessId]/productos/category-manager-modal";
 import { formatCOP } from "@/config/plans";
@@ -59,6 +59,7 @@ interface Props {
   categories?: Category[];
   initialProductId?: string | null;
   initialSupplierId?: string | null;
+  initialSuppliers?: Supplier[];
 }
 
 export interface LoadedItem {
@@ -134,8 +135,9 @@ export function PurchaseFormModal({
   categories: initialCategories = [],
   initialProductId,
   initialSupplierId,
+  initialSuppliers = [],
 }: Props) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [recipeProductIds, setRecipeProductIds] = useState<Set<string>>(new Set());
@@ -212,30 +214,36 @@ export function PurchaseFormModal({
   // Cargar catálogos auxiliares (proveedores, categorías, ingredientes, recetas)
   const refreshCatalogs = async () => {
     try {
-      const [suppsRes, catsRes, ingsRes, recipesRes] = await Promise.all([
+      const [suppsRes, catsRes, ingsRes, recipesRes] = await Promise.allSettled([
         getSuppliersAction(businessId),
         getCategoriesAction(businessId),
         getIngredientsAction(businessId),
         getRecipesAction(businessId),
       ]);
 
-      if (suppsRes.success && suppsRes.data) {
-        setSuppliers(suppsRes.data);
+      if (suppsRes.status === "fulfilled" && suppsRes.value.success && suppsRes.value.data) {
+        setSuppliers(suppsRes.value.data);
       }
-      if (catsRes.success && catsRes.data) {
-        setCategories(catsRes.data);
+      if (catsRes.status === "fulfilled" && catsRes.value.success && catsRes.value.data) {
+        setCategories(catsRes.value.data);
       }
-      if (ingsRes.success && ingsRes.data) {
-        setIngredients(ingsRes.data);
+      if (ingsRes.status === "fulfilled" && ingsRes.value.success && ingsRes.value.data) {
+        setIngredients(ingsRes.value.data);
       }
-      if (recipesRes.success && recipesRes.data) {
-        const ids = new Set(recipesRes.data.map((r) => r.productId));
+      if (recipesRes.status === "fulfilled" && recipesRes.value.success && recipesRes.value.data) {
+        const ids = new Set(recipesRes.value.data.map((r) => r.productId));
         setRecipeProductIds(ids);
       }
     } catch (err) {
       console.error("Error al cargar catálogos para compra:", err);
     }
   };
+
+  useEffect(() => {
+    if (initialSuppliers && initialSuppliers.length > 0) {
+      setSuppliers(initialSuppliers);
+    }
+  }, [initialSuppliers]);
 
   useEffect(() => {
     if (isOpen) {
@@ -1861,20 +1869,6 @@ export function PurchaseFormModal({
         </div>
       </ModalPortal>
 
-      {/* MODAL CREAR PROVEEDOR RÁPIDO */}
-      <QuickSupplierModal
-        businessId={businessId}
-        isOpen={isQuickSupplierOpen}
-        onClose={() => setIsQuickSupplierOpen(false)}
-        onSuccess={(newSupplier) => {
-          setSuppliers((prev) => [newSupplier, ...prev]);
-          setSupplierId(newSupplier.id);
-          if (newSupplier.paymentTermsDays > 0) {
-            setCreditDays(String(newSupplier.paymentTermsDays));
-          }
-        }}
-      />
-
       {/* MODAL GESTIONAR CATEGORÍAS */}
       <CategoryManagerModal
         businessId={businessId}
@@ -1952,8 +1946,8 @@ export function PurchaseFormModal({
         </div>
       )}
 
-      {/* SUBMODAL RÁPIDO PARA DAR DE ALTA PROVEEDORES */}
-      <QuickSupplierModal
+      {/* MODAL UNIFICADO PARA REGISTRAR/CREAR PROVEEDOR */}
+      <SupplierFormModal
         businessId={businessId}
         isOpen={isQuickSupplierOpen}
         initialName={quickSupplierPrefillName}

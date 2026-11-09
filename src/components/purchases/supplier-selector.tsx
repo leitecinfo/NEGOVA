@@ -94,7 +94,7 @@ export function SupplierSelector({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className={`relative w-full ${isOpen ? "z-30" : ""}`}>
       {/* Botón Disparador del Selector */}
       <div className="flex items-center gap-2">
         <button

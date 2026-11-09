@@ -24,6 +24,7 @@ interface Props {
   businessId: string;
   isOpen: boolean;
   supplier?: Supplier | null;
+  initialName?: string;
   onClose: () => void;
   onSuccess: (supplier: Supplier) => void;
 }
@@ -59,6 +60,7 @@ export function SupplierFormModal({
   businessId,
   isOpen,
   supplier,
+  initialName = "",
   onClose,
   onSuccess,
 }: Props) {
@@ -66,7 +68,8 @@ export function SupplierFormModal({
 
   // Campos principales
   const [name, setName] = useState("");
-  const [taxId, setTaxId] = useState("");
+  const [nitBase, setNitBase] = useState("");
+  const [dv, setDv] = useState("");
 
   // Información de contacto
   const [contactName, setContactName] = useState("");
@@ -88,7 +91,19 @@ export function SupplierFormModal({
       setErrorMessage(null);
       if (supplier) {
         setName(supplier.name || "");
-        setTaxId(supplier.taxId || "");
+        if (supplier.taxId) {
+          const parts = supplier.taxId.split("-");
+          if (parts.length === 2 && parts[1].length <= 2) {
+            setNitBase(parts[0]);
+            setDv(parts[1]);
+          } else {
+            setNitBase(supplier.taxId);
+            setDv("");
+          }
+        } else {
+          setNitBase("");
+          setDv("");
+        }
         setContactName(supplier.contactName || "");
         setPhone(supplier.phone || "");
         setEmail(supplier.email || "");
@@ -97,8 +112,9 @@ export function SupplierFormModal({
         setNotes(supplier.notes || "");
         setStatus(supplier.status === "inactive" ? "inactive" : "active");
       } else {
-        setName("");
-        setTaxId("");
+        setName(initialName || "");
+        setNitBase("");
+        setDv("");
         setContactName("");
         setPhone("");
         setEmail("");
@@ -108,7 +124,7 @@ export function SupplierFormModal({
         setStatus("active");
       }
     }
-  }, [isOpen, supplier]);
+  }, [isOpen, supplier, initialName]);
 
   if (!isOpen) return null;
 
@@ -122,7 +138,15 @@ export function SupplierFormModal({
       return;
     }
 
-    const cleanTaxId = taxId.trim() || undefined;
+    const cleanNit = nitBase.trim();
+    const cleanDv = dv.trim();
+    let cleanTaxId: string | undefined = undefined;
+    if (cleanNit && cleanDv) {
+      cleanTaxId = `${cleanNit}-${cleanDv}`;
+    } else if (cleanNit) {
+      cleanTaxId = cleanNit;
+    }
+
     const cleanContact = contactName.trim() || undefined;
     const cleanPhone = phone.trim() || undefined;
     const cleanEmail = email.trim() || undefined;
@@ -252,17 +276,30 @@ export function SupplierFormModal({
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Identificación o NIT <span className="text-slate-400 font-normal">(Opcional)</span>
+                    NIT o Cédula <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
-                  <div className="relative">
-                    <Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={taxId}
-                      onChange={(e) => setTaxId(e.target.value)}
-                      placeholder="Ej. 900.123.456-1 o Cédula"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={nitBase}
+                        onChange={(e) => setNitBase(e.target.value)}
+                        placeholder="Ej. 900123456 o Cédula"
+                        className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
+                      />
+                    </div>
+                    <div className="w-16 shrink-0">
+                      <input
+                        type="text"
+                        maxLength={1}
+                        value={dv}
+                        onChange={(e) => setDv(e.target.value)}
+                        placeholder="DV"
+                        title="Dígito de Verificación"
+                        className="w-full px-2 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all text-center font-mono font-bold"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
