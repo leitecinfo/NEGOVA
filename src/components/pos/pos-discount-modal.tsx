@@ -62,31 +62,32 @@ export function PosDiscountModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Cabecera */}
-          <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center font-bold">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02]">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-orange-500/10 text-[#ED500A] flex items-center justify-center font-bold shrink-0">
                 <Tag className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
                   Descuento individual
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {itemName} — {formatCOP(itemPrice)}
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+                  {itemName} — <span className="font-semibold text-[#ED500A]">{formatCOP(itemPrice)}</span>
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0 ml-2"
+              title="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <form onSubmit={handleApply} className="p-6 space-y-4 text-xs">
-            {/* Selector de Tipo de Descuento: % Porcentaje o $ Monto fijo */}
+            {/* Selector de Tipo de Descuento: Porcentaje o Monto fijo */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-2">
                 Tipo de descuento
@@ -96,7 +97,7 @@ export function PosDiscountModal({
                   className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                     discountType === "percentage"
                       ? "border-[#ED500A] bg-orange-500/10 text-[#ED500A]"
-                      : "border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400"
+                      : "border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/[0.15]"
                   }`}
                 >
                   <input
@@ -109,15 +110,15 @@ export function PosDiscountModal({
                     }}
                     className="sr-only"
                   />
-                  <Percent className="w-3.5 h-3.5" />
-                  <span>% Porcentaje</span>
+                  <Percent className="w-3.5 h-3.5 shrink-0" />
+                  <span>Porcentaje</span>
                 </label>
 
                 <label
                   className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                     discountType === "fixed"
                       ? "border-[#ED500A] bg-orange-500/10 text-[#ED500A]"
-                      : "border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400"
+                      : "border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/[0.15]"
                   }`}
                 >
                   <input
@@ -130,8 +131,8 @@ export function PosDiscountModal({
                     }}
                     className="sr-only"
                   />
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>$ Monto fijo</span>
+                  <DollarSign className="w-3.5 h-3.5 shrink-0" />
+                  <span>Monto fijo</span>
                 </label>
               </div>
             </div>

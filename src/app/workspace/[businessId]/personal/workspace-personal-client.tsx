@@ -634,7 +634,7 @@ export function WorkspacePersonalClient({
               return (
                 <div
                   key={emp.id}
-                  className={`group relative rounded-2xl bg-white dark:bg-[#0D0F16] border transition-all duration-200 flex flex-col justify-between p-4.5 ${
+                  className={`group relative rounded-2xl bg-white dark:bg-[#0D0F16] border transition-all duration-200 flex flex-col justify-between p-5 ${
                     isActive
                       ? "border-slate-200/90 dark:border-white/[0.08] hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/5"
                       : "border-slate-200/50 dark:border-white/[0.04] opacity-80 bg-slate-50/50 dark:bg-white/[0.01]"

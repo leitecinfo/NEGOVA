@@ -312,7 +312,7 @@ export default function GastronomicosPage() {
                   />
                 </div>
                 {/* Etiqueta flotante explicativa */}
-                <div className="absolute -bottom-4 -right-4 bg-[#0B0E14] text-white py-3 px-4.5 rounded-2xl shadow-xl border border-white/10 flex items-center gap-2.5">
+                <div className="absolute -bottom-4 -right-4 bg-[#0B0E14] text-white py-3 px-5 rounded-2xl shadow-xl border border-white/10 flex items-center gap-2.5">
                   <span className="text-sm">🍔</span>
                   <div className="text-left">
                     <p className="font-mono text-[9px] font-bold text-[#ED500A] uppercase tracking-wider">EJEMPLO REAL</p>
