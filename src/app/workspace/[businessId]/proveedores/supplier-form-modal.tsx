@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { SearchSelect } from "@/components/ui";
 import {
   X,
   Building2,
@@ -37,6 +38,21 @@ export const PAYMENT_TERMS_OPTIONS = [
   { value: "60", label: "60 días (2 meses)", days: 60 },
   { value: "90", label: "90 días (3 meses)", days: 90 },
   { value: "custom", label: "Otro plazo personalizado...", days: 0 },
+];
+
+const CREDIT_TERMS_OPTIONS = [
+  { value: "0", label: "De contado (0 días)" },
+  { value: "8", label: "8 días" },
+  { value: "15", label: "15 días" },
+  { value: "30", label: "30 días (1 mes)" },
+  { value: "45", label: "45 días" },
+  { value: "60", label: "60 días (2 meses)" },
+  { value: "90", label: "90 días (3 meses)" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Activo (habilitado para compras)" },
+  { value: "inactive", label: "Inactivo (en pausa)" },
 ];
 
 export function SupplierFormModal({
@@ -176,18 +192,18 @@ export function SupplierFormModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="relative w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="relative w-full max-w-xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
           {/* Header del Modal */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02]">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <div className="p-2.5 rounded-2xl bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-foreground">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {isEditing ? "Editar Proveedor" : "Registrar Proveedor"}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Solo el nombre es obligatorio; los demás datos son opcionales.
                 </p>
               </div>
@@ -196,7 +212,7 @@ export function SupplierFormModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -212,14 +228,14 @@ export function SupplierFormModal({
 
             {/* SECCIÓN 1: INFORMACIÓN PRINCIPAL */}
             <div className="space-y-3">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/60 pb-1">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block border-b border-slate-200/80 dark:border-white/[0.08] pb-1">
                 Información Principal
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Nombre o Razón Social <span className="text-red-500 font-bold">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Nombre o Razón Social <span className="text-rose-500 font-bold">*</span>
                   </label>
                   <input
                     type="text"
@@ -230,22 +246,22 @@ export function SupplierFormModal({
                       if (errorMessage) setErrorMessage(null);
                     }}
                     placeholder="Ej. Distribuidora El Sol S.A.S."
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Identificación o NIT <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Identificación o NIT <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
-                    <Hash className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Hash className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={taxId}
                       onChange={(e) => setTaxId(e.target.value)}
                       placeholder="Ej. 900.123.456-1 o Cédula"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                     />
                   </div>
                 </div>
@@ -254,71 +270,71 @@ export function SupplierFormModal({
 
             {/* SECCIÓN 2: INFORMACIÓN DE CONTACTO */}
             <div className="space-y-3">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/60 pb-1">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block border-b border-slate-200/80 dark:border-white/[0.08] pb-1">
                 Información de Contacto
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Persona de Contacto <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Persona de Contacto <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={contactName}
                       onChange={(e) => setContactName(e.target.value)}
                       placeholder="Ej. Carlos Restrepo"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Teléfono <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Teléfono <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Ej. 300 123 4567"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Correo Electrónico <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Correo Electrónico <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="ventas@proveedor.com"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Ciudad o Dirección <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Ciudad o Dirección <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Ej. Carrera 15 # 40-20"
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all"
                     />
                   </div>
                 </div>
@@ -327,77 +343,70 @@ export function SupplierFormModal({
 
             {/* SECCIÓN 3: INFORMACIÓN ADICIONAL Y CONDICIONES */}
             <div className="space-y-3">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/60 pb-1">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block border-b border-slate-200/80 dark:border-white/[0.08] pb-1">
                 Condiciones y Observaciones
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Plazo de crédito habitual <span className="text-muted-foreground font-normal">(Días)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Plazo de crédito habitual <span className="text-slate-400 font-normal">(Días)</span>
                   </label>
-                  <div className="relative">
-                    <Clock className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                      value={paymentTermsDays}
-                      onChange={(e) => setPaymentTermsDays(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="0">De contado (0 días)</option>
-                      <option value="8">8 días</option>
-                      <option value="15">15 días</option>
-                      <option value="30">30 días (1 mes)</option>
-                      <option value="45">45 días</option>
-                      <option value="60">60 días</option>
-                    </select>
-                  </div>
+                  <SearchSelect
+                    options={CREDIT_TERMS_OPTIONS}
+                    value={paymentTermsDays}
+                    onChange={(val) => setPaymentTermsDays(val)}
+                    selectSize="sm"
+                    searchable={false}
+                    clearable={false}
+                  />
                 </div>
 
                 {isEditing && (
                   <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Estado comercial
                     </label>
-                    <select
+                    <SearchSelect
+                      options={STATUS_OPTIONS}
                       value={status}
-                      onChange={(e) => setStatus(e.target.value as "active" | "inactive")}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="active">Activo (habilitado para compras)</option>
-                      <option value="inactive">Inactivo (en pausa)</option>
-                    </select>
+                      onChange={(val) => setStatus(val as "active" | "inactive")}
+                      selectSize="sm"
+                      searchable={false}
+                      clearable={false}
+                    />
                   </div>
                 )}
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-foreground mb-1">
-                    Observaciones o notas <span className="text-muted-foreground font-normal">(Opcional)</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Observaciones o notas <span className="text-slate-400 font-normal">(Opcional)</span>
                   </label>
                   <textarea
                     rows={2}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Condiciones de despacho, horario de entrega, descuentos por pronto pago..."
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#ED500A] transition-all resize-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* Footer de Acciones del Formulario */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-semibold rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-xl bg-[#ED500A] text-white hover:bg-[#ED500A]/90 transition-all shadow-md shadow-[#ED500A]/20 disabled:opacity-50 cursor-pointer active:scale-98"
               >
                 {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{isEditing ? "Guardar cambios" : "Registrar proveedor"}</span>
