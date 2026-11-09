@@ -22,3 +22,4 @@ export default function WorkspaceTemplate({ children }: { children: React.ReactN
 
   return <>{children}</>;
 }
+

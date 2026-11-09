@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Input } from "@/components/ui";
+import { Input, Textarea } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Layers, X, AlertCircle, PlusCircle } from "lucide-react";
 import { createRestaurantRoomAction } from "@/app/workspace/[businessId]/mesas/actions";
@@ -145,22 +145,14 @@ export function CreateRoomModal({
             </div>
 
             {/* DESCRIPCIÓN */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="room-desc-input"
-                className="block text-xs font-bold text-slate-700 dark:text-slate-300"
-              >
-                Descripción (Opcional)
-              </label>
-              <textarea
-                id="room-desc-input"
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ej. Zona al aire libre para fumadores, mesas altas..."
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#ED500A]/30 focus:border-[#ED500A] transition-all"
-              />
-            </div>
+            <Textarea
+              label="Descripción (Opcional)"
+              id="room-desc-input"
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej. Zona al aire libre para fumadores, mesas altas..."
+            />
 
             {/* ACCIONES */}
             <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-white/5">

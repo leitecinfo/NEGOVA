@@ -33,7 +33,12 @@ export interface RestaurantRoomWithTables extends RestaurantRoom {
 
 // Shapes & Floor Plan Presets
 export type TableShape = "round" | "square" | "rectangle" | "bar";
-export type RoomShapePreset = "rectangle" | "square" | "l_shape" | "terrace";
+export type RoomShapePreset = "rectangle" | "square" | "l_shape" | "terrace" | "custom";
+
+export interface Point2D {
+  x: number; // percentage (0 - 100)
+  y: number; // percentage (0 - 100)
+}
 
 export interface TableLayoutPosition {
   x: number; // percentage (0 - 100)
@@ -44,6 +49,8 @@ export interface TableLayoutPosition {
 
 export interface RoomFloorPlanConfig {
   roomShapePreset: RoomShapePreset;
+  customPolygon?: Point2D[];
+  entrance?: Point2D;
   tables: Record<string, TableLayoutPosition>; // key: tableId
 }
 

@@ -1,4 +1,5 @@
 import type { TableShape, RoomShapePreset, RoomFloorPlanConfig, TableLayoutPosition } from "./types";
+import { getPresetPolygon } from "./floor-plan-geometry";
 
 const STORAGE_PREFIX = "negova_tables_layout_v1_";
 
@@ -87,6 +88,8 @@ export function computeDefaultFloorPlan(
 
   return {
     roomShapePreset: roomPreset,
+    customPolygon: getPresetPolygon(roomPreset),
+    entrance: { x: 50, y: 90 },
     tables: positions,
   };
 }

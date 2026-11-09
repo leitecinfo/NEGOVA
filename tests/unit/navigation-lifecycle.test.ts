@@ -37,3 +37,4 @@ describe("Ciclo de vida de navegación y pantalla de carga entre módulos", () =
     expect(isNavigating).toBe(false);
   });
 });
+
