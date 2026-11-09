@@ -15,7 +15,7 @@ export interface SearchSelectOption {
 }
 
 export interface SearchSelectProps {
-  label?: string;
+  label?: React.ReactNode;
   helperText?: string;
   error?: string;
   options: SearchSelectOption[];
@@ -28,6 +28,7 @@ export interface SearchSelectProps {
   required?: boolean;
   isLoading?: boolean;
   clearable?: boolean;
+  searchable?: boolean;
   containerClassName?: string;
   className?: string;
   selectSize?: SearchSelectSize;
@@ -53,6 +54,7 @@ export function SearchSelect({
   required = false,
   isLoading = false,
   clearable = true,
+  searchable = true,
   containerClassName = "",
   className = "",
   selectSize = "md",
@@ -173,7 +175,7 @@ export function SearchSelect({
       {label && (
         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 font-body">
           {label}
-          {required && <span className="text-[#ED500A] ml-1">*</span>}
+          {required && typeof label === "string" && <span className="text-[#ED500A] ml-1">*</span>}
         </label>
       )}
 
@@ -240,19 +242,21 @@ export function SearchSelect({
           className="rounded-2xl bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
         >
           {/* Search Field */}
-          <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#0B0D14] border border-transparent dark:border-white/10 text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:border-[#ED500A]"
-              />
+          {searchable && (
+            <div className="p-2 border-b border-slate-100 dark:border-white/[0.06]">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#0B0D14] border border-transparent dark:border-white/10 text-xs font-body text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:border-[#ED500A]"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Options List */}
           <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 text-xs">

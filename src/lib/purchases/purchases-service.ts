@@ -613,6 +613,7 @@ export async function createPurchase(
 
   // 1. Validar proveedor si fue especificado
   let supplier: Supplier | null = null;
+  let resolvedSupplierId: string | null = null;
   if (parsed.supplierId) {
     try {
       const { data: sData } = await supabase
@@ -624,9 +625,42 @@ export async function createPurchase(
 
       if (sData) {
         supplier = mapSupplierRow(sData);
+        resolvedSupplierId = sData.id;
+      } else {
+        // Buscar en settings / fallback
+        const allSuppliers = await getSuppliers(businessId);
+        const match = allSuppliers.find((s) => s.id === parsed.supplierId);
+        if (match) {
+          supplier = match;
+          // Intentar insertar en la tabla suppliers para satisfacer la FK
+          const { data: insData, error: insErr } = await supabase
+            .from("suppliers")
+            .insert({
+              id: match.id,
+              business_id: businessId,
+              name: match.name,
+              contact_name: match.contactName,
+              phone: match.phone,
+              email: match.email,
+              address: match.address,
+              tax_id: match.taxId,
+              payment_terms_days: match.paymentTermsDays || 0,
+              notes: match.notes,
+              status: match.status || "active",
+            })
+            .select()
+            .maybeSingle();
+
+          if (!insErr && insData) {
+            resolvedSupplierId = insData.id;
+          } else {
+            resolvedSupplierId = null;
+          }
+        }
       }
     } catch (sErr) {
       console.warn("[createPurchase] No se pudo cargar proveedor:", sErr);
+      resolvedSupplierId = null;
     }
   }
 
@@ -706,28 +740,42 @@ export async function createPurchase(
     items_count: itemsToInsert.length,
   };
 
-  const { data: purchaseData, error: purchaseErr } = await supabase
+  const purchaseInsertPayload = {
+    business_id: businessId,
+    purchase_number: purchaseNumber,
+    supplier_id: resolvedSupplierId,
+    invoice_number: parsed.invoiceNumber?.trim() || null,
+    purchase_date: purchaseDate,
+    subtotal,
+    tax_amount: taxAmount,
+    total,
+    payment_type: parsed.paymentType,
+    payment_method: parsed.paymentMethod,
+    status: "confirmed",
+    notes: parsed.notes?.trim() || null,
+    created_by: userId || null,
+    metadata: initialMetadata,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  let { data: purchaseData, error: purchaseErr } = await supabase
     .from("purchases")
-    .insert({
-      business_id: businessId,
-      purchase_number: purchaseNumber,
-      supplier_id: parsed.supplierId || null,
-      invoice_number: parsed.invoiceNumber?.trim() || null,
-      purchase_date: purchaseDate,
-      subtotal,
-      tax_amount: taxAmount,
-      total,
-      payment_type: parsed.paymentType,
-      payment_method: parsed.paymentMethod,
-      status: "confirmed",
-      notes: parsed.notes?.trim() || null,
-      created_by: userId || null,
-      metadata: initialMetadata,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .insert(purchaseInsertPayload)
     .select()
     .single();
+
+  if (purchaseErr && purchaseErr.code === "23503") {
+    // Si hubo violación de FK en supplier_id, reintentar asociándolo como null y preservando el nombre en metadata
+    console.warn("[createPurchase] FK violation en supplier_id, reintentando con supplier_id: null");
+    const retryRes = await supabase
+      .from("purchases")
+      .insert({ ...purchaseInsertPayload, supplier_id: null })
+      .select()
+      .single();
+    purchaseData = retryRes.data;
+    purchaseErr = retryRes.error;
+  }
 
   if (purchaseErr || !purchaseData) {
     console.error("[createPurchase] Error al registrar cabecera de compra:", purchaseErr);

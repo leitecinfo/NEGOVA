@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Input, Select, SearchSelect } from "@/components/ui";
+import { Input, Select, SearchSelect, DatePicker } from "@/components/ui";
 import {
   X,
   ShoppingCart,
@@ -86,6 +86,43 @@ interface TaxRateOption {
   rate: number;
   label: string;
 }
+
+const DOCUMENT_TYPE_OPTIONS = [
+  { value: "factura", label: "Factura de Venta" },
+  { value: "remision", label: "Remisión / Entrada" },
+  { value: "cuenta_cobro", label: "Cuenta de Cobro" },
+  { value: "ticket", label: "Ticket / Comprobante" },
+];
+
+const PURCHASE_UNIT_OPTIONS = [
+  { value: "unidad", label: "Unidad (un)" },
+  { value: "kg", label: "Kilogramos (kg)" },
+  { value: "g", label: "Gramos (g)" },
+  { value: "lb", label: "Libras (lb)" },
+  { value: "lt", label: "Litros (lt)" },
+  { value: "ml", label: "Mililitros (ml)" },
+  { value: "paquete", label: "Paquete (paq)" },
+  { value: "porcion", label: "Porción (porc)" },
+];
+
+const RETENTION_PERCENTAGE_OPTIONS = [
+  { value: "2.5", label: "2.5% (Compras Generales)" },
+  { value: "3.5", label: "3.5% (Servicios / No declarantes)" },
+  { value: "1.0", label: "1.0% (Combustibles / Especial)" },
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "cash", label: "Efectivo" },
+  { value: "transfer", label: "Transferencia Bancaria" },
+  { value: "card", label: "Tarjeta Débito / Crédito" },
+  { value: "other", label: "Otro" },
+];
+
+const INITIAL_PAYMENT_METHOD_OPTIONS = [
+  { value: "cash", label: "Efectivo" },
+  { value: "transfer", label: "Transferencia" },
+  { value: "card", label: "Tarjeta" },
+];
 
 export function PurchaseFormModal({
   businessId,
@@ -900,16 +937,14 @@ export function PurchaseFormModal({
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           Tipo de Documento
                         </label>
-                        <Select
+                        <SearchSelect
+                          options={DOCUMENT_TYPE_OPTIONS}
                           value={documentType}
-                          onChange={(e) => setDocumentType(e.target.value as PurchaseDocumentType)}
+                          onChange={(val) => setDocumentType(val as PurchaseDocumentType)}
                           selectSize="sm"
-                        >
-                          <option value="factura">Factura de Venta</option>
-                          <option value="remision">Remisión / Entrada</option>
-                          <option value="cuenta_cobro">Cuenta de Cobro</option>
-                          <option value="ticket">Ticket / Comprobante</option>
-                        </Select>
+                          searchable={false}
+                          clearable={false}
+                        />
                       </div>
 
                       {/* N° Factura / Remisión (Opcional) */}
@@ -931,12 +966,12 @@ export function PurchaseFormModal({
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           Fecha de Compra <span className="text-[#ED500A] font-bold">*</span>
                         </label>
-                        <Input
-                          type="date"
-                          required
+                        <DatePicker
                           value={purchaseDate}
-                          onChange={(e) => setPurchaseDate(e.target.value)}
-                          inputSize="sm"
+                          onChange={(val) => setPurchaseDate(val)}
+                          size="sm"
+                          clearable={false}
+                          required
                         />
                       </div>
                     </div>
@@ -1098,20 +1133,15 @@ export function PurchaseFormModal({
                           <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                             Unidad
                           </label>
-                          <Select
+                          <SearchSelect
+                            options={PURCHASE_UNIT_OPTIONS}
                             value={purchaseUnit}
-                            onChange={(e) => setPurchaseUnit(e.target.value)}
+                            onChange={(val) => setPurchaseUnit(val)}
                             selectSize="sm"
-                          >
-                            <option value="unidad">Unidad (un)</option>
-                            <option value="kg">Kilogramos (kg)</option>
-                            <option value="g">Gramos (g)</option>
-                            <option value="lb">Libras (lb)</option>
-                            <option value="lt">Litros (lt)</option>
-                            <option value="ml">Mililitros (ml)</option>
-                            <option value="paquete">Paquete (paq)</option>
-                            <option value="porcion">Porción (porc)</option>
-                          </Select>
+                            searchable={true}
+                            searchPlaceholder="Buscar unidad (kg, g, paq)..."
+                            clearable={false}
+                          />
                         </div>
 
                         {/* Costo unitario (*) */}
@@ -1446,15 +1476,14 @@ export function PurchaseFormModal({
                             <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                               Tarifa de Retención
                             </label>
-                            <Select
+                            <SearchSelect
+                              options={RETENTION_PERCENTAGE_OPTIONS}
                               value={retentionPercentage}
-                              onChange={(e) => setRetentionPercentage(e.target.value)}
+                              onChange={(val) => setRetentionPercentage(val)}
                               selectSize="sm"
-                            >
-                              <option value="2.5">2.5% (Compras Generales)</option>
-                              <option value="3.5">3.5% (Servicios / No declarantes)</option>
-                              <option value="1.0">1.0% (Combustibles / Especial)</option>
-                            </Select>
+                              searchable={false}
+                              clearable={false}
+                            />
                           </div>
                           <div className="text-[11px] text-slate-400">
                             Se deducirá del total a pagar al proveedor en la liquidación de la compra.
@@ -1521,11 +1550,11 @@ export function PurchaseFormModal({
                               <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                                 Fecha Vencimiento
                               </label>
-                              <Input
-                                type="date"
+                              <DatePicker
                                 value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                inputSize="sm"
+                                onChange={(val) => setDueDate(val)}
+                                size="sm"
+                                clearable={true}
                               />
                             </div>
                           </div>
@@ -1555,15 +1584,14 @@ export function PurchaseFormModal({
                                 <label className="block text-3xs text-slate-400 mb-0.5">
                                   Medio del Abono
                                 </label>
-                                <Select
+                                <SearchSelect
+                                  options={INITIAL_PAYMENT_METHOD_OPTIONS}
                                   value={initialPaymentMethod}
-                                  onChange={(e) => setInitialPaymentMethod(e.target.value)}
+                                  onChange={(val) => setInitialPaymentMethod(val)}
                                   selectSize="sm"
-                                >
-                                  <option value="cash">Efectivo</option>
-                                  <option value="transfer">Transferencia</option>
-                                  <option value="card">Tarjeta</option>
-                                </Select>
+                                  searchable={false}
+                                  clearable={false}
+                                />
                               </div>
                             </div>
                             {parseFloat(initialPaymentAmount) > 0 && (
@@ -1583,16 +1611,14 @@ export function PurchaseFormModal({
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           Medio de Pago
                         </label>
-                        <Select
+                        <SearchSelect
+                          options={PAYMENT_METHOD_OPTIONS}
                           value={paymentMethod}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          onChange={(val) => setPaymentMethod(val)}
                           selectSize="sm"
-                        >
-                          <option value="cash">Efectivo</option>
-                          <option value="transfer">Transferencia Bancaria</option>
-                          <option value="card">Tarjeta Débito / Crédito</option>
-                          <option value="other">Otro</option>
-                        </Select>
+                          searchable={false}
+                          clearable={false}
+                        />
                       </div>
 
                       {/* Salida de caja: Checkbox 'Deducir automáticamente de la caja activa' */}

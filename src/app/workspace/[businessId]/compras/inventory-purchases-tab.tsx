@@ -25,6 +25,7 @@ import Link from "next/link";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
 import { formatCOP } from "@/config/plans";
 import {
@@ -410,29 +411,23 @@ export function InventoryPurchasesTab({
 
               {/* Selector de rango de fechas */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] border-slate-200/80 dark:border-white/10 text-xs">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 text-2xs uppercase font-bold">
-                    Desde:
-                  </span>
-                  <input
-                    type="date"
+                <div className="w-36">
+                  <DatePicker
                     value={startDate}
-                    onChange={(e) => handleStartDateChange(e.target.value)}
-                    className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none text-xs"
+                    onChange={(val) => handleStartDateChange(val)}
+                    placeholder="Desde..."
+                    size="sm"
+                    clearable={true}
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0D14] border-slate-200/80 dark:border-white/10 text-xs">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="text-slate-400 text-2xs uppercase font-bold">
-                    Hasta:
-                  </span>
-                  <input
-                    type="date"
+                <div className="w-36">
+                  <DatePicker
                     value={endDate}
-                    onChange={(e) => handleEndDateChange(e.target.value)}
-                    className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none text-xs"
+                    onChange={(val) => handleEndDateChange(val)}
+                    placeholder="Hasta..."
+                    size="sm"
+                    clearable={true}
                   />
                 </div>
 

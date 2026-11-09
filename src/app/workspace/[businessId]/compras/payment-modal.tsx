@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Input, Select } from "@/components/ui";
+import { Input, Select, SearchSelect, DatePicker } from "@/components/ui";
 import { AccountsPayableWithDetails, AccountPayablePayment } from "@/lib/purchases/types";
 import { registerAccountPayablePaymentAction, getAccountPayableDetailsAction } from "./actions";
 import { formatCOP } from "@/config/plans";
@@ -28,6 +28,13 @@ interface Props {
   account: AccountsPayableWithDetails | null;
   onSuccess: () => void;
 }
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "cash", label: "Efectivo" },
+  { value: "transfer", label: "Transferencia Bancaria" },
+  { value: "card", label: "Tarjeta Débito / Crédito" },
+  { value: "other", label: "Otro Medio" },
+];
 
 export function PaymentModal({
   isOpen,
@@ -231,17 +238,15 @@ export function PaymentModal({
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Medio de Pago
                     </label>
-                    <Select
+                    <SearchSelect
+                      options={PAYMENT_METHOD_OPTIONS}
                       value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      onChange={(val) => setPaymentMethod(val)}
                       disabled={isPending}
                       selectSize="sm"
-                    >
-                      <option value="cash">Efectivo</option>
-                      <option value="transfer">Transferencia Bancaria</option>
-                      <option value="card">Tarjeta Débito / Crédito</option>
-                      <option value="other">Otro Medio</option>
-                    </Select>
+                      searchable={false}
+                      clearable={false}
+                    />
                   </div>
 
                   {/* Fecha de abono */}
@@ -249,12 +254,12 @@ export function PaymentModal({
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Fecha del Pago
                     </label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
+                      onChange={(val) => setPaymentDate(val)}
                       disabled={isPending}
-                      inputSize="sm"
+                      size="sm"
+                      clearable={false}
                     />
                   </div>
                 </div>

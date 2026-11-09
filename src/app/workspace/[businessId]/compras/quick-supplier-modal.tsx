@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Input, Select } from "@/components/ui";
+import { Input, Select, SearchSelect } from "@/components/ui";
 import {
   X,
   Building2,
@@ -364,17 +364,17 @@ export function QuickSupplierModal({
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Plazo de pago
                 </label>
-                <Select
+                <SearchSelect
+                  options={PAYMENT_TERMS_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
                   value={termSelection}
-                  onChange={(e) => setTermSelection(e.target.value)}
+                  onChange={(val) => setTermSelection(val)}
                   selectSize="sm"
-                >
-                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
+                  searchable={false}
+                  clearable={false}
+                />
                 <p className="text-[11px] text-slate-400 mt-1">
                   Automatiza el cálculo de vencimientos en compras a crédito.
                 </p>
