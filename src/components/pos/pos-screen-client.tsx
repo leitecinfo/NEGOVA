@@ -88,6 +88,7 @@ import { toast } from "sonner";
 import { PosItemLibreModal } from "./pos-item-libre-modal";
 import { PosDiscountModal } from "./pos-discount-modal";
 import { PosEditPriceModal } from "./pos-edit-price-modal";
+import { PosEditNoteModal } from "./pos-edit-note-modal";
 import { PosSelectCustomerModal, PosCustomerItem } from "./pos-select-customer-modal";
 import { PosQuickCreateCustomerModal } from "./pos-quick-create-customer-modal";
 import { PosKitchenTicketModal, KitchenTicketData } from "./pos-kitchen-ticket-modal";
@@ -237,6 +238,7 @@ export function PosScreenClient({
   const [isItemLibreModalOpen, setIsItemLibreModalOpen] = useState(false);
   const [discountItem, setDiscountItem] = useState<PosCartItem | null>(null);
   const [editPriceItem, setEditPriceItem] = useState<PosCartItem | null>(null);
+  const [editNoteItem, setEditNoteItem] = useState<PosCartItem | null>(null);
   const [isSelectCustomerModalOpen, setIsSelectCustomerModalOpen] = useState(false);
   const [isQuickCreateCustomerModalOpen, setIsQuickCreateCustomerModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{
@@ -522,9 +524,15 @@ export function PosScreenClient({
     toast.success(`Ítem libre «${itemData.description}» añadido al pedido.`);
   };
 
-  // Aplicar descuento por línea [POS-006]
+  // Aplicar o remover descuento por línea [POS-006]
   const handleApplyLineDiscount = (discount: { type: "percentage" | "fixed"; value: number }) => {
     if (!discountItem) return;
+
+    if (discount.value <= 0) {
+      handleRemoveItemDiscount(discountItem.id);
+      setDiscountItem(null);
+      return;
+    }
 
     setCartItems((prev) =>
       prev.map((it) => {
@@ -542,10 +550,6 @@ export function PosScreenClient({
           netSubtotal: taxCalc.netSubtotal,
           taxAmount: taxCalc.taxAmount,
           discountAmount: discountAmount,
-          notes:
-            discount.type === "percentage"
-              ? `${it.notes ? it.notes + ' · ' : ''}Desc. ${discount.value}%`
-              : it.notes,
         };
       })
     );
@@ -556,6 +560,47 @@ export function PosScreenClient({
         : formatCOP(discount.value);
     setDiscountItem(null);
     toast.success(`Descuento de ${appliedVal} aplicado a «${discountItem.productName}».`);
+  };
+
+  // Quitar descuento de una línea
+  const handleRemoveItemDiscount = (itemId: string) => {
+    setCartItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== itemId) return it;
+        const originalTotal = it.unitPrice * it.quantity;
+        const taxCalc = calculateItemTax(originalTotal, it.taxPercentage, it.taxIncludedInPrice);
+        return {
+          ...it,
+          lineTotal: originalTotal,
+          netSubtotal: taxCalc.netSubtotal,
+          taxAmount: taxCalc.taxAmount,
+          discountAmount: 0,
+        };
+      })
+    );
+    toast.success("Descuento removido del producto.");
+  };
+
+  // Guardar notas o instrucciones para un ítem
+  const handleSaveItemNotes = (notes: string) => {
+    if (!editNoteItem) return;
+    setCartItems((prev) =>
+      prev.map((ci) => (ci.id === editNoteItem.id ? { ...ci, notes: notes || undefined } : ci))
+    );
+    toast.success(
+      notes
+        ? `Instrucciones guardadas para «${editNoteItem.productName}».`
+        : `Nota eliminada de «${editNoteItem.productName}».`
+    );
+    setEditNoteItem(null);
+  };
+
+  // Quitar notas de un ítem directamente
+  const handleRemoveItemNote = (itemId: string) => {
+    setCartItems((prev) =>
+      prev.map((ci) => (ci.id === itemId ? { ...ci, notes: undefined } : ci))
+    );
+    toast.success("Nota eliminada del ítem.");
   };
 
   // Modificar precio unitario de una línea [POS-006]
@@ -663,6 +708,7 @@ export function PosScreenClient({
       !isItemLibreModalOpen &&
       !discountItem &&
       !editPriceItem &&
+      !editNoteItem &&
       !isSelectCustomerModalOpen &&
       !kitchenTicketData &&
       !invoiceTicketData &&
@@ -1287,7 +1333,7 @@ export function PosScreenClient({
                             </div>
                           </div>
 
-                          {/* Modificadores o notas */}
+                          {/* Modificadores */}
                           {item.selectedModifiers.length > 0 && (
                             <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5 pl-0.5">
                               {item.selectedModifiers.map((m, idx) => (
@@ -1295,10 +1341,51 @@ export function PosScreenClient({
                               ))}
                             </div>
                           )}
+
+                          {/* Descuento aplicado si existe */}
+                          {Boolean(item.discountAmount && item.discountAmount > 0) && (
+                            <div className="flex items-center justify-between text-[10px] text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-1 rounded-md border border-rose-500/20">
+                              <span className="font-semibold flex items-center gap-1.5">
+                                <Tag className="w-3 h-3 shrink-0" />
+                                <span>Desc: -{formatCOP(item.discountAmount || 0)}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItemDiscount(item.id)}
+                                className="hover:text-rose-800 dark:hover:text-rose-200 ml-1.5 shrink-0 cursor-pointer p-0.5"
+                                title="Quitar descuento"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Notas o instrucciones de cocina */}
                           {item.notes && (
-                            <p className="text-[10px] italic text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-900/40">
-                              {item.notes}
-                            </p>
+                            <div className="flex items-center justify-between text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 px-2 py-1 rounded-md border border-amber-200/60 dark:border-amber-900/40">
+                              <span className="italic flex items-center gap-1 min-w-0 truncate">
+                                <span className="font-semibold not-italic">Nota:</span>
+                                <span className="truncate">{item.notes}</span>
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditNoteItem(item)}
+                                  className="hover:text-amber-900 dark:hover:text-amber-200 cursor-pointer p-0.5"
+                                  title="Editar nota"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItemNote(item.id)}
+                                  className="hover:text-amber-900 dark:hover:text-amber-200 cursor-pointer p-0.5"
+                                  title="Eliminar nota"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
                           )}
 
                           {/* Barra de herramientas y selector de cantidad */}
@@ -1308,8 +1395,12 @@ export function PosScreenClient({
                               <button
                                 type="button"
                                 onClick={() => setDiscountItem(item)}
-                                className="p-1.5 hover:text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
-                                title="Aplicar descuento individual"
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  Boolean(item.discountAmount && item.discountAmount > 0)
+                                    ? "text-rose-500 bg-rose-500/10 font-bold"
+                                    : "hover:text-[#ED500A] hover:bg-[#ED500A]/10"
+                                }`}
+                                title={Boolean(item.discountAmount && item.discountAmount > 0) ? "Modificar / quitar descuento" : "Aplicar descuento individual"}
                               >
                                 <Tag className="w-3.5 h-3.5" />
                               </button>
@@ -1323,14 +1414,13 @@ export function PosScreenClient({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newNote = item.notes ? "" : "Especial";
-                                  setCartItems((prev) =>
-                                    prev.map((ci) => (ci.id === item.id ? { ...ci, notes: newNote || undefined } : ci))
-                                  );
-                                }}
-                                className="p-1.5 hover:text-[#ED500A] hover:bg-[#ED500A]/10 rounded-lg transition-colors cursor-pointer"
-                                title="Editar notas"
+                                onClick={() => setEditNoteItem(item)}
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  item.notes
+                                    ? "text-[#ED500A] bg-[#ED500A]/10 font-bold"
+                                    : "hover:text-[#ED500A] hover:bg-[#ED500A]/10"
+                                }`}
+                                title={item.notes ? "Editar nota o instrucción" : "Agregar nota o instrucción"}
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -1887,6 +1977,12 @@ export function PosScreenClient({
         isOpen={Boolean(discountItem)}
         itemName={discountItem?.productName || ""}
         itemPrice={discountItem ? discountItem.unitPrice * discountItem.quantity : 0}
+        currentDiscountAmount={discountItem?.discountAmount || 0}
+        currentDiscountPercentage={
+          discountItem && (discountItem.discountAmount ?? 0) > 0 && discountItem.unitPrice * discountItem.quantity > 0
+            ? Math.round(((discountItem.discountAmount ?? 0) / (discountItem.unitPrice * discountItem.quantity)) * 100)
+            : 0
+        }
         onClose={() => setDiscountItem(null)}
         onApplyDiscount={handleApplyLineDiscount}
       />
@@ -1898,6 +1994,15 @@ export function PosScreenClient({
         currentUnitPrice={editPriceItem?.unitPrice || 0}
         onClose={() => setEditPriceItem(null)}
         onSavePrice={handleApplyNewUnitPrice}
+      />
+
+      {/* Modal de Instrucciones y Notas del Ítem */}
+      <PosEditNoteModal
+        isOpen={Boolean(editNoteItem)}
+        itemName={editNoteItem?.productName || ""}
+        currentNotes={editNoteItem?.notes || ""}
+        onClose={() => setEditNoteItem(null)}
+        onSaveNotes={handleSaveItemNotes}
       />
 
       {/* Modal de Selección de Cliente */}

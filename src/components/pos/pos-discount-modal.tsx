@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Input } from "@/components/ui";
-import { Tag, X, Percent, DollarSign } from "lucide-react";
+import { Tag, X, Percent, DollarSign, Trash2 } from "lucide-react";
 import { formatCOP } from "@/lib/pos/types";
 
 interface PosDiscountModalProps {
@@ -16,7 +16,7 @@ interface PosDiscountModalProps {
   onApplyDiscount: (discount: { type: "percentage" | "fixed"; value: number }) => void;
 }
 
-const QUICK_PERCENTAGES = [5, 10, 15, 20, 25, 50];
+const QUICK_PERCENTAGES = [0, 5, 10, 15, 20, 25, 50];
 
 export function PosDiscountModal({
   isOpen,
@@ -27,12 +27,23 @@ export function PosDiscountModal({
   currentDiscountAmount = 0,
   onApplyDiscount,
 }: PosDiscountModalProps) {
-  const [discountType, setDiscountType] = useState<"percentage" | "fixed">(
-    currentDiscountAmount > 0 ? "fixed" : "percentage"
-  );
-  const [value, setValue] = useState<number>(
-    currentDiscountAmount > 0 ? currentDiscountAmount : currentDiscountPercentage || 10
-  );
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [value, setValue] = useState<number>(10);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (currentDiscountAmount > 0) {
+        setDiscountType("fixed");
+        setValue(currentDiscountAmount);
+      } else if (currentDiscountPercentage > 0) {
+        setDiscountType("percentage");
+        setValue(currentDiscountPercentage);
+      } else {
+        setDiscountType("percentage");
+        setValue(10);
+      }
+    }
+  }, [isOpen, currentDiscountAmount, currentDiscountPercentage]);
 
   if (!isOpen) return null;
 
@@ -152,10 +163,10 @@ export function PosDiscountModal({
                       className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                         value === pct
                           ? "bg-[#ED500A] text-white shadow-xs"
-                          : "bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                          : "bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.08]"
                       }`}
                     >
-                      {pct}%
+                      {pct === 0 ? "Sin desc." : `${pct}%`}
                     </button>
                   ))}
                 </div>
@@ -197,20 +208,38 @@ export function PosDiscountModal({
             </div>
 
             {/* Pie del modal */}
-            <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-semibold shadow-md shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
-              >
-                Aplicar
-              </button>
+            <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between gap-2">
+              {currentDiscountAmount > 0 || currentDiscountPercentage > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onApplyDiscount({ type: "percentage", value: 0 });
+                    onClose();
+                  }}
+                  className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 font-semibold transition-colors flex items-center gap-1.5 cursor-pointer text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Quitar descuento</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#ED500A] hover:bg-[#ED500A]/90 text-white font-semibold shadow-md shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  Aplicar
+                </button>
+              </div>
             </div>
           </form>
         </div>
