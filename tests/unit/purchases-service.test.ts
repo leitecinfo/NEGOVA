@@ -244,6 +244,9 @@ const mockSupabaseClient: any = {
 
     if (table === "account_payable_payments") {
       return {
+        select: () => ({
+          eq: () => Promise.resolve({ data: [], error: null }),
+        }),
         insert: (payload: any) => ({
           error: null,
           data: { id: crypto.randomUUID(), ...payload },

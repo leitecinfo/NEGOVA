@@ -1532,12 +1532,13 @@ export async function cancelPurchase(
   // 1. Obtener la compra y sus ítems
   const { data: purchase, error: pErr } = await supabase
     .from("purchases")
-    .select(`*, purchase_items(*), accounts_payable(*, account_payable_payments(*))`)
+    .select(`*, purchase_items(*), accounts_payable(*)`)
     .eq("id", purchaseId)
     .eq("business_id", businessId)
     .single();
 
   if (pErr || !purchase) {
+    if (pErr) console.error("[cancelPurchase] Error al consultar compra:", pErr);
     throw new Error("La compra no existe o no pertenece a este comercio.");
   }
 
@@ -1550,10 +1551,24 @@ export async function cancelPurchase(
     ? purchase.accounts_payable[0]
     : purchase.accounts_payable;
 
-  if (ap) {
-    const payments = Array.isArray(ap.account_payable_payments)
-      ? ap.account_payable_payments
-      : [];
+  if (ap && ap.id) {
+    let payments: any[] = [];
+    try {
+      const q = supabase.from("account_payable_payments");
+      if (typeof q?.select === "function") {
+        const { data: paymentsData, error: pmErr } = await q
+          .select("*")
+          .eq("account_payable_id", ap.id);
+
+        if (pmErr) {
+          console.warn("[cancelPurchase] Error al consultar abonos de cuenta por pagar:", pmErr);
+        } else if (paymentsData) {
+          payments = paymentsData;
+        }
+      }
+    } catch (e) {
+      console.warn("[cancelPurchase] No se pudo verificar abonos de cuenta por pagar:", e);
+    }
 
     // Si hay abonos posteriores al registro inicial, prohibir anulación
     const nonInitialPayments = payments.filter(
@@ -1604,8 +1619,15 @@ export async function cancelPurchase(
   // 5. Revertir existencias de ítems inventariables (movimiento inverso 'exit')
   if (Array.isArray(purchase.purchase_items)) {
     for (const item of purchase.purchase_items) {
-      if (item.is_inventory_item && item.product_id && item.location_id) {
+      if (item.is_inventory_item && item.product_id) {
         try {
+          let targetLocationId = item.location_id;
+          if (!targetLocationId) {
+            const defaultLoc = await ensureDefaultLocation(businessId).catch(() => null);
+            targetLocationId = defaultLoc?.id || null;
+          }
+          if (!targetLocationId) continue;
+
           const qty = Number(item.conversion_factor || 1) > 0 && item.inventory_quantity
             ? Number(item.inventory_quantity)
             : Number(item.quantity);
@@ -1614,7 +1636,7 @@ export async function cancelPurchase(
             businessId,
             {
               productId: item.product_id,
-              locationId: item.location_id,
+              locationId: targetLocationId,
               movementType: "exit",
               quantity: qty,
               unitCost: Number(item.unit_cost),
@@ -1631,7 +1653,7 @@ export async function cancelPurchase(
             .select("quantity, min_stock, cost")
             .eq("business_id", businessId)
             .eq("product_id", item.product_id)
-            .eq("location_id", item.location_id)
+            .eq("location_id", targetLocationId)
             .maybeSingle();
 
           if (stockRow) {
@@ -1639,7 +1661,7 @@ export async function cancelPurchase(
             const newStockQty = Math.max(0, currentStockQty - qty);
             await upsertInventoryStock(businessId, {
               productId: item.product_id,
-              locationId: item.location_id,
+              locationId: targetLocationId,
               quantity: newStockQty,
               minStock: Number(stockRow.min_stock || 0),
               cost: Number(stockRow.cost || item.unit_cost),
