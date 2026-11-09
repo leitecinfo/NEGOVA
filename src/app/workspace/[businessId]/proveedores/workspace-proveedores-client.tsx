@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Building2,
   Plus,
@@ -28,7 +28,7 @@ import { ConfirmToggleStatusModal } from "./confirm-toggle-status-modal";
 import { ConfirmDeleteSupplierModal } from "./confirm-delete-supplier-modal";
 import Link from "next/link";
 import { formatCOP } from "@/config/plans";
-import { KpiCard, KpiGrid, SearchInput } from "@/components/ui";
+import { KpiCard, KpiGrid, SearchInput, Pagination } from "@/components/ui";
 
 interface Props {
   businessId: string;
@@ -109,6 +109,23 @@ export function WorkspaceProveedoresClient({
       return matchName || matchTaxId || matchPhone || matchContact || matchAddress;
     });
   }, [suppliers, search, statusFilter]);
+
+  // =========================================================================
+  // PAGINACIÓN ESTÁNDAR
+  // =========================================================================
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedSuppliers = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredSuppliers.slice(startIndex, startIndex + pageSize);
+  }, [filteredSuppliers, safeCurrentPage, pageSize]);
 
   // Handlers
   const handleOpenCreate = () => {
@@ -312,10 +329,10 @@ export function WorkspaceProveedoresClient({
         </div>
       ) : (
         /* TABLA DE PROVEEDORES */
-        <div className="border border-border rounded-2xl bg-card shadow-xs overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs divide-y divide-border">
-              <thead className="bg-muted/40 font-bold text-muted-foreground text-[11px] uppercase tracking-wider">
+            <table className="w-full text-left text-xs min-w-[850px]">
+              <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3">Proveedor / NIT</th>
                   <th className="px-4 py-3 hidden md:table-cell">Contacto</th>
@@ -326,8 +343,8 @@ export function WorkspaceProveedoresClient({
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredSuppliers.map((supplier) => {
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {paginatedSuppliers.map((supplier) => {
                   const isActive = supplier.status === "active";
                   const formattedDate = supplier.createdAt
                     ? new Date(supplier.createdAt).toLocaleDateString("es-CO", {
@@ -484,6 +501,26 @@ export function WorkspaceProveedoresClient({
               </tbody>
             </table>
           </div>
+
+          {filteredSuppliers.length > 0 && (
+            <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3 sm:p-4">
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                totalItems={filteredSuppliers.length}
+                currentCount={paginatedSuppliers.length}
+                pageSize={pageSize}
+                itemLabel="proveedores"
+                onPageChange={(pg) => setCurrentPage(pg)}
+                onPageSizeChange={(newSize: number) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showFirstLast
+              />
+            </div>
+          )}
         </div>
       )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   History,
   Plus,
@@ -29,6 +29,7 @@ import { MovementFormModal } from "./movement-form-modal";
 import { formatCOP } from "@/lib/pos/types";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
+import { Pagination } from "@/components/ui/pagination";
 
 interface Props {
   businessId: string;
@@ -76,15 +77,32 @@ export function InventoryMovementsTab({
   }, [loadMovements]);
 
   // Filtrado de texto local
-  const filteredMovements = movements.filter((m) => {
-    if (!search.trim()) return true;
-    const term = search.toLowerCase();
-    const prodMatch = m.productName.toLowerCase().includes(term);
-    const skuMatch = m.productSku?.toLowerCase()?.includes(term);
-    const noteMatch = m.notes?.toLowerCase()?.includes(term);
-    const locMatch = m.locationName.toLowerCase().includes(term);
-    return prodMatch || skuMatch || noteMatch || locMatch;
-  });
+  const filteredMovements = useMemo(() => {
+    return movements.filter((m) => {
+      if (!search.trim()) return true;
+      const term = search.toLowerCase();
+      const prodMatch = m.productName.toLowerCase().includes(term);
+      const skuMatch = m.productSku?.toLowerCase()?.includes(term);
+      const noteMatch = m.notes?.toLowerCase()?.includes(term);
+      const locMatch = m.locationName.toLowerCase().includes(term);
+      return prodMatch || skuMatch || noteMatch || locMatch;
+    });
+  }, [movements, search]);
+
+  // Paginación estándar
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedLocation, selectedType]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMovements.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedMovements = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredMovements.slice(startIndex, startIndex + pageSize);
+  }, [filteredMovements, safeCurrentPage, pageSize]);
 
   const getMovementBadge = (type: MovementType) => {
     switch (type) {
@@ -224,7 +242,7 @@ export function InventoryMovementsTab({
       </div>
 
       {/* 2. TABLA DE HISTORIAL DE MOVIMIENTOS */}
-      <div className="bg-white dark:bg-[#0E131F] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xs">
+      <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xs">
         {isLoading ? (
           <div className="p-12 flex flex-col items-center justify-center text-slate-400">
             <Loader2 className="w-7 h-7 animate-spin mb-3 text-[#ED500A]" />
@@ -243,113 +261,135 @@ export function InventoryMovementsTab({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50/75 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-semibold uppercase text-2xs tracking-wider">
-                <tr>
-                  <th className="py-3 px-4 min-w-[130px]">Fecha / Hora</th>
-                  <th className="py-3 px-4 min-w-[140px]">Tipo</th>
-                  <th className="py-3 px-4 min-w-[180px]">Producto</th>
-                  <th className="py-3 px-4 min-w-[130px]">Ubicación</th>
-                  <th className="py-3 px-4 text-right min-w-[90px]">Cantidad</th>
-                  <th className="py-3 px-4 text-right min-w-[110px]">Costo Unit.</th>
-                  <th className="py-3 px-4 text-right min-w-[110px]">Costo Total</th>
-                  <th className="py-3 px-4 min-w-[140px]">Responsable</th>
-                  <th className="py-3 px-4 min-w-[180px]">Notas / Referencia</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                {filteredMovements.map((m) => {
-                  const badge = getMovementBadge(m.movementType);
-                  return (
-                    <tr
-                      key={m.id}
-                      className="hover:bg-slate-50/50 dark:hover:bg-white/[0.015] transition-colors"
-                    >
-                      {/* Fecha y hora */}
-                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                        {formatDate(m.createdAt)}
-                      </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[1000px]">
+                <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold uppercase text-[11px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4 min-w-[130px]">Fecha / Hora</th>
+                    <th className="py-3 px-4 min-w-[140px]">Tipo</th>
+                    <th className="py-3 px-4 min-w-[180px]">Producto</th>
+                    <th className="py-3 px-4 min-w-[130px]">Ubicación</th>
+                    <th className="py-3 px-4 text-right min-w-[90px]">Cantidad</th>
+                    <th className="py-3 px-4 text-right min-w-[110px]">Costo Unit.</th>
+                    <th className="py-3 px-4 text-right min-w-[110px]">Costo Total</th>
+                    <th className="py-3 px-4 min-w-[140px]">Responsable</th>
+                    <th className="py-3 px-4 min-w-[180px]">Notas / Referencia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                  {paginatedMovements.map((m) => {
+                    const badge = getMovementBadge(m.movementType);
+                    return (
+                      <tr
+                        key={m.id}
+                        className="hover:bg-slate-50/50 dark:hover:bg-white/[0.015] transition-colors"
+                      >
+                        {/* Fecha y hora */}
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+                          {formatDate(m.createdAt)}
+                        </td>
 
-                      {/* Tipo de movimiento */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold border ${badge.className}`}
-                        >
-                          {badge.icon}
-                          <span>{badge.label}</span>
-                        </span>
-                      </td>
+                        {/* Tipo de movimiento */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-2xs font-bold border ${badge.className}`}
+                          >
+                            {badge.icon}
+                            <span>{badge.label}</span>
+                          </span>
+                        </td>
 
-                      {/* Producto */}
-                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
-                        <div className="flex flex-col">
-                          <span>{m.productName}</span>
-                          {m.productSku && (
-                            <span className="text-2xs text-slate-400 font-normal">
-                              SKU: {m.productSku}
+                        {/* Producto */}
+                        <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
+                          <div className="flex flex-col">
+                            <span>{m.productName}</span>
+                            {m.productSku && (
+                              <span className="text-2xs text-slate-400 font-normal">
+                                SKU: {m.productSku}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Ubicación */}
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                          {m.locationName}
+                        </td>
+
+                        {/* Cantidad */}
+                        <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white whitespace-nowrap">
+                          <span
+                            className={
+                              m.movementType === "entry" || m.movementType === "transfer_in"
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : m.movementType === "exit" || m.movementType === "transfer_out" || m.movementType === "spoilage" || m.movementType === "sale"
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-blue-600 dark:text-blue-400"
+                            }
+                          >
+                            {badge.prefix}
+                            {m.quantity}
+                          </span>
+                        </td>
+
+                        {/* Costo Unitario */}
+                        <td className="py-3 px-4 text-right text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+                          {m.unitCost ? formatCOP(m.unitCost) : "—"}
+                        </td>
+
+                        {/* Costo Total */}
+                        <td className="py-3 px-4 text-right font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                          {m.totalCost ? formatCOP(m.totalCost) : "—"}
+                        </td>
+
+                        {/* Responsable */}
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 text-xs">
+                          <div className="flex items-center gap-1.5 text-2xs">
+                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[120px]">
+                              {m.createdByName || "Sistema"}
                             </span>
+                          </div>
+                        </td>
+
+                        {/* Notas */}
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs">
+                          {m.notes ? (
+                            <span className="line-clamp-2" title={m.notes}>
+                              {m.notes}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic text-2xs">Sin observaciones</span>
                           )}
-                        </div>
-                      </td>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                      {/* Ubicación */}
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium">
-                        {m.locationName}
-                      </td>
-
-                      {/* Cantidad */}
-                      <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white whitespace-nowrap">
-                        <span
-                          className={
-                            m.movementType === "entry" || m.movementType === "transfer_in"
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : m.movementType === "exit" || m.movementType === "transfer_out" || m.movementType === "spoilage" || m.movementType === "sale"
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-blue-600 dark:text-blue-400"
-                          }
-                        >
-                          {badge.prefix}
-                          {m.quantity}
-                        </span>
-                      </td>
-
-                      {/* Costo Unitario */}
-                      <td className="py-3 px-4 text-right text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
-                        {m.unitCost ? formatCOP(m.unitCost) : "—"}
-                      </td>
-
-                      {/* Costo Total */}
-                      <td className="py-3 px-4 text-right font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                        {m.totalCost ? formatCOP(m.totalCost) : "—"}
-                      </td>
-
-                      {/* Responsable */}
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 text-xs">
-                        <div className="flex items-center gap-1.5 text-2xs">
-                          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[120px]">
-                            {m.createdByName || "Sistema"}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Notas */}
-                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs">
-                        {m.notes ? (
-                          <span className="line-clamp-2" title={m.notes}>
-                            {m.notes}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 italic text-2xs">Sin observaciones</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            {filteredMovements.length > 0 && (
+              <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3 sm:p-4">
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredMovements.length}
+                  currentCount={paginatedMovements.length}
+                  pageSize={pageSize}
+                  itemLabel="movimientos"
+                  onPageChange={(pg) => setCurrentPage(pg)}
+                  onPageSizeChange={(newSize: number) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  showFirstLast
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -775,10 +775,10 @@ export function IngredientsTab({ businessId, locations, availableUnits, categori
         />
       ) : viewMode === "table" ? (
         /* VISTA EN TABLA (Sección 5.2 de la especificación) */
-        <div className="rounded-3xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] overflow-hidden shadow-2xs">
+        <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-100 dark:border-white/[0.06] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+            <table className="w-full text-left text-xs min-w-[950px]">
+              <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="px-4 py-3.5">Nombre</th>
                   <th className="px-3 py-3.5">Tipo</th>

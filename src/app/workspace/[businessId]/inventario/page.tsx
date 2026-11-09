@@ -51,7 +51,7 @@ export default async function InventarioPage({
       title="Inventario"
       description="Controla existencias y movimientos desde un solo lugar."
       badge={badge}
-      maxWidth="full"
+      maxWidth="7xl"
     >
       <WorkspaceInventarioClient
         businessId={businessId}

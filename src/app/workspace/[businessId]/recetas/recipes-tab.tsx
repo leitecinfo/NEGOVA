@@ -46,7 +46,7 @@ import {
 } from "./actions";
 import { getProductsAction } from "../productos/actions";
 import { RecipeFormModal } from "./recipe-form-modal";
-import { EmptyState, ErrorState, CardSkeleton, KpiCard, KpiGrid } from "@/components/ui";
+import { EmptyState, ErrorState, CardSkeleton, KpiCard, KpiGrid, Pagination } from "@/components/ui";
 
 interface Props {
   businessId: string;
@@ -171,6 +171,23 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
       return true;
     });
   }, [recipes, searchQuery, selectedCategory, selectedStatus]);
+
+  // =========================================================================
+  // PAGINACIÓN ESTÁNDAR
+  // =========================================================================
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecipes.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedRecipes = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredRecipes.slice(startIndex, startIndex + pageSize);
+  }, [filteredRecipes, safeCurrentPage, pageSize]);
 
   // Formato COP
   const formatCOP = (val: number | null | undefined): string => {
@@ -480,9 +497,9 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
         /* VISTA TABLA DE RECETAS (PROFESIONAL, LIMPIA Y CONSISTENTE) */
         <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[950px]">
               <thead>
-                <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-3xs">
+                <tr className="border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-50/70 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3.5 px-4">Producto Preparado / Receta</th>
                   <th className="py-3.5 px-3">Categoría</th>
                   <th className="py-3.5 px-3 text-center">Ingredientes</th>
@@ -495,7 +512,7 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                {filteredRecipes.map((recipe) => {
+                {paginatedRecipes.map((recipe) => {
                   const portionsAvailable = recipe.portionsAvailable ?? 0;
                   const hasStock = portionsAvailable > 0;
 
@@ -643,11 +660,32 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
               </tbody>
             </table>
           </div>
+
+          {filteredRecipes.length > 0 && (
+            <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3 sm:p-4">
+              <Pagination
+                currentPage={safeCurrentPage}
+                totalPages={totalPages}
+                totalItems={filteredRecipes.length}
+                currentCount={paginatedRecipes.length}
+                pageSize={pageSize}
+                itemLabel="recetas"
+                onPageChange={(pg) => setCurrentPage(pg)}
+                onPageSizeChange={(newSize: number) => {
+                  setPageSize(newSize);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showFirstLast
+              />
+            </div>
+          )}
         </div>
       ) : (
         /* VISTA TARJETAS (FORMATO COMPACTO Y MODERNO) */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredRecipes.map((recipe) => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedRecipes.map((recipe) => {
             const portionsAvailable = recipe.portionsAvailable ?? 0;
             const hasPortions = portionsAvailable > 0;
 
@@ -746,6 +784,27 @@ export function RecipesTab({ businessId, locations, availableUnits }: Props) {
             );
           })}
         </div>
+
+        {filteredRecipes.length > 0 && (
+          <div className="p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16]">
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredRecipes.length}
+              currentCount={paginatedRecipes.length}
+              pageSize={pageSize}
+              itemLabel="recetas"
+              onPageChange={(pg) => setCurrentPage(pg)}
+              onPageSizeChange={(newSize: number) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 20, 50, 100]}
+              showFirstLast
+            />
+          </div>
+        )}
+      </div>
       )}
 
       {/* MODAL DE CREACIÓN / EDICIÓN */}

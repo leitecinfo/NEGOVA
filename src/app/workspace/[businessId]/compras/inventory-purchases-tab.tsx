@@ -26,6 +26,7 @@ import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Pagination } from "@/components/ui/pagination";
 import { KpiCard, KpiGrid } from "@/components/ui/kpi-card";
 import { formatCOP } from "@/config/plans";
 import {
@@ -270,6 +271,25 @@ export function InventoryPurchasesTab({
     }
   };
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    search,
+    period,
+    startDate,
+    endDate,
+    statusTab,
+    selectedSupplier,
+    paymentStatusFilter,
+    purchaseStatusFilter,
+    paymentTypeFilter,
+    paymentMethod,
+  ]);
+
   // Filtrado local en tiempo real por buscador (nº factura, proveedor o notas)
   const filteredPurchases = useMemo(() => {
     if (!search.trim()) return purchases;
@@ -282,6 +302,13 @@ export function InventoryPurchasesTab({
         (p.notes && p.notes.toLowerCase().includes(q))
     );
   }, [purchases, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPurchases.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedPurchases = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredPurchases.slice(startIndex, startIndex + pageSize);
+  }, [filteredPurchases, safeCurrentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -547,7 +574,7 @@ export function InventoryPurchasesTab({
           </div>
 
           {/* 6. LISTADO DE COMPRAS (TABLA CON 14 COLUMNAS EXIGIDAS) */}
-          <div className="rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] overflow-hidden shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D0F16] shadow-xs">
             {isLoading ? (
               <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-[#ED500A]" />
@@ -597,27 +624,27 @@ export function InventoryPurchasesTab({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-100 dark:border-white/[0.06] text-slate-500 font-semibold">
+                <table className="w-full text-left text-xs min-w-[1150px]">
+                  <thead className="bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200/80 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
                     <tr>
-                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Factura / Ref</th>
-                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Proveedor</th>
-                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Fecha Compra</th>
-                      <th className="px-3.5 py-3 font-semibold whitespace-nowrap">Vencimiento</th>
-                      <th className="px-3 py-3 font-semibold text-center whitespace-nowrap">Líneas</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Subtotal</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Impuestos</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Retención</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Total</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Pagado</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Saldo</th>
-                      <th className="px-3.5 py-3 font-semibold text-center whitespace-nowrap">Estado Pago</th>
-                      <th className="px-3.5 py-3 font-semibold text-center whitespace-nowrap">Estado Compra</th>
-                      <th className="px-3.5 py-3 font-semibold text-right whitespace-nowrap">Acciones</th>
+                      <th className="px-3.5 py-3 font-bold whitespace-nowrap">Factura / Ref</th>
+                      <th className="px-3.5 py-3 font-bold whitespace-nowrap">Proveedor</th>
+                      <th className="px-3.5 py-3 font-bold whitespace-nowrap">Fecha Compra</th>
+                      <th className="px-3.5 py-3 font-bold whitespace-nowrap">Vencimiento</th>
+                      <th className="px-3 py-3 font-bold text-center whitespace-nowrap">Líneas</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Subtotal</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Impuestos</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Retención</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Total</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Pagado</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Saldo</th>
+                      <th className="px-3.5 py-3 font-bold text-center whitespace-nowrap">Estado Pago</th>
+                      <th className="px-3.5 py-3 font-bold text-center whitespace-nowrap">Estado Compra</th>
+                      <th className="px-3.5 py-3 font-bold text-right whitespace-nowrap">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-                    {filteredPurchases.map((purchase) => {
+                    {paginatedPurchases.map((purchase) => {
                       const isCredit = purchase.paymentType === "credit";
                       const isCancelled = purchase.status === "cancelled";
                       const hasPending = (purchase.balance ?? 0) > 0 && !isCancelled;
@@ -840,6 +867,26 @@ export function InventoryPurchasesTab({
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {filteredPurchases.length > 0 && (
+              <div className="border-t border-slate-200/80 dark:border-white/[0.08] p-3 sm:p-4">
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredPurchases.length}
+                  currentCount={paginatedPurchases.length}
+                  pageSize={pageSize}
+                  itemLabel="compras"
+                  onPageChange={(pg) => setCurrentPage(pg)}
+                  onPageSizeChange={(newSize: number) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  showFirstLast
+                />
               </div>
             )}
           </div>
