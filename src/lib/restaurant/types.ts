@@ -251,6 +251,7 @@ export interface CreateRestaurantOrderInput {
   assignedStaffId?: string | null;
   assignedStaffName?: string | null;
   assignedStaffRole?: string | null;
+  isPickup?: boolean;
   saveCustomerForFuture?: boolean;
   items: CreateOrderItemInput[];
   idempotencyKey?: string | null;

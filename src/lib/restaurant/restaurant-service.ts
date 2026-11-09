@@ -1283,15 +1283,6 @@ export async function createRestaurantOrder(
     }
   }
 
-  if (input.orderType === "takeout") {
-    if (!input.customerName?.trim() || !input.customerPhone?.trim()) {
-      return {
-        success: false,
-        error: "Para pedidos para recoger debes ingresar el Nombre y Teléfono de contacto.",
-      };
-    }
-  }
-
   if (input.orderType === "delivery") {
     if (!input.deliveryAddress?.trim()) {
       return { success: false, error: "Para pedidos a domicilio debes ingresar la dirección de entrega." };
@@ -1609,7 +1600,7 @@ export async function createRestaurantOrder(
     const driverTag = input.driverName?.trim() ? `[DOMICILIARIO:${input.driverName.trim()}]` : "";
     
     finalNotes = [finalNotes, pinTag, trkTag, driverTag].filter(Boolean).join(" ");
-  } else if (input.orderType === "takeout") {
+  } else if (input.orderType === "takeout" && input.isPickup) {
     const crypto = await import("crypto");
     const pinNumber = crypto.randomInt(1000, 10000);
     generatedPickupPin = pinNumber.toString();

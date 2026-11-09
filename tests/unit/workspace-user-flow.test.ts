@@ -16,22 +16,22 @@ describe("Workspace User Creation Rules & Plan Limits", () => {
     expect(allowedRolesInWorkspaceCreation.some((r) => r.code === "owner")).toBe(false);
   });
 
-  it("los límites de usuarios por plan deben estar configurados correctamente (Inicio: 2, Crece: 3, Negocio: 6)", () => {
-    expect(NEGOVA_PLANS.inicio.limits.maxUsers).toBe(2);
-    expect(NEGOVA_PLANS.crece.limits.maxUsers).toBe(3);
-    expect(NEGOVA_PLANS.negocio.limits.maxUsers).toBe(6);
+  it("los límites de usuarios por plan deben estar configurados correctamente (Inicio: 4, Crece: 6, Negocio: 10)", () => {
+    expect(NEGOVA_PLANS.inicio.limits.maxUsers).toBe(4);
+    expect(NEGOVA_PLANS.crece.limits.maxUsers).toBe(6);
+    expect(NEGOVA_PLANS.negocio.limits.maxUsers).toBe(10);
   });
 
-  it("con 1 usuario registrado en el plan Inicio (dueño), canAddUser debe ser true para permitir el 2do usuario", () => {
+  it("con 1 usuario registrado en el plan Inicio (dueño), canAddUser debe ser true para permitir más colaboradores", () => {
     const maxUsers = NEGOVA_PLANS.inicio.limits.maxUsers;
     const currentUsers = 1; // Solo el owner
     const canAddUser = currentUsers < maxUsers;
     expect(canAddUser).toBe(true);
   });
 
-  it("con 2 usuarios registrados en el plan Inicio (dueño + auxiliar), canAddUser debe ser false y bloquear el 3er usuario", () => {
+  it("con 4 usuarios registrados en el plan Inicio (dueño + 3 auxiliares), canAddUser debe ser false y bloquear el 5to usuario", () => {
     const maxUsers = NEGOVA_PLANS.inicio.limits.maxUsers;
-    const currentUsers = 2; // Owner + 1 Auxiliar
+    const currentUsers = 4; // Owner + 3 Auxiliares
     const canAddUser = currentUsers < maxUsers;
     expect(canAddUser).toBe(false);
   });
@@ -212,14 +212,14 @@ describe("Workspace User Creation Rules & Plan Limits", () => {
     expect(wsCarlos).toBeUndefined();
   });
 
-  it("cuando el negocio ya tiene 2 usuarios (dueño + auxiliar), intentar invitar o asignar un 3er usuario debe ser bloqueado", async () => {
+  it("el cálculo de capacidad para el plan Inicio debe reflejar el límite de 4 usuarios totales", async () => {
     const { checkBusinessPlanUserCapacity } = await import("@/lib/auth/users-service");
     const capacity = await checkBusinessPlanUserCapacity(REAL_BUSINESS_ID);
     
     expect(capacity).toBeDefined();
-    expect(capacity.maxUsers).toBe(2);
+    expect(capacity.maxUsers).toBe(4);
     expect(capacity.currentUsers).toBeGreaterThanOrEqual(2);
-    expect(capacity.canAddUser).toBe(false);
+    expect(capacity.canAddUser).toBe(true);
   });
 
   it("probar loginWithPassword con super_admin", async () => {

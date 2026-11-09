@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { UserPlus, Users } from "lucide-react";
 import { requireWorkspaceSession } from "@/lib/auth/workspace-context";
-import { getWorkspaceUsersListAction, getWorkspaceRolesOptionsAction } from "./actions";
+import { getWorkspaceUsersList } from "@/lib/auth/workspace-users-service";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { Button } from "@/components/ui";
 import { WorkspaceUsuariosClient } from "./workspace-usuarios-client";
@@ -28,11 +28,7 @@ export default async function WorkspaceUsuariosPage({
   let initialData = null;
 
   try {
-    const usersResult = await getWorkspaceUsersListAction(businessId, { page: 1, pageSize: 10 });
-    
-    if (usersResult.success) {
-      initialData = usersResult.data || null;
-    }
+    initialData = await getWorkspaceUsersList(businessId, { page: 1, pageSize: 10 });
   } catch (err) {
     console.error("[WorkspaceUsuariosPage Server Fetch Error]:", err);
   }

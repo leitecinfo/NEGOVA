@@ -170,5 +170,41 @@ describe("Asignación de Responsables y Pedidos Para Recoger (POS)", () => {
       expect(takeoutPayload.deliveryAddress).toBeNull();
       expect(takeoutPayload.deliveryFee).toBe(0);
     });
+
+    it("3.3. Para Llevar (mostrador rápido) permite Cliente General sin exigir teléfono ni contacto obligatorio", () => {
+      const walkInTakeoutPayload = {
+        orderType: "takeout",
+        customerName: "Cliente General",
+        customerPhone: null,
+        deliveryAddress: null,
+      };
+
+      expect(walkInTakeoutPayload.customerName).toBe("Cliente General");
+      expect(walkInTakeoutPayload.customerPhone).toBeNull();
+    });
+
+    it("3.4. Diferencia estricta: Para Llevar no genera PIN ni código de recogida, Para Recoger sí", () => {
+      // Para Llevar: sin PIN de recogida
+      const paraLlevarOrder = {
+        order_type: "takeout",
+        pickup_code: null,
+        notes: "Sin código para llevar",
+      };
+      const isParaLlevarPickup = Boolean(paraLlevarOrder.pickup_code || paraLlevarOrder.notes.includes("[PICKUP_PIN:"));
+      const labelLlevar = paraLlevarOrder.order_type === "takeout" ? (isParaLlevarPickup ? "Para Recoger" : "Para Llevar") : "Otro";
+      expect(isParaLlevarPickup).toBe(false);
+      expect(labelLlevar).toBe("Para Llevar");
+
+      // Para Recoger: con PIN de recogida
+      const paraRecogerOrder = {
+        order_type: "takeout",
+        pickup_code: "9630",
+        notes: "[PICKUP_PIN:9630:0]",
+      };
+      const isParaRecogerPickup = Boolean(paraRecogerOrder.pickup_code || paraRecogerOrder.notes.includes("[PICKUP_PIN:"));
+      const labelRecoger = paraRecogerOrder.order_type === "takeout" ? (isParaRecogerPickup ? "Para Recoger" : "Para Llevar") : "Otro";
+      expect(isParaRecogerPickup).toBe(true);
+      expect(labelRecoger).toBe("Para Recoger");
+    });
   });
 });

@@ -160,7 +160,12 @@ export async function resetWorkspaceUserPasswordAction(
   customPassword?: string
 ): Promise<{ success: boolean; temporaryPassword?: string; error?: string }> {
   try {
-    const actor = await verifyUserPermission("business_users.disable", { businessId });
+    let actor;
+    try {
+      actor = await verifyUserPermission("business_users.update", { businessId });
+    } catch {
+      actor = await verifyUserPermission("business_users.disable", { businessId });
+    }
 
     const adminClient = await getSupabaseAdminClient();
 

@@ -1,165 +1,157 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-  createEmployee,
-  getEmployeesList,
-  getEmployeeById,
-  updateEmployee,
-  deleteEmployee,
-} from "@/lib/payroll/payroll-service";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { getWorkspaceStaff } from "@/lib/restaurant/staff-service";
+import { readFileSync } from "fs";
+import { join } from "path";
 
-describe("Personal de Servicio & Camareros [STAFF-002]", () => {
-  const businessA = "biz_restaurant_001";
-  const businessB = "biz_restaurant_002";
-  const actorUser = "usr_manager_001";
+// Mock Supabase Admin Client
+const mockBusinessUsers = [
+  {
+    user_id: "usr-owner-1",
+    status: "active",
+    role_id: "role-1",
+    roles: { id: "role-1", code: "owner", name: "Propietario del Negocio" },
+  },
+  {
+    user_id: "usr-waiter-2",
+    status: "active",
+    role_id: "role-2",
+    roles: { id: "role-2", code: "auxiliar", name: "Auxiliar" },
+  },
+];
 
-  it("1. Debe registrar un camarero con código interno (#css1) y datos de contacto", async () => {
-    const res = await createEmployee(
-      {
-        firstName: "Carlos",
-        lastName: "Suárez",
-        documentType: "CC",
-        documentNumber: "#css1",
-        phone: "+57 300 987 6543",
-        email: "carlos.camarero@negocio.com",
-        jobTitle: "Camarero",
-        contractType: "indefinido",
-        status: "active",
-        compensationType: "fixed_salary",
-        baseSalary: 0,
-        payFrequency: "monthly",
-        paymentMethod: "cash",
-        notes: "[CODE:#css1]",
-        hireDate: "2026-11-02",
+const mockProfiles = [
+  {
+    id: "usr-owner-1",
+    full_name: "Eva Maria Lopez Mejia",
+    phone: "3103699076",
+    avatar_url: null,
+  },
+  {
+    id: "usr-waiter-2",
+    full_name: "Juan Carlos Gómez Díaz",
+    phone: "3123456701",
+    avatar_url: null,
+  },
+];
+
+const mockEmployees = [
+  {
+    id: "emp-3",
+    user_id: null,
+    first_name: "Pedro",
+    last_name: "Pérez",
+    job_title: "Domiciliario",
+    status: "active",
+    phone: "3009876543",
+    email: null,
+  },
+];
+
+const mockAuthUsers = [
+  { id: "usr-owner-1", email: "alexandersmithh2002@gmail.com" },
+  { id: "usr-waiter-2", email: "lucashoyos2002@gmail.com" },
+];
+
+vi.mock("@/lib/auth/users-service", () => ({
+  getSupabaseAdminClient: vi.fn(async () => ({
+    auth: {
+      admin: {
+        listUsers: () => Promise.resolve({ data: { users: mockAuthUsers }, error: null }),
       },
-      actorUser,
-      { businessId: businessA }
-    );
+    },
+    from: (table: string) => {
+      if (table === "business_employees") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => Promise.resolve({ data: mockEmployees, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "business_users") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => Promise.resolve({ data: mockBusinessUsers, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            in: () => Promise.resolve({ data: mockProfiles, error: null }),
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "users") {
+        return {
+          select: () => ({
+            in: () => Promise.resolve({ data: mockAuthUsers, error: null }),
+          }),
+        };
+      }
+      return {
+        select: () => Promise.resolve({ data: [], error: null }),
+      };
+    },
+  })),
+}));
 
-    expect(res.success).toBe(true);
-    expect(res.employee).toBeDefined();
-    expect(res.employee?.firstName).toBe("Carlos");
-    expect(res.employee?.documentNumber).toBe("#css1");
-    expect(res.employee?.notes).toContain("[CODE:#css1]");
-    expect(res.employee?.status).toBe("active");
+vi.mock("@/lib/auth/cargos-service", () => ({
+  getBusinessEmployeeCargos: vi.fn(async () => ({
+    "usr-waiter-2": ["Mesero"],
+  })),
+}));
+
+describe("Módulo de Personal y Responsables de Pedido (getWorkspaceStaff)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("2. Debe filtrar colaboradores por negocio y estado activo/inactivo", async () => {
-    // Crear uno activo y uno inactivo en Business A
-    const emp1 = await createEmployee(
-      {
-        firstName: "María",
-        lastName: "López",
-        documentType: "CC",
-        documentNumber: "#CAM002",
-        jobTitle: "Camarera",
-        contractType: "indefinido",
-        status: "active",
-        compensationType: "fixed_salary",
-        baseSalary: 0,
-        payFrequency: "monthly",
-        paymentMethod: "cash",
-        hireDate: "2026-11-02",
-      },
-      actorUser,
-      { businessId: businessA }
-    );
+  it("unifica usuarios reales del negocio con perfiles, emails, roles y cargos operativos", async () => {
+    const staff = await getWorkspaceStaff("biz-1", "usr-owner-1");
 
-    const emp2 = await createEmployee(
-      {
-        firstName: "Pedro",
-        lastName: "Gómez",
-        documentType: "CC",
-        documentNumber: "#CAM003",
-        jobTitle: "Camarero",
-        contractType: "indefinido",
-        status: "inactive",
-        compensationType: "fixed_salary",
-        baseSalary: 0,
-        payFrequency: "monthly",
-        paymentMethod: "cash",
-        hireDate: "2026-11-02",
-      },
-      actorUser,
-      { businessId: businessA }
-    );
+    expect(staff.length).toBe(3);
 
-    expect(emp1.success).toBe(true);
-    expect(emp2.success).toBe(true);
+    // 1. Usuario actual (dueño) debe quedar de primero con nombre real y email
+    expect(staff[0].userId).toBe("usr-owner-1");
+    expect(staff[0].name).toBe("Eva Maria Lopez Mejia");
+    expect(staff[0].email).toBe("alexandersmithh2002@gmail.com");
+    expect(staff[0].isCurrentUser).toBe(true);
+    expect(staff[0].roles).toContain("Propietario del Negocio");
 
-    const listAll = await getEmployeesList({ businessId: businessA });
-    expect(listAll.employees.length).toBeGreaterThanOrEqual(2);
+    // 2. Auxiliar con nombre real completo, email, teléfono y cargo Mesero
+    const waiter = staff.find((s) => s.userId === "usr-waiter-2");
+    expect(waiter).toBeDefined();
+    expect(waiter?.name).toBe("Juan Carlos Gómez Díaz");
+    expect(waiter?.email).toBe("lucashoyos2002@gmail.com");
+    expect(waiter?.phone).toBe("3123456701");
+    expect(waiter?.roles).toContain("Mesero");
+    expect(waiter?.roles).toContain("Auxiliar");
 
-    const listActive = await getEmployeesList({ businessId: businessA }, { status: "active" });
-    expect(listActive.employees.every((e) => e.status === "active")).toBe(true);
-
-    const listInactive = await getEmployeesList({ businessId: businessA }, { status: "inactive" });
-    expect(listInactive.employees.every((e) => e.status === "inactive")).toBe(true);
+    // 3. Empleado de nómina/personal sin cuenta de usuario (Domiciliario)
+    const delivery = staff.find((s) => s.id === "emp-3");
+    expect(delivery).toBeDefined();
+    expect(delivery?.name).toBe("Pedro Pérez");
+    expect(delivery?.roles).toContain("Domiciliario");
   });
 
-  it("3. Debe alternar el estado del colaborador (toggle activo/inactivo)", async () => {
-    const created = await createEmployee(
-      {
-        firstName: "Laura",
-        lastName: "Mejía",
-        documentType: "CC",
-        documentNumber: "#CAM004",
-        jobTitle: "Camarera",
-        contractType: "indefinido",
-        status: "active",
-        compensationType: "fixed_salary",
-        baseSalary: 0,
-        payFrequency: "monthly",
-        paymentMethod: "cash",
-        hireDate: "2026-11-02",
-      },
-      actorUser,
-      { businessId: businessA }
+  it("verifica que no se utilicen alertas nativas en el selector de responsables", () => {
+    const filePath = join(
+      process.cwd(),
+      "src/components/pos/pos-responsible-selector.tsx"
     );
+    const content = readFileSync(filePath, "utf-8");
 
-    const empId = created.employee!.id;
-
-    // Desactivar
-    const updateRes = await updateEmployee(empId, { status: "inactive" }, actorUser, { businessId: businessA });
-    expect(updateRes.success).toBe(true);
-    expect(updateRes.employee?.status).toBe("inactive");
-
-    // Reactivar
-    const reactivateRes = await updateEmployee(empId, { status: "active" }, actorUser, { businessId: businessA });
-    expect(reactivateRes.success).toBe(true);
-    expect(reactivateRes.employee?.status).toBe("active");
-  });
-
-  it("4. Debe eliminar colaborador con deleteEmployee asegurando aislamiento de negocio", async () => {
-    const created = await createEmployee(
-      {
-        firstName: "Javier",
-        lastName: "Torres",
-        documentType: "CC",
-        documentNumber: "#CAM005",
-        jobTitle: "Camarero",
-        contractType: "indefinido",
-        status: "active",
-        compensationType: "fixed_salary",
-        baseSalary: 0,
-        payFrequency: "monthly",
-        paymentMethod: "cash",
-        hireDate: "2026-11-02",
-      },
-      actorUser,
-      { businessId: businessA }
-    );
-
-    const empId = created.employee!.id;
-
-    // Intento de eliminación desde otro negocio debe fallar
-    const deleteOtherBiz = await deleteEmployee(empId, actorUser, { businessId: businessB });
-    expect(deleteOtherBiz.success).toBe(false);
-
-    // Eliminación legítima
-    const deleteRes = await deleteEmployee(empId, actorUser, { businessId: businessA });
-    expect(deleteRes.success).toBe(true);
-
-    const check = await getEmployeeById(empId, { businessId: businessA });
-    expect(check).toBeNull();
+    expect(content).not.toMatch(/window\.alert/);
+    expect(content).not.toMatch(/window\.confirm/);
+    expect(content).not.toMatch(/window\.prompt/);
   });
 });

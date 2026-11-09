@@ -788,7 +788,6 @@ export async function createUser(
         email,
         platform_role: platformRole,
         status: dbStatus,
-        must_change_password: mustChangePassword,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -1195,11 +1194,10 @@ export async function resetUserPassword(
 
     if (authErr) throw authErr;
 
-    // Actualizar flag en public.users
+    // Actualizar timestamp en public.users
     await adminClient
       .from("users")
       .update({
-        must_change_password: true,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);

@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { User, Search, Check, ChevronDown, ShieldCheck, Sparkles } from "lucide-react";
+import { User, Search, Check, ChevronDown, Sparkles } from "lucide-react";
 import { StaffMember } from "@/lib/restaurant/types";
 
 export function getCargoBadgeColor(role: string): string {
-  const r = role.toLowerCase().trim();
+  const r = (role || "").toLowerCase().trim();
   if (r.includes("propietari") || r.includes("dueñ") || r.includes("owner") || r.includes("admin")) {
     return "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/20";
   }
@@ -29,6 +29,7 @@ interface PosResponsibleSelectorProps {
   selectedStaffId: string | null;
   onSelectStaff: (staff: StaffMember) => void;
   disabled?: boolean;
+  serviceType?: "TAKEOUT" | "DINE_IN" | "PICKUP" | "DELIVERY";
 }
 
 export function PosResponsibleSelector({
@@ -36,6 +37,7 @@ export function PosResponsibleSelector({
   selectedStaffId,
   onSelectStaff,
   disabled = false,
+  serviceType,
 }: PosResponsibleSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -65,22 +67,70 @@ export function PosResponsibleSelector({
     return staffList.find((s) => s.id === selectedStaffId || s.userId === selectedStaffId) || staffList[0] || null;
   }, [staffList, selectedStaffId]);
 
-  // Lista filtrada por nombre y cargos
+  // Lista filtrada por nombre, cargos, email y teléfono, priorizando según servicio
   const filteredStaff = useMemo(() => {
-    if (!searchTerm.trim()) return staffList;
-    const term = searchTerm.toLowerCase().trim();
-    return staffList.filter((s) => {
-      const matchName = s.name.toLowerCase().includes(term);
-      const matchRole = s.roles.some((r) => r.toLowerCase().includes(term));
-      return matchName || matchRole;
-    });
-  }, [staffList, searchTerm]);
+    let list = staffList;
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      list = staffList.filter((s) => {
+        const matchName = (s.name || "").toLowerCase().includes(term);
+        const matchRole = s.roles.some((r) => (r || "").toLowerCase().includes(term));
+        const matchEmail = (s.email || "").toLowerCase().includes(term);
+        const matchPhone = (s.phone || "").toLowerCase().includes(term);
+        return matchName || matchRole || matchEmail || matchPhone;
+      });
+    }
+
+    if (serviceType === "DELIVERY") {
+      return [...list].sort((a, b) => {
+        const aIsDelivery = a.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("domicili") || norm.includes("repart") || norm.includes("delivery") || norm.includes("moto");
+        });
+        const bIsDelivery = b.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("domicili") || norm.includes("repart") || norm.includes("delivery") || norm.includes("moto");
+        });
+        if (aIsDelivery && !bIsDelivery) return -1;
+        if (!aIsDelivery && bIsDelivery) return 1;
+        return 0;
+      });
+    }
+
+    if (serviceType === "DINE_IN") {
+      return [...list].sort((a, b) => {
+        const aIsWaiter = a.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("meser") || norm.includes("camarer") || norm.includes("waiter") || norm.includes("atención");
+        });
+        const bIsWaiter = b.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("meser") || norm.includes("camarer") || norm.includes("waiter") || norm.includes("atención");
+        });
+        if (aIsWaiter && !bIsWaiter) return -1;
+        if (!aIsWaiter && bIsWaiter) return 1;
+        return 0;
+      });
+    }
+
+    return list;
+  }, [staffList, searchTerm, serviceType]);
 
   return (
     <div className="relative" ref={dropdownRef}>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
           <span>Responsable del pedido</span>
+          {serviceType === "DELIVERY" && (
+            <span className="text-[10px] normal-case text-[#ED500A] font-semibold bg-[#ED500A]/10 px-1.5 py-0.2 rounded border border-[#ED500A]/20">
+              Domicilio
+            </span>
+          )}
+          {serviceType === "DINE_IN" && (
+            <span className="text-[10px] normal-case text-blue-600 dark:text-blue-400 font-semibold bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
+              Mesa
+            </span>
+          )}
         </label>
         {selectedMember && (
           <span className="text-[10px] text-slate-400">
@@ -89,7 +139,7 @@ export function PosResponsibleSelector({
         )}
       </div>
 
-      {/* DISPARADOR COMPACTO PERSONALIZADO (NO SELECT NATIVO) */}
+      {/* DISPARADOR COMPACTO PERSONALIZADO */}
       <button
         type="button"
         disabled={disabled || staffList.length === 0}
@@ -105,7 +155,7 @@ export function PosResponsibleSelector({
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {/* Avatar con iniciales */}
           <div className="w-8 h-8 rounded-xl bg-[#ED500A]/10 text-[#ED500A] font-black text-xs flex items-center justify-center shrink-0 uppercase">
-            {selectedMember ? selectedMember.name.slice(0, 2) : <User className="w-4 h-4" />}
+            {selectedMember ? (selectedMember.name || "U").slice(0, 2) : <User className="w-4 h-4" />}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -128,8 +178,10 @@ export function PosResponsibleSelector({
                 ))
               ) : null}
             </div>
-            <p className="text-[10px] text-slate-400 truncate">
-              {selectedMember?.isCurrentUser ? "Usuario actual en sesión" : "Personal asignado al pedido"}
+            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+              {selectedMember?.isCurrentUser ? "Tú en sesión" : "Personal asignado"}
+              {selectedMember?.email ? ` · ${selectedMember.email}` : ""}
+              {!selectedMember?.email && selectedMember?.phone ? ` · ${selectedMember.phone}` : ""}
             </p>
           </div>
         </div>
@@ -158,7 +210,7 @@ export function PosResponsibleSelector({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar persona por nombre o cargo..."
+              placeholder="Buscar por nombre, cargo, email o teléfono..."
               className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#ED500A] focus:border-[#ED500A]"
             />
           </div>
@@ -167,11 +219,20 @@ export function PosResponsibleSelector({
           <div className="overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.04] flex-1 pr-1">
             {filteredStaff.length === 0 ? (
               <div className="py-6 text-center text-xs text-slate-400">
-                No se encontraron personas con ese nombre o cargo.
+                No se encontraron personas con ese nombre, cargo o contacto.
               </div>
             ) : (
               filteredStaff.map((member) => {
                 const isSelected = selectedMember?.id === member.id;
+                const isDeliveryMatch = serviceType === "DELIVERY" && member.roles.some(r => {
+                  const norm = (r || "").toLowerCase();
+                  return norm.includes("domicili") || norm.includes("repart") || norm.includes("delivery") || norm.includes("moto");
+                });
+                const isWaiterMatch = serviceType === "DINE_IN" && member.roles.some(r => {
+                  const norm = (r || "").toLowerCase();
+                  return norm.includes("meser") || norm.includes("camarer") || norm.includes("waiter") || norm.includes("atención");
+                });
+
                 return (
                   <button
                     key={member.id}
@@ -181,7 +242,7 @@ export function PosResponsibleSelector({
                       setIsOpen(false);
                       setSearchTerm("");
                     }}
-                    className={`w-full p-2 rounded-xl text-left flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
+                    className={`w-full p-2.5 rounded-xl text-left flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
                       isSelected
                         ? "bg-[#ED500A]/10 text-slate-900 dark:text-white font-bold"
                         : "hover:bg-slate-50 dark:hover:bg-white/[0.03] text-slate-700 dark:text-slate-300"
@@ -189,28 +250,43 @@ export function PosResponsibleSelector({
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`w-7 h-7 rounded-lg font-bold text-[11px] flex items-center justify-center shrink-0 uppercase ${
+                        className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 uppercase ${
                           isSelected
                             ? "bg-[#ED500A] text-white shadow-xs"
                             : "bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300"
                         }`}
                       >
-                        {member.name.slice(0, 2)}
+                        {(member.name || "U").slice(0, 2)}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs truncate">{member.name}</span>
+                          <span className="text-xs font-semibold truncate">{member.name}</span>
                           {member.isCurrentUser && (
                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300">
                               Tú
                             </span>
                           )}
+                          {(isDeliveryMatch || isWaiterMatch) && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              Recomendado
+                            </span>
+                          )}
                         </div>
+
+                        {/* Contacto distintivo para diferenciar múltiples auxiliares */}
+                        {(member.email || member.phone) && (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate mt-0.5 font-normal">
+                            {member.email}
+                            {member.email && member.phone ? " · " : ""}
+                            {member.phone ? <span className="font-mono">{member.phone}</span> : null}
+                          </p>
+                        )}
 
                         {/* Etiquetas visuales de cargos con colores */}
                         {member.roles && member.roles.length > 0 && (
-                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
                             {member.roles.map((r, rIdx) => (
                               <span
                                 key={rIdx}

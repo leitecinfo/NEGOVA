@@ -72,6 +72,7 @@ export function WorkspaceUsuariosClient({
 }: WorkspaceUsuariosClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Estados de listado y paginación
   const [data, setData] = useState<UserListResult>(
@@ -180,18 +181,23 @@ export function WorkspaceUsuariosClient({
     search = searchQuery
   ) => {
     startTransition(async () => {
-      const res = await getWorkspaceUsersListAction(businessId, {
-        page,
-        pageSize: 10,
-        status: status === "all" ? undefined : status,
-        roleCode: role === "all" ? undefined : role,
-        search: search.trim() || undefined,
-      });
+      try {
+        const res = await getWorkspaceUsersListAction(businessId, {
+          page,
+          pageSize: 10,
+          status: status === "all" ? undefined : status,
+          roleCode: role === "all" ? undefined : role,
+          search: search.trim() || undefined,
+        });
 
-      if (res.success && res.data) {
-        setData(res.data);
-      } else {
-        toast.error(res.error || "Error al actualizar usuarios.");
+        if (res.success && res.data) {
+          setData(res.data);
+        } else {
+          toast.error(res.error || "Error al actualizar usuarios.");
+        }
+      } catch (err: any) {
+        console.error("[fetchUsers Error]:", err);
+        toast.error("Error de comunicación al actualizar la lista.");
       }
     });
   };
@@ -312,20 +318,41 @@ export function WorkspaceUsuariosClient({
   };
 
   // Ejecutar acción confirmada
-  const executeConfirmAction = () => {
-    if (!confirmModal.user) return;
+  const executeConfirmAction = async () => {
+    if (!confirmModal.user || isActionLoading) return;
 
     const user = confirmModal.user;
     const targetStatus = confirmModal.targetStatus;
     const actionType = confirmModal.actionType;
 
-    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    setIsActionLoading(true);
 
-    startTransition(async () => {
+    try {
       if (actionType === "remove") {
         const res = await removeWorkspaceUserAction(businessId, user.id);
         if (res.success) {
           toast.success(`${user.fullName} ha sido desvinculado del comercio.`);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false, user: null }));
+          setData((prev) => {
+            const updatedUsers = prev.users.filter((u) => u.id !== user.id);
+            return {
+              ...prev,
+              users: updatedUsers,
+              total: Math.max(0, prev.total - 1),
+              stats: {
+                ...prev.stats,
+                total: Math.max(0, prev.stats.total - 1),
+                activeCount:
+                  user.status === "active"
+                    ? Math.max(0, prev.stats.activeCount - 1)
+                    : prev.stats.activeCount,
+                disabledCount:
+                  user.status !== "active"
+                    ? Math.max(0, prev.stats.disabledCount - 1)
+                    : prev.stats.disabledCount,
+              },
+            };
+          });
           fetchUsers();
         } else {
           toast.error(res.error || "No fue posible desvincular al usuario.");
@@ -333,14 +360,23 @@ export function WorkspaceUsuariosClient({
       } else if (actionType === "reset_password") {
         const res = await resetWorkspaceUserPasswordAction(businessId, user.id);
         if (res.success && res.temporaryPassword) {
-          toast.success("Contraseña restablecida exitosamente.");
+          toast.success("Contraseña temporal generada con éxito.");
+          // Actualización optimista de flag de contraseña temporal
+          setData((prev) => ({
+            ...prev,
+            users: prev.users.map((u) =>
+              u.id === user.id ? { ...u, mustChangePassword: true } : u
+            ),
+          }));
+          // Cerrar diálogo de confirmación
+          setConfirmModal((prev) => ({ ...prev, isOpen: false, user: null }));
+          // Abrir modal con la contraseña generada
           setTempPasswordModal({
             isOpen: true,
             userName: user.fullName,
             password: res.temporaryPassword,
             copied: false,
           });
-          fetchUsers();
         } else {
           toast.error(res.error || "No fue posible restablecer la contraseña.");
         }
@@ -353,6 +389,7 @@ export function WorkspaceUsuariosClient({
             blocked: "Bloqueado",
           };
           toast.success(`Estado de ${user.fullName} actualizado a '${statusLabels[targetStatus] || targetStatus}'.`);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false, user: null }));
           // Actualización inmediata en el estado de la vista
           setData((prev) => {
             const updatedUsers = prev.users.map((u) =>
@@ -370,13 +407,17 @@ export function WorkspaceUsuariosClient({
               },
             };
           });
-          router.refresh();
           fetchUsers();
         } else {
           toast.error(res.error || "No fue posible actualizar el estado.");
         }
       }
-    });
+    } catch (err: any) {
+      console.error("[executeConfirmAction Error]:", err);
+      toast.error(err.message || "Ocurrió un error inesperado al procesar la acción.");
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   return (
@@ -717,13 +758,17 @@ export function WorkspaceUsuariosClient({
       {/* 5. MODAL REUTILIZABLE DE CONFIRMACIÓN */}
       <ConfirmDialog
         isOpen={confirmModal.isOpen && !!confirmModal.user}
-        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => {
+          if (!isActionLoading) {
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          }
+        }}
         onConfirm={executeConfirmAction}
         title={confirmModal.title}
         description={confirmModal.description}
         confirmLabel={confirmModal.confirmLabel}
         variant={confirmModal.variant}
-        isLoading={isPending}
+        isLoading={isActionLoading}
         itemDetails={
           confirmModal.user
             ? [

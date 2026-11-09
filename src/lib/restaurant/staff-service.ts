@@ -1,11 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/auth/users-service";
 import { StaffMember } from "./types";
+import { getBusinessEmployeeCargos } from "@/lib/auth/cargos-service";
 
 /**
  * Consulta y unifica todo el personal operativo y usuarios del negocio para asignación de responsables.
+ * Utiliza cliente administrativo para acceder de forma segura a perfiles de colaboradores del comercio.
  * Incluye:
+ * - Usuarios con cuenta activa del negocio (business_users) con sus perfiles reales y roles/cargos.
+ * - Cargos operativos asignados (Mesero, Cajero, Cocinero, Domiciliario, etc.) [CARGOS-001].
+ * - Correos electrónicos y teléfonos para distinguir entre múltiples auxiliares.
  * - Empleados registrados en el módulo de personal/nómina (business_employees) con sus cargos reales.
- * - Usuarios con cuenta activa del negocio (business_users) con sus roles asignados (Propietario, Cajero, etc.).
  * - Unifica por user_id evitando duplicados.
  * - Marca y posiciona al usuario autenticado actual como primera opción por defecto.
  */
@@ -14,9 +18,9 @@ export async function getWorkspaceStaff(
   currentUserId?: string
 ): Promise<StaffMember[]> {
   try {
-    const supabase = await createClient();
+    const supabase = await getSupabaseAdminClient();
 
-    // 1. Obtener empleados activos del negocio
+    // 1. Obtener empleados activos del módulo de personal/nómina (business_employees)
     const { data: employees, error: empErr } = await supabase
       .from("business_employees")
       .select("id, user_id, first_name, last_name, job_title, status, phone, email")
@@ -28,14 +32,14 @@ export async function getWorkspaceStaff(
       console.warn("[getWorkspaceStaff] Advertencia al consultar business_employees:", empErr.message);
     }
 
-    // 2. Obtener usuarios vinculados al negocio en business_users con sus roles
+    // 2. Obtener usuarios activos vinculados al negocio en business_users con sus roles
     const { data: bUsers, error: buErr } = await supabase
       .from("business_users")
       .select(`
         user_id,
         status,
-        roles:role_id (id, name, code),
-        profiles:user_id (id, full_name, phone, avatar_url)
+        role_id,
+        roles:role_id (id, name, code)
       `)
       .eq("business_id", businessId)
       .eq("status", "active");
@@ -44,29 +48,88 @@ export async function getWorkspaceStaff(
       console.warn("[getWorkspaceStaff] Advertencia al consultar business_users:", buErr.message);
     }
 
+    const userIds = (bUsers || [])
+      .map((bu: any) => bu.user_id)
+      .filter((uid: any): uid is string => Boolean(uid));
+
+    // 2.1 Obtener perfiles reales de usuarios (nombre completo, teléfono, avatar)
+    const profileMap = new Map<string, any>();
+    if (userIds.length > 0) {
+      const { data: profiles, error: profErr } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, avatar_url")
+        .in("id", userIds);
+
+      if (!profErr && profiles) {
+        profiles.forEach((p: any) => profileMap.set(p.id, p));
+      }
+    }
+
+    // 2.2 Obtener emails para identificación clara (distinguir entre varios auxiliares)
+    const userEmailsMap = new Map<string, string>();
+    try {
+      const { data: authUsers } = await supabase.auth.admin.listUsers();
+      if (authUsers?.users) {
+        authUsers.users.forEach((u) => {
+          if (u.email) userEmailsMap.set(u.id, u.email);
+        });
+      }
+    } catch {
+      // Fallback opcional a public.users
+      const { data: dbUsers } = await supabase
+        .from("users")
+        .select("id, email")
+        .in("id", userIds);
+      if (dbUsers) {
+        dbUsers.forEach((u: any) => {
+          if (u.email) userEmailsMap.set(u.id, u.email);
+        });
+      }
+    }
+
+    // 2.3 Obtener cargos operativos específicos (Mesero, Cajero, Domiciliario, Cocinero...) [CARGOS-001]
+    let userCargosMap: Record<string, string[]> = {};
+    try {
+      userCargosMap = await getBusinessEmployeeCargos(businessId, userIds);
+    } catch (cErr) {
+      console.warn("[getWorkspaceStaff] Advertencia al consultar cargos operativos:", cErr);
+    }
+
     const staffMap = new Map<string, StaffMember>();
 
-    // A. Mapear usuarios del negocio
+    // A. Mapear usuarios del negocio con sus nombres reales, roles del sistema y cargos operativos
     for (const bu of (bUsers || []) as any[]) {
       const uId = bu.user_id;
-      const profile = Array.isArray(bu.profiles) ? bu.profiles[0] : bu.profiles;
+      if (!uId) continue;
+
+      const profile = profileMap.get(uId);
+      const email = userEmailsMap.get(uId) || null;
       const roleObj = Array.isArray(bu.roles) ? bu.roles[0] : bu.roles;
       const roleName = roleObj?.name || "";
+      const operativeCargos = userCargosMap[uId] || [];
 
-      const name = profile?.full_name?.trim() || "Usuario";
+      // Combinar cargos operativos asignados con el rol base del sistema
+      const combinedRoles = Array.from(
+        new Set([...operativeCargos, ...(roleName ? [roleName] : [])])
+      );
+
+      // Si no tiene nombre completo en perfil, usar prefijo del email antes de recurrir a "Usuario"
+      const fallbackName = email ? email.split("@")[0] : `Usuario ${uId.slice(0, 4)}`;
+      const name = profile?.full_name?.trim() || fallbackName;
+
       staffMap.set(uId, {
         id: uId,
         userId: uId,
         name,
-        email: null,
+        email,
         phone: profile?.phone || null,
         avatarUrl: profile?.avatar_url || null,
-        roles: roleName ? [roleName] : [],
+        roles: combinedRoles.length > 0 ? combinedRoles : ["Personal"],
         isCurrentUser: currentUserId === uId,
       });
     }
 
-    // B. Mapear empleados de nómina/personal
+    // B. Mapear empleados de nómina/personal (business_employees)
     for (const emp of (employees || []) as any[]) {
       const empName = `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || "Empleado";
 
@@ -78,28 +141,52 @@ export async function getWorkspaceStaff(
 
       if (emp.user_id && staffMap.has(emp.user_id)) {
         const existing = staffMap.get(emp.user_id)!;
-        // Unir roles del sistema con cargos del módulo de personal sin duplicados
-        const combinedRoles = Array.from(new Set([...existing.roles, ...rawCargos]));
         existing.employeeId = emp.id;
-        existing.roles = combinedRoles;
-        if (empName && (!existing.name || existing.name === "Usuario")) {
+        existing.roles = Array.from(new Set([...existing.roles, ...rawCargos]));
+        if (emp.phone && !existing.phone) existing.phone = emp.phone;
+        if (emp.email && !existing.email) existing.email = emp.email;
+        if (empName && (!existing.name || existing.name.startsWith("Usuario"))) {
           existing.name = empName;
         }
       } else {
-        // Empleado sin cuenta de usuario en el sistema (ej. cocinero o auxiliar)
+        // Empleado sin cuenta de usuario en el sistema
         staffMap.set(emp.id, {
           id: emp.id,
           employeeId: emp.id,
           userId: emp.user_id || null,
           name: empName,
+          email: emp.email || null,
           phone: emp.phone || null,
-          roles: rawCargos,
+          roles: rawCargos.length > 0 ? rawCargos : ["Personal"],
           isCurrentUser: Boolean(currentUserId && emp.user_id === currentUserId),
         });
       }
     }
 
-    // C. Ordenar: usuario actual primero, luego orden alfabético
+    // C. Asegurar que el usuario autenticado actual esté en la lista si tiene sesión en este negocio
+    if (currentUserId && !staffMap.has(currentUserId)) {
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, avatar_url")
+        .eq("id", currentUserId)
+        .maybeSingle();
+
+      const email = userEmailsMap.get(currentUserId) || null;
+      const fallbackName = email ? email.split("@")[0] : "Usuario Actual";
+
+      staffMap.set(currentUserId, {
+        id: currentUserId,
+        userId: currentUserId,
+        name: myProfile?.full_name?.trim() || fallbackName,
+        email,
+        phone: myProfile?.phone || null,
+        avatarUrl: myProfile?.avatar_url || null,
+        roles: ["Administrador"],
+        isCurrentUser: true,
+      });
+    }
+
+    // D. Ordenar: usuario actual primero, luego alfabéticamente por nombre
     const staffList = Array.from(staffMap.values());
     staffList.sort((a, b) => {
       if (a.isCurrentUser) return -1;

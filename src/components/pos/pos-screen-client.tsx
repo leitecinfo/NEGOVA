@@ -309,6 +309,31 @@ export function PosScreenClient({
   // 6. Flujo de Cobro Lateral en 2 Pasos
   const [isCheckoutStepActive, setIsCheckoutStepActive] = useState(false);
   const [serviceType, setServiceType] = useState<"TAKEOUT" | "DINE_IN" | "PICKUP" | "DELIVERY">("TAKEOUT");
+
+  const handleSelectServiceType = (type: "TAKEOUT" | "DINE_IN" | "PICKUP" | "DELIVERY") => {
+    setServiceType(type);
+    if (type === "DELIVERY") {
+      const deliveryStaff = staffList.find((s) =>
+        s.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("domicili") || norm.includes("repart") || norm.includes("delivery") || norm.includes("moto");
+        })
+      );
+      if (deliveryStaff) {
+        setSelectedStaffId(deliveryStaff.id);
+      }
+    } else if (type === "DINE_IN") {
+      const waiterStaff = staffList.find((s) =>
+        s.roles.some((r) => {
+          const norm = (r || "").toLowerCase();
+          return norm.includes("meser") || norm.includes("camarer") || norm.includes("waiter") || norm.includes("atención");
+        })
+      );
+      if (waiterStaff) {
+        setSelectedStaffId(waiterStaff.id);
+      }
+    }
+  };
   const [selectedTableId, setSelectedTableId] = useState<string>(initialSelectedTableId || "");
   const [deliveryDetails, setDeliveryDetails] = useState({
     phone: "",
@@ -774,6 +799,7 @@ export function PosScreenClient({
         assignedStaffId: selectedStaff?.id || null,
         assignedStaffName: selectedStaff?.name || cashierName || null,
         assignedStaffRole: selectedStaff && selectedStaff.roles.length > 0 ? selectedStaff.roles.join(", ") : null,
+        isPickup: serviceType === "PICKUP",
         saveCustomerForFuture: serviceType === "PICKUP" ? takeoutDetails.saveCustomer : false,
         items: cartItems.map((ci) => ({
           productId: ci.productId && ci.productId !== "custom-item" && !ci.productId.startsWith("custom-") ? ci.productId : null,
@@ -1603,6 +1629,7 @@ export function PosScreenClient({
                     staffList={staffList}
                     selectedStaffId={selectedStaffId}
                     onSelectStaff={(staff) => setSelectedStaffId(staff.id)}
+                    serviceType={serviceType}
                   />
                 </div>
 
@@ -1614,7 +1641,7 @@ export function PosScreenClient({
                   <div className="grid grid-cols-2 gap-2.5 text-xs">
                     <button
                       type="button"
-                      onClick={() => setServiceType("TAKEOUT")}
+                      onClick={() => handleSelectServiceType("TAKEOUT")}
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "TAKEOUT"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
@@ -1633,7 +1660,7 @@ export function PosScreenClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setServiceType("DINE_IN")}
+                      onClick={() => handleSelectServiceType("DINE_IN")}
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DINE_IN"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
@@ -1652,7 +1679,7 @@ export function PosScreenClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setServiceType("PICKUP")}
+                      onClick={() => handleSelectServiceType("PICKUP")}
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "PICKUP"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
@@ -1671,7 +1698,7 @@ export function PosScreenClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setServiceType("DELIVERY")}
+                      onClick={() => handleSelectServiceType("DELIVERY")}
                       className={`min-h-[84px] py-3 px-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition cursor-pointer text-center group ${
                         serviceType === "DELIVERY"
                           ? "border-[#ED500A] bg-[#ED500A]/10 text-[#ED500A] shadow-xs"
@@ -1827,6 +1854,7 @@ export function PosScreenClient({
                     staffList={staffList}
                     selectedStaffId={selectedStaff?.id || selectedStaffId}
                     onSelectStaff={(staff) => setSelectedStaffId(staff.id)}
+                    serviceType={serviceType}
                   />
                 </div>
 

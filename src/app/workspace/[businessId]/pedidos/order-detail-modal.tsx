@@ -187,9 +187,10 @@ export function OrderDetailModal({
       : "POS";
 
   // Modalidad del servicio
+  const isPickupOrder = Boolean(order.pickup_code || order.notes?.includes("[PICKUP_PIN:"));
   const serviceLabel =
     order.order_type === "takeout"
-      ? "Para Recoger"
+      ? (isPickupOrder ? "Para Recoger" : "Para Llevar")
       : order.order_type === "dine_in"
       ? order.tableName
         ? `Mesa ${order.tableName}`
@@ -431,8 +432,8 @@ export function OrderDetailModal({
                     <CornerDecorativeDots />
                   </div>
 
-                  {/* Tarjeta 6 (Código de Recogida - Para modalidad Para recoger) */}
-                  {order.order_type === "takeout" && (
+                  {/* Tarjeta 6 (Código de Recogida - Solo para pedidos con código de recogida) */}
+                  {order.order_type === "takeout" && Boolean(order.pickup_code) && (
                     <div className="relative p-3.5 sm:p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 overflow-hidden">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">

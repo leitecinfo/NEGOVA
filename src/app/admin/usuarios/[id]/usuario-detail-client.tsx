@@ -224,12 +224,17 @@ export function UsuarioDetailClient({
   // 4. Manejo de Reseteo de Contraseña
   const handleResetPassword = async () => {
     startTransition(async () => {
-      const res = await resetUserPasswordAction(user.id);
-      if (res.success && res.temporaryPassword) {
-        setGeneratedPass(res.temporaryPassword);
-        toast.success("Contraseña temporal generada con éxito.");
-      } else {
-        toast.error(res.error || "Error al generar contraseña temporal.");
+      try {
+        const res = await resetUserPasswordAction(user.id);
+        if (res.success && res.temporaryPassword) {
+          setGeneratedPass(res.temporaryPassword);
+          toast.success("Contraseña temporal generada con éxito.");
+        } else {
+          toast.error(res.error || "Error al generar contraseña temporal.");
+        }
+      } catch (err: any) {
+        console.error("[handleResetPassword Error]:", err);
+        toast.error("Ocurrió un error inesperado al restablecer la contraseña.");
       }
     });
   };
