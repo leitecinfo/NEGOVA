@@ -459,7 +459,15 @@ export function TableFloorPlanView({
               {/* Botón: Diseñar Sala */}
               <button
                 type="button"
-                onClick={() => setWorkMode((m) => (m === "design_room" ? "view" : "design_room"))}
+                onClick={() => {
+                  setWorkMode((m) => {
+                    const next = m === "design_room" ? "view" : "design_room";
+                    if (next === "design_room") {
+                      setSelectedTableId(null);
+                    }
+                    return next;
+                  });
+                }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   workMode === "design_room"
                     ? "bg-[#ED500A] text-white shadow-md shadow-[#ED500A]/20"
@@ -775,8 +783,9 @@ export function TableFloorPlanView({
             </div>
           )}
 
-          {/* RENDERIZADO DE MESAS SOBRE EL PLANO (Únicamente tras montar en cliente) */}
+          {/* RENDERIZADO DE MESAS SOBRE EL PLANO (Ocultas durante el modo Diseñar Sala para dibujar con total libertad) */}
           {isMounted &&
+            workMode !== "design_room" &&
             tables.map((table) => {
               const pos = tablePositions[table.id] || { x: 50, y: 50, shape: "square" };
               const isSelected = selectedTableId === table.id;
@@ -859,7 +868,7 @@ export function TableFloorPlanView({
       </div>
 
       {/* 4. DETALLE / ACCIÓN RÁPIDA DE LA MESA SELECCIONADA */}
-      {selectedTable && (
+      {selectedTable && workMode !== "design_room" && (
         <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex items-center gap-3">
             <TableBlueprintIllustration
