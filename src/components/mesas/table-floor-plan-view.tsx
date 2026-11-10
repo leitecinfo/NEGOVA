@@ -55,6 +55,8 @@ interface TableFloorPlanViewProps {
   businessId: string;
   roomId: string;
   roomName: string;
+  rooms?: Array<{ id: string; name: string; tablesCount?: number }>;
+  onSelectRoom?: (roomId: string) => void;
   tables: RestaurantTableWithOrder[];
   canManageTables: boolean;
   onTableShapeChange?: (tableId: string, shape: TableShape) => void;
@@ -66,6 +68,8 @@ export function TableFloorPlanView({
   businessId,
   roomId,
   roomName,
+  rooms,
+  onSelectRoom,
   tables,
   canManageTables,
   onTableShapeChange,
@@ -399,24 +403,70 @@ export function TableFloorPlanView({
     <div className="space-y-4">
       {/* 1. BARRA SUPERIOR DE CONTEXTO DE SALA Y MODO */}
       <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-3 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        {/* Identificador de sala */}
+        {/* Identificador de sala y selector rápido */}
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold shrink-0">
             <Compass className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                Plano del Salón: {roomName}
-              </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Diseñando Plano de:
+              </span>
+              {rooms && rooms.length > 0 && onSelectRoom ? (
+                <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/[0.05] p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => onSelectRoom("all")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      roomId === "all"
+                        ? "bg-[#ED500A] text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {rooms.map((r) => {
+                    const isCurrent = roomId === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => onSelectRoom(r.id)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          isCurrent
+                            ? "bg-[#ED500A] text-white shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        <span>{r.name}</span>
+                        {typeof r.tablesCount === "number" && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                              isCurrent
+                                ? "bg-white/20 text-white"
+                                : "bg-black/10 dark:bg-white/10 text-slate-500 dark:text-slate-400"
+                            }`}
+                          >
+                            {r.tablesCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">{roomName}</h3>
+              )}
+
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                 {roomPreset === "custom" ? "Paredes Dibujadas" : roomPreset.toUpperCase()}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {roomId === "all"
-                ? "Vista global. Para diseñar una sala en particular, selecciona su pestaña arriba."
-                : `Diseño arquitectónico exclusivo para «${roomName}».`}
+                ? "Vista global combinada. Para dibujar y guardar las paredes de una sala individual, haz clic en su botón arriba."
+                : `Diseño arquitectónico exclusivo para «${roomName}». Los cambios solo afectarán a esta sala.`}
             </p>
           </div>
         </div>
@@ -848,13 +898,15 @@ export function TableFloorPlanView({
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#ED500A] text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-xl backdrop-blur-md flex items-center gap-2 pointer-events-none animate-in fade-in">
             <Sparkles className="w-4 h-4" />
             <span>
-              {designTool === "smart_draw"
-                ? "Dibuja el contorno con el mouse. Al soltar se corregirá a líneas rectas."
+              {roomId === "all"
+                ? "Estás en «Todas las salas». Selecciona arriba una sala para diseñar su plano individual."
+                : designTool === "smart_draw"
+                ? `Diseñando «${roomName}»: Traza el contorno con el mouse. Al soltar se corregirá a líneas rectas.`
                 : designTool === "point_by_point"
-                ? "Haz clic en cada esquina de la sala para trazar las paredes."
+                ? `Diseñando «${roomName}»: Haz clic en cada esquina de la sala para trazar las paredes.`
                 : designTool === "adjust_nodes"
-                ? "Arrastra los círculos numerados para ajustar las medidas."
-                : "Haz clic en una pared para colocar la puerta de entrada."}
+                ? `Diseñando «${roomName}»: Arrastra los círculos numerados para ajustar las medidas.`
+                : `Diseñando «${roomName}»: Haz clic en una pared para colocar la puerta de entrada.`}
             </span>
           </div>
         )}

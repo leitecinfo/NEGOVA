@@ -776,6 +776,8 @@ export function TablesDashboardClient({
                     ? "Todas las salas"
                     : roomsList.find((r) => r.id === selectedRoomId)?.name || "Sala"
                 }
+                rooms={roomsList}
+                onSelectRoom={(id) => setSelectedRoomId(id)}
                 tables={filteredTables}
                 canManageTables={canManageTables}
                 onTableShapeChange={(tableId, newShape) => {
