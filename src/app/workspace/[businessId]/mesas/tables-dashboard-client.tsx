@@ -335,6 +335,25 @@ export function TablesDashboardClient({
     });
   }, [initialRooms, initialTables]);
 
+  // Salas para visualizar en el Plano Salón
+  const roomsToDisplay = useMemo(() => {
+    if (selectedRoomId === "all") {
+      if (roomsList.length === 0) {
+        return [{ id: "all", name: "Salón General", tablesCount: initialTables.length, status: "active" as const }];
+      }
+      return roomsList;
+    }
+    const matched = roomsList.find((r) => r.id === selectedRoomId);
+    return matched ? [matched] : [];
+  }, [selectedRoomId, roomsList, initialTables.length]);
+
+  const unassignedTables = useMemo(() => {
+    if (selectedRoomId === "all") {
+      return filteredTables.filter((t) => !t.room_id);
+    }
+    return [];
+  }, [selectedRoomId, filteredTables]);
+
   // Manejador apertura traslado
   const handleOpenTransferModal = () => {
     if (occupiedTables.length < 1 || initialTables.length < 2) {
@@ -738,26 +757,47 @@ export function TablesDashboardClient({
 
             {/* VISTA SEGÚN MODO SELECCIONADO */}
             {tablesViewMode === "plan" ? (
-              <TableFloorPlanView
-                businessId={businessId}
-                roomId={selectedRoomId}
-                roomName={
-                  selectedRoomId === "all"
-                    ? "Todas las salas"
-                    : roomsList.find((r) => r.id === selectedRoomId)?.name || "Sala"
-                }
-                rooms={roomsList}
-                onSelectRoom={(id) => setSelectedRoomId(id)}
-                tables={filteredTables}
-                canManageTables={canManageTables}
-                allowDesignRoom={false}
-                initialWorkMode="view"
-                onTableShapeChange={(tableId, newShape) => {
-                  saveStoredTableShape(businessId, tableId, newShape);
-                  setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
-                  setShapeVersion((v) => v + 1);
-                }}
-              />
+              <div className="space-y-6">
+                {roomsToDisplay.map((room) => {
+                  const roomTables = filteredTables.filter((t) => t.room_id === room.id);
+                  return (
+                    <TableFloorPlanView
+                      key={room.id}
+                      businessId={businessId}
+                      roomId={room.id}
+                      roomName={room.name}
+                      tables={roomTables}
+                      canManageTables={canManageTables}
+                      allowDesignRoom={false}
+                      initialWorkMode="view"
+                      onTableShapeChange={(tableId, newShape) => {
+                        saveStoredTableShape(businessId, tableId, newShape);
+                        setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
+                        setShapeVersion((v) => v + 1);
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Si hay mesas sin sala asignada y se seleccionó "Todas las salas" */}
+                {unassignedTables.length > 0 && (
+                  <TableFloorPlanView
+                    key="unassigned"
+                    businessId={businessId}
+                    roomId="unassigned"
+                    roomName="Mesas sin sala asignada"
+                    tables={unassignedTables}
+                    canManageTables={canManageTables}
+                    allowDesignRoom={false}
+                    initialWorkMode="view"
+                    onTableShapeChange={(tableId, newShape) => {
+                      saveStoredTableShape(businessId, tableId, newShape);
+                      setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
+                      setShapeVersion((v) => v + 1);
+                    }}
+                  />
+                )}
+              </div>
             ) : (
               /* Grid de Mesas */
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1064,8 +1104,6 @@ export function TablesDashboardClient({
                   roomName={
                     roomsList.find((r) => r.id === designingRoomId)?.name || "Sala"
                   }
-                  rooms={roomsList}
-                  onSelectRoom={(id) => setDesigningRoomId(id)}
                   tables={initialTables.filter((t) => t.room_id === designingRoomId)}
                   canManageTables={canManageTables}
                   allowDesignRoom={true}
