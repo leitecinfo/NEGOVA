@@ -7,6 +7,8 @@ import {
   ZoomOut,
   RotateCcw,
   Move,
+  MoveHorizontal,
+  MoveVertical,
   Save,
   ShoppingBag,
   Users,
@@ -104,10 +106,15 @@ export function TableFloorPlanView({
   // Arrastre de nodos / vértices
   const [draggedNodeIndex, setDraggedNodeIndex] = useState<number | null>(null);
 
+  // Arrastre de pared completa (mover lado para ensanchar o estirar)
+  const [draggedWallIndex, setDraggedWallIndex] = useState<number | null>(null);
+  const [dragWallLastCoords, setDragWallLastCoords] = useState<Point2D | null>(null);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // =========================================================================
   // CARGA INDEPENDIENTE DEL PLANO POR SALA (businessId + roomId)
+  // Se ejecuta estrictamente al cambiar de sala o negocio (NUNCA resetea al actualizar tablas)
   // =========================================================================
   useEffect(() => {
     setIsMounted(true);
@@ -129,47 +136,15 @@ export function TableFloorPlanView({
         setDoorPos({ x: 50, y: 90 });
       }
 
-      // Sincronizar mesas
-      const updated: Record<string, TableLayoutPosition> = { ...(stored.tables || {}) };
-      const fallback = computeDefaultFloorPlan(tables, preset);
-
-      tables.forEach((t) => {
-        if (!updated[t.id]) {
-          updated[t.id] = fallback.tables[t.id] || {
-            x: 50,
-            y: 50,
-            shape: getStoredTableShape(businessId, t.id, t.capacity, t.name_or_number),
-            rotation: 0,
-          };
-        } else {
-          updated[t.id].shape = getStoredTableShape(
-            businessId,
-            t.id,
-            t.capacity,
-            t.name_or_number
-          );
-        }
-      });
-
-      setTablePositions(updated);
+      setTablePositions(stored.tables || {});
     } else {
-      // Inicializar sala nueva
+      // Inicializar sala nueva sin plano guardado
       const preset: RoomShapePreset = "rectangle";
       setRoomPreset(preset);
       setPolygon(getPresetPolygon(preset));
       setDoorPos({ x: 50, y: 90 });
 
       const initial = computeDefaultFloorPlan(tables, preset);
-      tables.forEach((t) => {
-        if (initial.tables[t.id]) {
-          initial.tables[t.id].shape = getStoredTableShape(
-            businessId,
-            t.id,
-            t.capacity,
-            t.name_or_number
-          );
-        }
-      });
       setTablePositions(initial.tables);
     }
 
@@ -177,8 +152,31 @@ export function TableFloorPlanView({
     setRawStroke([]);
     setP2pPoints([]);
     setDraggedNodeIndex(null);
+    setDraggedWallIndex(null);
+    setDragWallLastCoords(null);
     setSelectedTableId(null);
-  }, [businessId, roomId, tables]);
+  }, [businessId, roomId]);
+
+  // Sincronizar mesas nuevas sin sobreescribir ni tocar las paredes dibujadas
+  useEffect(() => {
+    if (!isMounted) return;
+    setTablePositions((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      tables.forEach((t) => {
+        if (!next[t.id]) {
+          changed = true;
+          next[t.id] = {
+            x: 50,
+            y: 50,
+            shape: getStoredTableShape(businessId, t.id, t.capacity, t.name_or_number),
+            rotation: 0,
+          };
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [tables, businessId, isMounted]);
 
   // =========================================================================
   // GUARDAR PLANO ESPECÍFICO DE ESTA SALA
@@ -294,6 +292,42 @@ export function TableFloorPlanView({
       });
     }
 
+    // 2b. Arrastre de pared completa (Edge Dragging: ensanchar o alargar un lado del plano)
+    if (workMode === "design_room" && draggedWallIndex !== null && dragWallLastCoords) {
+      const p1Idx = draggedWallIndex;
+      const p2Idx = (draggedWallIndex + 1) % polygon.length;
+      const p1 = polygon[p1Idx];
+      const p2 = polygon[p2Idx];
+
+      const dx = coords.x - dragWallLastCoords.x;
+      const dy = coords.y - dragWallLastCoords.y;
+
+      const isVertical = Math.abs(p2.x - p1.x) < Math.abs(p2.y - p1.y);
+
+      setPolygon((prev) => {
+        const next = [...prev];
+        const newP1 = { ...next[p1Idx] };
+        const newP2 = { ...next[p2Idx] };
+
+        if (isVertical) {
+          // Mover pared completa en horizontal (ensanchar / estrechar)
+          newP1.x = Math.max(4, Math.min(96, Math.round((newP1.x + dx) * 10) / 10));
+          newP2.x = Math.max(4, Math.min(96, Math.round((newP2.x + dx) * 10) / 10));
+        } else {
+          // Mover pared completa en vertical (alargar / acortar)
+          newP1.y = Math.max(4, Math.min(96, Math.round((newP1.y + dy) * 10) / 10));
+          newP2.y = Math.max(4, Math.min(96, Math.round((newP2.y + dy) * 10) / 10));
+        }
+
+        next[p1Idx] = newP1;
+        next[p2Idx] = newP2;
+        return next;
+      });
+
+      setDragWallLastCoords(coords);
+      return;
+    }
+
     // 3. Arrastre de mesa
     if (workMode === "move_tables" && isDraggingTable && draggedTableId) {
       const snap = 2.5;
@@ -320,6 +354,13 @@ export function TableFloorPlanView({
       if (straightened.length >= 3) {
         setPolygon(straightened);
         setRoomPreset("custom");
+        // Auto-guardado de respaldo inmediato
+        saveStoredRoomLayout(businessId, roomId, {
+          roomShapePreset: "custom",
+          customPolygon: straightened,
+          entrance: doorPos,
+          tables: tablePositions,
+        });
         toast.success("¡Paredes enderezadas y sala dibujada con líneas rectas!");
       } else {
         toast.error("El trazo fue muy corto. Dibuja el contorno completo de las paredes.");
@@ -332,12 +373,130 @@ export function TableFloorPlanView({
 
     if (draggedNodeIndex !== null) {
       setDraggedNodeIndex(null);
+      saveStoredRoomLayout(businessId, roomId, {
+        roomShapePreset: "custom",
+        customPolygon: polygon,
+        entrance: doorPos,
+        tables: tablePositions,
+      });
+    }
+
+    if (draggedWallIndex !== null) {
+      setDraggedWallIndex(null);
+      setDragWallLastCoords(null);
+      saveStoredRoomLayout(businessId, roomId, {
+        roomShapePreset: "custom",
+        customPolygon: polygon,
+        entrance: doorPos,
+        tables: tablePositions,
+      });
     }
 
     if (isDraggingTable) {
       setIsDraggingTable(false);
       setDraggedTableId(null);
     }
+  };
+
+  // Escalar y estirar el polígono para ajustar un lado estrecho o ancho
+  const handleScalePolygon = (
+    direction: "width_inc" | "width_dec" | "height_inc" | "height_dec" | "left" | "right" | "top" | "bottom"
+  ) => {
+    if (polygon.length < 3) return;
+
+    let minX = 100, maxX = 0, minY = 100, maxY = 0;
+    polygon.forEach((p) => {
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y);
+      maxY = Math.max(maxY, p.y);
+    });
+
+    const midX = (minX + maxX) / 2;
+    const midY = (minY + maxY) / 2;
+    const step = 4;
+
+    const updated = polygon.map((p) => {
+      let nx = p.x;
+      let ny = p.y;
+
+      switch (direction) {
+        case "width_inc": {
+          nx = midX + (p.x - midX) * 1.08;
+          break;
+        }
+        case "width_dec": {
+          nx = midX + (p.x - midX) * 0.92;
+          break;
+        }
+        case "height_inc": {
+          ny = midY + (p.y - midY) * 1.08;
+          break;
+        }
+        case "height_dec": {
+          ny = midY + (p.y - midY) * 0.92;
+          break;
+        }
+        case "left": {
+          if (p.x <= midX + 3) {
+            nx = p.x - step;
+          }
+          break;
+        }
+        case "right": {
+          if (p.x >= midX - 3) {
+            nx = p.x + step;
+          }
+          break;
+        }
+        case "top": {
+          if (p.y <= midY + 3) {
+            ny = p.y - step;
+          }
+          break;
+        }
+        case "bottom": {
+          if (p.y >= midY - 3) {
+            ny = p.y + step;
+          }
+          break;
+        }
+      }
+
+      return {
+        x: Math.max(4, Math.min(96, Math.round(nx * 10) / 10)),
+        y: Math.max(4, Math.min(96, Math.round(ny * 10) / 10)),
+      };
+    });
+
+    setPolygon(updated);
+    setRoomPreset("custom");
+    saveStoredRoomLayout(businessId, roomId, {
+      roomShapePreset: "custom",
+      customPolygon: updated,
+      entrance: doorPos,
+      tables: tablePositions,
+    });
+  };
+
+  // Re-alinear paredes a 90 grados
+  const handleAlignTo90 = () => {
+    if (polygon.length < 3) return;
+    const aligned: Point2D[] = [polygon[0]];
+    for (let i = 1; i < polygon.length; i++) {
+      const prev = aligned[i - 1];
+      const curr = polygon[i];
+      aligned.push(snapToOrthogonalAngle(prev, curr));
+    }
+    setPolygon(aligned);
+    setRoomPreset("custom");
+    saveStoredRoomLayout(businessId, roomId, {
+      roomShapePreset: "custom",
+      customPolygon: aligned,
+      entrance: doorPos,
+      tables: tablePositions,
+    });
+    toast.success("Paredes re-alineadas a ángulos rectos de 90°.");
   };
 
   // Agregar nuevo vértice en una arista del polígono
@@ -600,12 +759,12 @@ export function TableFloorPlanView({
                 onClick={() => setDesignTool("adjust_nodes")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
                   designTool === "adjust_nodes"
-                    ? "bg-[#ED500A] text-white shadow-xs"
+                    ? "bg-[#ED500A] text-white shadow-xs font-bold"
                     : "bg-white dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]"
                 }`}
               >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Mover Esquinas</span>
+                <MoveHorizontal className="w-3.5 h-3.5" />
+                <span>Ajustar y Estirar</span>
               </button>
 
               <button
@@ -645,6 +804,88 @@ export function TableFloorPlanView({
             </div>
           </div>
 
+          {/* BARRA DE CONTROLES RÁPIDOS PARA ESTIRAR Y ANCHAR PAREDES */}
+          {designTool === "adjust_nodes" && (
+            <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/[0.08]">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mr-1">
+                <Move className="w-3 h-3 text-[#ED500A]" />
+                Estirar / Anchar lados:
+              </span>
+
+              {/* Anchar lados horizontalmente */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.05] p-0.5 rounded-lg border border-slate-200/60 dark:border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("left")}
+                  className="px-2 py-1 rounded-md text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Ensanchar o estirar el lado izquierdo hacia afuera"
+                >
+                  ⬅️ Anchar Izq
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("right")}
+                  className="px-2 py-1 rounded-md text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Ensanchar o estirar el lado derecho hacia afuera"
+                >
+                  Anchar Der ➡️
+                </button>
+              </div>
+
+              {/* Alargar lados verticalmente */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.05] p-0.5 rounded-lg border border-slate-200/60 dark:border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("top")}
+                  className="px-2 py-1 rounded-md text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Alargar pared superior hacia arriba"
+                >
+                  ⬆️ Alargar Arriba
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("bottom")}
+                  className="px-2 py-1 rounded-md text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Alargar pared inferior hacia abajo"
+                >
+                  ⬇️ Alargar Abajo
+                </button>
+              </div>
+
+              {/* Ancho general */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.05] p-0.5 rounded-lg border border-slate-200/60 dark:border-white/[0.06]">
+                <span className="text-[10px] font-semibold text-slate-400 px-1">Ancho total:</span>
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("width_dec")}
+                  className="w-5 h-5 rounded-md hover:bg-white dark:hover:bg-white/10 font-bold flex items-center justify-center text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="Estrechar plano general"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScalePolygon("width_inc")}
+                  className="w-5 h-5 rounded-md hover:bg-white dark:hover:bg-white/10 font-bold flex items-center justify-center text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title="Ensanchar plano general"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Re-alinear 90° */}
+              <button
+                type="button"
+                onClick={handleAlignTo90}
+                className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[11px] font-bold hover:bg-blue-500/20 transition-colors cursor-pointer"
+                title="Enderezar todas las paredes a 90° exactos"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Alinear 90°</span>
+              </button>
+            </div>
+          )}
+
           {/* Ayuda contextual interactiva */}
           <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-white/60 dark:bg-white/[0.02] p-2 rounded-xl border border-slate-200/50 dark:border-white/[0.04]">
             <Info className="w-4 h-4 text-[#ED500A] shrink-0" />
@@ -660,7 +901,7 @@ export function TableFloorPlanView({
             )}
             {designTool === "adjust_nodes" && (
               <span>
-                <strong>Mover Esquinas:</strong> Arrastra los círculos naranjas de las esquinas para ensanchar o amoldar el salón. Haz clic en el símbolo (+) en una pared para añadir una esquina.
+                <strong>Ajustar y Estirar:</strong> Arrastra los tiradores amarillos «Estirar» en cualquier pared para ensancharla o alargarla, o usa los botones directos de «Anchar Izq / Der». También puedes mover las esquinas numeradas o pulsar (+) para agregar esquinas.
               </span>
             )}
             {designTool === "place_door" && (
@@ -806,28 +1047,65 @@ export function TableFloorPlanView({
                 </div>
               ))}
 
-              {/* Botones (+) en medio de cada pared para agregar vértices */}
+              {/* Tiradores de Pared Completa para arrastrar y ensanchar o alargar cada lado */}
               {polygon.map((p1, idx) => {
                 const p2 = polygon[(idx + 1) % polygon.length];
                 const midX = (p1.x + p2.x) / 2;
                 const midY = (p1.y + p2.y) / 2;
+                const isVertical = Math.abs(p2.x - p1.x) < Math.abs(p2.y - p1.y);
+
                 return (
-                  <button
-                    key={`edge-${idx}`}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddNodeOnEdge(idx);
-                    }}
-                    style={{
-                      left: `${midX}%`,
-                      top: `${midY}%`,
-                    }}
-                    className="absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-md flex items-center justify-center text-[11px] font-bold z-20 cursor-pointer hover:scale-125 transition-transform"
-                    title="Añadir una esquina en esta pared"
-                  >
-                    +
-                  </button>
+                  <React.Fragment key={`edge-controls-${idx}`}>
+                    {/* Tirador de pared completa: arrastra para ensanchar o estirar ese lado */}
+                    <div
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setDraggedWallIndex(idx);
+                        const coords = getCanvasCoords(e.clientX, e.clientY);
+                        setDragWallLastCoords(coords);
+                      }}
+                      style={{
+                        left: `${midX}%`,
+                        top: `${midY}%`,
+                      }}
+                      className={`absolute -translate-x-1/2 -translate-y-1/2 z-25 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold shadow-md transition-all select-none ${
+                        isVertical ? "cursor-ew-resize" : "cursor-ns-resize"
+                      } ${
+                        draggedWallIndex === idx
+                          ? "bg-[#ED500A] text-white scale-110 shadow-lg ring-2 ring-white/50"
+                          : "bg-amber-400 text-slate-950 hover:bg-amber-300 hover:scale-105"
+                      }`}
+                      title={
+                        isVertical
+                          ? "Arrastra a los lados para ensanchar o estrechar esta pared"
+                          : "Arrastra arriba o abajo para alargar o acortar esta pared"
+                      }
+                    >
+                      {isVertical ? (
+                        <MoveHorizontal className="w-2.5 h-2.5" />
+                      ) : (
+                        <MoveVertical className="w-2.5 h-2.5" />
+                      )}
+                      <span>Estirar</span>
+                    </div>
+
+                    {/* Botón (+) para agregar un nuevo vértice en la pared */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddNodeOnEdge(idx);
+                      }}
+                      style={{
+                        left: `${midX + (isVertical ? 0 : 2.5)}%`,
+                        top: `${midY + (isVertical ? 2.5 : 0)}%`,
+                      }}
+                      className="absolute w-3.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-sm flex items-center justify-center text-[10px] font-bold z-20 cursor-pointer hover:scale-125 transition-transform"
+                      title="Añadir una nueva esquina en esta pared"
+                    >
+                      +
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </div>

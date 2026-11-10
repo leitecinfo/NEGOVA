@@ -228,16 +228,22 @@ export function TablesDashboardClient({
 
   // Sincronización automática periódica
   useEffect(() => {
-    const handleFocus = () => router.refresh();
+    const handleFocus = () => {
+      if (tablesViewMode !== "plan") router.refresh();
+    };
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible" && tablesViewMode !== "plan") {
+        router.refresh();
+      }
     };
 
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
     const interval = setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible" && tablesViewMode !== "plan") {
+        router.refresh();
+      }
     }, 15000);
 
     return () => {
@@ -245,7 +251,7 @@ export function TablesDashboardClient({
       document.removeEventListener("visibilitychange", handleVisibility);
       clearInterval(interval);
     };
-  }, [router]);
+  }, [router, tablesViewMode]);
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
