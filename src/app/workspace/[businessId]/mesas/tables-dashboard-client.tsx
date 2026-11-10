@@ -48,6 +48,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Input, Select, SearchSelect, SearchInput } from "@/components/ui";
 import { CreateRoomModal } from "@/components/mesas/create-room-modal";
 import { CloseTableOrderModal } from "@/components/mesas/close-table-order-modal";
+import { TableCommandTicketModal } from "@/components/mesas/table-command-ticket-modal";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { TableBlueprintIllustration } from "@/components/mesas/table-blueprint-illustration";
 import { TableFloorPlanView } from "@/components/mesas/table-floor-plan-view";
@@ -137,6 +138,8 @@ export function TablesDashboardClient({
   // Modales superiores
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
   const [isCloseOrdersModalOpen, setIsCloseOrdersModalOpen] = useState(false);
+  const [closeOrderInitialTableId, setCloseOrderInitialTableId] = useState<string | null>(null);
+  const [commandTicketTable, setCommandTicketTable] = useState<RestaurantTableWithOrder | null>(null);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
 
   // Modales de mesas
@@ -695,7 +698,7 @@ export function TablesDashboardClient({
 
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   {/* Selector de Modo de Vista: Tarjetas vs Plano 2D (Estilo Productos Tabla / Cuadrícula) */}
-                  <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-xl border border-slate-200/80 dark:border-white/[0.08]">
+                  <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/[0.08]">
                     <button
                       type="button"
                       onClick={() => setTablesViewMode("cards")}
@@ -742,7 +745,7 @@ export function TablesDashboardClient({
                       onClick={() => handleOpenCreateTableModal()}
                       className="shrink-0"
                     >
-                      Nueva mesa
+                      <span className="hidden sm:inline">Nueva </span>Mesa
                     </Button>
                   )}
                 </div>
@@ -762,6 +765,7 @@ export function TablesDashboardClient({
                       roomName={room.name}
                       tables={roomTables}
                       canManageTables={canManageTables}
+                      onOpenCommandTicket={(tbl) => setCommandTicketTable(tbl)}
                       onTableShapeChange={(tableId, newShape) => {
                         saveStoredTableShape(businessId, tableId, newShape);
                         setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
@@ -802,7 +806,9 @@ export function TablesDashboardClient({
                               <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
                                 <span className="flex items-center gap-1">
                                   <Users className="w-3 h-3" />
-                                  {(activeOrder as any)?.order_type === "dine_in" ? "Comensales:" : "Cap:"} 1 / {table.capacity || 4}
+                                  {activeOrder?.diners_count
+                                    ? `Comensales: ${activeOrder.diners_count} / ${table.capacity || 4}`
+                                    : `Cap. ${table.capacity || 4} personas`}
                                 </span>
                                 {roomName && (
                                   <>
@@ -838,12 +844,23 @@ export function TablesDashboardClient({
                               {isDropdownOpen && (
                                 <div className="absolute right-0 top-7 z-30 w-44 rounded-xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/[0.1] shadow-xl py-1 text-xs divide-y divide-slate-100 dark:divide-white/[0.06]">
                                   <div className="py-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDropdownTableId(null);
+                                        setCommandTicketTable(table);
+                                      }}
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] text-left cursor-pointer font-medium"
+                                    >
+                                      <Receipt className="w-3.5 h-3.5 text-[#ED500A]" />
+                                      <span>Ver comanda (ticket)</span>
+                                    </button>
                                     <Link
                                       href={`/workspace/${businessId}/pos?tableId=${table.id}`}
-                                      className="flex items-center gap-2 px-3 py-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06]"
+                                      className="flex items-center gap-2 px-3 py-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]"
                                     >
                                       <ShoppingBag className="w-3.5 h-3.5 text-slate-400" />
-                                      <span>Ver comanda en POS</span>
+                                      <span>Agregar productos en POS</span>
                                     </Link>
                                     <button
                                       type="button"
@@ -879,7 +896,11 @@ export function TablesDashboardClient({
                         </div>
 
                         {/* Ilustración arquitectónica de la mesa y sus sillas */}
-                        <div className="my-2 py-2 flex items-center justify-center bg-red-950/20 dark:bg-red-950/30 rounded-xl border border-red-500/15">
+                        <div
+                          onClick={() => setCommandTicketTable(table)}
+                          className="my-2 py-2 flex items-center justify-center bg-red-950/20 dark:bg-red-950/30 rounded-xl border border-red-500/15 cursor-pointer hover:border-red-500/40 hover:bg-red-950/35 transition-all"
+                          title="Haga clic para ver el ticket de la comanda"
+                        >
                           <TableBlueprintIllustration
                             shape={getResolvedTableShape(table)}
                             capacity={table.capacity || 4}
@@ -915,11 +936,11 @@ export function TablesDashboardClient({
                               <User className="w-3 h-3" />
                               Atendido por:
                             </span>
-                            <span className="truncate max-w-[130px] font-medium text-slate-700 dark:text-slate-200">
-                              {(() => {
-                                const waiterMatch = (activeOrder?.notes as string | undefined)?.match(/\[CAMARERO:([^\]]+)\]/);
-                                return waiterMatch ? waiterMatch[1] : ((activeOrder as any)?.driver_name || activeOrder?.customer_name || "Mesero");
-                              })()}
+                            <span
+                              className="truncate max-w-[150px] font-semibold text-slate-800 dark:text-slate-200"
+                              title={activeOrder?.assigned_staff_name || "Sin mesero asignado"}
+                            >
+                              {activeOrder?.assigned_staff_name || (activeOrder as any)?.driver_name || (activeOrder?.customer_name && activeOrder.customer_name !== "Cliente General" ? activeOrder.customer_name : "Sin asignar")}
                             </span>
                           </div>
                         </div>
@@ -934,11 +955,15 @@ export function TablesDashboardClient({
                           </span>
                         </div>
 
-                        <Link href={`/workspace/${businessId}/pos?tableId=${table.id}`} className="w-full sm:w-auto">
-                          <Button variant="outline" size="sm" className="w-full sm:w-auto min-h-[44px] justify-center">
-                            Comanda →
-                          </Button>
-                        </Link>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCommandTicketTable(table)}
+                          className="w-full sm:w-auto min-h-[44px] justify-center cursor-pointer"
+                        >
+                          Comanda →
+                        </Button>
                       </div>
                     </div>
                   );
@@ -1440,15 +1465,36 @@ export function TablesDashboardClient({
       />
 
       {/* ========================================================================= */}
+      {/* MODAL: VER COMANDA / TICKET DE MESA                                        */}
+      {/* ========================================================================= */}
+      <TableCommandTicketModal
+        isOpen={Boolean(commandTicketTable)}
+        onClose={() => setCommandTicketTable(null)}
+        table={commandTicketTable}
+        businessId={businessId}
+        businessName={businessName}
+        onCloseTable={(tbl) => {
+          setCloseOrderInitialTableId(tbl.id);
+          setIsCloseOrdersModalOpen(true);
+        }}
+        onRefresh={() => router.refresh()}
+      />
+
+      {/* ========================================================================= */}
       {/* MODAL 2: CERRAR ÓRDENES (CloseTableOrderModal Oficial)                     */}
       {/* ========================================================================= */}
       <CloseTableOrderModal
         isOpen={isCloseOrdersModalOpen}
         businessId={businessId}
         occupiedTables={occupiedTables}
-        onClose={() => setIsCloseOrdersModalOpen(false)}
+        initialTableId={closeOrderInitialTableId}
+        onClose={() => {
+          setIsCloseOrdersModalOpen(false);
+          setCloseOrderInitialTableId(null);
+        }}
         onSuccess={() => {
           setIsCloseOrdersModalOpen(false);
+          setCloseOrderInitialTableId(null);
           router.refresh();
         }}
       />

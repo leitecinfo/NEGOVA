@@ -93,6 +93,19 @@ export interface RestaurantTableActiveOrder {
   notes?: string | null;
   order_type?: string | null;
   driver_name?: string | null;
+  assigned_staff_id?: string | null;
+  assigned_staff_name?: string | null;
+  assigned_staff_role?: string | null;
+  diners_count?: number | null;
+  items?: Array<{
+    id?: string;
+    name: string;
+    quantity: number;
+    unit_price: number;
+    subtotal: number;
+    notes?: string | null;
+    modifiers?: any[];
+  }>;
 }
 
 export interface RestaurantTableWithOrder extends RestaurantTable {
@@ -292,6 +305,7 @@ export interface RestaurantOrderFilterParams {
 
 export interface RestaurantOrderWithDetails extends RestaurantOrder {
   tableName?: string | null;
+  roomName?: string | null;
   itemsCount?: number;
   items?: RestaurantOrderItem[];
   deliveryVerificationCode?: string | null;

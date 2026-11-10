@@ -38,6 +38,7 @@ export async function createRestaurantOrderAction(
       revalidatePath(`/workspace/${businessId}/ventas`);
       revalidatePath(`/workspace/${businessId}/pos`);
       revalidatePath(`/workspace/${businessId}/cajas`);
+      revalidatePath(`/workspace/${businessId}/mesas`);
     } catch {}
   }
   return res;

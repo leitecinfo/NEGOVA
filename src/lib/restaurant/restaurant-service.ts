@@ -370,7 +370,7 @@ export async function getRestaurantTablesWithOrders(
     if (activeOrderIds.length > 0) {
       const { data: rawOrders, error } = await supabase
         .from("restaurant_orders")
-        .select("id, order_number, customer_name, total, status, payment_status, created_at, notes, restaurant_order_items(quantity)")
+        .select("id, order_number, order_type, customer_name, total, status, payment_status, created_at, notes, assigned_staff_id, assigned_staff_name, assigned_staff_role, driver_name, restaurant_order_items(id, name, quantity, unit_price, subtotal, notes, modifiers)")
         .in("id", activeOrderIds)
         .eq("business_id", businessId);
 
@@ -378,10 +378,53 @@ export async function getRestaurantTablesWithOrders(
         for (const order of rawOrders) {
           const items = Array.isArray(order.restaurant_order_items) ? order.restaurant_order_items : [];
           const itemsCount = items.reduce((acc: number, it: any) => acc + (it.quantity || 1), 0);
+          const mappedItems = items.map((it: any) => ({
+            id: it.id,
+            name: it.name,
+            quantity: Number(it.quantity || 1),
+            unit_price: Number(it.unit_price || 0),
+            subtotal: Number(it.subtotal || (it.unit_price * it.quantity) || 0),
+            notes: it.notes || null,
+            modifiers: it.modifiers || [],
+          }));
+
+          // Extraer comensales de notas si existen ([COMENSALES:X] o "X personas")
+          let dinersCount: number | null = null;
+          if (order.notes) {
+            const tagMatch = (order.notes as string).match(/\[COMENSALES:(\d+)\]/i);
+            if (tagMatch && tagMatch[1]) {
+              dinersCount = parseInt(tagMatch[1], 10);
+            } else {
+              const textMatch = (order.notes as string).match(/(\d+)\s*(?:personas?|comensales?)/i);
+              if (textMatch && textMatch[1]) {
+                dinersCount = parseInt(textMatch[1], 10);
+              }
+            }
+          }
+
+          // Resolver nombre y cargo del responsable asignado
+          let staffName = order.assigned_staff_name || null;
+          let staffRole = order.assigned_staff_role || null;
+          if (!staffName && order.notes) {
+            const respMatch = (order.notes as string).match(/\[RESPONSABLE:[^:]+:([^:]+):?([^\]]*)\]/i);
+            if (respMatch && respMatch[1]) {
+              staffName = respMatch[1].trim();
+              if (respMatch[2]) staffRole = respMatch[2].trim();
+            } else {
+              const waiterMatch = (order.notes as string).match(/\[CAMARERO:([^\]]+)\]/i);
+              if (waiterMatch && waiterMatch[1]) {
+                staffName = waiterMatch[1].trim();
+              }
+            }
+          }
+          if (!staffName && order.driver_name) {
+            staffName = order.driver_name;
+          }
 
           ordersMap.set(order.id, {
             id: order.id,
             order_number: order.order_number,
+            order_type: order.order_type || "dine_in",
             customer_name: order.customer_name || null,
             total: Number(order.total || 0),
             status: order.status,
@@ -389,6 +432,12 @@ export async function getRestaurantTablesWithOrders(
             items_count: itemsCount,
             created_at: order.created_at,
             notes: order.notes || null,
+            assigned_staff_id: order.assigned_staff_id || null,
+            assigned_staff_name: staffName,
+            assigned_staff_role: staffRole,
+            driver_name: order.driver_name || null,
+            diners_count: dinersCount,
+            items: mappedItems,
           });
         }
       }
@@ -2711,12 +2760,17 @@ export async function cancelRestaurantOrder(
   orderId: string,
   reason?: string,
   userId?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; refundNotice?: string; wasPaid?: boolean }> {
   const supabase = await getDbClient();
   const currentOrder = await getRestaurantOrderWithDetails(businessId, orderId);
   if (!currentOrder) {
     return { success: false, error: "Pedido no encontrado o no pertenece a este comercio." };
   }
+
+  const wasPaid = currentOrder.payment_status === "paid" || currentOrder.payment_status === "partial";
+  const refundNotice = wasPaid
+    ? `El pedido contaba con pago registrado ($${Number(currentOrder.total || 0).toLocaleString("es-CO")}). Recuerda devolver el dinero al cliente.`
+    : undefined;
 
   const res = await updateRestaurantOrderStatus(businessId, orderId, "cancelled", userId, reason);
   if (!res.success) {
@@ -2758,7 +2812,7 @@ export async function cancelRestaurantOrder(
   // Asegurar sincronización de mesas vinculadas
   await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, currentOrder.table_id);
 
-  return { success: true };
+  return { success: true, refundNotice, wasPaid };
 }
 
 /**
@@ -3572,8 +3626,8 @@ export async function getKdsOrders(
   const supabase = await getDbClient();
 
   try {
-    // 1. Consultar pedidos activos y mesas en paralelo
-    const [activeRes, deliveredRes, tables] = await Promise.all([
+    // 1. Consultar pedidos activos, mesas y salas en paralelo
+    const [activeRes, deliveredRes, tables, rooms] = await Promise.all([
       // Pedidos activos (FIFO: más antiguos primero para atención en cocina)
       supabase
         .from("restaurant_orders")
@@ -3592,20 +3646,43 @@ export async function getKdsOrders(
         .limit(limitDelivered),
 
       getRestaurantTables(businessId),
+      getRestaurantRooms(businessId),
     ]);
 
     const rawActive = activeRes.data || [];
     const rawDelivered = deliveredRes.data || [];
 
-    const tableMap = new Map<string, string>();
+    const roomMap = new Map<string, string>();
+    for (const rm of rooms) {
+      roomMap.set(rm.id, rm.name);
+    }
+
+    const tableMap = new Map<string, { tableName: string; roomName: string | null }>();
     for (const tbl of tables) {
-      tableMap.set(tbl.id, tbl.name_or_number);
+      const roomName = tbl.room_id ? roomMap.get(tbl.room_id) || null : null;
+      tableMap.set(tbl.id, {
+        tableName: tbl.name_or_number,
+        roomName,
+      });
     }
 
     const formatOrder = (row: any): RestaurantOrderWithDetails => {
       const items = Array.isArray(row.restaurant_order_items) ? row.restaurant_order_items : [];
-      const tableName = row.table_id ? tableMap.get(row.table_id) || "Mesa" : null;
+      const tblInfo = row.table_id ? tableMap.get(row.table_id) : null;
+      const tableName = tblInfo ? tblInfo.tableName : (row.table_id ? "Mesa" : null);
+      const roomName = tblInfo ? tblInfo.roomName : null;
       const verification = extractDeliveryVerification(row.notes);
+      const pickupVerification = extractPickupVerification(row.notes, row);
+      const staffInfo = extractResponsibleStaff(row.notes, row);
+
+      const cleanNotes = (pickupVerification.cleanNotes || verification.cleanNotes || row.notes || "")
+        .replace(/\[RESPONSABLE:[^\]]+\]/gi, "")
+        .replace(/\[TRK:[^\]]+\]/gi, "")
+        .replace(/\[PIN:[^\]]+\]/gi, "")
+        .replace(/\[DELIVERY_PIN:[^\]]+\]/gi, "")
+        .replace(/\[PICKUP_PIN:[^\]]+\]/gi, "")
+        .replace(/\[NOVEDAD:[^\]]+\]/gi, "")
+        .trim() || null;
 
       return {
         id: row.id,
@@ -3617,9 +3694,10 @@ export async function getKdsOrders(
         subtotal: Number(row.subtotal || 0),
         delivery_fee: Number(row.delivery_fee || 0),
         total: Number(row.total || 0),
-        notes: verification.cleanNotes,
+        notes: cleanNotes,
         table_id: row.table_id || null,
         tableName,
+        roomName,
         customer_name: row.customer_name || null,
         customer_phone: row.customer_phone || null,
         delivery_address: row.delivery_address || null,
@@ -3628,6 +3706,20 @@ export async function getKdsOrders(
         driver_name: row.driver_name || null,
         delivery_verification_code: verification.code,
         delivery_verification_attempts: verification.attempts,
+        assigned_staff_id: staffInfo.assignedStaffId,
+        assigned_staff_name: staffInfo.assignedStaffName,
+        assigned_staff_role: staffInfo.assignedStaffRole,
+        assignedStaffId: staffInfo.assignedStaffId,
+        assignedStaffName: staffInfo.assignedStaffName,
+        assignedStaffRole: staffInfo.assignedStaffRole,
+        pickup_code: pickupVerification.code,
+        pickup_attempts: pickupVerification.attempts,
+        pickup_confirmed_at: pickupVerification.confirmedAt,
+        pickup_confirmed_by: pickupVerification.confirmedBy,
+        pickupCode: pickupVerification.code,
+        pickupAttempts: pickupVerification.attempts,
+        pickupConfirmedAt: pickupVerification.confirmedAt,
+        pickupConfirmedBy: pickupVerification.confirmedBy,
         payment_status: row.payment_status || "pending",
         idempotency_key: row.idempotency_key || null,
         idempotency_hash: row.idempotency_hash || null,
@@ -3941,6 +4033,233 @@ export async function getKdsOpenTickets(
     };
   }
 }
+
+// ==========================================
+// EDICIÓN DE PEDIDOS ACTIVOS [PED-EDIT]
+// ==========================================
+
+export interface UpdateRestaurantOrderItemData {
+  id?: string;
+  productId?: string | null;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  notes?: string | null;
+  modifiers?: any[];
+  variantId?: string | null;
+  variantName?: string | null;
+  taxPercentage?: number;
+  taxIncludedInPrice?: boolean;
+  taxAmount?: number;
+}
+
+export interface UpdateRestaurantOrderData {
+  items: UpdateRestaurantOrderItemData[];
+  assignedStaffId?: string | null;
+  assignedStaffName?: string | null;
+  assignedStaffRole?: string | null;
+  notes?: string | null;
+  deliveryFee?: number;
+}
+
+/**
+ * Modifica los productos, cantidades, notas y responsable de un pedido en curso
+ * (no entregado ni cancelado). Maneja el impacto económico en caso de pedidos ya pagados
+ * indicando diferencias a favor o devoluciones al cliente.
+ */
+export async function updateRestaurantOrderDetails(
+  businessId: string,
+  orderId: string,
+  data: UpdateRestaurantOrderData,
+  userId?: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  order?: RestaurantOrderWithDetails;
+  priceDifference?: number;
+  oldTotal?: number;
+  newTotal?: number;
+  paymentNotice?: string;
+}> {
+  const supabase = await getDbClient();
+  const existingOrder = await getRestaurantOrderWithDetails(businessId, orderId);
+
+  if (!existingOrder) {
+    return { success: false, error: "Pedido no encontrado o no pertenece a este comercio." };
+  }
+
+  if (existingOrder.status === "delivered") {
+    return { success: false, error: "No se puede editar un pedido que ya fue entregado." };
+  }
+
+  if (existingOrder.status === "cancelled") {
+    return { success: false, error: "No se puede editar un pedido que se encuentra cancelado." };
+  }
+
+  if (!data.items || data.items.length === 0) {
+    return { success: false, error: "El pedido debe contener al menos un producto." };
+  }
+
+  // 1. Recalcular subtotales, impuestos y total de la comanda
+  const newSubtotal = data.items.reduce(
+    (acc, it) => acc + (Number(it.subtotal) || Number(it.unitPrice) * Math.max(1, Number(it.quantity || 1))),
+    0
+  );
+  const deliveryFee =
+    typeof data.deliveryFee === "number" && !isNaN(data.deliveryFee)
+      ? data.deliveryFee
+      : Number(existingOrder.delivery_fee || 0);
+  const newTaxTotal = data.items.reduce((acc, it) => acc + Number(it.taxAmount || 0), 0);
+  const newTotal = newSubtotal + deliveryFee;
+  const oldTotal = Number(existingOrder.total || 0);
+  const priceDifference = newTotal - oldTotal;
+
+  // 2. Resolver impacto en estado de pago
+  let newPaymentStatus = existingOrder.payment_status;
+  let paymentNotice = "";
+  let baseNotes = (data.notes !== undefined ? data.notes : existingOrder.notes) || "";
+
+  // Limpiar etiquetas anteriores de ajuste o responsable para no duplicar
+  baseNotes = baseNotes
+    .replace(/\[AJUSTE:[^\]]+\]/gi, "")
+    .replace(/\[DEVOLUCION:[^\]]+\]/gi, "")
+    .replace(/\[RESPONSABLE:[^\]]+\]/gi, "")
+    .replace(/\[CAMARERO:[^\]]+\]/gi, "")
+    .trim();
+
+  if (existingOrder.payment_status === "paid") {
+    if (priceDifference > 0) {
+      newPaymentStatus = "partial";
+      paymentNotice = `El pedido ya estaba pagado ($${oldTotal.toLocaleString("es-CO")}). Con los nuevos productos hay una diferencia por cobrar de +$${priceDifference.toLocaleString("es-CO")}. El estado pasa a 'Pago Parcial'.`;
+      baseNotes = `${baseNotes} [AJUSTE: Saldo pendiente +$${priceDifference}]`.trim();
+    } else if (priceDifference < 0) {
+      newPaymentStatus = "paid";
+      const refund = Math.abs(priceDifference);
+      paymentNotice = `El pedido ya estaba pagado ($${oldTotal.toLocaleString("es-CO")}). Al quitar productos o reducir cantidades, hay una diferencia a devolver al cliente de $${refund.toLocaleString("es-CO")}.`;
+      baseNotes = `${baseNotes} [DEVOLUCION: Devolver al cliente $${refund}]`.trim();
+    } else {
+      paymentNotice = "El total del pedido no cambió. El pago se mantiene completamente cubierto.";
+    }
+  } else if (existingOrder.payment_status === "pending") {
+    paymentNotice = `Pedido pendiente de pago. Nuevo total a cobrar: $${newTotal.toLocaleString("es-CO")}.`;
+  } else {
+    paymentNotice = `Nuevo total: $${newTotal.toLocaleString("es-CO")}.`;
+  }
+
+  // 3. Resolver responsable asignado
+  const assignedStaffId =
+    data.assignedStaffId !== undefined ? data.assignedStaffId : existingOrder.assigned_staff_id;
+  const assignedStaffName =
+    data.assignedStaffName !== undefined ? data.assignedStaffName : existingOrder.assigned_staff_name;
+  const assignedStaffRole =
+    data.assignedStaffRole !== undefined ? data.assignedStaffRole : existingOrder.assigned_staff_role;
+
+  if (assignedStaffName) {
+    const staffTag = `[RESPONSABLE:${assignedStaffId || "none"}:${assignedStaffName}:${assignedStaffRole || ""}]`;
+    const waiterTag = `[CAMARERO:${assignedStaffName}]`;
+    baseNotes = `${baseNotes} ${staffTag} ${waiterTag}`.trim();
+  }
+
+  // 4. Actualizar tabla principal restaurant_orders
+  const orderUpdates: any = {
+    subtotal: newSubtotal,
+    delivery_fee: deliveryFee,
+    tax_total: newTaxTotal,
+    total: newTotal,
+    payment_status: newPaymentStatus,
+    notes: baseNotes || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (data.assignedStaffId !== undefined) {
+    orderUpdates.assigned_staff_id = data.assignedStaffId || null;
+  }
+  if (data.assignedStaffName !== undefined) {
+    orderUpdates.assigned_staff_name = data.assignedStaffName || null;
+    orderUpdates.driver_name = data.assignedStaffName || null;
+  }
+  if (data.assignedStaffRole !== undefined) {
+    orderUpdates.assigned_staff_role = data.assignedStaffRole || null;
+  }
+
+  const { error: orderUpdateErr } = await supabase
+    .from("restaurant_orders")
+    .update(orderUpdates)
+    .eq("id", orderId)
+    .eq("business_id", businessId);
+
+  if (orderUpdateErr) {
+    console.error("[updateRestaurantOrderDetails] Error actualizando orden:", orderUpdateErr);
+    return { success: false, error: "No se pudo actualizar la comanda en la base de datos." };
+  }
+
+  // 5. Reemplazar líneas en restaurant_order_items
+  const { error: deleteErr } = await supabase
+    .from("restaurant_order_items")
+    .delete()
+    .eq("order_id", orderId)
+    .eq("business_id", businessId);
+
+  if (deleteErr) {
+    console.error("[updateRestaurantOrderDetails] Error eliminando ítems previos:", deleteErr);
+    return { success: false, error: "No se pudieron actualizar los productos de la orden." };
+  }
+
+  const newItemsToInsert = data.items.map((it) => {
+    const qty = Math.max(1, Number(it.quantity || 1));
+    const price = Math.max(0, Number(it.unitPrice || 0));
+    const sub = Number(it.subtotal || price * qty);
+
+    return {
+      business_id: businessId,
+      order_id: orderId,
+      product_id: it.productId || null,
+      product_name: it.productName || "Producto",
+      variant_id: it.variantId || null,
+      variant_name: it.variantName || null,
+      quantity: qty,
+      unit_price: price,
+      subtotal: sub,
+      notes: it.notes || null,
+      modifiers: it.modifiers || [],
+      tax_percentage: Number(it.taxPercentage || 0),
+      tax_included_in_price: Boolean(it.taxIncludedInPrice ?? true),
+      tax_amount: Number(it.taxAmount || 0),
+    };
+  });
+
+  const { error: insertItemsErr } = await supabase
+    .from("restaurant_order_items")
+    .insert(newItemsToInsert);
+
+  if (insertItemsErr) {
+    console.error("[updateRestaurantOrderDetails] Error insertando nuevos ítems:", insertItemsErr);
+    return { success: false, error: "Error al registrar los nuevos productos en la comanda." };
+  }
+
+  // 6. Sincronizar mesa si la orden está vinculada a una mesa
+  if (existingOrder.table_id) {
+    try {
+      await syncTableOccupancyAfterOrderChange(supabase, businessId, orderId, existingOrder.table_id);
+    } catch (tableErr) {
+      console.warn("[updateRestaurantOrderDetails] Advertencia sincronizando mesa:", tableErr);
+    }
+  }
+
+  // 7. Retornar comanda consolidada actualizada
+  const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
+
+  return {
+    success: true,
+    order: refreshed || undefined,
+    priceDifference,
+    oldTotal,
+    newTotal,
+    paymentNotice,
+  };
+}
+
 
 
 

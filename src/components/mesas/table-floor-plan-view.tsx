@@ -9,6 +9,7 @@ import {
   Move,
   Save,
   ShoppingBag,
+  Receipt,
   LayoutGrid,
   Compass,
 } from "lucide-react";
@@ -38,6 +39,7 @@ interface TableFloorPlanViewProps {
   tables: RestaurantTableWithOrder[];
   canManageTables: boolean;
   onTableShapeChange?: (tableId: string, shape: TableShape) => void;
+  onOpenCommandTicket?: (table: RestaurantTableWithOrder) => void;
 }
 
 export function TableFloorPlanView({
@@ -47,6 +49,7 @@ export function TableFloorPlanView({
   tables,
   canManageTables,
   onTableShapeChange,
+  onOpenCommandTicket,
 }: TableFloorPlanViewProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [tablePositions, setTablePositions] = useState<Record<string, TableLayoutPosition>>({});
@@ -455,14 +458,24 @@ export function TableFloorPlanView({
                   </span>
                 </div>
               )}
-              <Link href={`/workspace/${businessId}/pos?tableId=${selectedTable.id}`}>
-                <Button variant="primary" size="sm" className="gap-2">
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>
-                    {selectedTable.status === "occupied" ? "Ver Comanda en POS" : "Abrir Comanda"}
-                  </span>
+              {selectedTable.status === "occupied" ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="gap-2 cursor-pointer"
+                  onClick={() => onOpenCommandTicket?.(selectedTable)}
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Ver Comanda (Ticket)</span>
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/workspace/${businessId}/pos?tableId=${selectedTable.id}`}>
+                  <Button variant="primary" size="sm" className="gap-2 cursor-pointer">
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Abrir Comanda</span>
+                  </Button>
+                </Link>
+              )}
             </div>
           )}
         </div>

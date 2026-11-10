@@ -16,6 +16,7 @@ export interface KitchenCommandTicketData {
   orderId?: string;
   orderType: "dine_in" | "takeout" | "delivery" | string;
   tableName?: string | null;
+  roomName?: string | null;
   customerName?: string | null;
   diners?: number;
   createdAt?: string;
@@ -61,7 +62,8 @@ export function KitchenCommandTicketModal({
   // Formatear destino / modalidad
   let destinationLabel = "PARA LLEVAR";
   if (order.orderType === "dine_in") {
-    destinationLabel = order.tableName ? `MESA ${order.tableName.toUpperCase().replace(/^MESA\s*/i, "")}` : "CONSUMO EN MESA";
+    const tableClean = order.tableName ? `MESA ${order.tableName.toUpperCase().replace(/^MESA\s*/i, "")}` : "CONSUMO EN MESA";
+    destinationLabel = order.roomName ? `${tableClean} (${order.roomName.toUpperCase()})` : tableClean;
   } else if (order.orderType === "delivery") {
     destinationLabel = "A DOMICILIO";
   }

@@ -44,6 +44,7 @@ import {
   Loader2,
   Clock,
   User,
+  Users,
   Store,
 } from "lucide-react";
 import { Product, Category, ProductVariant, isProductAvailableInPos } from "@/lib/products/types";
@@ -337,20 +338,7 @@ export function PosScreenClient({
   const [selectedTableId, setSelectedTableId] = useState<string>(initialSelectedTableId || "");
   const [isTableSelectorOpen, setIsTableSelectorOpen] = useState(false);
   const tableSelectorRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutsideTable(event: MouseEvent) {
-      if (tableSelectorRef.current && !tableSelectorRef.current.contains(event.target as Node)) {
-        setIsTableSelectorOpen(false);
-      }
-    }
-    if (isTableSelectorOpen) {
-      document.addEventListener("mousedown", handleClickOutsideTable);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutsideTable);
-    };
-  }, [isTableSelectorOpen]);
+  const [dinersCount, setDinersCount] = useState<number>(1);
   const [deliveryDetails, setDeliveryDetails] = useState({
     phone: "",
     name: "",
@@ -799,7 +787,8 @@ export function PosScreenClient({
 
       const rawNotes = orderNotes.trim();
       const discountTag = generalDiscount > 0 ? `Descuento: $${generalDiscount.toLocaleString('es-CO')}` : null;
-      const finalNotes = [rawNotes, discountTag].filter(Boolean).join(" | ");
+      const dinersTag = serviceType === "DINE_IN" && selectedTableId ? `[COMENSALES:${dinersCount}]` : null;
+      const finalNotes = [rawNotes, discountTag, dinersTag].filter(Boolean).join(" | ");
 
       const payload: CreateRestaurantOrderInput = {
         orderType: orderTypeKey,
@@ -815,6 +804,8 @@ export function PosScreenClient({
         assignedStaffId: selectedStaff?.id || null,
         assignedStaffName: selectedStaff?.name || cashierName || null,
         assignedStaffRole: selectedStaff && selectedStaff.roles.length > 0 ? selectedStaff.roles.join(", ") : null,
+        waiterName: selectedStaff?.name || cashierName || null,
+        waiterId: selectedStaff?.id || null,
         isPickup: serviceType === "PICKUP",
         saveCustomerForFuture: serviceType === "PICKUP" ? takeoutDetails.saveCustomer : false,
         items: cartItems.map((ci) => ({
@@ -1739,86 +1730,67 @@ export function PosScreenClient({
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
                           <Store className="w-3.5 h-3.5 text-[#ED500A]" />
-                          <span>Mesa / Ubicación</span>
+                          <span>Mesa</span>
                         </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#ED500A]/10 text-[#ED500A] border border-[#ED500A]/20">
                           En local
                         </span>
                       </div>
 
-                      {/* Selector de Mesa Personalizado (Sin select azul nativo) */}
-                      <div className="relative" ref={tableSelectorRef}>
-                        <button
-                          type="button"
-                          onClick={() => setIsTableSelectorOpen(!isTableSelectorOpen)}
-                          className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#161A24] text-slate-800 dark:text-slate-100 flex items-center justify-between gap-2 transition hover:border-[#ED500A]/50 focus:outline-none cursor-pointer shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-semibold text-xs truncate">
-                              {tables.find((t) => t.id === selectedTableId)?.name_or_number || "Mesa Principal / Mostrador"}
-                            </span>
-                            {tables.find((t) => t.id === selectedTableId)?.capacity && (
-                              <span className="text-[10px] font-mono text-slate-400">
-                                ({tables.find((t) => t.id === selectedTableId)?.capacity} pers.)
-                              </span>
-                            )}
-                          </div>
-                          <ChevronDown
-                            className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${
-                              isTableSelectorOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
+                      {/* Selector oficial de Mesa con el componente Select del sistema */}
+                      <Select
+                        value={selectedTableId}
+                        onValueChange={(val) => {
+                          setSelectedTableId(val);
+                          const tbl = tables.find((t) => t.id === val);
+                          if (tbl?.capacity && dinersCount > tbl.capacity) {
+                            setDinersCount(tbl.capacity);
+                          }
+                        }}
+                        options={[
+                          { value: "", label: "Mesa Principal / Mostrador" },
+                          ...tables.map((t) => ({
+                            value: t.id,
+                            label: `${t.name_or_number}${t.capacity ? ` (Cap: ${t.capacity} pers.)` : ""}`,
+                          })),
+                        ]}
+                        selectSize="md"
+                        className="bg-white dark:bg-[#161A24] border-slate-200 dark:border-white/10 text-xs font-semibold"
+                      />
 
-                        {isTableSelectorOpen && (
-                          <div className="absolute left-0 right-0 top-full mt-1.5 z-40 p-1.5 rounded-xl bg-white dark:bg-[#161A24] border border-slate-200 dark:border-white/10 shadow-xl max-h-56 overflow-y-auto space-y-1 animate-in fade-in">
+                      {/* Selector de Comensales (Personas) para la comanda */}
+                      {selectedTableId && (
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/[0.06] animate-in fade-in">
+                          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-[#ED500A]" />
+                            <span>Comensales / Personas:</span>
+                          </span>
+                          <div className="flex items-center gap-1 bg-white dark:bg-[#161A24] border border-slate-200/80 dark:border-white/10 rounded-xl p-1 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setDinersCount((prev) => Math.max(1, prev - 1))}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-[#ED500A] transition cursor-pointer"
+                              title="Reducir personas"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="font-mono font-bold text-xs px-2 text-slate-800 dark:text-slate-100 min-w-[28px] text-center">
+                              {dinersCount}
+                            </span>
                             <button
                               type="button"
                               onClick={() => {
-                                setSelectedTableId("");
-                                setIsTableSelectorOpen(false);
+                                const maxCap = tables.find((t) => t.id === selectedTableId)?.capacity || 20;
+                                setDinersCount((prev) => Math.min(maxCap, prev + 1));
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition cursor-pointer text-left ${
-                                !selectedTableId
-                                  ? "bg-[#ED500A]/10 text-[#ED500A] font-bold"
-                                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
-                              }`}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-[#ED500A] transition cursor-pointer"
+                              title="Aumentar personas"
                             >
-                              <span>Mesa Principal / Mostrador</span>
-                              {!selectedTableId && <Check className="w-3.5 h-3.5 text-[#ED500A]" />}
+                              <Plus className="w-3 h-3" />
                             </button>
-
-                            {tables.map((t) => {
-                              const isSelected = selectedTableId === t.id;
-                              return (
-                                <button
-                                  key={t.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedTableId(t.id);
-                                    setIsTableSelectorOpen(false);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition cursor-pointer text-left ${
-                                    isSelected
-                                      ? "bg-[#ED500A]/10 text-[#ED500A] font-bold"
-                                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-1.5 truncate">
-                                    <span className="font-medium">{t.name_or_number}</span>
-                                    {t.capacity && (
-                                      <span className="text-[10px] text-slate-400 font-mono">
-                                        (Cap: {t.capacity})
-                                      </span>
-                                    )}
-                                  </div>
-                                  {isSelected && <Check className="w-3.5 h-3.5 text-[#ED500A] shrink-0" />}
-                                </button>
-                              );
-                            })}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

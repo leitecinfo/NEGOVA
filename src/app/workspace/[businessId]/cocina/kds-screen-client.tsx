@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Receipt,
   Printer,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -64,6 +65,37 @@ interface KdsScreenClientProps {
   initialOpenTickets?: OpenTicketDetails[];
   initialOpenSummary?: OpenTicketsSummary;
   defaultView?: "kds" | "open_tickets";
+}
+
+function parseKdsNotesAndStaff(order: RestaurantOrderWithDetails) {
+  const rawNotes = order.notes || "";
+  
+  let staffName = order.assigned_staff_name || (order as any).assignedStaffName;
+  let staffRole = order.assigned_staff_role || (order as any).assignedStaffRole;
+
+  if (!staffName && rawNotes) {
+    const match = rawNotes.match(/\[RESPONSABLE:([^:]+):([^:]+)(?::([^\]]+))?\]/i);
+    if (match) {
+      staffName = match[2];
+      staffRole = match[3] || "Mesero";
+    }
+  }
+
+  // Limpiar cualquier etiqueta interna técnica del sistema
+  const cleanNotes = rawNotes
+    .replace(/\[RESPONSABLE:[^\]]+\]/gi, "")
+    .replace(/\[TRK:[^\]]+\]/gi, "")
+    .replace(/\[PIN:[^\]]+\]/gi, "")
+    .replace(/\[DELIVERY_PIN:[^\]]+\]/gi, "")
+    .replace(/\[PICKUP_PIN:[^\]]+\]/gi, "")
+    .replace(/\[NOVEDAD:[^\]]+\]/gi, "")
+    .trim();
+
+  return {
+    cleanNotes: cleanNotes || null,
+    staffName: staffName || null,
+    staffRole: staffRole || "Mesero",
+  };
 }
 
 export function KdsScreenClient({
@@ -114,10 +146,11 @@ export function KdsScreenClient({
       orderId: order.id,
       orderType: order.order_type,
       tableName: order.tableName,
+      roomName: order.roomName,
       customerName: order.customer_name,
       diners: (order as any).diners_count || 1,
       createdAt: order.created_at,
-      cashierName: (order as any).cashier_name || "Cajero",
+      cashierName: (order as any).cashier_name || order.assigned_staff_name || (order as any).assignedStaffName || "Cajero",
       items: (order.items || []).map((i) => ({
         quantity: i.quantity,
         name: i.product_name,
@@ -862,10 +895,20 @@ export function KdsScreenClient({
               // Estilo del tipo de comanda
               const orderTypeBadge = () => {
                 if (order.order_type === "dine_in") {
+                  const displayTable = order.tableName || "Mesa";
+                  const displayRoom = order.roomName;
                   return (
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 flex items-center gap-1">
-                      <LayoutGrid className="w-3 h-3" />
-                      {order.tableName || "Mesa"}
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 flex items-center gap-1.5">
+                      <LayoutGrid className="w-3 h-3 shrink-0" />
+                      <span>{displayTable}</span>
+                      {displayRoom && (
+                        <>
+                          <span className="opacity-40">·</span>
+                          <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-200">
+                            {displayRoom}
+                          </span>
+                        </>
+                      )}
                     </span>
                   );
                 }
@@ -884,6 +927,8 @@ export function KdsScreenClient({
                   </span>
                 );
               };
+
+              const parsedNotes = parseKdsNotesAndStaff(order);
 
               return (
                 <div
@@ -931,11 +976,21 @@ export function KdsScreenClient({
                       </span>
                     </div>
 
-                    {/* NOTA GENERAL DE LA COMANDA */}
-                    {order.notes && (
+                    {/* RESPONSABLE / MESERO */}
+                    {parsedNotes.staffName && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                        <User className="w-3 h-3 text-[#ED500A] shrink-0" />
+                        <span className="truncate">
+                          {parsedNotes.staffRole}: <strong className="font-semibold text-slate-800 dark:text-slate-100">{parsedNotes.staffName}</strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* NOTA GENERAL DE LA COMANDA (SOLO TEXTO REAL, NUNCA TAGS TÉCNICOS) */}
+                    {parsedNotes.cleanNotes && (
                       <div className="mt-2 p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-[11px] text-amber-800 dark:text-amber-300 italic flex items-start gap-1.5">
                         <Info className="w-3 h-3 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{order.notes}</span>
+                        <span className="line-clamp-2">{parsedNotes.cleanNotes}</span>
                       </div>
                     )}
                   </div>
