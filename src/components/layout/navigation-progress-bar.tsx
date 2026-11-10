@@ -171,10 +171,10 @@ export function NavigationProgressProvider({ children }: { children: React.React
 
     if (cleanTarget && (cleanCurrent === cleanTarget || cleanCurrent.startsWith(`${cleanTarget}/`))) {
       setProgress((p) => Math.max(p, 90));
-      // Tiempo de gracia para permitir que Server Components pesados completen su reconciliación
+      // Tiempo de seguridad amplio en caso de que la ruta de destino no emita notificación de montaje
       const fallbackTimer = setTimeout(() => {
         endNavigation();
-      }, 2500);
+      }, 8000);
       return () => clearTimeout(fallbackTimer);
     }
   }, [pathname, searchParams, isNavigating, navigatingHref, endNavigation]);
