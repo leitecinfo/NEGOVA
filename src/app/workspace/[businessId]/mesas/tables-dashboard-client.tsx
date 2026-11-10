@@ -335,21 +335,11 @@ export function TablesDashboardClient({
   // Salas para visualizar en el Plano Salón
   const roomsToDisplay = useMemo(() => {
     if (selectedRoomId === "all") {
-      if (roomsList.length === 0) {
-        return [{ id: "all", name: "Salón General", tablesCount: initialTables.length, status: "active" as const }];
-      }
       return roomsList;
     }
     const matched = roomsList.find((r) => r.id === selectedRoomId);
     return matched ? [matched] : [];
-  }, [selectedRoomId, roomsList, initialTables.length]);
-
-  const unassignedTables = useMemo(() => {
-    if (selectedRoomId === "all") {
-      return filteredTables.filter((t) => !t.room_id);
-    }
-    return [];
-  }, [selectedRoomId, filteredTables]);
+  }, [selectedRoomId, roomsList]);
 
   // Manejador apertura traslado
   const handleOpenTransferModal = () => {
@@ -398,11 +388,14 @@ export function TablesDashboardClient({
 
   // Manejo de crear mesa rápida
   const handleOpenCreateTableModal = (roomIdToAssign?: string) => {
+    const defaultRoomId =
+      roomIdToAssign ||
+      (selectedRoomId !== "all" ? selectedRoomId : roomsList[0]?.id || undefined);
     setCreateTableForm({
       name_or_number: `Mesa ${initialTables.length + 1}`,
       capacity: 4,
       sort_order: initialTables.length + 1,
-      room_id: roomIdToAssign || (selectedRoomId !== "all" ? selectedRoomId : undefined),
+      room_id: defaultRoomId,
     });
     setCreateTableShape("round");
     setFormError(null);
@@ -413,6 +406,10 @@ export function TablesDashboardClient({
     e.preventDefault();
     if (!createTableForm.name_or_number.trim()) {
       setFormError("El nombre o número de la mesa es requerido.");
+      return;
+    }
+    if (roomsList.length > 0 && !createTableForm.room_id) {
+      setFormError("Debes seleccionar una sala para la mesa.");
       return;
     }
 
@@ -773,23 +770,6 @@ export function TablesDashboardClient({
                     />
                   );
                 })}
-
-                {/* Si hay mesas sin sala asignada y se seleccionó "Todas las salas" */}
-                {unassignedTables.length > 0 && (
-                  <TableFloorPlanView
-                    key="unassigned"
-                    businessId={businessId}
-                    roomId="unassigned"
-                    roomName="Mesas sin sala asignada"
-                    tables={unassignedTables}
-                    canManageTables={canManageTables}
-                    onTableShapeChange={(tableId, newShape) => {
-                      saveStoredTableShape(businessId, tableId, newShape);
-                      setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
-                      setShapeVersion((v) => v + 1);
-                    }}
-                  />
-                )}
               </div>
             ) : (
               /* Grid de Mesas */
@@ -1695,25 +1675,18 @@ export function TablesDashboardClient({
                         room_id: val || undefined,
                       }))
                     }
-                    options={[
-                      {
-                        value: "",
-                        label: "Sin sala asignada (Zona General)",
-                        description: "La mesa estará visible en el plano general",
-                      },
-                      ...roomsList.map((r) => ({
-                        value: r.id,
-                        label: r.name,
-                        description: `${r.tablesCount || 0} mesas registradas`,
-                      })),
-                    ]}
+                    options={roomsList.map((r) => ({
+                      value: r.id,
+                      label: r.name,
+                      description: `${r.tablesCount || 0} mesas registradas`,
+                    }))}
                     placeholder="Seleccionar sala o ambiente..."
                     searchPlaceholder="Buscar sala..."
                     searchable={roomsList.length > 4}
                     clearable={false}
                   />
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    Opcional: puedes dejar la mesa en zona general o crear un ambiente (ej. Terraza, Interior) con «Crear sala».
+                    Selecciona a qué sala pertenece esta mesa (ej. Interior, Terraza).
                   </p>
                 </div>
 
@@ -1869,18 +1842,11 @@ export function TablesDashboardClient({
                         room_id: val || undefined,
                       }))
                     }
-                    options={[
-                      {
-                        value: "",
-                        label: "Sin sala asignada (Zona General)",
-                        description: "La mesa estará visible en el plano general",
-                      },
-                      ...roomsList.map((r) => ({
-                        value: r.id,
-                        label: r.name,
-                        description: `${r.tablesCount || 0} mesas registradas`,
-                      })),
-                    ]}
+                    options={roomsList.map((r) => ({
+                      value: r.id,
+                      label: r.name,
+                      description: `${r.tablesCount || 0} mesas registradas`,
+                    }))}
                     placeholder="Seleccionar sala o ambiente..."
                     searchPlaceholder="Buscar sala..."
                     searchable={roomsList.length > 4}
