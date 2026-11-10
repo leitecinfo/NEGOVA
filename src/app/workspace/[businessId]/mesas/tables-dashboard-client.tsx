@@ -33,8 +33,6 @@ import {
   Download,
   Calendar,
   ArrowRight,
-  ArrowLeft,
-  PenTool,
   TrendingUp,
   MapPin,
   HelpCircle,
@@ -175,7 +173,6 @@ export function TablesDashboardClient({
   const [editRoomName, setEditRoomName] = useState("");
   const [roomToDelete, setRoomToDelete] = useState<RestaurantRoom | null>(null);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
-  const [designingRoomId, setDesigningRoomId] = useState<string | null>(null);
 
   // Estados de Rendimiento / Mapa de Calor
   const [heatMapPeriod, setHeatMapPeriod] = useState<"today" | "week" | "month">("today");
@@ -768,8 +765,6 @@ export function TablesDashboardClient({
                       roomName={room.name}
                       tables={roomTables}
                       canManageTables={canManageTables}
-                      allowDesignRoom={false}
-                      initialWorkMode="view"
                       onTableShapeChange={(tableId, newShape) => {
                         saveStoredTableShape(businessId, tableId, newShape);
                         setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
@@ -788,8 +783,6 @@ export function TablesDashboardClient({
                     roomName="Mesas sin sala asignada"
                     tables={unassignedTables}
                     canManageTables={canManageTables}
-                    allowDesignRoom={false}
-                    initialWorkMode="view"
                     onTableShapeChange={(tableId, newShape) => {
                       saveStoredTableShape(businessId, tableId, newShape);
                       setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
@@ -1096,144 +1089,118 @@ export function TablesDashboardClient({
         {/* ========================================================================= */}
         {activeMainTab === "salas" && (
           <div className="space-y-4">
-            {designingRoomId ? (
-              <div className="space-y-4">
-                <TableFloorPlanView
-                  businessId={businessId}
-                  roomId={designingRoomId}
-                  roomName={
-                    roomsList.find((r) => r.id === designingRoomId)?.name || "Sala"
-                  }
-                  tables={initialTables.filter((t) => t.room_id === designingRoomId)}
-                  canManageTables={canManageTables}
-                  allowDesignRoom={true}
-                  initialWorkMode="design_room"
-                  onBackToList={() => setDesigningRoomId(null)}
-                  onTableShapeChange={(tableId, newShape) => {
-                    saveStoredTableShape(businessId, tableId, newShape);
-                    setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
-                    setShapeVersion((v) => v + 1);
-                  }}
-                />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Gestión de Salas
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Administra las salas, zonas y terrazas para organizar tus mesas.
+                </p>
+              </div>
+
+              {canManageTables && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => setIsCreateRoomModalOpen(true)}
+                >
+                  Nueva sala
+                </Button>
+              )}
+            </div>
+
+            {roomsList.length === 0 ? (
+              <div className="text-center p-8 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-3">
+                <Layers className="w-10 h-10 text-slate-400 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No hay salas registradas
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Crea salas como Terraza, Salón VIP o Primer Piso para ordenar las mesas.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsCreateRoomModalOpen(true)}
+                >
+                  Crear primera sala
+                </Button>
               </div>
             ) : (
-              <>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Gestión de Salas
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Administra las salas, sus paredes y el diseño de cada plano.
-                    </p>
-                  </div>
-
-                  {canManageTables && (
-                    <Button
-                      variant="primary"
-                      size="md"
-                      leftIcon={<Plus className="w-4 h-4" />}
-                      onClick={() => setIsCreateRoomModalOpen(true)}
-                    >
-                      Nueva sala
-                    </Button>
-                  )}
-                </div>
-
-                {roomsList.length === 0 ? (
-                  <div className="text-center p-8 bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl space-y-3">
-                    <Layers className="w-10 h-10 text-slate-400 mx-auto" />
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                      No hay salas registradas
-                    </h4>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      Crea salas como Terraza, Salón VIP o Primer Piso para ordenar las mesas y diseñar su plano.
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setIsCreateRoomModalOpen(true)}
-                    >
-                      Crear primera sala
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {roomsList.map((room) => (
-                      <div
-                        key={room.id}
-                        className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs space-y-3 flex flex-col justify-between"
-                      >
-                        <div className="space-y-3">
-                          {/* Cabecera sala */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                                {room.name}
-                              </h4>
-                              <span className="text-xs text-slate-500 font-mono block">
-                                {room.tablesCount} {room.tablesCount === 1 ? "mesa asignada" : "mesas asignadas"}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                              <IconButton
-                                icon={<Edit2 className="w-3.5 h-3.5" />}
-                                title="Editar sala"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setRoomToEdit(room);
-                                  setEditRoomName(room.name);
-                                }}
-                              />
-                              <IconButton
-                                icon={room.status === "inactive" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                title={room.status === "inactive" ? "Mostrar sala" : "Ocultar sala"}
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleRoomVisibility(room)}
-                              />
-                              <IconButton
-                                icon={<Trash2 className="w-3.5 h-3.5" />}
-                                title="Eliminar sala"
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => setRoomToDelete(room)}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Área de plano físico / Botón interactivo para diseñar el plano */}
-                          <div
-                            onClick={() => setDesigningRoomId(room.id)}
-                            className="h-28 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/[0.08] hover:border-[#ED500A] dark:hover:border-[#ED500A] hover:bg-[#ED500A]/5 transition-all flex flex-col items-center justify-center text-slate-400 gap-1.5 p-3 text-xs cursor-pointer group"
-                            title={`Diseñar plano arquitectónico para ${room.name}`}
-                          >
-                            <div className="w-8 h-8 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <PenTool className="w-4 h-4" />
-                            </div>
-                            <span className="font-bold text-xs text-slate-700 dark:text-slate-300 group-hover:text-[#ED500A] transition-colors">
-                              Diseñar plano de sala
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              Dibujar paredes, medidas y puerta
-                            </span>
-                          </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {roomsList.map((room) => (
+                  <div
+                    key={room.id}
+                    className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-4 shadow-2xs space-y-3 flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      {/* Cabecera sala */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                            {room.name}
+                          </h4>
+                          <span className="text-xs text-slate-500 font-mono block">
+                            {room.tablesCount} {room.tablesCount === 1 ? "mesa asignada" : "mesas asignadas"}
+                          </span>
                         </div>
 
-                        {/* Pie de tarjeta */}
-                        <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
-                          <span>Creada: {formatDate(room.created_at)}</span>
-                          <span className={room.status === "active" ? "text-emerald-600 font-bold" : "text-slate-400"}>
-                            {room.status === "active" ? "Activa" : "Oculta"}
+                        <div className="flex items-center gap-1">
+                          <IconButton
+                            icon={<Edit2 className="w-3.5 h-3.5" />}
+                            title="Editar sala"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRoomToEdit(room);
+                              setEditRoomName(room.name);
+                            }}
+                          />
+                          <IconButton
+                            icon={room.status === "inactive" ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            title={room.status === "inactive" ? "Mostrar sala" : "Ocultar sala"}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleRoomVisibility(room)}
+                          />
+                          <IconButton
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            title="Eliminar sala"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setRoomToDelete(room)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tarjeta de información de la sala */}
+                      <div className="rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.06] p-3 flex items-center gap-3 text-xs">
+                        <div className="w-9 h-9 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold shrink-0">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                            {room.tablesCount} {room.tablesCount === 1 ? "mesa registrada" : "mesas registradas"}
+                          </span>
+                          <span className="text-[11px] text-slate-400 block truncate">
+                            Asigna mesas a esta sala al crearlas o editarlas
                           </span>
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Pie de tarjeta */}
+                    <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+                      <span>Creada: {formatDate(room.created_at)}</span>
+                      <span className={room.status === "active" ? "text-emerald-600 font-bold" : "text-slate-400"}>
+                        {room.status === "active" ? "Activa" : "Oculta"}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
           </div>
         )}
