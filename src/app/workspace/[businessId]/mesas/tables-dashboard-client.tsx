@@ -779,6 +779,7 @@ export function TablesDashboardClient({
                 const activeOrder = table.activeOrder;
                 const elapsedMins = getElapsedMinutes(activeOrder?.created_at);
                 const isDropdownOpen = activeDropdownTableId === table.id;
+                const roomName = table.roomName || (table.room_id ? roomsList.find((r) => r.id === table.room_id)?.name : undefined);
 
                 if (isOccupied) {
                   return (
@@ -798,10 +799,21 @@ export function TablesDashboardClient({
                               <span className="font-bold text-slate-900 dark:text-white text-xs block">
                                 {table.name_or_number}
                               </span>
-                              <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {(activeOrder as any)?.order_type === "dine_in" ? "Comensales:" : "Cap:"} 1 / {table.capacity || 4}
-                              </span>
+                              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {(activeOrder as any)?.order_type === "dine_in" ? "Comensales:" : "Cap:"} 1 / {table.capacity || 4}
+                                </span>
+                                {roomName && (
+                                  <>
+                                    <span className="text-slate-300 dark:text-slate-700">·</span>
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#ED500A]/10 text-[#ED500A] font-sans font-semibold text-[10px]">
+                                      <Layers className="w-2.5 h-2.5" />
+                                      {roomName}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -950,9 +962,18 @@ export function TablesDashboardClient({
                             <span className="font-bold text-slate-900 dark:text-white text-xs block">
                               {table.name_or_number}
                             </span>
-                            <span className="text-[11px] text-slate-400 font-mono">
-                              Cap. {table.capacity || 4} personas
-                            </span>
+                            <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 flex-wrap">
+                              <span>Cap. {table.capacity || 4} personas</span>
+                              {roomName && (
+                                <>
+                                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#ED500A]/10 text-[#ED500A] font-sans font-semibold text-[10px]">
+                                    <Layers className="w-2.5 h-2.5" />
+                                    {roomName}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
