@@ -25,6 +25,7 @@ import {
   Layers,
   MapPin,
   Compass,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,9 @@ interface TableFloorPlanViewProps {
   tables: RestaurantTableWithOrder[];
   canManageTables: boolean;
   onTableShapeChange?: (tableId: string, shape: TableShape) => void;
+  allowDesignRoom?: boolean;
+  initialWorkMode?: "view" | "move_tables" | "design_room";
+  onBackToList?: () => void;
 }
 
 type DesignTool = "smart_draw" | "point_by_point" | "adjust_nodes" | "place_door";
@@ -75,6 +79,9 @@ export function TableFloorPlanView({
   tables,
   canManageTables,
   onTableShapeChange,
+  allowDesignRoom = false,
+  initialWorkMode = "view",
+  onBackToList,
 }: TableFloorPlanViewProps) {
   // Estado de la sala activa
   const [isMounted, setIsMounted] = useState(false);
@@ -84,7 +91,9 @@ export function TableFloorPlanView({
   const [tablePositions, setTablePositions] = useState<Record<string, TableLayoutPosition>>({});
 
   // Modos de trabajo: "view" (operativo) | "move_tables" (ubicar mesas) | "design_room" (diseñar sala)
-  const [workMode, setWorkMode] = useState<"view" | "move_tables" | "design_room">("view");
+  const [workMode, setWorkMode] = useState<"view" | "move_tables" | "design_room">(
+    allowDesignRoom ? (initialWorkMode || "design_room") : "view"
+  );
   const [designTool, setDesignTool] = useState<DesignTool>("smart_draw");
 
   // Zoom y visualización
@@ -236,7 +245,7 @@ export function TableFloorPlanView({
   // DIBUJO LIBRE INTELIGENTE (AUTO-CORRECCIÓN A LÍNEAS RECTAS)
   // =========================================================================
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (workMode !== "design_room") return;
+    if (!allowDesignRoom || workMode !== "design_room") return;
 
     const coords = getCanvasCoords(e.clientX, e.clientY);
     if (!coords) return;
@@ -564,13 +573,24 @@ export function TableFloorPlanView({
       <div className="bg-white dark:bg-[#0D0F16] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-3 sm:p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
         {/* Identificador de sala y selector rápido */}
         <div className="flex items-center gap-2.5">
+          {onBackToList && (
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
+              onClick={onBackToList}
+              className="mr-1"
+            >
+              Volver a salas
+            </Button>
+          )}
           <div className="w-9 h-9 rounded-xl bg-[#ED500A]/10 text-[#ED500A] flex items-center justify-center font-bold shrink-0">
             <Compass className="w-5 h-5" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Diseñando Plano de:
+                {allowDesignRoom ? "Diseño de Sala:" : "Plano Salón:"}
               </span>
               {rooms && rooms.length > 0 && onSelectRoom ? (
                 <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/[0.05] p-1 rounded-xl">
@@ -623,9 +643,11 @@ export function TableFloorPlanView({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              {roomId === "all"
-                ? "Vista global combinada. Para dibujar y guardar las paredes de una sala individual, haz clic en su botón arriba."
-                : `Diseño arquitectónico exclusivo para «${roomName}». Los cambios solo afectarán a esta sala.`}
+              {allowDesignRoom
+                ? `Diseño arquitectónico exclusivo para «${roomName}». Traza paredes rectas, estira medidas y ubica la puerta.`
+                : roomId === "all"
+                ? "Visualización general de mesas en el salón. Haz clic en una mesa para ver comandas."
+                : `Visualización interactiva y estado de mesas en «${roomName}».`}
             </p>
           </div>
         </div>
@@ -665,27 +687,29 @@ export function TableFloorPlanView({
 
           {canManageTables && (
             <>
-              {/* Botón: Diseñar Sala */}
-              <button
-                type="button"
-                onClick={() => {
-                  setWorkMode((m) => {
-                    const next = m === "design_room" ? "view" : "design_room";
-                    if (next === "design_room") {
-                      setSelectedTableId(null);
-                    }
-                    return next;
-                  });
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  workMode === "design_room"
-                    ? "bg-[#ED500A] text-white shadow-md shadow-[#ED500A]/20"
-                    : "bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200/60"
-                }`}
-              >
-                <PenTool className="w-3.5 h-3.5" />
-                <span>{workMode === "design_room" ? "Editando Paredes" : "Diseñar Sala"}</span>
-              </button>
+              {/* Botón: Diseñar Sala (solo disponible en la pestaña de Salas) */}
+              {allowDesignRoom && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkMode((m) => {
+                      const next = m === "design_room" ? "view" : "design_room";
+                      if (next === "design_room") {
+                        setSelectedTableId(null);
+                      }
+                      return next;
+                    });
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    workMode === "design_room"
+                      ? "bg-[#ED500A] text-white shadow-md shadow-[#ED500A]/20"
+                      : "bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200/60"
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span>{workMode === "design_room" ? "Editando Paredes" : "Diseñar Sala"}</span>
+                </button>
+              )}
 
               {/* Botón: Ubicar Mesas */}
               <button
@@ -718,8 +742,8 @@ export function TableFloorPlanView({
         </div>
       </div>
 
-      {/* 2. BARRA DE HERRAMIENTAS DE DISEÑO DE SALA (VISIBLE SOLO EN MODO DISEÑO) */}
-      {workMode === "design_room" && (
+      {/* 2. BARRA DE HERRAMIENTAS DE DISEÑO DE SALA (VISIBLE SOLO EN MODO DISEÑO EN LA PESTAÑA DE SALAS) */}
+      {allowDesignRoom && workMode === "design_room" && (
         <div className="bg-slate-50 dark:bg-[#121620] border border-slate-200/80 dark:border-white/[0.08] rounded-2xl p-3 shadow-xs space-y-3 animate-in fade-in duration-150">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Herramientas de trazado */}
@@ -1026,7 +1050,7 @@ export function TableFloorPlanView({
           </svg>
 
           {/* VÉRTICES / ESQUINAS ARRASTRABLES (MODO DISEÑO) */}
-          {workMode === "design_room" && designTool === "adjust_nodes" && (
+          {allowDesignRoom && workMode === "design_room" && designTool === "adjust_nodes" && (
             <div className="absolute inset-0 pointer-events-auto">
               {polygon.map((node, idx) => (
                 <div
@@ -1172,7 +1196,7 @@ export function TableFloorPlanView({
         </div>
 
         {/* BANNER FLOTANTE DE INDICACIÓN */}
-        {workMode === "design_room" && (
+        {allowDesignRoom && workMode === "design_room" && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#ED500A] text-white px-4 py-2 rounded-2xl text-xs font-bold shadow-xl backdrop-blur-md flex items-center gap-2 pointer-events-none animate-in fade-in">
             <Sparkles className="w-4 h-4" />
             <span>
