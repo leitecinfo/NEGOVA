@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useEffect, useRef } from "react";
+import React, { useState, useTransition, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -54,6 +54,7 @@ import { TableFloorPlanView } from "@/components/mesas/table-floor-plan-view";
 import {
   getStoredTableShape,
   saveStoredTableShape,
+  inferTableShape,
 } from "@/lib/restaurant/table-layout-storage";
 import {
   createRestaurantTableAction,
@@ -109,6 +110,29 @@ export function TablesDashboardClient({
   const [statusFilter, setStatusFilter] = useState<"all" | "available" | "occupied">("all");
   const [tablesViewMode, setTablesViewMode] = useState<"cards" | "plan">("cards");
   const [shapeVersion, setShapeVersion] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+  const [customTableShapes, setCustomTableShapes] = useState<Record<string, TableShape>>({});
+
+  // Carga las formas personalizadas únicamente tras montar en cliente para evitar mismatch de hidratación SSR
+  useEffect(() => {
+    setIsMounted(true);
+    const loaded: Record<string, TableShape> = {};
+    for (const t of initialTables) {
+      loaded[t.id] = getStoredTableShape(businessId, t.id, t.capacity, t.name_or_number);
+    }
+    setCustomTableShapes(loaded);
+  }, [businessId, initialTables, shapeVersion]);
+
+  // Resuelve de forma determinista la forma (en SSR y primera hidratación usa inferTableShape consistente)
+  const getResolvedTableShape = useCallback(
+    (table: RestaurantTableWithOrder): TableShape => {
+      if (!isMounted) {
+        return inferTableShape(table.capacity, table.name_or_number);
+      }
+      return customTableShapes[table.id] || inferTableShape(table.capacity, table.name_or_number);
+    },
+    [isMounted, customTableShapes]
+  );
 
   // Modales superiores
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
@@ -375,6 +399,7 @@ export function TablesDashboardClient({
       if (res.success) {
         if (res.table?.id) {
           saveStoredTableShape(businessId, res.table.id, createTableShape);
+          setCustomTableShapes((prev) => ({ ...prev, [res.table!.id]: createTableShape }));
         }
         setShapeVersion((v) => v + 1);
         toast.success(`Mesa «${createTableForm.name_or_number}» creada con éxito.`);
@@ -402,6 +427,7 @@ export function TablesDashboardClient({
       });
       if (res.success) {
         saveStoredTableShape(businessId, editingTable.id, editTableShape);
+        setCustomTableShapes((prev) => ({ ...prev, [editingTable.id]: editTableShape }));
         setShapeVersion((v) => v + 1);
         toast.success(`Mesa «${editTableForm.name_or_number}» actualizada exitosamente.`);
         setEditingTable(null);
@@ -752,7 +778,11 @@ export function TablesDashboardClient({
                 }
                 tables={filteredTables}
                 canManageTables={canManageTables}
-                onTableShapeChange={() => setShapeVersion((v) => v + 1)}
+                onTableShapeChange={(tableId, newShape) => {
+                  saveStoredTableShape(businessId, tableId, newShape);
+                  setCustomTableShapes((prev) => ({ ...prev, [tableId]: newShape }));
+                  setShapeVersion((v) => v + 1);
+                }}
               />
             ) : (
               /* Grid de Mesas */
@@ -852,7 +882,7 @@ export function TablesDashboardClient({
                         {/* Ilustración arquitectónica de la mesa y sus sillas */}
                         <div className="my-2 py-2 flex items-center justify-center bg-red-950/20 dark:bg-red-950/30 rounded-xl border border-red-500/15">
                           <TableBlueprintIllustration
-                            shape={getStoredTableShape(businessId, table.id, table.capacity, table.name_or_number)}
+                            shape={getResolvedTableShape(table)}
                             capacity={table.capacity || 4}
                             status="occupied"
                             tableNumber={table.name_or_number}
@@ -868,6 +898,7 @@ export function TablesDashboardClient({
                               Ocupación:
                             </span>
                             <span
+                              suppressHydrationWarning
                               className={`font-bold ${
                                 elapsedMins > 60
                                   ? "text-red-600 dark:text-red-400"
@@ -969,7 +1000,7 @@ export function TablesDashboardClient({
                                     onClick={() => {
                                       setActiveDropdownTableId(null);
                                       setEditingTable(table);
-                                      setEditTableShape(getStoredTableShape(businessId, table.id, table.capacity, table.name_or_number));
+                                      setEditTableShape(getResolvedTableShape(table));
                                       setEditTableForm({
                                         name_or_number: table.name_or_number,
                                         capacity: table.capacity || 4,
@@ -1005,7 +1036,7 @@ export function TablesDashboardClient({
                       {/* Ilustración arquitectónica de la mesa y sus sillas */}
                       <div className="my-2 py-2 flex items-center justify-center bg-slate-50 dark:bg-white/[0.02] rounded-xl border border-slate-100 dark:border-white/[0.04]">
                         <TableBlueprintIllustration
-                          shape={getStoredTableShape(businessId, table.id, table.capacity, table.name_or_number)}
+                          shape={getResolvedTableShape(table)}
                           capacity={table.capacity || 4}
                           status="available"
                           tableNumber={table.name_or_number}

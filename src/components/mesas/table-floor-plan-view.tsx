@@ -41,6 +41,7 @@ import {
   computeDefaultFloorPlan,
   getStoredTableShape,
   saveStoredTableShape,
+  inferTableShape,
 } from "@/lib/restaurant/table-layout-storage";
 import {
   processHandDrawnStroke,
@@ -70,6 +71,7 @@ export function TableFloorPlanView({
   onTableShapeChange,
 }: TableFloorPlanViewProps) {
   // Estado de la sala activa
+  const [isMounted, setIsMounted] = useState(false);
   const [roomPreset, setRoomPreset] = useState<RoomShapePreset>("rectangle");
   const [polygon, setPolygon] = useState<Point2D[]>(() => getPresetPolygon("rectangle"));
   const [doorPos, setDoorPos] = useState<Point2D>({ x: 50, y: 90 });
@@ -104,6 +106,7 @@ export function TableFloorPlanView({
   // CARGA INDEPENDIENTE DEL PLANO POR SALA (businessId + roomId)
   // =========================================================================
   useEffect(() => {
+    setIsMounted(true);
     const stored = getStoredRoomLayout(businessId, roomId);
 
     if (stored) {
@@ -772,12 +775,13 @@ export function TableFloorPlanView({
             </div>
           )}
 
-          {/* RENDERIZADO DE MESAS SOBRE EL PLANO */}
-          {tables.map((table) => {
-            const pos = tablePositions[table.id] || { x: 50, y: 50, shape: "square" };
-            const isSelected = selectedTableId === table.id;
-            const isOccupied = table.status === "occupied";
-            const shape = pos.shape || getStoredTableShape(businessId, table.id, table.capacity, table.name_or_number);
+          {/* RENDERIZADO DE MESAS SOBRE EL PLANO (Únicamente tras montar en cliente) */}
+          {isMounted &&
+            tables.map((table) => {
+              const pos = tablePositions[table.id] || { x: 50, y: 50, shape: "square" };
+              const isSelected = selectedTableId === table.id;
+              const isOccupied = table.status === "occupied";
+              const shape = pos.shape || inferTableShape(table.capacity, table.name_or_number);
 
             return (
               <div
