@@ -550,58 +550,6 @@ export function TablesDashboardClient({
     <AppPageContainer
       title="Gestión de Mesas"
       description="Salas, mesas y rendimiento."
-      actions={
-        <div className="flex items-center gap-2">
-          {/* Botón Instalar app */}
-          <Button
-            variant="outline"
-            size="md"
-            leftIcon={<Smartphone className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
-            onClick={() => setIsPwaModalOpen(true)}
-            title="Instalar la aplicación de comandas para meseros y sala"
-          >
-            Instalar app
-          </Button>
-
-          {/* Botón Cerrar órdenes */}
-          <Button
-            variant="outline"
-            size="md"
-            leftIcon={<Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-            onClick={() => {
-              if (occupiedTables.length === 0) {
-                toast.info("No hay mesas ocupadas con órdenes activas para cerrar.");
-                return;
-              }
-              setIsCloseOrdersModalOpen(true);
-            }}
-          >
-            Cerrar órdenes
-          </Button>
-
-          {/* Botones de creación */}
-          {canManageTables && (
-            <>
-              <Button
-                variant="outline"
-                size="md"
-                leftIcon={<Plus className="w-4 h-4" />}
-                onClick={() => handleOpenCreateTableModal()}
-              >
-                <span className="hidden sm:inline">Nueva </span>Mesa
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                leftIcon={<Plus className="w-4 h-4" />}
-                onClick={() => setIsCreateRoomModalOpen(true)}
-              >
-                Nueva sala
-              </Button>
-            </>
-          )}
-        </div>
-      }
     >
       <div className="space-y-6">
         {/* ========================================================================= */}
@@ -768,6 +716,19 @@ export function TablesDashboardClient({
                       placeholder="Buscar mesa..."
                     />
                   </div>
+
+                  {/* Botón Nueva Mesa */}
+                  {canManageTables && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={<Plus className="w-4 h-4" />}
+                      onClick={() => handleOpenCreateTableModal()}
+                      className="shrink-0"
+                    >
+                      Nueva mesa
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1075,7 +1036,7 @@ export function TablesDashboardClient({
                     <Plus className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 group-hover:text-[#ED500A]">
-                    + Añadir mesa
+                    Añadir mesa
                   </span>
                   <span className="text-[10px] text-slate-400">En la sala activa</span>
                 </button>
@@ -1107,7 +1068,7 @@ export function TablesDashboardClient({
                   leftIcon={<Plus className="w-4 h-4" />}
                   onClick={() => setIsCreateRoomModalOpen(true)}
                 >
-                  + Nueva sala
+                  Nueva sala
                 </Button>
               )}
             </div>
@@ -1217,7 +1178,7 @@ export function TablesDashboardClient({
                 leftIcon={<Plus className="w-4 h-4" />}
                 onClick={handleOpenTransferModal}
               >
-                + Nuevo Traslado
+                Nuevo Traslado
               </Button>
             </div>
 
