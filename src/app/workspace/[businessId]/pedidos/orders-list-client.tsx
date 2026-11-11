@@ -45,10 +45,12 @@ import {
   ClipboardList,
   Inbox,
   PackageOpen,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
 import { ConfirmPickupModal } from "@/components/pedidos/confirm-pickup-modal";
+import { EditOrderModal } from "@/components/pedidos/edit-order-modal";
 import {
   DataTable,
   TableToolbar,
@@ -188,6 +190,9 @@ export function OrdersListClient({
       }
     }
   }, [localOrders, detailModal.isOpen]);
+
+  // Modal para edición de ítems y responsable de comanda
+  const [editingOrder, setEditingOrder] = useState<RestaurantOrderWithDetails | null>(null);
 
   // Estado de actualización por tarjeta
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
@@ -609,6 +614,9 @@ export function OrdersListClient({
     try {
       const res = await cancelRestaurantOrderAction(businessId, order.id, reason);
       if (res.success) {
+        if (res.refundNotice) {
+          toast.warning(res.refundNotice, { duration: 9000 });
+        }
         toast.success(`Pedido #${order.order_number} cancelado correctamente.`);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("negova:order-status-updated"));
@@ -745,6 +753,15 @@ export function OrdersListClient({
       badgeColor: "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300",
       borderTop: "border-t-slate-400",
     },
+    {
+      id: "cancelled",
+      title: "Cancelados",
+      icon: XCircle,
+      count: ordersByStatus.cancelled.length,
+      orders: ordersByStatus.cancelled,
+      badgeColor: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+      borderTop: "border-t-rose-500",
+    },
   ];
 
   // Componente de Tarjeta Operativa de Pedido Rediseñada
@@ -837,8 +854,21 @@ export function OrdersListClient({
             )}
           </div>
 
-          {/* Derecha: Badge de Tiempo o Alerta */}
+          {/* Derecha: Badge de Tiempo o Alerta y Botón de Edición */}
           <div className="flex items-center gap-1.5 shrink-0" suppressHydrationWarning>
+            {canUpdateOrder && !isDeliveredOrCancelled && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingOrder(order);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-[#ED500A] transition-colors cursor-pointer"
+                title="Editar comanda (productos, cantidades, responsable)"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
             {!isDeliveredOrCancelled && alert.level === "critical" ? (
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap"
@@ -1534,7 +1564,7 @@ export function OrdersListClient({
 
             {/* VISTA TABLERO MULTICOLUMNA PARA ESCRITORIO (LG+) CON DRAG & DROP Y ALTURA UNIFORME */}
             <div className="hidden lg:block overflow-x-auto pb-4 -mx-1 px-1">
-              <div className="grid grid-cols-4 gap-4 items-stretch min-w-[1000px]">
+              <div className="grid grid-cols-5 gap-4 items-stretch min-w-[1250px]">
               {queueColumns.map((col) => {
                 const isColOver = dragOverColumnId === col.id;
                 const activeDragId = draggingOrderIdRef.current || draggingOrderId;
@@ -1844,6 +1874,18 @@ export function OrdersListClient({
                   const statusBadge = getOrderStatusBadge(order.status);
                   return (
                     <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {canUpdateOrder && order.status !== "delivered" && order.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingOrder(order)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#ED500A]/10 hover:bg-[#ED500A]/20 text-[#ED500A] transition-colors cursor-pointer"
+                          title="Editar productos o responsable del pedido"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Editar</span>
+                        </button>
+                      )}
+
                       {canUpdateOrder && statusBadge.nextAction && (
                         <button
                           type="button"
@@ -1900,7 +1942,11 @@ export function OrdersListClient({
           onClose={() => setCancelModal({ isOpen: false, order: null, reason: "" })}
           onConfirm={handleConfirmCancel}
           title="¿Cancelar este pedido?"
-          description={`El pedido #${cancelModal.order?.order_number} cambiará a estado cancelado. Esta acción liberará la mesa asociada (si aplica) y detendrá su proceso operativo.`}
+          description={
+            cancelModal.order?.payment_status === "paid"
+              ? `El pedido #${cancelModal.order?.order_number} cambiará a estado cancelado. ⚠️ ATENCIÓN: Este pedido ya registra pago (${formatCOP(cancelModal.order.total)}). Deberás tramitar la devolución correspondiente del dinero al cliente. Esta acción liberará la mesa (si aplica) y finalizará el pedido.`
+              : `El pedido #${cancelModal.order?.order_number} cambiará a estado cancelado. Esta acción liberará la mesa asociada (si aplica) y detendrá su proceso operativo.`
+          }
           confirmLabel="Cancelar Pedido"
           variant="destructive"
           isLoading={isPending}
@@ -1914,6 +1960,9 @@ export function OrdersListClient({
                   { label: "Número de Pedido", value: `#${cancelModal.order.order_number}` },
                   { label: "Cliente", value: cancelModal.order.customer_name || "Cliente mostrador" },
                   { label: "Total", value: formatCOP(cancelModal.order.total) },
+                  ...(cancelModal.order.payment_status === "paid"
+                    ? [{ label: "⚠️ Devolución requerida", value: formatCOP(cancelModal.order.total) }]
+                    : []),
                 ]
               : undefined
           }
@@ -2077,6 +2126,10 @@ export function OrdersListClient({
           onClose={() => setDetailModal({ isOpen: false, order: null })}
           canUpdateOrder={canUpdateOrder}
           canCancelOrder={canCancelOrder}
+          onEdit={(orderToEdit) => {
+            setDetailModal({ isOpen: false, order: null });
+            setEditingOrder(orderToEdit);
+          }}
           onPay={(orderToPay) => {
             setDetailModal({ isOpen: false, order: null });
             setPaymentModal({
@@ -2121,6 +2174,25 @@ export function OrdersListClient({
             router.refresh();
           }}
         />
+
+        {/* 9. MODAL DE EDICIÓN DE COMANDA (PRODUCTOS, CANTIDADES, RESPONSABLE, DIFERENCIAS DE PAGO) */}
+        {editingOrder && (
+          <EditOrderModal
+            businessId={businessId}
+            order={editingOrder}
+            isOpen={!!editingOrder}
+            onClose={() => setEditingOrder(null)}
+            onSave={(updatedOrder) => {
+              setLocalOrders((prev) =>
+                prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
+              );
+              setEditingOrder(null);
+              startTransition(() => {
+                router.refresh();
+              });
+            }}
+          />
+        )}
       </div>
     </AppPageContainer>
   );

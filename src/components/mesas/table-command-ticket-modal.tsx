@@ -101,6 +101,11 @@ export function TableCommandTicketModal({
 
   // Extraer mesero responsable
   const waiterName = (() => {
+    const staff = detailedOrder?.assigned_staff_name || activeOrder.assigned_staff_name;
+    if (staff) {
+      const role = detailedOrder?.assigned_staff_role || activeOrder.assigned_staff_role;
+      return role ? `${staff} (${role})` : staff;
+    }
     const notesStr = detailedOrder?.notes || activeOrder.notes || "";
     const waiterMatch = notesStr.match(/\[CAMARERO:([^\]]+)\]/);
     if (waiterMatch) return waiterMatch[1].trim();
@@ -299,7 +304,7 @@ export function TableCommandTicketModal({
                     <div key={item.id || idx} className="text-left text-xs leading-snug">
                       <div className="flex items-start justify-between gap-2 font-black uppercase">
                         <span className="flex-1">
-                          {item.quantity}X {(item as any).name || (item as any).product_name}
+                          {item.quantity}X {(item as any).name || (item as any).product_name || "Producto"}
                         </span>
                         <span className="shrink-0 font-bold">
                           {formatCOP(item.subtotal || item.unit_price * item.quantity || 0)}
@@ -413,3 +418,4 @@ export function TableCommandTicketModal({
     </ModalPortal>
   );
 }
+

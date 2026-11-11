@@ -27,6 +27,7 @@ import {
   UserCheck,
   KeyRound,
   Copy,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RestaurantOrderWithDetails } from "@/lib/restaurant/types";
@@ -47,6 +48,7 @@ interface OrderDetailModalProps {
   onClose: () => void;
   canUpdateOrder?: boolean;
   canCancelOrder?: boolean;
+  onEdit?: (order: RestaurantOrderWithDetails) => void;
   onPay?: (order: RestaurantOrderWithDetails) => void;
   onCancel?: (order: RestaurantOrderWithDetails) => void;
   onStatusTransition?: (order: RestaurantOrderWithDetails, nextStatus: string) => void;
@@ -120,6 +122,7 @@ export function OrderDetailModal({
   onClose,
   canUpdateOrder = false,
   canCancelOrder = false,
+  onEdit,
   onPay,
   onCancel,
   onStatusTransition,
@@ -700,6 +703,21 @@ export function OrderDetailModal({
                   </Link>
 
                   <div className="flex items-center gap-2">
+                    {onEdit && order.status !== "delivered" && order.status !== "cancelled" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onEdit(order);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#ED500A]/10 hover:bg-[#ED500A]/20 text-[#ED500A] border border-[#ED500A]/30 transition-colors cursor-pointer"
+                        title="Editar productos o responsable de la comanda"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Editar Comanda</span>
+                      </button>
+                    )}
+
                     {order.payment_status === "pending" && onPay && (
                       <button
                         type="button"

@@ -21,6 +21,7 @@ import {
   FileText,
   User,
   ShoppingBag,
+  DollarSign,
   Sparkles,
   MoreVertical,
   Armchair,
@@ -938,9 +939,20 @@ export function TablesDashboardClient({
                             </span>
                             <span
                               className="truncate max-w-[150px] font-semibold text-slate-800 dark:text-slate-200"
-                              title={activeOrder?.assigned_staff_name || "Sin mesero asignado"}
+                              title={
+                                activeOrder?.assigned_staff_name
+                                  ? `${activeOrder.assigned_staff_name}${activeOrder.assigned_staff_role ? ` (${activeOrder.assigned_staff_role})` : ""}`
+                                  : "Sin mesero asignado"
+                              }
                             >
-                              {activeOrder?.assigned_staff_name || (activeOrder as any)?.driver_name || (activeOrder?.customer_name && activeOrder.customer_name !== "Cliente General" ? activeOrder.customer_name : "Sin asignar")}
+                              {(() => {
+                                const staffName = activeOrder?.assigned_staff_name || (activeOrder as any)?.driver_name;
+                                const staffRole = activeOrder?.assigned_staff_role;
+                                if (staffName) {
+                                  return staffRole ? `${staffName} (${staffRole})` : staffName;
+                                }
+                                return (activeOrder?.customer_name && activeOrder.customer_name !== "Cliente General" ? activeOrder.customer_name : "Sin asignar");
+                              })()}
                             </span>
                           </div>
                         </div>
@@ -1335,28 +1347,72 @@ export function TablesDashboardClient({
                 </p>
               </div>
 
-              {/* Filtros de rendimiento */}
-              <div className="flex items-center gap-2">
-                <Select
-                  selectSize="sm"
-                  value={heatMapPeriod}
-                  onChange={(e) => setHeatMapPeriod(e.target.value as any)}
-                  className="w-auto min-w-[120px]"
-                >
-                  <option value="today">Hoy</option>
-                  <option value="week">Esta semana</option>
-                  <option value="month">Este mes</option>
-                </Select>
+              {/* Filtros de rendimiento (Segmented Controls modernos) */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Selector de Período */}
+                <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/[0.08]">
+                  <button
+                    type="button"
+                    onClick={() => setHeatMapPeriod("today")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      heatMapPeriod === "today"
+                        ? "bg-white dark:bg-[#1E2028] text-slate-900 dark:text-white shadow-2xs font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Hoy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHeatMapPeriod("week")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      heatMapPeriod === "week"
+                        ? "bg-white dark:bg-[#1E2028] text-slate-900 dark:text-white shadow-2xs font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Esta semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHeatMapPeriod("month")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      heatMapPeriod === "month"
+                        ? "bg-white dark:bg-[#1E2028] text-slate-900 dark:text-white shadow-2xs font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Este mes
+                  </button>
+                </div>
 
-                <Select
-                  selectSize="sm"
-                  value={heatMapMetric}
-                  onChange={(e) => setHeatMapMetric(e.target.value as any)}
-                  className="w-auto min-w-[160px]"
-                >
-                  <option value="revenue">Métrica: Ingresos</option>
-                  <option value="orders">Métrica: Pedidos</option>
-                </Select>
+                {/* Selector de Métrica */}
+                <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/[0.08]">
+                  <button
+                    type="button"
+                    onClick={() => setHeatMapMetric("revenue")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      heatMapMetric === "revenue"
+                        ? "bg-[#ED500A] text-white shadow-2xs font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Ingresos</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHeatMapMetric("orders")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      heatMapMetric === "orders"
+                        ? "bg-[#ED500A] text-white shadow-2xs font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Pedidos</span>
+                  </button>
+                </div>
               </div>
             </div>
 

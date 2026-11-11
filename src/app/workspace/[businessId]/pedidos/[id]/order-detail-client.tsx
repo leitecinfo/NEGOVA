@@ -31,6 +31,7 @@ import {
   X,
   ChevronLeft,
   Package,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppPageContainer } from "@/components/layout/app-page-container";
@@ -45,6 +46,7 @@ import { PublicPaymentMethodDTO } from "@/lib/payments/types";
 import { OrderPaymentModal } from "@/components/payments/order-payment-modal";
 import { ThermalTicketModal } from "@/components/printing/thermal-ticket";
 import { PosKitchenTicketModal } from "@/components/pos/pos-kitchen-ticket-modal";
+import { EditOrderModal } from "@/components/pedidos/edit-order-modal";
 import {
   updateRestaurantOrderStatusAction,
   cancelRestaurantOrderAction,
@@ -81,6 +83,7 @@ export function OrderDetailClient({
   const [isPending, startTransition] = useTransition();
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isKitchenModalOpen, setIsKitchenModalOpen] = useState(false);
 
@@ -267,6 +270,9 @@ export function OrderDetailClient({
     startTransition(async () => {
       const res = await cancelRestaurantOrderAction(businessId, order.id);
       if (res.success) {
+        if (res.refundNotice) {
+          toast.warning(res.refundNotice, { duration: 9000 });
+        }
         toast.success(`Pedido #${order.order_number} cancelado correctamente.`);
         setOrder((prev) => ({ ...prev, status: "cancelled" }));
         router.refresh();
@@ -344,8 +350,22 @@ export function OrderDetailClient({
             </div>
 
             {/* BOTONES DE TRANSICIÓN */}
-            {canUpdateOrder && allowedTransitions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {canUpdateOrder && order.status !== "delivered" && order.status !== "cancelled" && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-[#ED500A]/30 bg-[#ED500A]/10 text-[#ED500A] hover:bg-[#ED500A]/20 shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Editar productos, cantidades o reasignar responsable"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Editar Comanda</span>
+                </button>
+              )}
+
+              {canUpdateOrder && allowedTransitions.length > 0 && (
+                <>
                 {/* Devolver a Recibidos */}
                 {allowedTransitions.includes("received") && (
                   <button
@@ -432,8 +452,9 @@ export function OrderDetailClient({
                     <span>Cancelar Pedido</span>
                   </button>
                 )}
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -707,7 +728,11 @@ export function OrderDetailClient({
           onClose={() => setIsCancelModalOpen(false)}
           onConfirm={handleConfirmCancel}
           title="¿Confirmar cancelación de la comanda?"
-          description={`El pedido #${order.order_number} será cancelado operativamente. Esta acción no se puede deshacer.`}
+          description={
+            order.payment_status === "paid"
+              ? `El pedido #${order.order_number} será cancelado operativamente. ⚠️ ATENCIÓN: Este pedido ya registra pago (${formatCOP(order.total)}). Deberás tramitar la devolución correspondiente del dinero al cliente. Esta acción no se puede deshacer.`
+              : `El pedido #${order.order_number} será cancelado operativamente. Esta acción no se puede deshacer.`
+          }
           confirmLabel="Sí, Cancelar Comanda"
           variant="destructive"
           isLoading={isPending}
@@ -715,6 +740,9 @@ export function OrderDetailClient({
             { label: "Número de Pedido", value: `#${order.order_number}` },
             { label: "Destino", value: typeConfig.label },
             { label: "Total", value: formatCOP(order.total) },
+            ...(order.payment_status === "paid"
+              ? [{ label: "⚠️ Devolución requerida", value: formatCOP(order.total) }]
+              : []),
           ]}
         />
 
@@ -801,6 +829,23 @@ export function OrderDetailClient({
           isOpen={isTicketModalOpen}
           onClose={() => setIsTicketModalOpen(false)}
         />
+
+        {/* MODAL DE EDICIÓN DE COMANDA */}
+        {isEditModalOpen && (
+          <EditOrderModal
+            businessId={businessId}
+            order={order}
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onSave={(updatedOrder) => {
+              setOrder(updatedOrder);
+              setIsEditModalOpen(false);
+              startTransition(() => {
+                router.refresh();
+              });
+            }}
+          />
+        )}
       </div>
     </AppPageContainer>
   );

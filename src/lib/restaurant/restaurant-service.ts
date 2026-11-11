@@ -4055,7 +4055,7 @@ export interface UpdateRestaurantOrderItemData {
 }
 
 export interface UpdateRestaurantOrderData {
-  items: UpdateRestaurantOrderItemData[];
+  items?: UpdateRestaurantOrderItemData[];
   assignedStaffId?: string | null;
   assignedStaffName?: string | null;
   assignedStaffRole?: string | null;
@@ -4081,6 +4081,7 @@ export async function updateRestaurantOrderDetails(
   oldTotal?: number;
   newTotal?: number;
   paymentNotice?: string;
+  refundNotice?: string;
 }> {
   const supabase = await getDbClient();
   const existingOrder = await getRestaurantOrderWithDetails(businessId, orderId);
@@ -4097,12 +4098,26 @@ export async function updateRestaurantOrderDetails(
     return { success: false, error: "No se puede editar un pedido que se encuentra cancelado." };
   }
 
-  if (!data.items || data.items.length === 0) {
+  const itemsToUse: UpdateRestaurantOrderItemData[] =
+    Array.isArray(data.items) && data.items.length > 0
+      ? data.items
+      : (existingOrder.items || []).map((it) => ({
+          id: it.id,
+          productId: it.product_id,
+          productName: it.product_name,
+          quantity: it.quantity,
+          unitPrice: it.unit_price,
+          subtotal: it.subtotal,
+          notes: it.notes,
+          modifiers: it.modifiers,
+        }));
+
+  if (itemsToUse.length === 0) {
     return { success: false, error: "El pedido debe contener al menos un producto." };
   }
 
   // 1. Recalcular subtotales, impuestos y total de la comanda
-  const newSubtotal = data.items.reduce(
+  const newSubtotal = itemsToUse.reduce(
     (acc, it) => acc + (Number(it.subtotal) || Number(it.unitPrice) * Math.max(1, Number(it.quantity || 1))),
     0
   );
@@ -4110,7 +4125,7 @@ export async function updateRestaurantOrderDetails(
     typeof data.deliveryFee === "number" && !isNaN(data.deliveryFee)
       ? data.deliveryFee
       : Number(existingOrder.delivery_fee || 0);
-  const newTaxTotal = data.items.reduce((acc, it) => acc + Number(it.taxAmount || 0), 0);
+  const newTaxTotal = itemsToUse.reduce((acc, it) => acc + Number(it.taxAmount || 0), 0);
   const newTotal = newSubtotal + deliveryFee;
   const oldTotal = Number(existingOrder.total || 0);
   const priceDifference = newTotal - oldTotal;
@@ -4206,7 +4221,7 @@ export async function updateRestaurantOrderDetails(
     return { success: false, error: "No se pudieron actualizar los productos de la orden." };
   }
 
-  const newItemsToInsert = data.items.map((it) => {
+  const newItemsToInsert = itemsToUse.map((it) => {
     const qty = Math.max(1, Number(it.quantity || 1));
     const price = Math.max(0, Number(it.unitPrice || 0));
     const sub = Number(it.subtotal || price * qty);
@@ -4250,6 +4265,11 @@ export async function updateRestaurantOrderDetails(
   // 7. Retornar comanda consolidada actualizada
   const refreshed = await getRestaurantOrderWithDetails(businessId, orderId);
 
+  const refundNotice =
+    existingOrder.payment_status === "paid" && priceDifference < 0
+      ? `Devolver $ ${Math.abs(priceDifference).toLocaleString("es-CO")} al cliente por reducción de comanda.`
+      : undefined;
+
   return {
     success: true,
     order: refreshed || undefined,
@@ -4257,6 +4277,7 @@ export async function updateRestaurantOrderDetails(
     oldTotal,
     newTotal,
     paymentNotice,
+    refundNotice,
   };
 }
 

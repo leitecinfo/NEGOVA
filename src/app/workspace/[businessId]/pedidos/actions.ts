@@ -101,7 +101,7 @@ export async function cancelRestaurantOrderAction(
   businessId: string,
   orderId: string,
   reason?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; refundNotice?: string; wasPaid?: boolean }> {
   const auth = await verifyWorkspaceAction(businessId, "orders.cancel");
   if (!auth.success || !auth.context) {
     return { success: false, error: auth.error || "No tienes autorización para cancelar pedidos en este comercio." };
@@ -118,6 +118,89 @@ export async function cancelRestaurantOrderAction(
   }
 
   return result;
+}
+
+import type { UpdateRestaurantOrderData } from "@/lib/restaurant/restaurant-service";
+
+/**
+ * Server Action: Editar los productos, cantidades, notas y responsable de un pedido activo.
+ * Requiere permiso `orders.update`, `orders.manage` o permisos de owner.
+ */
+export async function updateRestaurantOrderAction(
+  businessId: string,
+  orderId: string,
+  data: UpdateRestaurantOrderData
+): Promise<{
+  success: boolean;
+  error?: string;
+  order?: RestaurantOrderWithDetails;
+  priceDifference?: number;
+  oldTotal?: number;
+  newTotal?: number;
+  paymentNotice?: string;
+}> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.update");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "orders.manage");
+  }
+  if (!auth.success || !auth.context) {
+    return { success: false, error: auth.error || "No tienes autorización para editar pedidos en este comercio." };
+  }
+
+  const { updateRestaurantOrderDetails } = await import("@/lib/restaurant/restaurant-service");
+  const result = await updateRestaurantOrderDetails(businessId, orderId, data, auth.context.userId);
+
+  if (result.success) {
+    revalidatePath(`/workspace/${businessId}/pedidos`);
+    revalidatePath(`/workspace/${businessId}/pedidos/${orderId}`);
+    revalidatePath(`/workspace/${businessId}/mesas`);
+    revalidatePath(`/workspace/${businessId}/pos`);
+    revalidatePath(`/workspace/${businessId}/cocina`);
+  }
+
+  return result;
+}
+
+/**
+ * Server Action: Consultar catálogo de productos vendibles para agregarlos a la comanda.
+ */
+export async function getAvailableProductsForOrderAction(
+  businessId: string
+): Promise<{
+  success: boolean;
+  data?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    categoryId?: string | null;
+    categoryName?: string | null;
+  }>;
+  error?: string;
+}> {
+  let auth = await verifyWorkspaceAction(businessId, "orders.view");
+  if (!auth.success) {
+    auth = await verifyWorkspaceAction(businessId, "products.view");
+  }
+  if (!auth.success || !auth.context) {
+    return { success: false, error: "No tienes autorización para consultar el catálogo de productos." };
+  }
+
+  try {
+    const { getProducts } = await import("@/lib/products/products-service");
+    const rawProducts = await getProducts(businessId);
+    const sellable = rawProducts
+      .filter((p) => p.status === "active" && (p.metadata as any)?.product_type !== "ingredient")
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price || 0),
+        categoryId: p.category_id,
+        categoryName: (p as any).category_name || (p as any).category?.name || null,
+      }));
+    return { success: true, data: sellable };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Error al consultar productos." };
+  }
 }
 
 import type { ProcessOrderPaymentInput } from "@/lib/restaurant/types";

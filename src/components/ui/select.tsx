@@ -39,6 +39,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       error,
       options,
       onChange,
+      onValueChange,
       children,
       className = "",
       containerClassName = "",
@@ -55,8 +56,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const selectId = id || (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      if (props.onValueChange) {
-        props.onValueChange(e.target.value);
+      if (onValueChange) {
+        onValueChange(e.target.value);
       }
       if (onChange) {
         try {
